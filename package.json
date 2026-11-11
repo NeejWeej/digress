@@ -8,7 +8,7 @@
   "engines": { "node": ">=18" },
   "scripts": {
     "start": "node server/server.mjs",
-    "dev": "DEV=1 node --watch server/server.mjs",
+    "dev": "DEV=1 node --watch-path=server server/server.mjs",
     "test": "python3 tests/run_all.py"
   },
   "devDependencies": {
