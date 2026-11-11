@@ -108,6 +108,8 @@ npm test                                 # or: python3 tests/run_all.py canvas
 
 `tests/test_server.py` runs the server against fake stand-ins for Claude Code and the Anthropic API, so it needs neither. The other tests drive the UI from the file directly. Screenshots and logs land in `tests/.artifacts/`. Set `CHROME_PATH` to use your own Chrome.
 
+`npm run dev` runs the server with live reload: editing `web/` reloads open pages, and editing the server restarts it (and then reloads the pages). A page waits while a reply is streaming or you have a draft typed, and shows an "Updated · reload" button instead.
+
 See [AGENTS.md](AGENTS.md) for how the code is organized.
 
 ## License

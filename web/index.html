@@ -588,6 +588,7 @@ const modelLabel=(v)=>{if(!v)return '';if(typeof v==='object')v=v.model||v.id||'
 /* ---------- state ---------- */
 let conv=null,convList=[];
 const msgCache=new Map(),paneEls=new Map(),gutEls=new Map(),streaming=new Map();
+window.__digressBusy=()=>streaming.size>0; // read by the server's dev live-reload, so it never reloads mid-reply
 let mathReady=false,mermaidReady=null,mermaidOk=false;
 let popState=null;
 

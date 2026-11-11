@@ -12,7 +12,7 @@
 //   GET|DELETE /api/files/:id
 
 import http from 'node:http';
-import { promises as fs, createReadStream, readFileSync, existsSync } from 'node:fs';
+import { promises as fs, createReadStream, readFileSync, existsSync, watch } from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -256,6 +256,45 @@ function errorText(txt, status) {
   return 'The model request failed (' + status + ').';
 }
 
+// ---- dev live reload (DEV=1, `npm run dev`) ---------------------------------------
+// The page keeps an EventSource open. When web/ changes we tell it to reload. When the server
+// restarts (node --watch, after a server edit) the page reconnects, sees a new boot id and reloads.
+// It holds off while a reply is streaming or you're typing, and shows a small "reload" pill instead.
+const DEV = /^(1|true|yes)$/i.test(process.env.DEV || '');
+const BOOT = crypto.randomBytes(6).toString('hex');
+const devClients = new Set();
+function devEvents(req, res) {
+  res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', 'x-accel-buffering': 'no' });
+  res.write(`event: hello\ndata: ${BOOT}\n\n`);
+  devClients.add(res);
+  const ping = setInterval(() => res.write(': ping\n\n'), 25000);
+  req.on('close', () => { clearInterval(ping); devClients.delete(res); });
+}
+if (DEV) {
+  let t = null;
+  watch(path.dirname(WEB), () => {
+    clearTimeout(t);
+    t = setTimeout(() => { for (const c of devClients) c.write('event: reload\ndata: web\n\n'); console.log('[dev] web changed, reloading', devClients.size, 'page(s)'); }, 120);
+  });
+}
+const DEV_CLIENT = `<script>(()=>{
+  let boot=null,want=false;
+  const pill=document.createElement('button');
+  pill.textContent='Updated · reload';
+  pill.style.cssText='position:fixed;right:12px;bottom:12px;z-index:2147483647;padding:6px 12px;border-radius:999px;border:0;background:#2563eb;color:#fff;font:13px system-ui;box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:pointer;display:none';
+  pill.onclick=()=>location.reload();
+  addEventListener('DOMContentLoaded',()=>document.body.appendChild(pill));
+  const typing=()=>{const a=document.activeElement;return a&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT'||a.isContentEditable)&&((a.value||a.textContent||'').trim().length>0)};
+  const busy=()=>(window.__digressBusy&&window.__digressBusy())||typing();
+  function go(){want=true;if(busy())pill.style.display='block'}
+  let idle=0; // wait for ~2s of quiet after a reply so the app has saved it
+  setInterval(()=>{idle=busy()?0:idle+1;if(want&&idle>=2)location.reload()},1000);
+  const es=new EventSource('/__dev/events');
+  es.addEventListener('hello',e=>{if(boot&&boot!==e.data)go();boot=e.data});
+  es.addEventListener('reload',go);
+})();</script>
+`;
+
 // ---- routes -----------------------------------------------------------------
 async function route(req, res) {
   const url = new URL(req.url, 'http://x');
@@ -263,8 +302,14 @@ async function route(req, res) {
 
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' });
+    if (DEV) {
+      const html = await fs.readFile(WEB, 'utf8');
+      const i = html.lastIndexOf('</body>');
+      return res.end(i < 0 ? html + DEV_CLIENT : html.slice(0, i) + DEV_CLIENT + html.slice(i));
+    }
     return createReadStream(WEB).pipe(res);
   }
+  if (DEV && url.pathname === '/__dev/events') return devEvents(req, res);
   if (parts[0] !== 'api') return fail(res, 404, 'Not found');
 
   if (parts[1] === 'health' && req.method === 'GET') return send(res, 200, { app: 'digress', llm: LLM_OK, provider: PROVIDER, why: LLM_OK ? undefined : LLM_WHY });
