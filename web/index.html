@@ -1,0 +1,2630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Digress</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f3ee;--panel:#fffdf9;--panel-2:#faf8f3;--ink:#1f1d19;--muted:#6d695f;--faint:#a29d92;
+  --line:#e7e2d8;--line2:#d7d0c3;--user-bg:#efebe3;--code-bg:#f4f1ea;--accent:#c4643c;--danger:#c0392b;--shadow:0 12px 32px rgba(40,30,10,.14);
+  --sans:'Inter',system-ui,sans-serif;--serif:'Source Serif 4',Georgia,serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#161513;--panel:#1f1e1b;--panel-2:#252420;--ink:#ece8df;--muted:#a6a196;--faint:#77736a;
+  --line:#33312c;--line2:#45423b;--user-bg:#2b2925;--code-bg:#262521;--danger:#e0705f;--shadow:0 12px 32px rgba(0,0,0,.5);
+}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ib{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;color:var(--muted);flex:none}
+.ib:hover{background:var(--user-bg);color:var(--ink)}
+.ib.on{background:var(--user-bg);color:var(--ink)}
+.tb{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 8px;border-radius:7px;color:var(--muted);font-size:12px}
+.tb:hover{background:var(--user-bg);color:var(--ink)}
+.tb svg.i{width:14px;height:14px}
+
+.app{display:grid;grid-template-rows:48px 1fr;grid-template-columns:272px 1fr;height:100vh}
+.app.noside{grid-template-columns:0 1fr}
+.side{grid-column:1;grid-row:2}
+.stage{grid-column:2;grid-row:2}
+.top{grid-column:1/3;display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:1px solid var(--line);background:var(--panel);min-width:0}
+.brand{font-weight:600;letter-spacing:-.01em;margin:0 6px 0 4px;display:flex;align-items:center;gap:7px;white-space:nowrap}
+.brand .logo{width:18px;height:18px;color:var(--accent)}
+.ctitle{color:var(--muted);padding:4px 8px;border-radius:6px;outline:none;max-width:30vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctitle:hover{background:var(--user-bg)}
+.ctitle:focus{background:var(--user-bg);color:var(--ink)}
+.sp{flex:1}
+.seg{display:flex;background:var(--user-bg);border-radius:9px;padding:2px;flex:none}
+.seg button{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:7px;color:var(--muted);font-size:13px}
+.seg button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.status{font-size:12px;color:var(--faint);margin-right:4px;white-space:nowrap}
+.sel{display:flex;align-items:center;gap:4px;background:var(--user-bg);border-radius:9px;padding:2px 2px 2px 8px;color:var(--muted);font-size:12px;flex:none}
+.sel select{font:13px var(--sans);color:var(--ink);background:var(--panel);border:0;border-radius:7px;padding:4px 6px;outline:none;cursor:pointer}
+
+.side{overflow:auto;border-right:1px solid var(--line);background:var(--panel-2);padding:12px 10px}
+.app.noside .side{display:none}
+.sh{display:flex;align-items:center;justify-content:space-between;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin:6px 6px 6px}
+.newbtn{display:flex;align-items:center;gap:6px;width:100%;padding:8px 10px;border-radius:9px;border:1px dashed var(--line2);color:var(--muted);margin-bottom:6px}
+.newbtn:hover{color:var(--ink);border-color:var(--faint)}
+.clist{display:flex;flex-direction:column;gap:1px;margin-bottom:18px}
+.citem{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;cursor:pointer;color:var(--muted)}
+.citem:hover{background:var(--user-bg);color:var(--ink)}
+.citem.cur{background:var(--user-bg);color:var(--ink);font-weight:500}
+.citem .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.del{opacity:0;font-size:11.5px;color:var(--faint);padding:2px 6px;border-radius:5px;font-weight:400}
+.citem:hover .del{opacity:1}
+.del.arm{opacity:1;color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent)}
+.tree{font-size:13px}
+.tree ul{list-style:none;margin:0;padding:0 0 0 14px;border-left:1px solid var(--line2);margin-left:9px}
+.tree>ul{border:0;padding:0;margin:0}
+.mnode{display:flex;align-items:flex-start;gap:8px;padding:5px 8px;border-radius:8px;cursor:pointer;position:relative}
+.mnode:hover{background:var(--user-bg)}
+.mnode .dot{width:9px;height:9px;border-radius:50%;border:2px solid var(--c);margin-top:4px;flex:none}
+.mnode.open .dot{background:var(--c)}
+.mnode .mt{line-height:1.35}
+.mnode .ma{font-size:11.5px;color:var(--faint);font-family:var(--serif);font-style:italic;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.mnode .mc{margin-left:auto;font-size:11px;color:var(--faint);padding-top:1px}
+.help{font-size:12.5px;color:var(--muted);line-height:1.5;padding:12px 8px 4px;border-top:1px solid var(--line);margin-top:18px}
+.help b{font-weight:600;color:var(--ink)}
+.help ul{margin:6px 0 0;padding-left:16px}
+.help li{margin:0 0 6px}
+
+.stage{position:relative;min-width:0;min-height:0}
+.panes{position:absolute;inset:0;display:flex;padding:12px;overflow:auto}
+.panes.rows{flex-direction:column;padding-left:22px}
+#wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;overflow:visible}
+.stage.canvas .panes,.stage.canvas #wires{display:none}
+
+.pane{--c:var(--faint);display:flex;flex-direction:column;flex:1 1 0;min-width:360px;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;position:relative;transition:box-shadow .2s,border-color .2s}
+.panes.rows .pane{min-width:0;min-height:340px}
+.pane::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--c);opacity:.9}
+.pane.main::before{opacity:0}
+.pane.hl{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,transparent)}
+.ph{display:flex;align-items:center;gap:8px;padding:12px 8px 10px 14px;border-bottom:1px solid var(--line);min-height:52px}
+.ph .dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
+.pane.main .ph .dot{background:none;border:2px solid var(--faint)}
+.ph-main{flex:1;min-width:0}
+.ph-title{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;outline:none;border-radius:4px}
+.ph-title:focus{background:var(--user-bg)}
+.ph-origin{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.ph-origin q{font-family:var(--serif);font-style:italic;quotes:"\201C" "\201D";cursor:pointer}
+.ph-origin .crumb{cursor:pointer}
+.ph-origin .crumb:hover,.ph-origin q:hover{text-decoration:underline;color:var(--ink)}
+.ph-act{display:flex;gap:0}
+.pane{container-type:inline-size}
+@container (max-width:600px){.ph-act .tl{display:none}.ph-act .tb{padding:0 6px}}
+.pb{flex:1;overflow-y:auto;padding:8px 22px 10px}
+.msgs{max-width:760px;margin:0 auto}
+.rail-label{display:none}
+.pane.rail{flex:0 0 44px !important;min-width:0;cursor:pointer}
+.panes.rows .pane.rail{flex:0 0 40px !important;min-height:0}
+.pane.rail>.ph,.pane.rail>.pb,.pane.rail>.composer,.pane.rail>.tk{display:none !important}
+.pane.rail .rail-label{display:flex;align-items:center;gap:8px;padding:14px 0;writing-mode:vertical-rl;color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;height:100%;width:100%}
+.panes.rows .pane.rail .rail-label{writing-mode:horizontal-tb;padding:0 14px}
+.pane.rail .rail-label .dot{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
+.pane.rail:hover{border-color:var(--c)}
+.pane.rail:hover .rail-label{color:var(--ink)}
+
+.gut{flex:0 0 10px;cursor:col-resize;position:relative}
+.gut::after{content:"";position:absolute;top:30%;bottom:30%;left:4px;width:2px;border-radius:2px;background:transparent;transition:background .15s}
+.gut:hover::after,.gut.drag::after{background:var(--line2)}
+.panes.rows .gut{cursor:row-resize}
+.panes.rows .gut::after{left:40%;right:40%;top:4px;bottom:auto;height:2px;width:auto}
+
+.origin{margin:14px 0 6px;padding:10px 14px;border-left:3px solid var(--c);background:color-mix(in srgb,var(--c) 8%,transparent);border-radius:0 10px 10px 0}
+.origin .ol{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);margin-bottom:4px}
+.origin .ol button{color:var(--muted);text-decoration:underline;font-size:11.5px}
+.origin .ol button:hover{color:var(--ink)}
+.origin .oq{font-family:var(--serif);font-size:15px;line-height:1.5;font-style:italic;max-height:132px;overflow-y:auto;white-space:pre-wrap;padding-right:4px}
+.empty{padding:20px 4px;color:var(--muted)}
+.empty h2{font-family:var(--serif);font-weight:400;font-size:28px;color:var(--ink);margin:12vh 0 8px;letter-spacing:-.01em}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.chip{border:1px solid var(--line2);border-radius:999px;padding:6px 12px;font-size:13px;color:var(--muted);background:var(--panel)}
+.chip:hover{color:var(--ink);border-color:var(--faint)}
+
+.msg{margin:4px 0}
+.msg.user{display:flex;justify-content:flex-end;margin-top:20px}
+.msg.user .body{background:var(--user-bg);border-radius:14px;padding:9px 14px;max-width:88%;white-space:pre-wrap;line-height:1.5;font-size:14.5px}
+.msg.assistant .body{font-family:var(--serif);font-size:16.5px;line-height:1.68;padding:6px 0 2px;overflow-wrap:break-word}
+.msg.assistant .body>*:first-child{margin-top:6px}
+.msg.note{margin:14px 0;border:1px solid color-mix(in srgb,var(--c) 45%,var(--line));background:color-mix(in srgb,var(--c) 6%,var(--panel));border-radius:12px;padding:10px 14px 6px}
+.msg.note .nh{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.msg.note .nh .d{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.msg.note .nh button.nl{color:var(--ink);font-size:12px;font-weight:500}
+.msg.note .nh button.nl:hover{text-decoration:underline}
+.msg.note .body{font-family:var(--serif);font-size:15px;line-height:1.6}
+.msg.note .body ul{margin:.3em 0}
+.body h1,.body h2,.body h3,.body h4{font-family:var(--sans);font-weight:600;line-height:1.3;margin:1.3em 0 .4em;letter-spacing:-.01em}
+.body h1{font-size:20px}.body h2{font-size:18px}.body h3{font-size:16px}.body h4{font-size:15px}
+.body p{margin:.65em 0}
+.body ul,.body ol{padding-left:1.4em;margin:.5em 0}
+.body li{margin:.25em 0}
+.body blockquote{margin:.8em 0;padding:.1em 1em;border-left:3px solid var(--line2);color:var(--muted)}
+.body a{color:var(--accent)}
+.body hr{border:0;border-top:1px solid var(--line);margin:1.4em 0}
+.body table{border-collapse:collapse;font-family:var(--sans);font-size:13.5px;margin:.9em 0;display:block;overflow-x:auto}
+.body th,.body td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+.body th{background:var(--panel-2);font-weight:600}
+.body pre{background:var(--code-bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow:auto;font:13px/1.55 var(--mono);margin:.9em 0}
+.body pre code{font:inherit;background:none;padding:0}
+.body :not(pre)>code{font-family:var(--mono);font-size:.84em;background:var(--code-bg);padding:.12em .38em;border-radius:5px;border:1px solid var(--line)}
+.math.display{display:block;text-align:center;margin:.9em 0;overflow-x:auto;overflow-y:hidden}
+.math.raw{font-family:var(--mono);font-size:.85em;color:var(--muted)}
+mjx-container{color:inherit}
+mjx-assistive-mml{position:absolute!important;top:0;left:0;clip:rect(1px,1px,1px,1px)!important;padding:1px 0 0 0!important;border:0!important;display:block!important;width:auto!important;overflow:hidden!important;user-select:none}
+.mermaid-box{margin:1em 0;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel-2);overflow:auto;text-align:center;font:12.5px var(--sans);color:var(--faint)}
+.mermaid-box svg{max-width:100%;height:auto}
+.mm-err{text-align:left}
+.thinking{display:inline-flex;gap:4px;padding:10px 0}
+.thinking i{width:6px;height:6px;border-radius:50%;background:var(--faint);animation:bl 1.2s infinite}
+.thinking i:nth-child(2){animation-delay:.15s}.thinking i:nth-child(3){animation-delay:.3s}
+@keyframes bl{0%,80%,100%{opacity:.25}40%{opacity:1}}
+.err{font:12.5px var(--sans);color:var(--danger);margin:6px 0}
+.mfoot{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:2px 0 8px;min-height:26px}
+.mfoot .ib{width:26px;height:26px}
+.mfoot .ib,.mfoot .tb{opacity:.6}
+.msg:hover .mfoot .ib,.msg:hover .mfoot .tb{opacity:1}
+.mfoot .model{font-size:11px;color:var(--faint);margin-left:2px}
+.bchips{display:flex;flex-wrap:wrap;gap:5px;width:100%;margin-top:4px}
+.bchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 4px 2px 3px;max-width:280px;cursor:pointer;background:var(--panel)}
+.bchip .n{min-width:18px;height:18px;border-radius:9px;background:var(--c);color:#fff;font-size:10.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;padding:0 4px;flex:none}
+.bchip .bt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bchip .del{opacity:.0;padding:1px 6px}
+.bchip:hover .del{opacity:1}
+.bchip:hover{color:var(--ink);border-color:var(--c)}
+
+.anchor{background:color-mix(in srgb,var(--c) 15%,transparent);box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--c) 85%,transparent);cursor:pointer;border-radius:2px;transition:background .15s}
+.anchor:hover,.anchor.hot{background:color-mix(in srgb,var(--c) 32%,transparent)}
+sup.fn{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;margin:0 1px 0 2px;border-radius:8px;background:var(--c);color:#fff;font:600 10px/1 var(--sans);vertical-align:super;cursor:pointer;user-select:none;transition:transform .12s}
+sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
+@keyframes flash{0%,100%{background:color-mix(in srgb,var(--c) 15%,transparent)}30%{background:color-mix(in srgb,var(--c) 55%,transparent)}}
+.anchor.flash{animation:flash 1.1s ease 2}
+@keyframes mflash{0%,100%{background:transparent}30%{background:color-mix(in srgb,var(--c) 14%,transparent)}}
+.msg.flash{animation:mflash 1.2s ease 2;border-radius:8px}
+@keyframes pflash{0%,100%{box-shadow:none}30%{box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 35%,transparent)}}
+.pane.flash{animation:pflash 1s ease}
+
+.tk{display:none;padding:8px 14px 0}
+.tk.show{display:block}
+.tk .tkb{max-width:760px;margin:0 auto;display:flex;gap:6px;align-items:center;border:1px dashed var(--c);border-radius:12px;padding:6px 6px 6px 12px;background:color-mix(in srgb,var(--c) 5%,var(--panel))}
+.tk .tkl{font-size:12px;color:var(--muted);white-space:nowrap}
+.tk input{flex:1;min-width:0;border:0;outline:none;background:none;color:var(--ink);font:13px var(--sans);padding:6px 0}
+.tk .go{font-size:12.5px;font-weight:500;background:var(--ink);color:var(--panel);border-radius:8px;padding:6px 10px;white-space:nowrap}
+
+.jumpw{position:relative;height:0;z-index:6}
+.jump{position:absolute;right:16px;bottom:8px;display:flex;flex-direction:column;gap:4px;opacity:0;pointer-events:none;transform:translateY(4px);transition:opacity .15s,transform .15s}
+.pane.away .jump,.pane.hasprev .jump{opacity:.9;pointer-events:auto;transform:none}
+.jump .ib{width:30px;height:30px;border-radius:50%;background:var(--panel);border:1px solid var(--line2);box-shadow:0 2px 8px rgba(0,0,0,.08);color:var(--muted)}
+.jump .ib:hover{color:var(--ink);border-color:var(--faint);background:var(--panel)}
+.jump .jp{display:none;color:var(--c);border-color:color-mix(in srgb,var(--c) 50%,var(--line2))}
+.pane.hasprev .jump .jp{display:inline-flex}
+.pane:not(.away) .jump .jl,.pane:not(.away) .jump .je{display:none}
+.composer{padding:8px 14px 14px}
+.cbox{max-width:760px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;border:1px solid var(--line2);border-radius:14px;background:var(--panel);padding:6px 6px 6px 14px;transition:border-color .15s,box-shadow .15s}
+.cbox:focus-within{border-color:var(--faint);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 14%,transparent)}
+.cbox textarea{flex:1;border:0;outline:none;resize:none;background:none;color:var(--ink);font:14.5px/1.5 var(--sans);padding:6px 0;max-height:200px;min-height:24px}
+.cbox textarea::placeholder{color:var(--faint)}
+.sendb{width:32px;height:32px;border-radius:9px;background:var(--ink);color:var(--panel);display:flex;align-items:center;justify-content:center;flex:none}
+.sendb:disabled{opacity:.3;cursor:default}
+
+.pop{position:fixed;z-index:60;width:400px;max-width:calc(100vw - 16px);background:var(--panel);border:1px solid var(--line2);border-radius:14px;box-shadow:var(--shadow);padding:8px;display:none}
+.pop.show{display:block;animation:pin .12s ease}
+@keyframes pin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.pop .pq{font-family:var(--serif);font-style:italic;font-size:13.5px;line-height:1.5;color:var(--muted);margin:2px 2px 8px;padding:6px 10px;max-height:110px;overflow-y:auto;border-left:3px solid var(--c);background:color-mix(in srgb,var(--c) 6%,transparent);border-radius:0 8px 8px 0;white-space:pre-wrap}
+.pop .prow{display:flex;gap:6px;align-items:center}
+.pop .prow{align-items:flex-end}
+.pop textarea{flex:1;min-width:0;border:1px solid var(--line2);border-radius:9px;padding:8px 10px;font:13.5px/1.45 var(--sans);background:var(--panel-2);color:var(--ink);outline:none;resize:none;min-height:36px;max-height:200px;overflow-y:auto;display:block}
+.pop textarea:focus{border-color:var(--faint)}
+.pop .chips{margin-top:8px;gap:5px}
+.pop .chip{padding:4px 10px;font-size:12px}
+.pop .hint{font-size:11px;color:var(--faint);margin:8px 4px 0}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:8px 14px;border-radius:10px;font-size:13px;z-index:80;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+.banner{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:20;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:8px 14px;font-size:13px;color:var(--muted);box-shadow:var(--shadow);display:none;max-width:90%}
+
+.tipbox{position:fixed;z-index:95;max-width:260px;background:var(--ink);color:var(--panel);font:12px/1.4 var(--sans);padding:6px 9px;border-radius:7px;pointer-events:none;opacity:0;transition:opacity .12s;white-space:normal}
+.tipbox.show{opacity:1}
+.modal{position:fixed;inset:0;z-index:90;background:rgba(20,16,10,.35);display:none;align-items:center;justify-content:center;padding:16px}
+.modal.show{display:flex}
+.mbox{width:420px;max-width:100%;background:var(--panel);border:1px solid var(--line2);border-radius:14px;box-shadow:var(--shadow);padding:18px 18px 14px;animation:pin .12s ease}
+.mbox .mt{font-weight:600;font-size:15px;margin-bottom:8px}
+.mbox .mb{color:var(--muted);line-height:1.5;font-size:13.5px}
+.mbox .mb ul{margin:8px 0 0;padding-left:18px}
+.mbox .ma{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.mbtn{padding:7px 14px;border-radius:9px;border:1px solid var(--line2);font-size:13px}
+.mbtn:hover{background:var(--user-bg)}
+.mbtn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+.mbtn.danger:hover{filter:brightness(1.08);background:var(--danger)}
+.ib.dz:hover{color:var(--danger);background:color-mix(in srgb,var(--danger) 10%,transparent)}
+.mnode .mx{opacity:0;margin-left:2px;width:22px;height:22px}
+.mnode:hover .mx{opacity:1}
+.bchip .bx{width:18px;height:18px;border-radius:9px;opacity:0;color:var(--faint);display:inline-flex;align-items:center;justify-content:center}
+.bchip .bx svg.i{width:12px;height:12px}
+.bchip:hover .bx{opacity:1}
+.bchip .bx:hover{color:var(--danger)}
+/* canvas */
+.cv{position:absolute;inset:0;overflow:hidden;display:none;cursor:grab;background-image:radial-gradient(circle,var(--line2) 1px,transparent 1px);background-size:22px 22px}
+.stage.canvas .cv{display:block}
+.cv.drag{cursor:grabbing}
+#world{position:absolute;left:0;top:0;transform-origin:0 0}
+#edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+.cnode{--c:var(--faint);position:absolute;width:320px;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:default;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:border-color .15s,box-shadow .15s}
+.cnode.exp{width:580px;box-shadow:0 6px 24px rgba(0,0,0,.08)}
+.cnode::before{content:"";display:block;height:3px;background:var(--c)}
+.cnode.main::before{background:transparent}
+.cnode:hover{border-color:color-mix(in srgb,var(--c) 60%,var(--line))}
+.cnode.lift{box-shadow:0 14px 36px rgba(0,0,0,.18)}
+.cnode.picked{border-color:color-mix(in srgb,var(--c) 70%,var(--line2));box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 25%,transparent),0 6px 24px rgba(0,0,0,.08)}
+.cnode.main.picked{--c:var(--faint)}
+@keyframes cflash{0%,100%{box-shadow:0 1px 3px rgba(0,0,0,.05)}30%{box-shadow:0 0 0 5px color-mix(in srgb,var(--c) 40%,transparent)}}
+.cnode.flash{animation:cflash 1.1s ease 2}
+.cnode .ch{display:flex;align-items:center;gap:6px;padding:7px 6px 6px 12px;font-weight:500;cursor:grab;user-select:none}
+.cnode .ch:active{cursor:grabbing}
+.cnode .ch .ct{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cnode .ch .ib{width:24px;height:24px;opacity:.55}
+.cnode .ch .ib svg.i{width:14px;height:14px}
+.cnode:hover .ch .ib{opacity:1}
+.cnode .ch .fold{font-size:11px;color:var(--muted);border:1px solid var(--line2);border-radius:999px;padding:0 7px;height:20px;display:inline-flex;align-items:center;gap:3px}
+.cnode .ch .fold:hover{color:var(--ink);border-color:var(--faint)}
+.cnode .ch .fold.on{background:var(--user-bg);color:var(--ink)}
+.cnode.main .ch .mdot{width:10px;height:10px;border-radius:50%;border:2px solid var(--faint);flex:none}
+.cnode .cq{margin:0 12px 6px;padding:4px 8px;border-left:2px solid var(--c);font:italic 12.5px/1.45 var(--serif);color:var(--muted);max-height:60px;overflow:auto}
+.cnode .crs{padding:0 6px 8px}
+.cr{padding:5px 6px;border-radius:7px;cursor:pointer;font-size:12.5px;line-height:1.4;position:relative}
+.cr:hover{background:var(--user-bg)}
+.cr.q{font-weight:500}
+.cr.a{font-family:var(--serif);color:var(--muted)}
+.cr.n{font-size:12px;color:var(--muted);border-left:2px solid var(--line2);border-radius:0}
+.cr .fns{float:right;margin-left:6px}
+.cfull{max-height:560px;overflow-y:auto;padding:0 18px 6px;cursor:auto;border-top:1px solid var(--line)}
+.cfull .msg.assistant .body{font-size:15px;line-height:1.62}
+.cfull .msg.user{margin-top:14px}
+.cfull .msg.user .body{font-size:13.5px}
+.cask{display:flex;gap:6px;align-items:center;padding:8px 12px 10px;border-top:1px solid var(--line)}
+.cask{align-items:flex-end}
+.cask textarea{flex:1;min-width:0;border:1px solid var(--line2);border-radius:9px;padding:7px 10px;font:13px/1.45 var(--sans);background:var(--panel-2);color:var(--ink);outline:none;resize:none;min-height:32px;max-height:220px;overflow-y:auto;display:block}
+.cask textarea:focus{border-color:var(--faint)}
+.cask .sendb{width:28px;height:28px;border-radius:8px}
+.cnode.res .ch .ct{color:var(--muted)}
+.cvtools{position:absolute;right:14px;bottom:14px;display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px;z-index:3}
+.cvtools .tb{height:28px}
+.cvhint{position:absolute;left:14px;bottom:14px;font-size:12px;color:var(--faint);z-index:3;pointer-events:none}
+/* pins and archive */
+.ib.pinned{color:var(--accent)}
+.citem .acts{display:flex;gap:0;opacity:0}
+.citem:hover .acts{opacity:1}
+.citem .acts .ib{width:22px;height:22px}
+.citem .acts .ib svg.i{width:13px;height:13px}
+.citem .pmark{color:var(--accent);display:inline-flex}
+.citem .pmark svg.i{width:12px;height:12px}
+.citem.pb .t small{color:var(--faint);font-size:11.5px}
+.citem .bd{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.archtoggle{display:flex;align-items:center;gap:6px;width:100%;padding:6px 10px;border-radius:8px;color:var(--faint);font-size:12.5px}
+.archtoggle:hover{background:var(--user-bg);color:var(--ink)}
+.archtoggle .chev{transition:transform .15s;display:inline-flex}
+.archtoggle.open .chev{transform:rotate(90deg)}
+.alist{display:none;flex-direction:column;gap:1px;margin-bottom:10px}
+.alist.show{display:flex}
+.alist .citem{opacity:.8}
+.mnode .mp{opacity:0;width:22px;height:22px;margin-left:2px}
+.mnode:hover .mp,.mnode .mp.pinned{opacity:1}
+.mnode .mp svg.i{width:13px;height:13px}
+/* canvas: quote jumps to its source, floating jump buttons */
+.cnode .cq{cursor:pointer}
+.cnode .cq:hover{color:var(--ink);background:color-mix(in srgb,var(--c) 7%,transparent)}
+.cnode .cjump{position:absolute;right:14px;bottom:60px;display:flex;flex-direction:column;gap:4px;opacity:0;pointer-events:none;transform:translateY(4px);transition:opacity .15s,transform .15s;z-index:3}
+.cnode.away .cjump{opacity:.9;pointer-events:auto;transform:none}
+.cnode .cjump .ib{width:28px;height:28px;border-radius:50%;background:var(--panel);border:1px solid var(--line2);box-shadow:0 2px 8px rgba(0,0,0,.08);color:var(--muted);opacity:1}
+.cnode .cjump .ib:hover{color:var(--ink);border-color:var(--faint)}
+.cnode .cfull .anchor.flash,.cnode .cfull sup.fn{scroll-margin:40px}
+.cr.flash{animation:mflash 1.2s ease 2}
+.origin .oq{cursor:pointer}
+.origin .oq:hover{color:var(--ink)}
+.cnode .rzh{position:absolute;z-index:6}
+.cnode .rzh[data-dir=e],.cnode .rzh[data-dir=w]{top:34px;bottom:16px;width:7px;cursor:ew-resize}
+.cnode .rzh[data-dir=e]{right:0}.cnode .rzh[data-dir=w]{left:0}
+.cnode .rzh[data-dir=e]:hover,.cnode .rzh[data-dir=w]:hover{background:color-mix(in srgb,var(--c) 22%,transparent)}
+.cnode .rzh.cor{width:14px;height:14px}
+.cnode .rzh[data-dir=se]{right:0;bottom:0;cursor:nwse-resize}.cnode .rzh[data-dir=nw]{left:0;top:0;cursor:nwse-resize}
+.cnode .rzh[data-dir=sw]{left:0;bottom:0;cursor:nesw-resize}.cnode .rzh[data-dir=ne]{right:0;top:0;cursor:nesw-resize}
+.cnode .rzh.cor::after{content:"";position:absolute;width:6px;height:6px;border:0 solid var(--faint);opacity:0;transition:opacity .15s}
+.cnode:hover .rzh.cor::after{opacity:.8}
+.cnode .rzh[data-dir=se]::after{right:3px;bottom:3px;border-right-width:1.5px;border-bottom-width:1.5px}
+.cnode .rzh[data-dir=sw]::after{left:3px;bottom:3px;border-left-width:1.5px;border-bottom-width:1.5px}
+.cnode .rzh[data-dir=ne]::after{right:3px;top:3px;border-right-width:1.5px;border-top-width:1.5px}
+.cnode .rzh[data-dir=nw]::after{left:3px;top:3px;border-left-width:1.5px;border-top-width:1.5px}
+.cnode.sizing{transition:none}
+/* search */
+.sbox{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;margin-bottom:8px;border-radius:9px;border:1px solid var(--line2);background:var(--panel);color:var(--faint);font-size:13px;cursor:text}
+.sbox:hover{border-color:var(--faint)}
+.sbox input{flex:1;min-width:0;border:0;outline:none;background:none;font:13px var(--sans);color:var(--ink);padding:0;cursor:text}
+.sbox input::placeholder{color:var(--faint)}
+kbd.k{font:11px var(--mono);border:1px solid var(--line2);border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--muted);background:var(--panel-2)}
+.pal{position:fixed;inset:0;z-index:85;background:rgba(20,16,10,.28);display:none;align-items:flex-start;justify-content:center;padding:11vh 16px 16px}
+.pal.show{display:flex}
+.pbox{width:700px;max-width:100%;background:var(--panel);border:1px solid var(--line2);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;max-height:76vh;animation:pin .12s ease}
+.pin{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.pin svg.i{width:18px;height:18px;color:var(--faint)}
+.pin input{flex:1;border:0;outline:none;background:none;font:16px var(--sans);color:var(--ink)}
+.pin input::placeholder{color:var(--faint)}
+.pres{overflow-y:auto;padding:6px 8px 8px}
+.pgrp{display:flex;align-items:center;gap:6px;padding:10px 8px 4px;font-size:11.5px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
+.pgrp .arc{font-weight:500;text-transform:none;letter-spacing:0;border:1px solid var(--line2);border-radius:999px;padding:0 6px}
+.pr{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:10px;cursor:pointer}
+.pr.sel{background:var(--user-bg)}
+.pr .pk{flex:none;font-size:11px;padding:1px 7px;border-radius:999px;margin-top:2px;background:color-mix(in srgb,var(--c) 14%,transparent);color:var(--muted);border:1px solid color-mix(in srgb,var(--c) 35%,transparent);white-space:nowrap}
+.pr .pm{min-width:0;flex:1}
+.pr .pt{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pr .ps{font-size:13.5px;line-height:1.45;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pr .ps mark{background:var(--bg-highlight,color-mix(in srgb,#cc9a2e 30%,transparent));color:inherit;border-radius:2px;padding:0 1px}
+.pfoot{display:flex;gap:14px;align-items:center;padding:8px 16px;border-top:1px solid var(--line);font-size:12px;color:var(--faint)}
+.pfoot .sp{flex:1}
+.pempty{padding:28px 16px;text-align:center;color:var(--muted)}
+/* collapsible branch tree */
+.shbtn{font:500 11px var(--sans);text-transform:none;letter-spacing:0;color:var(--faint);padding:2px 6px;border-radius:6px}
+.shbtn:hover{color:var(--ink);background:var(--user-bg)}
+.tchev{width:16px;height:18px;margin:1px -4px 0 -6px;display:inline-flex;align-items:center;justify-content:center;color:var(--faint);border-radius:4px;flex:none}
+.tchev:hover{color:var(--ink);background:var(--line)}
+.tchev svg.i{width:11px;height:11px;transition:transform .15s}
+.tchev.open svg.i{transform:rotate(90deg)}
+.tchev.none{visibility:hidden}
+.mnode .hid{font-size:10.5px;color:var(--faint);border:1px solid var(--line2);border-radius:999px;padding:0 6px;margin-left:4px;white-space:nowrap}
+/* stuck-to-screen cards, snap preview, per-card zoom */
+#dock{position:absolute;inset:0;pointer-events:none;z-index:2}
+.cv:has(#dock .cnode) .cvhint{display:none}
+#dock .cnode{pointer-events:auto;box-shadow:0 14px 44px rgba(0,0,0,.18)}
+.cnode.docked{display:flex;flex-direction:column}
+.cnode.docked .cfull{flex:1;min-height:0;max-height:none !important;height:auto !important}
+.cnode.docked .cfull>*{max-width:780px;margin-left:auto;margin-right:auto}
+.cnode>.ch,.cnode>.cq,.cnode>.crs,.cnode>.cfull,.cnode>.cjump,.cnode>.cask{zoom:var(--cz,1)}
+#snapPrev{position:absolute;z-index:4;pointer-events:none;border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);border-radius:14px;display:none;transition:left .1s,top .1s,width .1s,height .1s}
+.czoom{display:none;align-items:center}
+.cnode.picked .czoom,.cnode.docked .czoom{display:inline-flex}
+.czoom .zl{font-size:11px;color:var(--muted);min-width:34px;text-align:center;cursor:pointer;border-radius:5px;padding:2px 0}
+.czoom .zl:hover{background:var(--user-bg);color:var(--ink)}
+.czoom .ib{font-size:15px;line-height:1}
+.ib.stuck{color:var(--accent)}
+/* resolved / open status */
+.sdot{--s:11px;width:var(--s);height:var(--s);border-radius:50%;background:var(--c);flex:none;cursor:pointer;position:relative;transition:transform .12s,box-shadow .12s}
+.sdot:hover{transform:scale(1.25);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,transparent)}
+.sdot.res{background:color-mix(in srgb,var(--c) 16%,var(--panel));box-shadow:inset 0 0 0 1.5px var(--c)}
+.sdot.res::after{content:"";position:absolute;left:34%;top:18%;width:24%;height:44%;border:solid var(--c);border-width:0 1.6px 1.6px 0;transform:rotate(42deg)}
+.mnode .sdot{--s:10px;margin-top:4px}
+.mnode.res .mt{color:var(--muted)}
+.pane.res .ph-title{color:var(--muted)}
+sup.fn.res{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px var(--c);opacity:.75}
+.anchor.res{background:color-mix(in srgb,var(--c) 6%,transparent);box-shadow:inset 0 -1px 0 color-mix(in srgb,var(--c) 55%,transparent)}
+.bchip.res .n{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px var(--c)}
+.bchip.res .bt{color:var(--faint)}
+/* document mode */
+.docpane .pb{background:var(--panel-2);padding:14px 30px 14px 14px}
+.docico{display:inline-flex;color:var(--muted)}
+.docico svg.i{width:16px;height:16px}
+.docwrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding-bottom:20px}
+.dpage{position:relative;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.04);border-radius:2px;flex:none}
+.dpage canvas{position:absolute;inset:0;border-radius:2px}
+.dpage .pnum{position:absolute;left:-2px;bottom:-16px;font-size:10.5px;color:var(--faint)}
+.dpage>sup.fn{position:absolute;right:-24px;margin:0;vertical-align:baseline;z-index:3}
+@keyframes pgflash{0%,100%{box-shadow:0 1px 3px rgba(0,0,0,.12)}30%{box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 45%,transparent)}}
+.dpage.flash{animation:pgflash 1.1s ease 2}
+.textLayer{position:absolute;inset:0;overflow:hidden;line-height:1;text-align:initial;-webkit-text-size-adjust:none;text-size-adjust:none;forced-color-adjust:none;transform-origin:0 0;z-index:2}
+.textLayer :is(span,br):not(.anchor){color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%}
+.textLayer .markedContent{top:0;height:0}
+.textLayer .anchor{color:transparent}
+.textLayer ::selection{background:color-mix(in srgb,#3f8fd2 30%,transparent)}
+.textLayer br::selection{background:transparent}
+.docbody{max-width:760px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 28px 18px;font-family:var(--serif);font-size:16px;line-height:1.66;width:100%}
+.docload,.docerr{color:var(--muted);padding:40px 10px;text-align:center;line-height:1.6}
+.docerr input{margin-top:10px}
+a.pref{color:var(--accent);cursor:pointer;text-decoration:none;border-bottom:1px dotted currentColor;font-family:var(--sans);font-size:.86em;white-space:nowrap}
+a.pref:hover{border-bottom-style:solid}
+.mbox.wide{width:520px}
+.drop{display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px dashed var(--line2);border-radius:12px;padding:18px;margin:12px 0 8px;cursor:pointer;color:var(--muted);text-align:center}
+.drop:hover,.drop.over{border-color:var(--faint);color:var(--ink);background:var(--panel-2)}
+.drop input{display:none}
+#docPaste{width:100%;min-height:90px;resize:vertical;border:1px solid var(--line2);border-radius:10px;padding:8px 10px;font:13px/1.5 var(--sans);background:var(--panel-2);color:var(--ink);outline:none}
+#docName{width:100%;margin-top:8px;border:1px solid var(--line2);border-radius:10px;padding:8px 10px;font:13px var(--sans);background:var(--panel-2);color:var(--ink);outline:none}
+.mbtn.primary{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.mbtn.primary:hover{background:var(--ink);filter:brightness(1.15)}
+.mbtn:disabled{opacity:.5;cursor:default}
+.dmsg{flex:1;font-size:12.5px;color:var(--muted);align-self:center}
+.cnode.docnode .crs .cr{font-family:var(--sans)}
+.mnode .docico{margin-top:1px}
+.hljs-keyword,.hljs-selector-tag,.hljs-built_in{color:#a0439a}
+.hljs-string,.hljs-attr,.hljs-template-string{color:#3b7d3b}
+.hljs-number,.hljs-literal{color:#b5562a}
+.hljs-comment{color:var(--faint);font-style:italic}
+.hljs-title,.hljs-title.function_,.hljs-section{color:#2d6cb5}
+.hljs-type,.hljs-class .hljs-title{color:#9a6a00}
+.hljs-meta{color:#8a6d3b}
+@media (prefers-color-scheme:dark){
+.hljs-keyword,.hljs-selector-tag,.hljs-built_in{color:#d295e8}
+.hljs-string,.hljs-attr,.hljs-template-string{color:#9ccc8a}
+.hljs-number,.hljs-literal{color:#f0a070}
+.hljs-title,.hljs-title.function_,.hljs-section{color:#7fb4f0}
+.hljs-type,.hljs-class .hljs-title{color:#e5c06a}}
+@media (max-width:1100px){.top .lbl{display:none}.ctitle{max-width:18vw}}
+@media (max-width:760px){.app{grid-template-columns:0 1fr}.app .side{display:none}.app.sideopen .side{display:block;position:fixed;top:48px;bottom:0;left:0;width:min(300px,86vw);z-index:40;box-shadow:var(--shadow)}.pane{min-width:88vw}.sel span{display:none}
+  /* phone top bar: logo, model, and view switcher only */
+  .top{gap:4px;padding:0 6px;overflow-x:auto}.brand{font-size:0;gap:0;margin:0 2px}.ctitle,.status,label.sel[title^="How much"]{display:none}
+  .sel{padding:2px}.sel select{max-width:110px;font-size:12.5px}.seg button{padding:5px 8px}
+  .panes{padding:8px}.pb{padding:6px 14px 8px}.composer{padding:6px 8px 10px}.ph{padding:10px 6px 8px 10px}
+  .pop{width:auto;left:8px !important;right:8px}.pal{padding-top:8vh}.cvhint{display:none}}
+/* touch screens have no hover: show the controls that otherwise appear on hover */
+@media (hover:none){.citem .acts,.mnode .mp,.mnode .mx,.bchip .bx,.del,.mfoot .ib,.mfoot .tb,.cnode .ch .ib{opacity:1 !important}.tipbox{display:none !important}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="top">
+    <button class="ib" id="tSide" title="Show or hide the sidebar"></button>
+    <div class="brand"><span id="logo"></span>Digress</div>
+    <div class="ctitle" id="cTitle" contenteditable="true" spellcheck="false" title="Click to rename this conversation"></div>
+    <div class="sp"></div>
+    <span class="status" id="status"></span>
+    <label class="sel" title="Which Claude model answers new messages. Auto lets claude.ai choose. Each reply shows the model that answered."><span>Model</span><select id="mSel"></select></label>
+    <label class="sel" title="How much the model thinks before answering. Higher is slower but more careful."><span>Effort</span><select id="eSel"></select></label>
+    <div class="seg" id="viewSeg">
+      <button data-v="cols" title="Show threads as panes side by side"><span></span><b class="lbl" style="font-weight:inherit">Columns</b></button>
+      <button data-v="rows" title="Show threads as panes stacked top to bottom"><span></span><b class="lbl" style="font-weight:inherit">Rows</b></button>
+      <button data-v="canvas" title="See the whole conversation tree as cards on a canvas"><span></span><b class="lbl" style="font-weight:inherit">Canvas</b></button>
+    </div>
+  </div>
+  <aside class="side" id="side">
+    <label class="sbox" title="Search every conversation, highlight, takeaway and document"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="sboxIn" placeholder="Search" autocomplete="off"><kbd class="k"><span class="kmod">⌘</span>K</kbd></label>
+    <button class="newbtn" id="newConv" title="Start a fresh conversation. This one stays saved in the list below."></button>
+    <button class="newbtn" id="newDoc" title="Start from a PDF, Markdown or text file: read it side by side with a chat about it, and highlight any passage to branch."></button>
+    <div id="pinWrap" style="display:none"><div class="sh">Pinned</div><div class="clist" id="plist"></div></div>
+    <div class="sh">Conversations</div>
+    <div class="clist" id="clist"></div>
+    <div id="archWrap" style="display:none;margin:-12px 0 16px"><button class="archtoggle" id="archToggle" title="Archived conversations: out of the way, but nothing is deleted"><span class="chev"></span><span id="archLbl">Archive</span></button><div class="alist" id="alist"></div></div>
+    <div class="sh">Branches<button class="shbtn" id="treeAll"></button></div>
+    <div class="tree" id="tree"></div>
+    <div class="help">
+      <b>How it works</b>
+      <ul>
+        <li>Highlight any text in a reply and ask about it. The answer opens in a new pane next to the one it came from.</li>
+        <li>Numbered markers in the text show where each branch starts. Click one to open it.</li>
+        <li>In a branch, <b>Back</b> returns you to the exact spot it came from, and <b>Takeaway</b> adds a short summary to the parent.</li>
+        <li><b><span class="kmod">⌘</span>K</b> searches everything: questions, answers, highlights, takeaways and documents. Typos are fine.</li>
+        <li>Collapse any pane to a thin strip and click the strip to expand it again. <b>Focus</b> collapses everything else.</li>
+      </ul>
+    </div>
+  </aside>
+  <main class="stage" id="stage">
+    <div class="panes cols" id="panes"></div>
+    <svg id="wires"></svg>
+    <div class="cv" id="cv"><div id="world"><svg id="edges" width="1" height="1"></svg></div><div id="dock"></div><div id="snapPrev"></div>
+      <div class="cvhint">Drag the background to pan, scroll to zoom. Drag a card by its title to move it, or to an edge to snap it there. Alt+scroll zooms one card. Space reads the selected card full screen.</div>
+      <div class="cvtools"><button class="tb" id="zTidy" title="Forget the positions you set and lay the tree out automatically"></button><button class="ib" id="zOut" title="Zoom out"></button><button class="ib" id="zFit" title="Fit the whole tree in view"></button><button class="ib" id="zIn" title="Zoom in"></button></div>
+    </div>
+    <div class="banner" id="banner"></div>
+  </main>
+</div>
+
+<div class="pop" id="pop">
+  <div class="pq" id="popQ"></div>
+  <div class="prow"><textarea id="popIn" rows="1" placeholder="Ask about this…"></textarea><button class="sendb" id="popGo" title="Ask this in a new branch (Enter). Shift+Enter adds a new line."></button></div>
+  <div class="chips" id="popChips"></div>
+  <div class="hint">Opens a side branch. Claude sees the whole conversation so far, with this passage marked as your focus.</div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="tipbox" id="tipbox"></div>
+<div class="pal" id="pal"><div class="pbox" role="dialog" aria-modal="true" aria-label="Search"><div class="pin"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="palIn" placeholder="Search conversations, highlights, takeaways, documents…" autocomplete="off" spellcheck="false"></div><div class="pres" id="palRes"></div><div class="pfoot"><span id="palFoot"></span><span class="sp"></span><span><kbd class="k">↑</kbd> <kbd class="k">↓</kbd> move</span><span><kbd class="k">Enter</kbd> open</span><span><kbd class="k"><span class="kmod">⌘</span>Enter</kbd> open, keep searching</span><span><kbd class="k">Esc</kbd> close</span></div></div></div>
+<div class="modal" id="docModal"><div class="mbox wide" role="dialog" aria-modal="true"><div class="mt">Start from a document</div><div class="mb">The document opens next to a main thread for questions about the whole thing. Highlight any passage in it to open a branch about that part.</div><label class="drop" id="docDrop"><input type="file" id="docFile" accept=".pdf,.md,.markdown,.txt,application/pdf,text/markdown,text/plain"><span id="docFileLbl"></span></label><textarea id="docPaste" placeholder="…or paste text or Markdown here"></textarea><input id="docName" placeholder="Title (optional)" autocomplete="off"><div class="ma"><span class="dmsg" id="docMsg"></span><button class="mbtn" id="docCancel">Cancel</button><button class="mbtn primary" id="docGo">Start</button></div></div></div>
+<div class="modal" id="modal"><div class="mbox" role="dialog" aria-modal="true"><div class="mt" id="mTitle"></div><div class="mb" id="mBody"></div><div class="ma"><button class="mbtn" id="mCancel">Cancel</button><button class="mbtn danger" id="mOk">Delete</button></div></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+window.MathJax={svg:{fontCache:'local'},startup:{typeset:false,ready(){MathJax.startup.defaultReady();MathJax.startup.promise.then(()=>{window.__mathReady&&window.__mathReady()})}}};
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg-full.js"></script>
+<script>
+(()=>{
+'use strict';
+/* ---------- constants ---------- */
+const PALETTE=['#d9774b','#3f8fd2','#3fa077','#9d6ad6','#cc9a2e','#d65a8a','#2a9ea3','#7f8f36'];
+const SYS=`You are a patient, precise tutor helping someone learn technical concepts through conversation.
+Formatting: write in Markdown. Use LaTeX for math: $...$ inline and $$...$$ for display. When a diagram genuinely helps (a flow, architecture, sequence, state machine, or hierarchy), include a Mermaid code block (\`\`\`mermaid). Keep Mermaid simple and valid: quote node labels that contain punctuation. Use code blocks with a language tag for code.
+Style: build intuition first, then precision. Prefer short sections, concrete examples and clear structure over long walls of text.
+The interface lets the learner open side branches off any reply. A side branch always includes the full conversation up to that reply. When a message is marked as a side question, answer that question directly and in context, focused on the highlighted passage if there is one, without re-explaining everything. Notes marked as takeaways were carried back from side branches; build on them.`;
+const QUICK=[
+  ['Explain simpler','Explain this more simply, as if I\'m new to it.'],
+  ['Example','Give me a concrete example of this.'],
+  ['Why?','Why is this the case? What\'s the intuition?'],
+  ['Go deeper','Go deeper on this. What\'s really going on under the hood?'],
+];
+const STARTERS=['How does self-attention in transformers work?','Explain the Raft consensus algorithm','What is a Fourier transform, intuitively?','How does a B-tree index speed up queries?'];
+const MODELS=[['auto','Auto'],['claude-opus-5-5','Opus 5.5'],['claude-sonnet-5-5','Sonnet 5.5'],['claude-haiku-5-5','Haiku 5.5'],['claude-fable-5-2','Fable 5.2']];
+const TIER={'claude-opus-5-5':'complex','claude-fable-5-2':'complex','claude-sonnet-5-5':'default','claude-haiku-5-5':'quick'};
+const EFFORTS=[['auto','Auto'],['low','Low'],['medium','Medium'],['high','High']];
+const I={
+ side:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
+ cols:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
+ rows:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18M3 14.5h18"/>',
+ canvas:'<rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="14" width="7" height="6" rx="1.5"/><rect x="14" y="4" width="7" height="6" rx="1.5"/><path d="M10 7h4M17.5 10v4"/>',
+ focus:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+ unfocus:'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
+ collapse:'<path d="M6 12h12"/>',
+ x:'<path d="M6 6l12 12M18 6L6 18"/>',
+ back:'<path d="M15 6l-6 6 6 6"/>',
+ up:'<path d="M12 19V5M6 11l6-6 6 6"/>',
+ send:'<path d="M12 19V5M6 11l6-6 6 6"/>',
+ stop:'<rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor"/>',
+ branch:'<circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7v10M18 10c0 5-6 4-11 7.5"/>',
+ copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ minus:'<path d="M5 12h14"/>',
+ fit:'<path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/>',
+ doc:'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>',
+ pin:'<path d="M9 3h6l-1 7 3.5 3.5h-11L10 10zM12 13.5V21"/>',
+ archive:'<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
+ retry:'<path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v4h4"/>',
+ take:'<path d="M20 12H8M12 7l-5 5 5 5M4 5v14"/>',
+ jend:'<path d="M12 4v13M6 11l6 6 6-6M5 20h14"/>',
+ jlast:'<path d="M12 6v12M6 12l6 6 6-6M5 4h14"/>',
+ jprev:'<path d="M9 14l-5-5 5-5M4 9h10a6 6 0 0 1 0 12h-3"/>',
+ trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
+};
+const ic=(n)=>`<svg class="i" viewBox="0 0 24 24">${I[n]}</svg>`;
+const $=(s,r=document)=>r.querySelector(s);
+const rid=()=>Math.random().toString(36).slice(2,10);
+const esc=(s)=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const trunc=(s,n)=>{s=String(s||'').replace(/\s+/g,' ').trim();return s.length>n?s.slice(0,n-1)+'…':s};
+const plain=(md)=>String(md||'').replace(/```mermaid[\s\S]*?(```|$)/g,' [diagram] ').replace(/```[\s\S]*?(```|$)/g,' [code] ').replace(/\$\$[\s\S]*?\$\$/g,' [equation] ').replace(/\$([^$\n]+)\$/g,'$1').replace(/\\(sqrt|frac|cdot|sum|int|left|right|text|mathbf|mathrm)/g,'').replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/[#*_`>|]/g,'').replace(/\s+/g,' ').trim();
+
+/* ---------- settings ---------- */
+const settings={model:'auto',effort:'auto'};
+try{Object.assign(settings,JSON.parse(localStorage.getItem('sq:settings')||'{}'))}catch(e){}
+function saveSettings(){try{localStorage.setItem('sq:settings',JSON.stringify(settings))}catch(e){}}
+const modelLabel=(v)=>{if(!v)return '';if(typeof v==='object')v=v.model||v.id||'';const list=(typeof io!=='undefined'&&io.llm&&io.llm.models())||MODELS;const m=list.find(x=>x[0]===v)||MODELS.find(x=>x[0]===v);return m?m[1]:String(v).replace(/^claude-/,'')};
+
+/* ---------- state ---------- */
+let conv=null,convList=[];
+const msgCache=new Map(),paneEls=new Map(),gutEls=new Map(),streaming=new Map();
+let mathReady=false,mermaidReady=null,mermaidOk=false;
+let popState=null;
+
+function newConv(){
+  return {id:'c'+Date.now().toString(36)+rid().slice(0,4),title:'New conversation',created:Date.now(),updated:Date.now(),
+    threads:{main:{id:'main',parent:null,title:'Main thread',colorIdx:-1}},msgs:{},order:{main:[]},
+    ui:{open:['main'],collapsed:[],layout:'cols',view:'panes',sizes:{}},nextColor:0};
+}
+const T=(id)=>conv.threads[id];
+const color=(t)=>t&&t.parent?PALETTE[t.colorIdx%PALETTE.length]:'var(--faint)';
+function ancestors(tid){const p=[];let t=T(tid);while(t){p.unshift(t.id);t=t.parent?T(t.parent):null}return p}
+function isDesc(a,b){let t=T(a);while(t&&t.parent){if(t.parent===b)return true;t=T(t.parent)}return false}
+const children=(tid)=>Object.values(conv.threads).filter(t=>t.parent===tid).sort((a,b)=>a.created-b.created);
+const branchesOn=(mid)=>Object.values(conv.threads).filter(t=>t.anchorMsg===mid).sort((a,b)=>a.created-b.created);
+const branchNum=(t)=>branchesOn(t.anchorMsg).indexOf(t)+1;
+const isCollapsed=(tid)=>conv.ui.collapsed.includes(tid);
+
+/* ---------- connectors: the only code that knows where the app is running ----------
+   io.llm    complete({system, messages, model, effort, signal, onText}) -> {text, model, truncated}
+             ready() -> bool, why (reason it's unavailable), models() -> [[id, label]], supportsEffort
+   io.store  conversations: list() -> [{id, data}], get(id), put(id, data), update(id, patch), remove(id)
+   io.index  search index entries, same shape as io.store
+   io.files  upload(blob, type) -> {id}, fetch(id, 'text'|'arrayBuffer'), remove(id), canUpload
+   Each part is picked on its own at startup. A self-hosted build adds new implementations here;
+   nothing else in the app should talk to claude.ai, localStorage-for-data, or a server directly. */
+const io={llm:null,store:null,index:null,files:null,ready:null};
+function memoryStore(label){
+  const m=new Map();
+  return {kind:'memory',label:label||'',
+    list:async()=>[...m.entries()].map(([id,data])=>({id,data:structuredClone(data)})),
+    get:async(id)=>m.has(id)?structuredClone(m.get(id)):null,
+    put:async(id,d)=>{m.set(id,structuredClone(d))},
+    update:async(id,p)=>{if(m.has(id))Object.assign(m.get(id),structuredClone(p))},
+    remove:async(id)=>{m.delete(id)}};
+}
+function localStore(prefix,label,keep){
+  const ok=(id)=>!keep||keep(id);
+  return {kind:'local',label:label||'',
+    list:async()=>{const out=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith(prefix)&&ok(k.slice(prefix.length))){try{out.push({id:k.slice(prefix.length),data:JSON.parse(localStorage.getItem(k))})}catch(e){}}}return out},
+    get:async(id)=>{const v=localStorage.getItem(prefix+id);return v?JSON.parse(v):null},
+    put:async(id,d)=>{localStorage.setItem(prefix+id,JSON.stringify(d))},
+    update:async(id,p)=>{const v=JSON.parse(localStorage.getItem(prefix+id)||'null');if(v){Object.assign(v,p);localStorage.setItem(prefix+id,JSON.stringify(v))}},
+    remove:async(id)=>{localStorage.removeItem(prefix+id)}};
+}
+function claudeAiStore(coll,label,opts){
+  opts=opts||{};
+  return {kind:'claude.ai',label:label||'',
+    list:async()=>{let q=coll();if(opts.ordered)q=q.orderBy('updated','desc');const sn=await q.limit(opts.limit||500).get();return sn.docs.filter(d=>d.exists).map(d=>({id:d.id,data:structuredClone(d.data())}))},
+    get:async(id)=>{const s=await coll().doc(id).get();return s.exists?structuredClone(s.data()):null},
+    put:(id,d)=>coll().doc(id).set(d),
+    update:(id,p)=>coll().doc(id).update(p),
+    remove:(id)=>coll().doc(id).delete()};
+}
+function claudeAiLlm(cl){
+  let s=null,p=null;
+  const llm={kind:'claude.ai',supportsEffort:true,
+    why:'claude.ai didn\'t give this view access to Claude. Open the artifact on its own page (not the preview) and try again.',
+    models:()=>MODELS,
+    ready(){
+      if(s)return Promise.resolve(true);
+      if(!p)p=cl.use('sample').then(x=>{s=x;return !!x}).catch(()=>false).finally(()=>{if(!s)p=null});
+      return p;
+    },
+    async complete({system,messages,model,effort,signal,onText}){
+      if(!await llm.ready())throw {message:llm.why};
+      // claude.ai's interface has no separate system slot, so the system prompt rides in the first message
+      const msgs=messages.map(m=>({role:m.role,content:m.content}));
+      if(system&&msgs.length)msgs[0]={role:'user',content:system+'\n\n---\n\n'+msgs[0].content};
+      const o={cache:false,signal,onText:({text})=>onText&&onText(text==='Thinking...'?'':text)};
+      if(model&&model!=='auto'){o.model=model;o.modelTier=TIER[model]||'default'}
+      if(effort&&effort!=='auto')o.effort=effort;
+      const r=await s(msgs,o);
+      return {text:r.text,truncated:!!r.truncated,model:r.modelApplied||(model&&model!=='auto'?model:null)};
+    }};
+  return llm;
+}
+function noLlm(why){return {kind:'none',supportsEffort:false,why,models:()=>[['auto','Auto']],ready:async()=>false,complete:async()=>{throw {message:why}}}}
+function claudeAiFiles(assets){
+  return {kind:'claude.ai',canUpload:!!assets,
+    upload:async(blob,type)=>{if(!assets)throw {code:'unavailable'};const r=await assets.upload(blob,{type});return {id:r.id}},
+    fetch:async(id,as)=>{const r=await fetch('/_blob/'+id);if(!r.ok)throw new Error('The document file couldn\'t be loaded ('+r.status+').');return as==='text'?r.text():r.arrayBuffer()},
+    remove:async(id)=>{if(assets)await assets.delete(id)}};
+}
+const noFiles={kind:'none',canUpload:false,upload:async()=>{throw {code:'unavailable'}},fetch:async()=>{throw new Error('This document\'s file isn\'t available here.')},remove:async()=>{}};
+/* Self-hosted: the Digress server (server/server.mjs) serves this page and offers the same four parts over HTTP. */
+async function findServer(){
+  if(!/^https?:$/.test(location.protocol))return null; // opened as a file: no server to ask
+  try{const r=await fetch('api/health',{cache:'no-store'});if(!r.ok)return null;const j=await r.json();return j&&j.app==='digress'?j:null}catch(e){return null}
+}
+async function okOrThrow(r){if(r.ok)return r;let msg='';try{msg=(await r.json()).error||''}catch(e){}const err=new Error(msg||('Server error '+r.status));err.status=r.status;throw err}
+function serverStore(coll,label){
+  const base='api/store/'+coll,u=(id)=>base+'/'+encodeURIComponent(id),json={'content-type':'application/json'};
+  return {kind:'server',label:label||'',
+    list:async()=>(await okOrThrow(await fetch(base))).json(),
+    get:async(id)=>{const r=await fetch(u(id));if(r.status===404)return null;return (await okOrThrow(r)).json()},
+    put:async(id,d)=>{await okOrThrow(await fetch(u(id),{method:'PUT',headers:json,body:JSON.stringify(d)}))},
+    update:async(id,p)=>{await okOrThrow(await fetch(u(id),{method:'PATCH',headers:json,body:JSON.stringify(p)}))},
+    remove:async(id)=>{await okOrThrow(await fetch(u(id),{method:'DELETE'}))}};
+}
+function serverFiles(){
+  return {kind:'server',canUpload:true,
+    upload:async(blob,type)=>{const r=await fetch('api/files?type='+encodeURIComponent(type),{method:'POST',body:blob});if(r.status===413)throw {code:'too_large'};return (await okOrThrow(r)).json()},
+    fetch:async(id,as)=>{const r=await okOrThrow(await fetch('api/files/'+encodeURIComponent(id)));return as==='text'?r.text():r.arrayBuffer()},
+    remove:async(id)=>{await fetch('api/files/'+encodeURIComponent(id),{method:'DELETE'})}};
+}
+function serverLlm(info){
+  let models=[['auto','Default']];
+  const llm={kind:'server',supportsEffort:true,
+    why:info.why||'The server has no model configured yet. See the README to connect one.',
+    models:()=>models,
+    ready:async()=>!!info.llm,
+    async loadModels(){
+      try{const j=await (await okOrThrow(await fetch('api/models'))).json();models=[['auto','Default'+(j.defaultLabel?' ('+j.defaultLabel+')':'')],...j.models]}catch(e){console.warn('model list failed',e)}
+    },
+    async complete({system,messages,model,effort,signal,onText}){
+      if(!info.llm)throw {message:llm.why};
+      const r=await okOrThrow(await fetch('api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({system,messages,model,effort}),signal}));
+      // the server streams one JSON object per line: {d:"text"} deltas, then {done:true,model,truncated} or {error}
+      const rd=r.body.getReader(),dec=new TextDecoder();let buf='',text='',model_=null,truncated=false;
+      for(;;){
+        const {value,done}=await rd.read();if(done)break;
+        buf+=dec.decode(value,{stream:true});let i;
+        while((i=buf.indexOf('\n'))>=0){
+          const line=buf.slice(0,i);buf=buf.slice(i+1);if(!line.trim())continue;
+          const ev=JSON.parse(line);
+          if(ev.d){text+=ev.d;onText&&onText(text)}
+          else if(ev.error)throw {message:ev.error,text};
+          else if(ev.done){model_=ev.model||null;truncated=!!ev.truncated}
+        }
+      }
+      return {text,truncated,model:model_};
+    }};
+  return llm;
+}
+function localOK(){try{localStorage.setItem('sq:t','1');localStorage.removeItem('sq:t');return true}catch(e){return false}}
+function browserStores(){
+  if(localOK()){io.store=localStore('sq:','Saved in this browser',id=>id.startsWith('c'));io.index=localStore('sqi:')}
+  else{io.store=memoryStore();io.index=memoryStore()}
+}
+async function initConnectors(){
+  const srv=await findServer();
+  if(srv){
+    io.llm=serverLlm(srv);io.store=serverStore('convs','Saved');io.index=serverStore('index');io.files=serverFiles();
+    await io.llm.loadModels();
+    if(!srv.llm)showBanner(true,io.llm.why);
+    return;
+  }
+  const cl=await waitRuntime();
+  if(!cl){
+    io.llm=noLlm('This page isn\'t running inside claude.ai, so it can\'t reach a model yet.');showBanner(true);
+    browserStores();io.files=noFiles;return;
+  }
+  io.llm=claudeAiLlm(cl);io.llm.ready().then(ok=>showBanner(!ok));
+  const [d,u,a]=await Promise.all([cl.use('db').catch(()=>null),cl.use('user').catch(()=>null),cl.use('assets').catch(()=>null)]);
+  let uid=null;if(d&&u){try{uid=await u.id()}catch(e){}}
+  if(d&&uid){
+    io.store=claudeAiStore(()=>d.collection('data/users/'+uid),'Saved',{ordered:true,limit:500});
+    io.index=claudeAiStore(()=>d.doc('data/users/'+uid+'/meta').collection('search'),'',{limit:1000});
+  }else browserStores();
+  io.files=claudeAiFiles(a);
+}
+const connected=()=>!!(io.store&&io.index&&io.files&&io.llm);
+
+/* ---------- context for Claude ---------- */
+function branchPrefix(t){
+  if(isDocBranch(t))return `[Side question about this passage from the document${conv.doc&&conv.doc.kind==='pdf'?` (p. ${t.anchorPage+1})`:''}:]\n> ${(t.anchorText||'').replace(/\n+/g,'\n> ')}\n\n`;
+  return t.anchorText
+    ? `[Side question about your reply above. The learner highlighted this part of it:]\n> ${t.anchorText.replace(/\n+/g,'\n> ')}\n\n`
+    : `[Side question about your reply above:]\n\n`;
+}
+function buildContext(tid,excludeMid){
+  const path=ancestors(tid),out=[];
+  const push=(role,c)=>{const last=out[out.length-1];if(last&&last.role===role)last.content+='\n\n'+c;else out.push({role,content:c})};
+  path.forEach((id,i)=>{
+    const t=T(id);let mids=conv.order[id];
+    if(i<path.length-1){const ch=T(path[i+1]);const k=mids.indexOf(ch.anchorMsg);mids=mids.slice(0,k+1)}
+    let firstUser=true;
+    for(const mid of mids){
+      if(mid===excludeMid)continue;
+      const m=conv.msgs[mid];if(!m)continue;let c=m.content||'';
+      if(m.role==='note'){if(c&&!m.pending)push('user',`[Takeaway carried back from the side branch "${T(m.fromThread)?T(m.fromThread).title:'(deleted)'}":]\n${c}`);continue}
+      if(m.role==='assistant'&&(!c||m.pending))continue;
+      if(m.role==='user'&&firstUser&&t.parent)c=branchPrefix(t)+c;
+      if(m.role==='user')firstUser=false;
+      push(m.role,c);
+    }
+  });
+  while(out.length&&out[0].role!=='user')out.shift();
+  if(out.length&&conv.doc){
+    const lastQ=out[out.length-1].role==='user'?out[out.length-1].content:'';
+    const pre=docPreamble(tid,lastQ);
+    if(tid==='main'&&docState&&docState.kind==='pdf'&&conv.ui.open.includes('doc')&&!isCollapsed('doc')&&out[out.length-1].role==='user')out[out.length-1]={role:'user',content:out[out.length-1].content+`\n\n(The learner is currently looking at p. ${docView.current} of the document.)`};
+    return {system:SYS+'\n\n'+pre,messages:out};
+  }
+  return {system:SYS,messages:out};
+}
+
+/* ---------- generation ---------- */
+function addMsg(tid,role,content,extra){
+  const m={id:'m'+rid(),thread:tid,role,content,ts:Date.now(),ver:0,...(extra||{})};
+  conv.msgs[m.id]=m;conv.order[tid].push(m.id);return m;
+}
+async function send(tid,text){
+  text=(text||'').trim();if(!text)return;
+  if(streaming.has(tid)){toast('Wait for the current reply to finish');return}
+  const t=T(tid);
+  if(tid==='main'&&!conv.order.main.some(id=>conv.msgs[id].role==='user')){conv.title=trunc(text,60);renderTitle()}
+  if(t.autoTitle&&!conv.order[tid].length){t.title=trunc(text,48);delete t.autoTitle;refreshAnchorsFor(tid)}
+  addMsg(tid,'user',text);
+  const am=addMsg(tid,'assistant','');am.pending=true;
+  renderPane(tid,true);renderMap();save();
+  if(conv.ui.view==='canvas'){renderCanvas();const f=document.querySelector(`#cv .cnode[data-ctid="${tid}"] .cfull`);if(f)f.scrollTop=f.scrollHeight}
+  await docReady();
+  await generate(am,buildContext(tid,am.id),tid);
+}
+async function generate(m,ctx,lockTid){
+  const ctrl=new AbortController();streaming.set(lockTid,{mid:m.id,ctrl});updateComposer(lockTid);
+  try{
+    if(!io.llm)await io.ready;
+    const r=await io.llm.complete({system:ctx.system,messages:ctx.messages,model:settings.model,effort:settings.effort,signal:ctrl.signal,onText:(text)=>{m.content=text;queueStream(m.id)}});
+    m.content=r.text;if(r.model)m.model=r.model;
+    if(r.truncated)m.error='Reply was cut off (length limit).';
+  }catch(e){
+    if(e&&e.text)m.content=e.text;
+    m.error=ctrl.signal.aborted?'Stopped.':(e&&e.code==='rate_limited'?'Rate limited. Wait a moment and retry.':(e&&e.message)||'Something went wrong.');
+  }
+  delete m.pending;m.ver++;streaming.delete(lockTid);
+  renderPane(m.thread);updateComposer(lockTid);renderMap();save();
+  if(conv.ui.view==='canvas')renderCanvas();
+}
+function retry(mid){
+  const m=conv.msgs[mid];if(!m||streaming.has(m.thread))return;
+  if(m.role==='note'){m.thread&&delete conv.msgs[mid];conv.order[m.thread]=conv.order[m.thread].filter(x=>x!==mid);bringBack(m.fromThread,m.focus||'');return}
+  m.content='';delete m.error;m.pending=true;m.ver++;renderPane(m.thread);generate(m,buildContext(m.thread,m.id),m.thread);
+}
+async function bringBack(tid,focus){
+  const t=T(tid);if(!t||!t.parent)return;
+  if(!conv.order[tid].some(id=>conv.msgs[id].role==='assistant'&&conv.msgs[id].content)){toast('Ask something in this branch first');return}
+  const parent=t.parent;
+  if(streaming.has(parent)){toast('Wait for the parent thread to finish replying');return}
+  await docReady();
+  const ctx=buildContext(tid);
+  const ask=`Write a short takeaway from this side branch that I can carry back into the parent discussion: 2 to 4 brief bullet points with the key insights, conclusions or corrections worth remembering${focus?`, focusing on: ${focus}`:''}. No preamble or heading.`;
+  const msgs=ctx.messages,last=msgs[msgs.length-1];if(last&&last.role==='user')last.content+='\n\n'+ask;else msgs.push({role:'user',content:ask});
+  const note=addMsg(parent,'note','',{fromThread:tid,focus});note.pending=true;
+  if(!conv.ui.open.includes(parent))openThread(parent);
+  conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==parent);layout();
+  renderPane(parent,true);revealPane(parent);
+  await generate(note,ctx,parent);
+}
+
+/* ---------- branching ---------- */
+function createBranch(mid,anchorText,question,title,range,page){
+  const isDoc=mid==='DOC';const m=isDoc?null:conv.msgs[mid];const parent=isDoc?'main':m.thread;
+  const t={id:'t'+rid(),parent,anchorMsg:mid,anchorText:anchorText||'',created:Date.now(),colorIdx:conv.nextColor++};
+  if(anchorText&&range)t.anchorRange=range;
+  if(isDoc)t.anchorPage=page||0;
+  if(title)t.title=title;else if(question)t.title=trunc(question,48);else{t.title=anchorText?trunc(anchorText,40):'Side question';t.autoTitle=!anchorText}
+  conv.threads[t.id]=t;conv.order[t.id]=[];
+  if(isDoc)refreshDocAnchors(t.anchorPage);else{m.ver++;renderPane(parent)}
+  openThread(t.id,parent);renderMap();save();
+  if(conv.ui.view==='canvas'){const S=cvState();if(!S.open.includes(t.id))S.open.push(t.id);renderCanvas();focusCard(t.id)}
+  if(question)send(t.id,question);
+  else setTimeout(()=>{const ta=paneEls.get(t.id)&&paneEls.get(t.id).querySelector('textarea');ta&&ta.focus()},30);
+}
+function deleteBranch(tid){
+  const t=T(tid);if(!t||!t.parent)return;
+  const kill=[tid,...Object.keys(conv.threads).filter(x=>isDesc(x,tid))];
+  for(const k of kill){const s=streaming.get(k);if(s)s.ctrl.abort()}
+  for(const k of kill){for(const mid of conv.order[k]||[]){delete conv.msgs[mid];msgCache.delete(mid)}delete conv.order[k];delete conv.threads[k]}
+  const keep=x=>conv.threads[x]||(x==='doc'&&conv.doc);
+  conv.ui.open=conv.ui.open.filter(keep);conv.ui.collapsed=conv.ui.collapsed.filter(keep);
+  for(const k of kill)delete conv.ui.sizes[k];
+  if(conv.msgs[t.anchorMsg])conv.msgs[t.anchorMsg].ver++;
+  if(isDocBranch(t))refreshDocAnchors(t.anchorPage);
+  for(const m of Object.values(conv.msgs))if(m.role==='note'&&kill.includes(m.fromThread))m.ver++;
+  layout();conv.ui.open.forEach(id=>renderPane(id));renderMap();save();
+  if(conv.ui.view==='canvas')renderCanvas();
+  toast('Branch deleted');
+}
+function openThread(tid,from){
+  const ui=conv.ui;
+  if(ui.open.includes(tid)){ui.collapsed=ui.collapsed.filter(x=>x!==tid);layout();revealPane(tid);return}
+  const src=from||T(tid).parent;
+  if(src&&!ui.open.includes(src))openThread(src);
+  let i=ui.open.indexOf(src);
+  if(i<0)i=ui.open.length-1;else while(i+1<ui.open.length&&isDesc(ui.open[i+1],src))i++;
+  ui.open.splice(i+1,0,tid);
+  layout();renderMap();revealPane(tid);save();
+}
+function closeThread(tid){
+  if(tid==='main')return;
+  const t=T(tid),ui=conv.ui;
+  ui.open=ui.open.filter(x=>x!==tid&&!isDesc(x,tid));ui.collapsed=ui.collapsed.filter(x=>ui.open.includes(x));
+  layout();renderMap();save();
+  revealAnchor(tid);
+}
+function toggleCollapse(tid){
+  const ui=conv.ui;
+  if(isCollapsed(tid))ui.collapsed=ui.collapsed.filter(x=>x!==tid);
+  else{
+    if(ui.open.filter(x=>!isCollapsed(x)).length<=1){toast('At least one pane stays open');return}
+    ui.collapsed.push(tid);
+  }
+  layout();save();
+}
+const isFocused=(tid)=>conv.ui.open.length>1&&!isCollapsed(tid)&&conv.ui.open.every(x=>x===tid||isCollapsed(x));
+function toggleFocus(tid){
+  const ui=conv.ui;
+  if(isFocused(tid))ui.collapsed=[];else ui.collapsed=ui.open.filter(x=>x!==tid);
+  layout();revealPane(tid);save();
+}
+function revealPane(tid){
+  const el=paneEls.get(tid);if(!el)return;
+  requestAnimationFrame(()=>{
+    const p=$('#panes');const r=el.getBoundingClientRect(),pr=p.getBoundingClientRect();
+    if(conv.ui.layout==='cols'){if(r.right>pr.right||r.left<pr.left)p.scrollBy({left:r.right>pr.right?r.right-pr.right+12:r.left-pr.left-12,behavior:'smooth'})}
+    else{if(r.bottom>pr.bottom||r.top<pr.top)p.scrollBy({top:r.bottom>pr.bottom?r.bottom-pr.bottom+12:r.top-pr.top-12,behavior:'smooth'})}
+    el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');
+    setTimeout(wires,350);
+  });
+}
+/* take the user to the exact spot a branch came from */
+function revealAnchor(tid){
+  const t=T(tid);if(!t||!t.parent)return;
+  if(isDocBranch(t)){revealDocAnchor(t);return}
+  if(conv.ui.view==='canvas')setView(conv.ui.layout);
+  if(!conv.ui.open.includes(t.parent))openThread(t.parent);
+  if(isCollapsed(t.parent)){conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==t.parent);layout()}
+  const pe=paneEls.get(t.parent);if(!pe)return;
+  requestAnimationFrame(()=>{
+    const a=pe.querySelector(`.anchor[data-tid="${tid}"]`)||pe.querySelector(`.msg[data-mid="${t.anchorMsg}"]`);
+    if(!a)return;
+    const pb=pe.querySelector('.pb');const ar=a.getBoundingClientRect(),br=pb.getBoundingClientRect();
+    rememberSpot(pe);
+    pb.scrollBy({top:ar.top-br.top-br.height/3,behavior:'smooth'});
+    revealPane(t.parent);
+    const spans=pe.querySelectorAll(`.anchor[data-tid="${tid}"]`);
+    if(spans.length)spans.forEach(s=>{s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash')});
+    else{const m=pe.querySelector(`.msg[data-mid="${t.anchorMsg}"]`);if(m){m.style.setProperty('--c',color(t));m.classList.remove('flash');void m.offsetWidth;m.classList.add('flash')}}
+    setTimeout(wires,450);
+  });
+}
+function revealMsg(tid,mid){
+  const pe=paneEls.get(tid);if(!pe)return;
+  requestAnimationFrame(()=>{const m=pe.querySelector(`.msg[data-mid="${mid}"]`);if(!m)return;const pb=pe.querySelector('.pb');rememberSpot(pe);
+    pb.scrollBy({top:m.getBoundingClientRect().top-pb.getBoundingClientRect().top-20,behavior:'smooth'});
+    m.style.setProperty('--c',color(T(tid)));m.classList.remove('flash');void m.offsetWidth;m.classList.add('flash')});
+}
+
+/* ---------- markdown / math / mermaid ---------- */
+marked.setOptions({gfm:true,breaks:false});
+function protectMath(md,maths){
+  const parts=md.split(/(```[\s\S]*?(?:```|$)|`[^`\n]+`)/g);
+  return parts.map((p,i)=>{
+    if(i%2)return p;
+    return p.replace(/\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\\\(([\s\S]+?)\\\)|\$([^\s$](?:[^$\n]*?[^\s$\\])?)\$(?!\d)/g,(raw,a,b,c,d)=>{
+      const disp=a!=null||b!=null;maths.push({t:(a??b??c??d).trim(),d:disp,raw});
+      const k=`@@M${maths.length-1}@@`;return disp?`\n\n${k}\n\n`:k;
+    });
+  }).join('');
+}
+function renderRich(el,md,final){
+  const maths=[];
+  let html=marked.parse(protectMath(md||'',maths));
+  html=DOMPurify.sanitize(html);
+  html=html.replace(/@@M(\d+)@@/g,(_,i)=>`<span class="math${maths[+i]&&maths[+i].d?' display':''}" data-i="${i}"></span>`);
+  el.innerHTML=html;
+  el.querySelectorAll('span.math').forEach(s=>{
+    const m=maths[+s.dataset.i];if(!m)return;
+    if(final&&mathReady){try{s.appendChild(MathJax.tex2svg(m.t,{display:m.d}));return}catch(e){}}
+    s.classList.add('raw');s.textContent=m.raw;
+  });
+  el.querySelectorAll('pre code').forEach(code=>{
+    const lang=((code.className||'').match(/language-(\S+)/)||[])[1];
+    if(lang==='mermaid'){
+      const box=document.createElement('div');box.className='mermaid-box';box.dataset.src=code.textContent;
+      box.textContent=final?'Rendering diagram…':'Drawing diagram…';code.parentElement.replaceWith(box);
+    }else if(window.hljs){try{hljs.highlightElement(code)}catch(e){}}
+  });
+  el.querySelectorAll('a').forEach(a=>{a.target='_blank';a.rel='noopener'});
+  if(conv&&conv.doc&&conv.doc.kind==='pdf'&&!el.classList.contains('docbody'))linkPages(el);
+}
+function loadMermaid(){
+  if(mermaidReady)return mermaidReady;
+  mermaidReady=new Promise(res=>{
+    const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
+    s.onload=()=>{try{const dark=matchMedia('(prefers-color-scheme: dark)').matches;
+      mermaid.initialize({startOnLoad:false,securityLevel:'strict',theme:dark?'dark':'neutral',fontFamily:'Inter, system-ui, sans-serif'});mermaidOk=true}catch(e){}res()};
+    s.onerror=()=>res();document.head.appendChild(s);
+  });
+  return mermaidReady;
+}
+async function renderMermaid(root){
+  const boxes=[...root.querySelectorAll('.mermaid-box:not([data-done])')];if(!boxes.length)return;
+  await loadMermaid();
+  for(const box of boxes){
+    box.dataset.done='1';
+    if(!mermaidOk){showMermaidSrc(box);continue}
+    try{const {svg}=await mermaid.render('mm'+rid(),box.dataset.src);box.innerHTML=svg}
+    catch(e){showMermaidSrc(box);document.querySelectorAll('body>[id^="dmm"],body>svg[id^="mm"]').forEach(n=>n.remove())}
+  }
+  wiresSoon();
+}
+function showMermaidSrc(box){box.innerHTML='<pre class="mm-err"><code></code></pre>';box.querySelector('code').textContent=box.dataset.src}
+
+/* anchors: wrap the highlighted text and add a numbered footnote marker after it */
+function applyAnchors(root,m){
+  for(const t of branchesOn(m.id))if(t.anchorText)wrapText(root,t.anchorText,t);
+}
+/* Positions are counted in non-whitespace characters of the reply's visible text (skipping math,
+   diagrams and markers), so they survive re-rendering and don't depend on how the browser
+   turns a selection into text. */
+const textWalker=(root)=>document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement&&n.parentElement.closest('svg,.math,.mermaid-box,mjx-container,sup.fn')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+const nonWs=(s)=>s.replace(/\s+/g,'').length;
+function charPos(root,cont,off){
+  const r=document.createRange();r.setStart(root,0);try{r.setEnd(cont,off)}catch(e){return -1}
+  const w=textWalker(root);let n,c=0;
+  while((n=w.nextNode())){
+    if(n===cont){c+=nonWs(n.nodeValue.slice(0,off));break}
+    if(r.comparePoint(n,0)>0)break;
+    if(r.comparePoint(n,n.nodeValue.length)<=0)c+=nonWs(n.nodeValue);else break;
+  }
+  return c;
+}
+function wrapText(root,needle,t,opts){
+  const w=textWalker(root);
+  let flat='',map=[],n;
+  while((n=w.nextNode())){const s=n.nodeValue;for(let i=0;i<s.length;i++){if(/\s/.test(s[i]))continue;flat+=s[i];map.push([n,i])}}
+  let idx=-1,len=0;
+  const ar=t.anchorRange;
+  if(ar&&ar.e>ar.s&&ar.e<=flat.length){idx=ar.s;len=ar.e-ar.s}
+  else{
+    const nd=(needle||'').replace(/\s+/g,'');if(!nd)return;
+    idx=flat.indexOf(nd);len=nd.length;
+    if(idx<0){
+      // Older branches only stored the passage's text, and some browsers include equation
+      // symbols in it that aren't part of the visible text. Match the passage by its start
+      // and end instead, allowing anything (e.g. math) in between.
+      const lo=flat.toLowerCase(),ln=nd.toLowerCase();let st=-1,en=-1;
+      for(let L=Math.min(40,ln.length);L>=6&&st<0;L--){const k=lo.indexOf(ln.slice(0,L));if(k>=0)st=k}
+      if(st>=0)for(let L=Math.min(40,ln.length);L>=6&&en<0;L--){const k=lo.indexOf(ln.slice(-L),st);if(k>=0)en=k+L}
+      if(st>=0&&en>st&&(en-st)<=ln.length*1.5+20){idx=st;len=en-st}
+    }
+  }
+  const c=color(t);
+  const marker=()=>{const s=document.createElement('sup');s.className='fn'+(t.resolved?' res':'');s.dataset.tid=t.id;s.style.setProperty('--c',c);s.textContent=branchNum(t);s.title=`Open branch ${branchNum(t)}: ${t.title||''}`;return s};
+  if(idx<0){
+    // passage couldn't be located: put the marker at the end of the reply
+    if(opts&&opts.noMarker)return null;
+    const last=root.lastElementChild||root;last.appendChild(marker());return null;
+  }
+  const segs=new Map();
+  for(let k=idx;k<idx+len;k++){const [node,off]=map[k];const s=segs.get(node);if(s){s.to=off+1}else segs.set(node,{from:off,to:off+1})}
+  let first=true,lastSpan=null,firstSpan=null;
+  for(const [node,{from,to}] of segs){
+    if(!node.nodeValue.slice(from,to).trim())continue;
+    const r=document.createRange();r.setStart(node,from);r.setEnd(node,to);
+    const sp=document.createElement('span');sp.className='anchor'+(t.resolved?' res':'');sp.dataset.tid=t.id;sp.style.setProperty('--c',c);
+    sp.title='Open branch: '+(t.title||'');if(first){sp.dataset.first='1';first=false}
+    try{r.surroundContents(sp);lastSpan=sp;if(!firstSpan)firstSpan=sp}catch(e){}
+  }
+  if(lastSpan&&!(opts&&opts.noMarker))lastSpan.after(marker());
+  return firstSpan;
+}
+
+/* ---------- message elements ---------- */
+function anchorsKey(m){return branchesOn(m.id).map(t=>t.id+t.title+(t.resolved?'r':'')).join(',')}
+function msgEl(m){
+  const key=`${m.ver}|${m.pending?1:0}|${mathReady?1:0}|${m.role!=='user'?anchorsKey(m):''}|${m.role==='note'&&T(m.fromThread)?T(m.fromThread).title:''}`;
+  const c=msgCache.get(m.id);if(c&&c.key===key)return c.el;
+  const el=document.createElement('div');el.className='msg '+m.role;el.dataset.mid=m.id;
+  if(m.role==='user'){el.innerHTML='<div class="body"></div>';el.firstChild.textContent=m.content}
+  else if(m.role==='note'){
+    const src=T(m.fromThread);el.style.setProperty('--c',src?color(src):'var(--faint)');
+    el.innerHTML=`<div class="nh"><span class="d"></span>Takeaway from ${src?`<button class="nl" data-open="${src.id}" title="Open the branch this came from"></button>`:'<i>deleted branch</i>'}<span style="flex:1"></span>${m.error?`<button class="ib" data-act="retry" title="Retry">${ic('retry')}</button>`:''}<button class="ib" data-act="delnote" title="Remove takeaway">${ic('x')}</button></div><div class="body"></div>`;
+    if(src)el.querySelector('.nl').textContent=src.title;
+    const body=el.querySelector('.body');
+    if(m.pending)streamInto(body,m);else{renderRich(body,m.content,true);if(m.error){const e=document.createElement('div');e.className='err';e.textContent=m.error;body.appendChild(e)}}
+  }else{
+    el.innerHTML='<div class="body"></div><div class="mfoot"></div>';
+    const body=el.firstChild;
+    if(m.pending){streamInto(body,m)}
+    else{
+      renderRich(body,m.content,true);applyAnchors(body,m);renderMermaid(body);
+      if(m.error){const e=document.createElement('div');e.className='err';e.textContent=m.error;body.appendChild(e)}
+      buildFoot(el.lastChild,m);
+    }
+  }
+  msgCache.set(m.id,{key,el});return el;
+}
+function buildFoot(f,m){
+  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(m.error?`<button class="ib" data-act="retry" title="Retry">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}</span>`:'');
+  const bs=branchesOn(m.id);
+  if(bs.length){
+    const wrap=document.createElement('div');wrap.className='bchips';
+    for(const t of bs){
+      const b=document.createElement('span');b.className='bchip'+(t.resolved?' res':'');b.dataset.tid=t.id;b.style.setProperty('--c',color(t));
+      b.innerHTML=`<span class="n">${branchNum(t)}</span><span class="bt"></span><button class="bx" data-delb="${t.id}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`;
+      b.querySelector('.bt').textContent=t.title;b.title=`Open branch ${branchNum(t)}`+(t.anchorText?`, from “${trunc(t.anchorText,120)}”`:', about the whole reply');
+      wrap.appendChild(b);
+    }
+    f.appendChild(wrap);
+  }
+}
+function streamInto(body,m){
+  if(!m.content){body.innerHTML='<span class="thinking"><i></i><i></i><i></i></span>';return}
+  renderRich(body,m.content,false);
+}
+const streamQ=new Set();let streamTimer=0;
+function queueStream(mid){
+  streamQ.add(mid);
+  if(streamTimer)return;
+  streamTimer=setTimeout(()=>{
+    streamTimer=0;
+    for(const id of streamQ){
+      const m=conv.msgs[id];const c=msgCache.get(id);if(!m||!c||!m.pending)continue;
+      const pb=c.el.closest('.pb');const stick=pb&&pb.scrollHeight-pb.scrollTop-pb.clientHeight<80;
+      streamInto(c.el.querySelector('.body'),m);
+      if(stick)pb.scrollTop=pb.scrollHeight;
+    }
+    if(conv.ui.view==='canvas')for(const id of streamQ){const m=conv.msgs[id];const b=m&&m.pending&&document.querySelector(`#cv .msg[data-mid="${id}"] .body`);if(b){const f=b.closest('.cfull');const stick=f&&f.scrollHeight-f.scrollTop-f.clientHeight<80;streamInto(b,m);if(stick)f.scrollTop=f.scrollHeight}}
+    streamQ.clear();wiresSoon();if(conv.ui.view==='canvas')drawEdgesSoon();
+  },70);
+}
+
+/* ---------- panes ---------- */
+function paneEl(tid){
+  let el=paneEls.get(tid);if(el)return el;
+  if(tid==='doc')return docPaneEl();
+  const isMain=tid==='main';
+  el=document.createElement('section');el.className='pane'+(isMain?' main':'');el.dataset.tid=tid;
+  el.innerHTML=`<div class="ph">${isMain?'<span class="dot"></span>':`<span class="sdot" data-resolve="${tid}"></span>`}<div class="ph-main"><div class="ph-title" spellcheck="false"></div><div class="ph-origin"></div></div>
+    <div class="ph-act">${isMain?'':`<button class="tb" data-act="back" title="Go back to where this branched from">${ic('back')}<span class="tl">Back</span></button><button class="tb" data-act="take" title="Add a short takeaway from this branch to its parent">${ic('take')}<span class="tl">Takeaway</span></button>`}
+    <button class="ib" data-act="pin"></button><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it.">${ic('collapse')}</button><button class="ib" data-act="focus"></button>${isMain?'':`<button class="ib dz" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button><button class="ib" data-act="close" title="Close this pane and jump back to where it branched from. The branch stays saved.">${ic('x')}</button>`}</div></div>
+    <div class="pb"><div class="msgs"></div></div>
+    ${isMain?'':`<div class="tk"><div class="tkb"><span class="tkl">Takeaway to parent</span><input placeholder="Optional: what to focus on" autocomplete="off"><button class="go" title="Generate 2–4 takeaway bullets and add them to the end of the parent thread">Add</button><button class="ib" data-act="take" title="Cancel">${ic('x')}</button></div></div>`}
+    <div class="jumpw"><div class="jump"><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button><button class="ib jl" data-act="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib je" data-act="jend" title="Jump to the very bottom">${ic('jend')}</button></div></div>
+    <form class="composer"><div class="cbox"><textarea rows="1"></textarea><button class="sendb" type="submit"></button></div></form>
+    <div class="rail-label"><span class="dot"></span><span class="rl"></span></div>`;
+  const ta=el.querySelector('textarea');
+  ta.placeholder=isMain?'Ask anything…':'Ask a follow-up in this branch…';
+  ta.addEventListener('input',()=>{autosize(ta);updateComposer(tid)});
+  ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();submit(tid)}});
+  el.querySelector('form').addEventListener('submit',e=>{e.preventDefault();const s=streaming.get(tid);if(s){s.ctrl.abort();return}submit(tid)});
+  const tk=el.querySelector('.tk');
+  if(tk){const inp=tk.querySelector('input');const go=()=>{tk.classList.remove('show');const f=inp.value.trim();inp.value='';bringBack(tid,f)};
+    tk.querySelector('.go').addEventListener('click',go);inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();go()}else if(e.key==='Escape')tk.classList.remove('show')})}
+  const title=el.querySelector('.ph-title');
+  title.addEventListener('dblclick',()=>{if(isMain)return;title.contentEditable='true';title.focus();document.getSelection().selectAllChildren(title)});
+  title.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();title.blur()}});
+  title.addEventListener('blur',()=>{if(title.contentEditable!=='true')return;title.contentEditable='false';const v=title.textContent.trim();if(v&&T(tid)){T(tid).title=v;delete T(tid).autoTitle;refreshAnchorsFor(tid);renderMap();save()}});
+  el.querySelector('.pb').addEventListener('scroll',()=>{wiresSoon();updateJump(el)},{passive:true});
+  paneEls.set(tid,el);return el;
+}
+function updateJump(el){
+  const pb=el.querySelector('.pb');if(!pb)return;
+  el.classList.toggle('away',pb.scrollHeight-pb.scrollTop-pb.clientHeight>100);
+  if(el.__prev!=null&&Math.abs(pb.scrollTop-el.__prev)<40&&!el.__jumping){el.__prev=null;el.classList.remove('hasprev')}
+}
+function rememberSpot(pe){
+  const pb=pe.querySelector('.pb');pe.__prev=pb.scrollTop;pe.__jumping=true;pe.classList.add('hasprev');
+  setTimeout(()=>{pe.__jumping=false},900);
+}
+function autosize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,200)+'px'}
+function submit(tid){const el=paneEls.get(tid);const ta=el.querySelector('textarea');const v=ta.value.trim();if(!v)return;ta.value='';autosize(ta);send(tid,v)}
+function updateComposer(tid){
+  const el=paneEls.get(tid);if(!el)return;const b=el.querySelector('.sendb');const s=streaming.has(tid);
+  b.innerHTML=s?ic('stop'):ic('send');b.title=s?'Stop':'Send';b.disabled=!s&&!el.querySelector('textarea').value.trim();
+}
+function updateHeader(tid){
+  if(tid==='doc'){updateDocHeader();return}
+  const el=paneEls.get(tid);const t=T(tid);if(!el||!t)return;
+  el.style.setProperty('--c',color(t));
+  const title=el.querySelector('.ph-title');if(title.contentEditable!=='true')title.textContent=tid==='main'?(conv.title||'Main thread'):t.title;
+  title.title=tid==='main'?'':'Double-click to rename';
+  const o=el.querySelector('.ph-origin');
+  if(t.parent){
+    const path=ancestors(tid);
+    const crumbs=path.slice(0,-1).map((id,i)=>`<span class="crumb" data-crumb="${id}" data-via="${path[i+1]}" title="Go to where the next branch starts">${esc(trunc(id==='main'?(isDocBranch(T(path[i+1]))?'Document':'Main'):T(id).title,22))}</span>`).join(' › ');
+    o.innerHTML=`↳ ${crumbs} <sup style="font-size:10px;color:${color(t)}">${branchNum(t)}</sup>${t.anchorText?` · <q data-back="1" title="Show this passage in its source">${esc(trunc(t.anchorText,70))}</q>`:' · whole reply'}`;
+  }else{const n=Object.keys(conv.threads).length-1;o.textContent=`${n} branch${n===1?'':'es'}`}
+  const pb_=el.querySelector('[data-act="pin"]');if(pb_){const pinned=tid==='main'?!!conv.pinned:!!t.pinned;pb_.innerHTML=ic('pin');pb_.classList.toggle('pinned',pinned);pb_.title=tid==='main'?(pinned?'Unpin this conversation':'Pin this conversation to the top of the sidebar'):(pinned?'Unpin this branch':'Pin this branch to the top of the sidebar, so you can jump straight back to it')}
+  const f=el.querySelector('[data-act="focus"]');const on=isFocused(tid);f.innerHTML=ic(on?'unfocus':'focus');f.title=on?'Show all panes (Esc)':'Focus: collapse every other pane';f.classList.toggle('on',on);
+  el.querySelector('.rl').textContent=tid==='main'?'Main':t.title;
+  const sd=el.querySelector('.sdot');if(sd){sd.classList.toggle('res',!!t.resolved);sd.title=t.resolved?'Resolved. Click to mark as still open.':'Open. Click to mark as resolved once you\'ve got it.'}
+  el.classList.toggle('res',!!t.resolved);
+}
+function originCard(t){
+  const d=document.createElement('div');d.className='origin';d.style.setProperty('--c',color(t));
+  if(isDocBranch(t)){d.innerHTML=`<div class="ol"><span>Branched from the document${conv.doc&&conv.doc.kind==='pdf'?`, page ${t.anchorPage+1}`:''}</span><button data-back="1" title="Scroll the document to the exact passage this branch came from">Show in source</button></div><div class="oq"></div>`;const oq0=d.querySelector('.oq');oq0.textContent=t.anchorText;oq0.dataset.back='1';oq0.title='Jump to this passage in the document';return d}
+  const p=T(t.parent);
+  d.innerHTML=`<div class="ol"><span>Branched from ${esc(p.parent?p.title:'the main thread')}${t.anchorText?'':' (the whole reply)'}</span><button data-back="1" title="Scroll the parent to the exact passage this branch came from">Show in source</button></div>${t.anchorText?'<div class="oq"></div>':''}`;
+  if(t.anchorText){const oq=d.querySelector('.oq');oq.textContent=t.anchorText;oq.dataset.back='1';oq.title='Jump to this passage in the reply it came from'}
+  return d;
+}
+function emptyState(t){
+  const d=document.createElement('div');d.className='empty';
+  if(t.id==='main'&&conv.doc){
+    d.innerHTML=`<h2>Ask about the whole document</h2><div>Or highlight any passage in the document to open a branch about just that part. Page references in answers are links.</div><div class="chips"></div>`;
+    DOC_STARTERS.forEach(s=>{const b=document.createElement('button');b.className='chip';b.textContent=s;b.dataset.ask=s;d.lastChild.appendChild(b)});
+  }else if(t.id==='main'){
+    d.innerHTML=`<h2>What do you want to understand?</h2><div>Ask a question. When a phrase in the answer raises a new question, highlight it to open a side branch next to the main thread.</div><div class="chips"></div>`;
+    STARTERS.forEach(s=>{const b=document.createElement('button');b.className='chip';b.textContent=s;b.dataset.ask=s;d.lastChild.appendChild(b)});
+  }else{
+    d.innerHTML=`<div>${t.anchorText?'Ask anything about this passage':'Ask a side question about that reply'}, or start with one of these:</div><div class="chips"></div>`;
+    QUICK.forEach(([l,q])=>{const b=document.createElement('button');b.className='chip';b.textContent=l;b.dataset.ask=q;b.title='Asks: '+q;d.lastChild.appendChild(b)});
+  }
+  return d;
+}
+function renderPane(tid,toBottom){
+  if(tid==='doc'){renderDocPane();return}
+  const el=paneEls.get(tid);if(!el||!T(tid))return;
+  const t=T(tid),list=el.querySelector('.msgs'),nodes=[];
+  if(t.parent)nodes.push(originCard(t));
+  const mids=conv.order[tid]||[];
+  if(!mids.length)nodes.push(emptyState(t));
+  for(const mid of mids)if(conv.msgs[mid])nodes.push(msgEl(conv.msgs[mid]));
+  list.replaceChildren(...nodes);
+  updateHeader(tid);updateComposer(tid);
+  if(toBottom){const pb=el.querySelector('.pb');pb.scrollTop=pb.scrollHeight}
+  requestAnimationFrame(()=>updateJump(el));
+  wiresSoon();
+}
+function refreshAnchorsFor(tid){const t0=T(tid);if(isDocBranch(t0))refreshDocAnchors(t0.anchorPage);const t=T(tid);if(t&&t.anchorMsg&&conv.msgs[t.anchorMsg]){conv.msgs[t.anchorMsg].ver++;renderPane(t.parent)}conv.ui.open.forEach(updateHeader)}
+function gutEl(tid){
+  let g=gutEls.get(tid);if(g)return g;
+  g=document.createElement('div');g.className='gut';g.dataset.left=tid;g.title='Drag to resize, double-click to reset';
+  g.addEventListener('pointerdown',e=>startDrag(e,g));
+  g.addEventListener('dblclick',()=>{delete conv.ui.sizes[g.dataset.left];layout();save()});
+  gutEls.set(tid,g);return g;
+}
+function layout(){
+  const wrap=$('#panes'),ui=conv.ui;
+  wrap.className='panes '+ui.layout;
+  for(const [tid,el] of paneEls)if(!ui.open.includes(tid)||(!T(tid)&&!(tid==='doc'&&conv.doc))){el.remove();paneEls.delete(tid);gutEls.get(tid)&&gutEls.get(tid).remove();gutEls.delete(tid)}
+  const seq=[],fresh=[];
+  ui.open.forEach((tid,i)=>{
+    const isNew=!paneEls.has(tid);const el=paneEl(tid);
+    const rail=isCollapsed(tid);el.classList.toggle('rail',rail);
+    el.title=rail?'Click to expand':'';
+    const sz=ui.sizes[tid];el.style.flex=(sz&&!rail)?`0 0 ${sz}px`:'';
+    seq.push(el);if(isNew)fresh.push(tid);else updateHeader(tid);
+    if(i<ui.open.length-1)seq.push(gutEl(tid));
+  });
+  for(const [tid,g] of gutEls)if(!seq.includes(g))g.remove();
+  seq.forEach((n,i)=>{if(wrap.children[i]!==n)wrap.insertBefore(n,wrap.children[i]||null)});
+  while(wrap.children.length>seq.length)wrap.lastChild.remove();
+  fresh.forEach(tid=>renderPane(tid,true));
+  syncViewSeg();
+  wiresSoon();
+}
+let drag=null;
+function startDrag(e,g){
+  const tid=g.dataset.left,el=paneEls.get(tid);if(!el||el.classList.contains('rail'))return;
+  const cols=conv.ui.layout==='cols';const r=el.getBoundingClientRect();
+  drag={tid,el,cols,start:cols?e.clientX:e.clientY,size:cols?r.width:r.height,g};g.classList.add('drag');(()=>{try{g.setPointerCapture(e.pointerId)}catch(_){}})();
+  g.onpointermove=ev=>{const d=(drag.cols?ev.clientX:ev.clientY)-drag.start;const s=Math.max(drag.cols?360:200,drag.size+d);drag.el.style.flex=`0 0 ${s}px`;conv.ui.sizes[drag.tid]=Math.round(s);wiresSoon()};
+  g.onpointerup=()=>{g.classList.remove('drag');g.onpointermove=g.onpointerup=null;drag=null;save()};
+}
+
+/* ---------- connector wires (pane view) ---------- */
+let wireRAF=0;
+function wiresSoon(){if(!wireRAF)wireRAF=requestAnimationFrame(()=>{wireRAF=0;wires()})}
+function wires(){
+  const svg=$('#wires');if(!conv||conv.ui.view==='canvas'){svg.innerHTML='';return}
+  const st=$('#stage').getBoundingClientRect(),pr=$('#panes').getBoundingClientRect();
+  const cols=conv.ui.layout==='cols';let out='';
+  for(const tid of conv.ui.open){
+    const t=T(tid);if(!t||!t.parent)continue;
+    const pid=isDocBranch(t)?'doc':t.parent;
+    const pe=paneEls.get(tid),ppe=paneEls.get(pid);
+    if(!pe||!ppe||isCollapsed(tid)||isCollapsed(pid))continue;
+    const c=color(t),hdr=pe.querySelector('.ph').getBoundingClientRect(),body=ppe.querySelector('.pb').getBoundingClientRect();
+    let a=ppe.querySelector(`sup.fn[data-tid="${tid}"]`)||ppe.querySelector(`.bchip[data-tid="${tid}"]`)||ppe.querySelector(`.msg[data-mid="${t.anchorMsg}"]`);
+    if(!a)continue;
+    const ar=a.getClientRects()[0]||a.getBoundingClientRect();
+    let ay=ar.top+ar.height/2,off=false;
+    if(ay<body.top+4){ay=body.top+4;off=true}if(ay>body.bottom-4){ay=body.bottom-4;off=true}
+    const gap=conv.ui.open.indexOf(tid)-conv.ui.open.indexOf(pid);
+    let d,ax,bx,by;
+    if(cols){
+      ax=body.right;bx=hdr.left;by=hdr.top+hdr.height/2;
+      if(bx<pr.left-2||ax>pr.right+2)continue;
+      const dx=Math.max(18,(bx-ax)/2);
+      d=`M${ax-st.left} ${ay-st.top} C${ax+dx-st.left} ${ay-st.top},${bx-dx-st.left} ${by-st.top},${bx-st.left} ${by-st.top}`;
+    }else{
+      ax=body.left;bx=hdr.left;by=hdr.top+hdr.height/2;
+      const gx=Math.min(ax,bx)-12-(Math.max(0,gap-1)%3)*3;
+      d=`M${ax-st.left} ${ay-st.top} C${gx-st.left} ${ay-st.top},${gx-st.left} ${ay-st.top},${gx-st.left} ${Math.min(ay+18,by)-st.top} L${gx-st.left} ${Math.max(by-18,ay)-st.top} C${gx-st.left} ${by-st.top},${gx-st.left} ${by-st.top},${bx-st.left} ${by-st.top}`;
+    }
+    const op=off?0.4:(gap>1?0.55:0.9);
+    out+=`<path d="${d}" fill="none" stroke="${c}" stroke-width="1.7" opacity="${op}"${off?' stroke-dasharray="4 4"':''}/>`;
+    out+=`<circle cx="${ax-st.left}" cy="${ay-st.top}" r="3.2" fill="${c}" opacity="${op}"/><circle cx="${bx-st.left}" cy="${by-st.top}" r="3.2" fill="${c}"/>`;
+  }
+  svg.innerHTML=out;
+}
+
+/* ---------- canvas view ---------- */
+const cam={x:40,y:40,k:1};let camFitted=false;
+const CW=320,CWX=580,HG=90,VG=26;
+function kidsOf(tid){
+  if(tid==='doc')return [T('main'),...docBranches()];
+  const k=children(tid);return tid==='main'&&conv.doc?k.filter(c=>!isDocBranch(c)):k;
+}
+function visParentId(tid){if(tid==='doc')return null;if(tid==='main')return conv.doc?'doc':null;const t=T(tid);return t?(isDocBranch(t)?'doc':t.parent):null}
+function cvState(){const u=conv.ui;u.cv=u.cv||{};u.cv.pos=u.cv.pos||{};u.cv.size=u.cv.size||{};u.cv.open=u.cv.open||[];u.cv.fold=u.cv.fold||[];return u.cv}
+function foldHidden(tid){let p=visParentId(tid);while(p){if(cvState().fold.includes(p))return true;p=visParentId(p)}return false}
+function descendants(tid){const out=[];const go=id=>kidsOf(id).forEach(k=>{out.push(k.id);go(k.id)});go(tid);return out}
+function applyCam(){$('#world').style.transform=`translate(${cam.x}px,${cam.y}px) scale(${cam.k})`;if($('#dock').children.length)drawEdgesSoon()}
+function canvasMsgEl(m){
+  const el=document.createElement('div');el.className='msg '+m.role;el.dataset.mid=m.id;
+  if(m.role==='user'){el.innerHTML='<div class="body"></div>';el.firstChild.textContent=m.content;return el}
+  if(m.role==='note'){
+    const src=T(m.fromThread);el.style.setProperty('--c',src?color(src):'var(--faint)');
+    el.innerHTML=`<div class="nh"><span class="d"></span>Takeaway from ${src?'<b></b>':'<i>deleted branch</i>'}</div><div class="body"></div>`;
+    if(src)el.querySelector('b').textContent=src.title;
+  }else el.innerHTML='<div class="body"></div>';
+  const body=el.querySelector('.body');
+  if(m.pending)streamInto(body,m);
+  else{renderRich(body,m.content,true);if(m.role==='assistant')applyAnchors(body,m);renderMermaid(body).then(drawEdgesSoon)}
+  return el;
+}
+function statusDot(t){
+  if(!t.parent)return '<span class="mdot"></span>';
+  return `<span class="sdot${t.resolved?' res':''}" data-resolve="${t.id}" style="--c:${color(t)}" title="${t.resolved?'Resolved. Click to mark as still open.':'Open. Click to mark as resolved once you\'ve got it.'}"></span>`;
+}
+function renderCanvas(){
+  const S=cvState(),world=$('#world'),dock=$('#dock');S.dock=S.dock||{};S.cz=S.cz||{};
+  for(const id of Object.keys(S.dock))if(!(conv.threads[id]))delete S.dock[id];
+  const keep={};
+  $('#cv').querySelectorAll('.cnode').forEach(n=>{const f=n.querySelector('.cfull'),i=n.querySelector('.cask textarea');keep[n.dataset.ctid]={st:f?f.scrollTop:0,v:i?i.value:'',focus:i&&document.activeElement===i}});
+  $('#cv').querySelectorAll('.cnode').forEach(n=>n.remove());
+  S.open=S.open.filter(id=>conv.threads[id]);S.fold=S.fold.filter(id=>conv.threads[id]||(id==='doc'&&conv.doc));
+  const nodes={};
+  for(const t of Object.values(conv.threads)){
+    if(foldHidden(t.id))continue;
+    const docked=!!S.dock[t.id],exp=S.open.includes(t.id)||docked,kids=kidsOf(t.id),folded=S.fold.includes(t.id);
+    const n=document.createElement('div');n.className='cnode'+(t.parent?'':' main')+(exp?' exp':'')+(docked?' docked':'')+(t.resolved?' res':'');n.dataset.ctid=t.id;n.style.setProperty('--c',color(t));
+    n.innerHTML=`<div class="ch" title="Drag to move. Shift-drag moves its sub-branches too. Double-click to open in panes.">${statusDot(t)}<span class="ct"></span>`+
+      (kids.length?`<button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} the ${descendants(t.id).length} branch${descendants(t.id).length===1?'':'es'} below this card">${folded?'+'+descendants(t.id).length:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+kids.length}</button>`:'')+
+      `<span class="czoom"><button class="ib" data-cact="zout" title="Make just this card smaller (or Alt+scroll over it)">−</button><span class="zl" data-cact="zreset" title="This card's own zoom. Click to reset to 100%.">100%</span><button class="ib" data-cact="zin" title="Make just this card bigger (or Alt+scroll over it)">+</button></span>`+
+      `<button class="ib${docked?' stuck':''}" data-cact="stick" title="${docked?'Stuck to the screen: it stays put while you pan and zoom. Click to drop it onto the canvas where it is.':'Stick to the screen: keep this card in view at reading size while you pan and zoom around it.'}">${ic('pin')}</button>`+
+      (docked?`<button class="ib" data-cact="restore" title="Put it back where it was on the canvas (↓ or Esc)">${ic('unfocus')}</button>`:`<button class="ib" data-cact="exp" title="${exp?'Shrink back to a summary':'Expand to read the full thread here'}">${ic(exp?'unfocus':'focus')}</button>`)+
+      `<button class="ib" data-cact="panes" title="Open this thread in the pane view">${ic('cols')}</button>`+
+      (t.parent?`<button class="ib dz" data-delb="${t.id}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`:'')+`</div>`+
+      (t.anchorText?'<div class="cq"></div>':'');
+    n.querySelector('.ct').textContent=t.parent?t.title:(conv.title||'Main thread');
+    if(t.anchorText){const q=n.querySelector('.cq');q.textContent=t.anchorText;q.title='Jump to this passage in the card it came from'}
+    const mids=(conv.order[t.id]||[]).filter(id=>conv.msgs[id]);
+    if(exp){
+      const full=document.createElement('div');full.className='cfull';
+      if(!mids.length)full.innerHTML='<div class="empty" style="padding:12px 0">Nothing here yet. Ask below.</div>';
+      for(const mid of mids)full.appendChild(canvasMsgEl(conv.msgs[mid]));
+      n.appendChild(full);
+      const cj=document.createElement('div');cj.className='cjump';
+      cj.innerHTML=`<button class="ib" data-cact="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib" data-cact="jend" title="Jump to the very bottom">${ic('jend')}</button>`;
+      n.appendChild(cj);
+      const ask=document.createElement('div');ask.className='cask';
+      ask.innerHTML=`<textarea rows="1" placeholder="${t.parent?'Ask a follow-up in this branch…':'Ask anything…'}"></textarea><button class="sendb" data-cact="ask" title="Send (Enter). Shift+Enter adds a new line.">${ic('send')}</button>`;
+      n.appendChild(ask);
+      const cta=ask.querySelector('textarea');cta.addEventListener('input',()=>{autosizeCask(cta)});
+      const k=keep[t.id];if(k&&k.v){cta.value=k.v;requestAnimationFrame(()=>autosizeCask(cta))}
+      const upd=()=>n.classList.toggle('away',full.scrollHeight-full.scrollTop-full.clientHeight>100);
+      full.addEventListener('scroll',()=>{drawEdgesSoon();upd()},{passive:true});requestAnimationFrame(upd);
+    }else{
+      const rows=document.createElement('div');rows.className='crs';
+      for(const mid of mids){
+        const m=conv.msgs[mid];
+        const r=document.createElement('div');r.className='cr '+(m.role==='user'?'q':m.role==='note'?'n':'a');r.dataset.cmid=mid;r.title='Expand the card at this message';
+        r.textContent=m.role==='note'?'Takeaway: '+trunc(plain(m.content),160):trunc(plain(m.content),m.role==='user'?140:180)||'…';
+        const bs=branchesOn(mid);
+        if(bs.length){const f=document.createElement('span');f.className='fns';bs.forEach(b=>{const s=document.createElement('sup');s.className='fn'+(b.resolved?' res':'');s.dataset.tid=b.id;s.style.setProperty('--c',color(b));s.textContent=branchNum(b);s.title='Go to branch: '+b.title;f.appendChild(s)});r.prepend(f)}
+        rows.appendChild(r);
+      }
+      if(!mids.length){const r=document.createElement('div');r.className='cr a';r.textContent='(empty)';rows.appendChild(r)}
+      n.appendChild(rows);
+    }
+    addSizing(n,t.id,exp,S);
+    (docked?dock:world).appendChild(n);nodes[t.id]=n;
+  }
+  if(conv.doc){
+    const n=document.createElement('div');n.className='cnode main docnode';n.dataset.ctid='doc';n.style.setProperty('--c','var(--faint)');
+    const nb=docBranches(),folded=S.fold.includes('doc'),nd=descendants('doc').length;
+    n.innerHTML=`<div class="ch" title="Drag to move. Double-click to open the document."><span class="docico">${ic('doc')}</span><span class="ct"></span><button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} everything below the document">${folded?'+'+nd:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+(nb.length+1)}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="crs"></div>`;
+    n.querySelector('.ct').textContent=conv.doc.name;
+    const rows=n.querySelector('.crs');
+    const info=document.createElement('div');info.className='cr a';info.textContent=docState&&docState.loaded?(docState.kind==='pdf'?`${docState.n} pages`:'Text document'):'Loading…';rows.appendChild(info);
+    for(const b of nb){const r=document.createElement('div');r.className='cr';r.dataset.cdocrow=b.id;r.title='Go to this branch';
+      const f=document.createElement('span');f.className='fns';const sp=document.createElement('sup');sp.className='fn'+(b.resolved?' res':'');sp.dataset.tid=b.id;sp.style.setProperty('--c',color(b));sp.textContent=branchNum(b);f.appendChild(sp);r.appendChild(f);
+      r.append((conv.doc.kind==='pdf'?`p. ${b.anchorPage+1} · `:'')+'“'+trunc(b.anchorText,70)+'”');rows.appendChild(r)}
+    addSizing(n,'doc',false,S);
+    world.appendChild(n);nodes.doc=n;
+  }
+  // positions: saved positions win; unsaved cards sit where the automatic layout puts them, relative to their parent
+  const auto={},colW=[],depthOf={};
+  const root=conv.doc?'doc':'main';
+  const isD=(id)=>nodes[id]&&nodes[id].classList.contains('docked');
+  const wOf=(id)=>isD(id)?CW:nodes[id].offsetWidth,hOf=(id)=>isD(id)?60:nodes[id].offsetHeight;
+  const measure=(tid,d)=>{if(!nodes[tid])return;depthOf[tid]=d;colW[d]=Math.max(colW[d]||0,wOf(tid));kidsOf(tid).forEach(k=>measure(k.id,d+1))};
+  measure(root,0);
+  const colX=[0];for(let d=1;d<colW.length;d++)colX[d]=colX[d-1]+colW[d-1]+HG;
+  const place=(tid,depth,y0)=>{
+    const node=nodes[tid];if(!node)return 0;
+    const h=hOf(tid),kids=kidsOf(tid).filter(k=>nodes[k.id]);
+    const x=colX[depth]||0;
+    if(!kids.length){auto[tid]={x,y:y0};return h}
+    let y=y0;for(const k of kids)y+=place(k.id,depth+1,y)+VG;
+    const span=y-VG-y0;auto[tid]={x,y:y0+Math.max(0,(span-h)/2)};return Math.max(span,h);
+  };
+  place(root,0,0);
+  const fin={};
+  const walk=(tid)=>{
+    if(!nodes[tid])return;const pid=visParentId(tid);
+    if(S.pos[tid])fin[tid]=S.pos[tid];
+    else if(pid&&fin[pid]&&auto[pid]){
+      const pw=wOf(pid);
+      fin[tid]={x:fin[pid].x+pw+HG,y:fin[pid].y+(auto[tid].y-auto[pid].y)};
+    }else fin[tid]=auto[tid]||{x:0,y:0};
+    kidsOf(tid).forEach(k=>walk(k.id));
+  };
+  walk(root);
+  for(const [tid,p] of Object.entries(fin)){if(isD(tid))continue;nodes[tid].style.left=p.x+'px';nodes[tid].style.top=p.y+'px'}
+  placeDocked();
+  for(const [tid,k] of Object.entries(keep)){const n=nodes[tid];if(!n)continue;const f=n.querySelector('.cfull');if(f)f.scrollTop=k.st;if(k.focus){const i=n.querySelector('.cask textarea');i&&i.focus()}}
+  applyStack();
+  drawEdges();
+  if(!camFitted){fitCanvas();camFitted=true}else applyCam();
+}
+let edgeRAF=0;
+function drawEdgesSoon(){if(!edgeRAF)edgeRAF=requestAnimationFrame(()=>{edgeRAF=0;drawEdges()})}
+/* a card's box in canvas units, whether it lives on the canvas or is stuck to the screen */
+function boxW(el,wr){
+  if(el.classList.contains('docked')){const r=el.getBoundingClientRect();return {offsetLeft:(r.left-wr.left)/cam.k,offsetTop:(r.top-wr.top)/cam.k,offsetWidth:r.width/cam.k,offsetHeight:r.height/cam.k}}
+  return {offsetLeft:el.offsetLeft,offsetTop:el.offsetTop,offsetWidth:el.offsetWidth,offsetHeight:el.offsetHeight};
+}
+function drawEdges(){
+  const world=$('#world'),edges=$('#edges');if(!conv||conv.ui.view!=='canvas'){return}
+  const wr=world.getBoundingClientRect();let paths='';
+  for(const t of Object.values(conv.threads)){
+    const pid=visParentId(t.id);if(!pid)continue;
+    const cEl=$('#cv').querySelector(`.cnode[data-ctid="${t.id}"]`),pEl=$('#cv').querySelector(`.cnode[data-ctid="${pid}"]`);if(!cEl||!pEl)continue;
+    const p=boxW(pEl,wr),c=boxW(cEl,wr);
+    const a=pid==='doc'?(t.id==='main'?null:pEl.querySelector(`[data-cdocrow="${t.id}"]`)):(pEl.querySelector(`.cfull sup.fn[data-tid="${t.id}"]`)||pEl.querySelector(`[data-cmid="${t.anchorMsg}"]`)||pEl.querySelector(`.cfull .msg[data-mid="${t.anchorMsg}"]`));
+    let ay;
+    if(a){const r=(a.getClientRects()[0]||a.getBoundingClientRect());ay=(r.top+r.height/2-wr.top)/cam.k}else ay=p.offsetTop+p.offsetHeight/2;
+    const top=p.offsetTop+30,bot=p.offsetTop+p.offsetHeight-12;const off=ay<top||ay>bot;ay=Math.min(Math.max(ay,top),bot);
+    const right=c.offsetLeft>=p.offsetLeft+p.offsetWidth/2;
+    const ax=right?p.offsetLeft+p.offsetWidth:p.offsetLeft;
+    const bx=right?c.offsetLeft:c.offsetLeft+c.offsetWidth,by=c.offsetTop+18;
+    const dx=Math.max(30,Math.abs(bx-ax)/2)*(right?1:-1);
+    const col=t.id==='main'?'#a29d92':color(t),op=t.resolved?0.45:(off?0.55:0.95);
+    paths+=`<path d="M${ax} ${ay} C${ax+dx} ${ay},${bx-dx} ${by},${bx} ${by}" fill="none" stroke="${col}" stroke-width="1.8" opacity="${op}"${off?' stroke-dasharray="5 4"':''}/><circle cx="${ax}" cy="${ay}" r="3.5" fill="${col}" opacity="${op}"/>`;
+  }
+  edges.innerHTML=paths;
+}
+function fitCanvas(){
+  const nodes=[...document.querySelectorAll('#world .cnode')];if(!nodes.length)return;
+  let x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
+  nodes.forEach(n=>{const x=n.offsetLeft,y=n.offsetTop;x1=Math.min(x1,x);y1=Math.min(y1,y);x2=Math.max(x2,x+n.offsetWidth);y2=Math.max(y2,y+n.offsetHeight)});
+  const cv=$('#cv').getBoundingClientRect();
+  cam.k=Math.min(1.1,Math.max(0.25,Math.min((cv.width-80)/(x2-x1),(cv.height-80)/(y2-y1))));
+  cam.x=(cv.width-(x2-x1)*cam.k)/2-x1*cam.k;cam.y=Math.max(30,(cv.height-(y2-y1)*cam.k)/2)-y1*cam.k;applyCam();
+}
+function zoomAt(f,cx,cy){
+  const k=Math.min(2.5,Math.max(0.15,cam.k*f));const r=$('#cv').getBoundingClientRect();
+  if(cx==null){cx=r.width/2;cy=r.height/2}
+  cam.x=cx-(cx-cam.x)*(k/cam.k);cam.y=cy-(cy-cam.y)*(k/cam.k);cam.k=k;applyCam();
+}
+function focusCard(tid,mid){
+  const S=cvState();if(tid!=='doc'&&!T(tid))return;
+  let changed=false;let p=visParentId(tid);while(p){if(S.fold.includes(p)){S.fold=S.fold.filter(x=>x!==p);changed=true}p=visParentId(p)}
+  if(mid&&!S.open.includes(tid)){S.open.push(tid);changed=true}
+  if(changed){renderCanvas();save()}
+  const n=$('#cv').querySelector(`.cnode[data-ctid="${tid}"]`);if(!n)return;
+  if(n.classList.contains('docked')){raiseCard(tid);n.classList.remove('flash');void n.offsetWidth;n.classList.add('flash');if(mid)requestAnimationFrame(()=>{const m=n.querySelector(`.cfull .msg[data-mid="${mid}"]`),f=n.querySelector('.cfull');if(m&&f)f.scrollTop=m.offsetTop-12});return}
+  const cv=$('#cv').getBoundingClientRect();
+  const tx=cv.width/2-(n.offsetLeft+n.offsetWidth/2)*cam.k,ty=Math.min(cv.height/2-(n.offsetTop+Math.min(n.offsetHeight,500)/2)*cam.k,60-n.offsetTop*cam.k+40);
+  animateCam(tx,ty);
+  n.classList.remove('flash');void n.offsetWidth;n.classList.add('flash');
+  if(mid)requestAnimationFrame(()=>{const m=n.querySelector(`.cfull .msg[data-mid="${mid}"]`),f=n.querySelector('.cfull');if(m&&f){f.scrollTop=m.offsetTop-12;drawEdgesSoon()}});
+}
+let camAnim=0;
+function animateCam(tx,ty){
+  const sx=cam.x,sy=cam.y,t0=performance.now(),me=++camAnim;
+  const step=(now)=>{if(me!==camAnim)return;const p=Math.min(1,(now-t0)/280),e=1-Math.pow(1-p,3);cam.x=sx+(tx-sx)*e;cam.y=sy+(ty-sy)*e;applyCam();if(p<1)requestAnimationFrame(step)};
+  requestAnimationFrame(step);
+}
+const contentScale=(n)=>(n.classList.contains('docked')?1:cam.k)*cardZoom(n.dataset.ctid);
+/* click a card's quote: move over to the parent card and show exactly where the branch came from */
+function autosizeCask(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight+2,220)+'px';drawEdgesSoon()}
+const sizeKey=(tid,exp)=>tid+(exp?':x':'');
+/* stored sizes are "at 100%"; a card's own zoom scales its box and its text together */
+const cardZoom=(tid)=>((cvState().cz||{})[tid])||1;
+function baseWidth(tid,exp){const sz=cvState().size[sizeKey(tid,exp)];return sz&&sz.w?sz.w:(tid==='doc'?CW:(exp?CWX:CW))}
+function applyCardZoom(n,tid,exp){
+  const z=cardZoom(tid);n.style.setProperty('--cz',z);
+  if(!n.classList.contains('docked'))n.style.width=Math.round(baseWidth(tid,exp)*z)+'px';
+  const zl=n.querySelector('.zl');if(zl)zl.textContent=Math.round(z*100)+'%';
+}
+function addSizing(n,tid,exp,S){
+  const sz=S.size[sizeKey(tid,exp)],docked=n.classList.contains('docked');
+  applyCardZoom(n,tid,exp);
+  if(sz&&!docked){const f=n.querySelector('.cfull');if(f&&sz.h){f.style.height=sz.h+'px';f.style.maxHeight='none'}}
+  // edges change width; corners (on expanded cards, whose height is adjustable) change both
+  const dirs=exp||docked?['e','w','se','sw','ne','nw']:['e','w'];
+  for(const d of dirs){const h=document.createElement('div');h.className='rzh'+(d.length===2?' cor':'');h.dataset.dir=d;h.title=d.length===2?'Drag to resize. Double-click to reset.':'Drag to change the width. Double-click to reset.';n.appendChild(h)}
+}
+/* ---- snapping and sticking cards to the screen ----
+   S.dock[tid] = region as fractions of the canvas view; S.pre[tid] = where it sat on the canvas before */
+const REGIONS={left:{x:0,y:0,w:.5,h:1},right:{x:.5,y:0,w:.5,h:1},fill:{x:0,y:0,w:1,h:1},tl:{x:0,y:0,w:.5,h:.5},tr:{x:.5,y:0,w:.5,h:.5},bl:{x:0,y:.5,w:.5,h:.5},br:{x:.5,y:.5,w:.5,h:.5}};
+const DGAP=10;
+function cvRect(){return $('#cv').getBoundingClientRect()}
+/* stuck cards stop above a strip at the bottom, so the canvas toolbar never covers them */
+const DBOT=46;
+function usableH(){return cvRect().height-DBOT}
+function regionPx(r){const c=cvRect(),H=usableH();return {l:r.x*c.width+DGAP,t:r.y*H+DGAP,w:r.w*c.width-2*DGAP,h:r.h*H-2*DGAP}}
+function pxRegion(l,t,w,h){const c=cvRect(),H=usableH();return {x:(l-DGAP)/c.width,y:(t-DGAP)/H,w:(w+2*DGAP)/c.width,h:(h+2*DGAP)/H}}
+function placeDocked(){const S=cvState();$('#dock').querySelectorAll('.cnode').forEach(n=>{const r=S.dock&&S.dock[n.dataset.ctid];if(!r)return;const p=regionPx(r);n.style.left=p.l+'px';n.style.top=p.t+'px';n.style.width=Math.max(260,p.w)+'px';n.style.height=Math.max(180,p.h)+'px'})}
+function snapZone(e){
+  const c=cvRect(),x=e.clientX-c.left,y=e.clientY-c.top,E=26,C=90;
+  if(x<0||y<0||x>c.width||y>c.height)return null;
+  if(y<E&&x<C)return 'tl';if(y<E&&x>c.width-C)return 'tr';if(y>c.height-E&&x<C)return 'bl';if(y>c.height-E&&x>c.width-C)return 'br';
+  if(x<E)return 'left';if(x>c.width-E)return 'right';if(y<E)return 'fill';return null;
+}
+function showSnapPreview(zone){const el=$('#snapPrev');if(!zone){el.style.display='none';return}const p=regionPx(REGIONS[zone]);Object.assign(el.style,{display:'block',left:p.l+'px',top:p.t+'px',width:p.w+'px',height:p.h+'px'})}
+function dockCard(tid,region,prePos){
+  const S=cvState();S.dock=S.dock||{};S.pre=S.pre||{};
+  if(!S.dock[tid]){
+    const n=$('#world').querySelector(`.cnode[data-ctid="${tid}"]`);
+    const pos=prePos||(n?{x:n.offsetLeft,y:n.offsetTop}:S.pos[tid]||null);
+    S.pre[tid]={pos,exp:S.open.includes(tid)};
+    // pin the cards that stay on the canvas, so nothing shifts when this one leaves
+    $('#world').querySelectorAll('.cnode').forEach(el=>{if(el.dataset.ctid!==tid)S.pos[el.dataset.ctid]={x:Math.round(el.offsetLeft),y:Math.round(el.offsetTop)}});
+    if(pos)S.pos[tid]=pos;
+  }
+  S.dock[tid]={x:region.x,y:region.y,w:region.w,h:region.h};
+  raiseCard(tid);renderCanvas();save();
+}
+function restoreCard(tid){
+  const S=cvState();if(!S.dock||!S.dock[tid])return;
+  const pre=S.pre&&S.pre[tid];delete S.dock[tid];
+  if(pre){if(pre.pos)S.pos[tid]=pre.pos;S.open=S.open.filter(x=>x!==tid);if(pre.exp)S.open.push(tid);delete S.pre[tid]}
+  renderCanvas();save();
+}
+/* drop a stuck card onto the canvas exactly where it appears; its own zoom absorbs the canvas zoom */
+function unstickCard(tid){
+  const S=cvState(),n=$('#dock').querySelector(`.cnode[data-ctid="${tid}"]`);if(!n)return;
+  const c=cvRect(),r=n.getBoundingClientRect(),z=cardZoom(tid),k=cam.k,f=n.querySelector('.cfull');
+  const nz=Math.min(4,Math.max(.25,z/k));
+  S.pos[tid]={x:Math.round((r.left-c.left-cam.x)/k),y:Math.round((r.top-c.top-cam.y)/k)};
+  S.size[sizeKey(tid,true)]={w:Math.round(r.width/z),h:Math.round((f?f.getBoundingClientRect().height:400)/z)};
+  if(Math.abs(nz-1)<.02)delete S.cz[tid];else S.cz[tid]=Math.round(nz*100)/100;
+  if(!S.open.includes(tid))S.open.push(tid);
+  delete S.dock[tid];if(S.pre)delete S.pre[tid];
+  renderCanvas();save();setStatus('Dropped onto the canvas');
+}
+/* lift a canvas card onto the screen where it is, at reading size */
+function stickCard(tid){
+  const n=$('#world').querySelector(`.cnode[data-ctid="${tid}"]`);if(!n)return;
+  const S=cvState(),c=cvRect(),r=n.getBoundingClientRect(),z=cardZoom(tid),shown=z*cam.k;
+  const nz=Math.min(3,Math.max(1,shown));const grow=nz/shown;
+  const H=usableH();let w=Math.max(360,r.width*grow),h=Math.max(320,r.height*grow);w=Math.min(w,c.width-2*DGAP);h=Math.min(h,H-2*DGAP);
+  let l=Math.min(Math.max(DGAP,r.left-c.left),c.width-w-DGAP),t=Math.min(Math.max(DGAP,r.top-c.top),H-h-DGAP);
+  if(Math.abs(nz-1)<.02)delete S.cz[tid];else S.cz[tid]=Math.round(nz*100)/100;
+  dockCard(tid,pxRegion(l,t,w,h));
+}
+let czSave=0;
+function setCardZoom(tid,z){
+  const S=cvState();S.cz=S.cz||{};z=Math.min(3,Math.max(.5,z));
+  if(Math.abs(z-1)<.02)delete S.cz[tid];else S.cz[tid]=Math.round(z*100)/100;
+  const n=$('#cv').querySelector(`.cnode[data-ctid="${tid}"]`);if(n)applyCardZoom(n,tid,n.classList.contains('exp'));
+  drawEdgesSoon();clearTimeout(czSave);czSave=setTimeout(save,600);
+}
+/* stacking: the card you last touched sits on top, and the order is remembered */
+function raiseCard(tid){
+  const S=cvState();S.z=(S.z||[]).filter(x=>x!==tid&&(x==='doc'||conv.threads[x]));S.z.push(tid);S.sel=tid;applyStack();
+}
+function applyStack(){
+  const S=cvState(),z=S.z||[];
+  $('#cv').querySelectorAll('.cnode').forEach(n=>{const i=z.indexOf(n.dataset.ctid);n.style.zIndex=i<0?1:i+2;n.classList.toggle('picked',S.sel===n.dataset.ctid)});
+}
+function canvasRevealSource(tid){
+  const t=T(tid);if(!t||!t.parent)return;
+  if(isDocBranch(t)){focusCard('doc');requestAnimationFrame(()=>{const r=$('#cv').querySelector(`[data-cdocrow="${tid}"]`);if(r){r.style.setProperty('--c',color(t));r.classList.remove('flash');void r.offsetWidth;r.classList.add('flash')}});return}
+  const S=cvState();
+  if(!S.open.includes(t.parent)){S.open.push(t.parent);renderCanvas();save()}
+  focusCard(t.parent);
+  requestAnimationFrame(()=>{
+    const n=$('#cv').querySelector(`.cnode[data-ctid="${t.parent}"]`);if(!n)return;const f=n.querySelector('.cfull');if(!f)return;
+    const a=f.querySelector(`.anchor[data-tid="${tid}"]`)||f.querySelector(`sup.fn[data-tid="${tid}"]`)||f.querySelector(`.msg[data-mid="${t.anchorMsg}"]`);if(!a)return;
+    // scroll inside the card so the passage sits a third of the way down (scroll distances are in the card's own, unzoomed pixels)
+    const sc=contentScale(n),fr=f.getBoundingClientRect();
+    f.scrollTop+=(a.getBoundingClientRect().top-fr.top)/sc-fr.height/sc/3;
+    // then aim the camera at the passage itself, not just the card: a big or zoomed card can be taller than the view
+    if(!n.classList.contains('docked')){
+      const wr=$('#world').getBoundingClientRect(),ar=a.getBoundingClientRect(),c=cvRect();
+      const ax=(ar.left-wr.left)/cam.k,ay=(ar.top-wr.top)/cam.k,cw=n.offsetWidth*cam.k;
+      const tx=cw<=c.width-40?c.width/2-(n.offsetLeft+n.offsetWidth/2)*cam.k:c.width*0.12-ax*cam.k;
+      animateCam(tx,c.height*0.38-ay*cam.k);
+    }
+    const spans=f.querySelectorAll(`.anchor[data-tid="${tid}"]`);
+    if(spans.length)spans.forEach(s=>{s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash')});
+    else{a.style.setProperty('--c',color(t));a.classList.remove('flash');void a.offsetWidth;a.classList.add('flash')}
+    drawEdgesSoon();
+  });
+}
+function canvasAction(act,tid,btn){
+  const S=cvState();
+  if(act==='exp'){S.open=S.open.includes(tid)?S.open.filter(x=>x!==tid):[...S.open,tid];renderCanvas();save()}
+  else if(act==='fold'){S.fold=S.fold.includes(tid)?S.fold.filter(x=>x!==tid):[...S.fold,tid];renderCanvas();save()}
+  else if(act==='panes'){if(tid==='doc')openDocPane();else openFromCanvas(tid)}
+  else if(act==='jend'||act==='jlast'){
+    const f=btn.closest('.cnode').querySelector('.cfull');if(!f)return;
+    if(act==='jend'){f.scrollTo({top:f.scrollHeight,behavior:'smooth'});return}
+    const ms=f.querySelectorAll(':scope>.msg');let m=ms[ms.length-1];if(m&&m.classList.contains('assistant')&&ms.length>1&&ms[ms.length-2].classList.contains('user'))m=ms[ms.length-2];
+    if(m)f.scrollTo({top:f.scrollTop+(m.getBoundingClientRect().top-f.getBoundingClientRect().top)/contentScale(btn.closest('.cnode'))-10,behavior:'smooth'});
+  }
+  else if(act==='stick'){if(cvState().dock&&cvState().dock[tid])unstickCard(tid);else stickCard(tid)}
+  else if(act==='restore'){restoreCard(tid)}
+  else if(act==='zin'){setCardZoom(tid,cardZoom(tid)*1.15)}
+  else if(act==='zout'){setCardZoom(tid,cardZoom(tid)/1.15)}
+  else if(act==='zreset'){setCardZoom(tid,1)}
+  else if(act==='ask'){const i=btn.closest('.cnode').querySelector('.cask textarea');const v=i.value.trim();if(!v)return;i.value='';autosizeCask(i);send(tid,v)}
+}
+(()=>{
+  const cv=$('#cv');let pan=null,cd=null;
+  let rs=null,dd=null;
+  cv.addEventListener('pointerdown',e=>{
+    const anyCard=e.target.closest('.cnode');if(anyCard)raiseCard(anyCard.dataset.ctid);
+    const hz=e.target.closest('.cnode .rzh');
+    if(hz){
+      const n=hz.closest('.cnode'),f=n.querySelector('.cfull');
+      const tid=n.dataset.ctid,z=cardZoom(tid),docked=n.classList.contains('docked');
+      rs={n,tid,z,docked,exp:n.classList.contains('exp'),dir:hz.dataset.dir,sx:e.clientX,sy:e.clientY,x:n.offsetLeft,y:n.offsetTop,w:n.offsetWidth,f,
+        h:docked?n.offsetHeight:(f?(parseFloat(f.style.height)||f.getBoundingClientRect().height/cam.k/z):0)};
+      n.classList.add('sizing');(()=>{try{hz.setPointerCapture(e.pointerId)}catch(_){}})();e.preventDefault();e.stopPropagation();return;
+    }
+    const h=e.target.closest('.cnode .ch');
+    if(h&&!e.target.closest('button,[data-resolve],.czoom')&&h.closest('.cnode').classList.contains('docked')){
+      const n=h.closest('.cnode'),r=n.getBoundingClientRect();
+      dd={n,tid:n.dataset.ctid,sx:e.clientX,sy:e.clientY,gx:(e.clientX-r.left)/r.width};e.preventDefault();return;
+    }
+    if(h&&!e.target.closest('button,[data-resolve],.czoom')){
+      const n=h.closest('.cnode'),tid=n.dataset.ctid,move=[tid,...(e.shiftKey?descendants(tid):[])];
+      const start={};move.forEach(id=>{const el=$('#cv').querySelector(`.cnode[data-ctid="${id}"]`);if(el)start[id]={el,x:el.offsetLeft,y:el.offsetTop}});
+      cd={sx:e.clientX,sy:e.clientY,start,moved:false,n,tid,snap:!e.shiftKey,zone:null};(()=>{try{h.setPointerCapture(e.pointerId)}catch(_){}})();e.preventDefault();return;
+    }
+    if(e.target.closest('.cnode,.cvtools'))return;
+    {const S=cvState();if(S.sel){S.sel=null;applyStack()}}
+    pan={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y};cv.classList.add('drag');(()=>{try{cv.setPointerCapture(e.pointerId)}catch(_){}})();
+  });
+  cv.addEventListener('pointermove',e=>{
+    if(rs){
+      const d=rs.dir,clamp=(v,a,b)=>Math.round(Math.min(b,Math.max(a,v)));
+      if(rs.docked){   // stuck cards resize in screen pixels
+        const dx=e.clientX-rs.sx,dy=e.clientY-rs.sy;
+        if(d.includes('e')||d.includes('w')){const w=clamp(d.includes('e')?rs.w+dx:rs.w-dx,260,4000);rs.n.style.width=w+'px';if(d.includes('w'))rs.n.style.left=(rs.x+rs.w-w)+'px'}
+        if(d.includes('s')||d.includes('n')){const h=clamp(d.includes('s')?rs.h+dy:rs.h-dy,180,4000);rs.n.style.height=h+'px';if(d.includes('n'))rs.n.style.top=(rs.y+rs.h-h)+'px'}
+        drawEdgesSoon();return;
+      }
+      const dx=(e.clientX-rs.sx)/cam.k,dy=(e.clientY-rs.sy)/cam.k;
+      if(d.includes('e')||d.includes('w')){
+        const w=clamp(d.includes('e')?rs.w+dx:rs.w-dx,240*rs.z,1400*rs.z);
+        rs.n.style.width=w+'px';if(d.includes('w'))rs.n.style.left=(rs.x+rs.w-w)+'px';   // left side: the right edge stays put
+      }
+      if(rs.f&&(d.includes('s')||d.includes('n'))){
+        const h=clamp(d.includes('s')?rs.h+dy/rs.z:rs.h-dy/rs.z,140,1600);   // stored at 100%, shown at the card's zoom
+        rs.f.style.maxHeight='none';rs.f.style.height=h+'px';if(d.includes('n'))rs.n.style.top=(rs.y-(h-rs.h)*rs.z)+'px';   // top side: the bottom stays put
+      }
+      drawEdgesSoon();return;
+    }
+    if(dd){
+      if(Math.hypot(e.clientX-dd.sx,e.clientY-dd.sy)<6)return;
+      // dragging a stuck card off: it goes back onto the canvas under the pointer, and the drag continues
+      const tid=dd.tid,S=cvState(),pre=S.pre&&S.pre[tid];dd=null;
+      delete S.dock[tid];if(pre){S.open=S.open.filter(x=>x!==tid);if(pre.exp)S.open.push(tid);delete S.pre[tid]}
+      renderCanvas();
+      const n=$('#world').querySelector(`.cnode[data-ctid="${tid}"]`);if(!n)return;
+      const c=cvRect(),wx=(e.clientX-c.left-cam.x)/cam.k,wy=(e.clientY-c.top-cam.y)/cam.k;
+      n.style.left=Math.round(wx-n.offsetWidth*.3)+'px';n.style.top=Math.round(wy-14)+'px';
+      cd={sx:e.clientX,sy:e.clientY,start:{[tid]:{el:n,x:n.offsetLeft,y:n.offsetTop}},moved:true,n,tid,snap:true,zone:null};n.classList.add('lift');raiseCard(tid);drawEdges();return;
+    }
+    if(cd){
+      const dx=(e.clientX-cd.sx)/cam.k,dy=(e.clientY-cd.sy)/cam.k;
+      if(!cd.moved&&Math.hypot(dx,dy)*cam.k<4)return;
+      if(!cd.moved){cd.moved=true;cd.n.classList.add('lift')}
+      for(const [id,s] of Object.entries(cd.start)){s.el.style.left=(s.x+dx)+'px';s.el.style.top=(s.y+dy)+'px'}
+      if(cd.snap){cd.zone=snapZone(e);showSnapPreview(cd.zone)}
+      drawEdgesSoon();return;
+    }
+    if(!pan)return;cam.x=pan.cx+e.clientX-pan.x;cam.y=pan.cy+e.clientY-pan.y;applyCam();
+  });
+  const end=()=>{
+    if(rs&&rs.docked){
+      const S=cvState();S.dock[rs.tid]=pxRegion(rs.n.offsetLeft,rs.n.offsetTop,rs.n.offsetWidth,rs.n.offsetHeight);
+      rs.n.classList.remove('sizing');rs=null;drawEdges();save();return;
+    }
+    if(dd){dd=null;return}
+    if(rs){
+      const S=cvState(),k=sizeKey(rs.tid,rs.exp);
+      S.size[k]={w:Math.round(rs.n.offsetWidth/rs.z),...(rs.f&&rs.f.style.height?{h:parseInt(rs.f.style.height)}:(S.size[k]&&S.size[k].h?{h:S.size[k].h}:{}))};
+      // resizing from the left or top moves the card, so pin positions like a drag does
+      if(rs.dir.includes('w')||rs.dir.includes('n'))$('#world').querySelectorAll('.cnode').forEach(el=>{S.pos[el.dataset.ctid]={x:Math.round(el.offsetLeft),y:Math.round(el.offsetTop)}});
+      rs.n.classList.remove('sizing');rs=null;drawEdges();save();return;
+    }
+    if(cd){
+      showSnapPreview(null);
+      if(cd.moved&&cd.zone){const st=cd.start[cd.tid],z=cd.zone,tid=cd.tid;cd.n.classList.remove('lift');cd=null;dockCard(tid,REGIONS[z],st?{x:st.x,y:st.y}:null);return}
+      if(cd.moved){const S=cvState();
+        // pin every visible card where it is, so moving one never makes the others jump
+        $('#world').querySelectorAll('.cnode').forEach(el=>{S.pos[el.dataset.ctid]={x:Math.round(el.offsetLeft),y:Math.round(el.offsetTop)}});
+        cd.n.classList.remove('lift');save()}
+      cd=null;return;
+    }
+    pan=null;cv.classList.remove('drag');
+  };
+  cv.addEventListener('pointerup',end);cv.addEventListener('pointercancel',end);
+  cv.addEventListener('dblclick',e=>{const hz=e.target.closest('.cnode .rzh');if(hz){const n=hz.closest('.cnode');delete cvState().size[sizeKey(n.dataset.ctid,n.classList.contains('exp'))];renderCanvas();save();return}
+    const h=e.target.closest('.cnode .ch');if(h&&!e.target.closest('button,[data-resolve]')){const id=h.closest('.cnode').dataset.ctid;if(id==='doc')openDocPane();else openFromCanvas(id)}});
+  cv.addEventListener('wheel',e=>{
+    const zc=e.altKey&&e.target.closest('.cnode');
+    if(zc){e.preventDefault();if(cvState().sel!==zc.dataset.ctid)raiseCard(zc.dataset.ctid);setCardZoom(zc.dataset.ctid,cardZoom(zc.dataset.ctid)*Math.exp(-e.deltaY*0.002));return}
+    if(e.target.closest('.cq,.cfull')&&!e.ctrlKey)return;
+    e.preventDefault();const r=cv.getBoundingClientRect();
+    if(e.ctrlKey||Math.abs(e.deltaY)>=Math.abs(e.deltaX))zoomAt(Math.exp(-e.deltaY*(e.ctrlKey?0.01:0.0015)),e.clientX-r.left,e.clientY-r.top);
+    else{cam.x-=e.deltaX;applyCam()}
+  },{passive:false});
+  cv.addEventListener('keydown',e=>{const i=e.target.closest('.cask textarea');if(i&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();canvasAction('ask',i.closest('.cnode').dataset.ctid,i)}});
+  $('#zIn').innerHTML=ic('plus');$('#zOut').innerHTML=ic('minus');$('#zFit').innerHTML=ic('fit');
+  $('#zTidy').innerHTML=ic('canvas')+'Tidy';
+  $('#zIn').onclick=()=>zoomAt(1.2);$('#zOut').onclick=()=>zoomAt(1/1.2);$('#zFit').onclick=fitCanvas;
+  $('#zTidy').onclick=()=>{cvState().pos={};renderCanvas();fitCanvas();save()};
+})();
+function openFromCanvas(tid,mid){
+  setView(conv.ui.layout);
+  openThread(tid);conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==tid);layout();
+  if(mid)revealMsg(tid,mid);
+}
+function setView(v){
+  if(v==='canvas'){conv.ui.view='canvas';$('#stage').classList.add('canvas');hidePop();renderCanvas()}
+  else{
+    const was=conv.ui.view;conv.ui.view='panes';$('#stage').classList.remove('canvas');
+    if(v!==conv.ui.layout){conv.ui.layout=v;conv.ui.sizes={}}
+    layout();if(was==='canvas')conv.ui.open.forEach(id=>renderPane(id));
+  }
+  syncViewSeg();save();
+}
+function syncViewSeg(){const v=conv.ui.view==='canvas'?'canvas':conv.ui.layout;document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===v))}
+
+/* ---------- open / resolved status ---------- */
+function toggleResolved(tid){
+  const t=T(tid);if(!t||!t.parent)return;
+  t.resolved=!t.resolved;if(!t.resolved)delete t.resolved;
+  if(conv.msgs[t.anchorMsg])conv.msgs[t.anchorMsg].ver++;
+  renderPane(t.parent);updateHeader(tid);renderMap();if(isDocBranch(t))refreshDocAnchors(t.anchorPage);updateHeader('doc');
+  if(conv.ui.view==='canvas')renderCanvas();
+  setStatus(t.resolved?'Marked resolved':'Marked open');save();
+}
+
+/* ---------- document mode (everything here only runs when conv.doc exists) ---------- */
+const PDFJS='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+const DOC_STARTERS=['Give me an overview of this document','What\'s the main contribution or argument?','Outline the sections with page references','What background do I need to follow this?'];
+let docState=null;
+const docView={scale:1,width:0,current:1,rendered:new Map(),obs:null,ro:null,resizeT:0};
+const docBlobCache=new Map();
+const isDocBranch=(t)=>!!t&&t.anchorMsg==='DOC';
+const docBranches=()=>conv&&conv.doc?Object.values(conv.threads).filter(isDocBranch).sort((a,b)=>(a.anchorPage-b.anchorPage)||(a.created-b.created)):[];
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Could not load '+src));document.head.appendChild(s)})}
+let pdfLibP=null;
+function loadPdfLib(){
+  if(!pdfLibP)pdfLibP=(async()=>{
+    // loading the worker script first lets pdf.js run in the page itself (cross-origin workers aren't allowed here)
+    await loadScript(PDFJS+'pdf.worker.min.js');await loadScript(PDFJS+'pdf.min.js');
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+'pdf.worker.min.js';return window.pdfjsLib;
+  })().catch(e=>{pdfLibP=null;throw e});
+  return pdfLibP;
+}
+function chunkText(text){
+  const paras=String(text).split(/\n{2,}/),out=[];let cur='';
+  for(const p of paras){if(cur&&cur.length+p.length>4000){out.push(cur);cur=''}cur+=(cur?'\n\n':'')+p}
+  if(cur||!out.length)out.push(cur);return out;
+}
+function startDoc(){
+  const d=conv.doc,key=conv.id;
+  if(docState&&docState.key===key)return docState.ready;
+  if(docView.obs)docView.obs.disconnect();
+  docView.rendered=new Map();docView.current=1;docView.width=0;
+  const st=docState={key,kind:d.kind,name:d.name,pages:null,n:d.pages||0,error:null,loaded:false,progress:0};
+  st.ready=(async()=>{
+    try{
+      let data=docBlobCache.get(key);
+      if(data==null){
+        if(d.assetId){await io.ready;data=await io.files.fetch(d.assetId,d.kind==='pdf'?'arrayBuffer':'text')}
+        else if(d.text!=null)data=d.text;
+        else throw {missing:true,message:'This document wasn\'t stored, so it needs to be attached again.'};
+      }
+      if(d.kind==='pdf'){
+        const lib=await loadPdfLib();
+        const pdf=await lib.getDocument({data:new Uint8Array(data.slice(0)),isEvalSupported:false}).promise;
+        st.pdf=pdf;st.n=pdf.numPages;const pages=[];
+        for(let i=1;i<=pdf.numPages;i++){
+          const tc=await (await pdf.getPage(i)).getTextContent();
+          pages.push(tc.items.map(it=>(it.str||'')+(it.hasEOL?'\n':' ')).join('').replace(/[ \t]+/g,' ').trim());
+          st.progress=i;if(i%4===0&&docState===st)updateHeader('doc');
+        }
+        st.pages=pages;
+      }else{st.text=String(data);st.pages=chunkText(st.text);st.n=st.pages.length}
+      st.loaded=true;
+      if(!d.pages||d.pages!==st.n){d.pages=st.n}
+    }catch(e){st.error=e;console.warn('doc load failed',e)}
+    if(docState===st){renderDocPane(true);updateHeader('doc');if(conv.ui.view==='canvas')renderCanvas();if(st.loaded&&conv.id===key&&(conv.order.main.length||Object.keys(conv.threads).length>1||conv.doc))idxWrite(conv,st.pages)}
+  })();
+  return st.ready;
+}
+async function docReady(){if(conv&&conv.doc&&docState)await docState.ready}
+
+function docPaneEl(){
+  const el=document.createElement('section');el.className='pane docpane';el.dataset.tid='doc';
+  el.innerHTML=`<div class="ph"><span class="docico">${ic('doc')}</span><div class="ph-main"><div class="ph-title"></div><div class="ph-origin"></div></div>
+    <div class="ph-act"><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it.">${ic('collapse')}</button><button class="ib" data-act="focus"></button></div></div>
+    <div class="pb"><div class="docwrap"></div></div>
+    <div class="jumpw"><div class="jump"><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button></div></div>
+    <div class="rail-label"><span class="docico">${ic('doc')}</span><span class="rl"></span></div>`;
+  const pb=el.querySelector('.pb');
+  pb.addEventListener('scroll',()=>{wiresSoon();updateJump(el);trackDocPage()},{passive:true});
+  if(docView.ro)docView.ro.disconnect();
+  docView.ro=new ResizeObserver(()=>{
+    if(!docState||!docState.loaded||docState.kind!=='pdf'||!docView.width)return;
+    if(Math.abs(pb.clientWidth-docView.width)<40||pb.clientWidth<100)return;
+    clearTimeout(docView.resizeT);docView.resizeT=setTimeout(async()=>{const cur=docView.current;await buildPdfPages(el,el.querySelector('.docwrap'));scrollDocToPage(cur,false)},250);
+  });
+  docView.ro.observe(pb);
+  paneEls.set('doc',el);return el;
+}
+let docPageRAF=0;
+function trackDocPage(){
+  if(docPageRAF)return;docPageRAF=requestAnimationFrame(()=>{docPageRAF=0;
+    const el=paneEls.get('doc');if(!el||!docState||docState.kind!=='pdf')return;
+    const pb=el.querySelector('.pb'),y=pb.getBoundingClientRect().top+pb.clientHeight*0.3;
+    for(const pg of el.querySelectorAll('.dpage')){const r=pg.getBoundingClientRect();if(r.bottom>=y){if(docView.current!==+pg.dataset.page){docView.current=+pg.dataset.page;updateHeader('doc')}break}}
+  });
+}
+function updateDocHeader(){
+  const el=paneEls.get('doc');if(!el||!conv.doc)return;
+  el.querySelector('.ph-title').textContent=conv.doc.name;
+  const o=el.querySelector('.ph-origin'),nb=docBranches().length,bl=`${nb} branch${nb===1?'':'es'}`;
+  if(!docState||(!docState.loaded&&!docState.error))o.textContent=docState&&docState.progress?`Reading ${docState.progress} of ${docState.n} pages…`:'Loading…';
+  else if(docState.error)o.textContent='Couldn\'t load the document';
+  else o.textContent=docState.kind==='pdf'?`Page ${docView.current} of ${docState.n} · ${bl}`:bl;
+  const f=el.querySelector('[data-act="focus"]');const on=isFocused('doc');f.innerHTML=ic(on?'unfocus':'focus');f.title=on?'Show all panes (Esc)':'Focus: collapse every other pane';f.classList.toggle('on',on);
+  el.querySelector('.rl').textContent=conv.doc.name;
+}
+function renderDocPane(force){
+  const el=paneEls.get('doc');if(!el||!conv.doc)return;
+  if(!docState)startDoc();
+  const wrap=el.querySelector('.docwrap');
+  if(!force&&wrap.dataset.key===docState.key+(docState.loaded?'L':'')+(docState.error?'E':'')){updateDocHeader();return}
+  wrap.dataset.key=docState.key+(docState.loaded?'L':'')+(docState.error?'E':'');
+  if(docState.error){
+    wrap.innerHTML=`<div class="docerr"></div>`;const box=wrap.firstChild;box.textContent=docState.error.message||String(docState.error);
+    if(docState.error.missing){const i=document.createElement('input');i.type='file';i.accept='.pdf,.md,.markdown,.txt';box.append(document.createElement('br'),i);i.onchange=()=>i.files[0]&&reattachDoc(i.files[0])}
+  }else if(!docState.loaded){wrap.innerHTML='<div class="docload">Loading the document…</div>'}
+  else if(docState.kind==='pdf'){buildPdfPages(el,wrap)}
+  else{
+    const st=el.querySelector('.pb').scrollTop;
+    wrap.innerHTML='<div class="docbody"></div>';const b=wrap.firstChild;
+    renderRich(b,docState.text,true);applyDocAnchorsText(b);renderMermaid(b);
+    el.querySelector('.pb').scrollTop=st;
+  }
+  updateDocHeader();wiresSoon();
+}
+async function buildPdfPages(el,wrap){
+  const pdf=docState.pdf,pb=el.querySelector('.pb');
+  const v1=(await pdf.getPage(1)).getViewport({scale:1});
+  const W=Math.max(260,pb.clientWidth-44-30);docView.scale=W/v1.width;docView.width=pb.clientWidth;
+  if(docView.obs)docView.obs.disconnect();
+  docView.rendered=new Map();wrap.innerHTML='';
+  docView.obs=new IntersectionObserver(ents=>{for(const en of ents)if(en.isIntersecting)renderPdfPage(+en.target.dataset.page)},{root:pb,rootMargin:'900px 0px'});
+  for(let i=1;i<=pdf.numPages;i++){
+    const pg=document.createElement('div');pg.className='dpage';pg.dataset.page=i;
+    pg.style.width=Math.round(v1.width*docView.scale)+'px';pg.style.height=Math.round(v1.height*docView.scale)+'px';
+    pg.innerHTML=`<div class="pnum">${i}</div>`;wrap.appendChild(pg);docView.obs.observe(pg);
+  }
+}
+async function makeTextLayer(page,vp){
+  const tl=document.createElement('div');tl.className='textLayer';tl.style.setProperty('--scale-factor',vp.scale);
+  const tc=await page.getTextContent();
+  await window.pdfjsLib.renderTextLayer({textContentSource:tc,container:tl,viewport:vp}).promise;
+  return tl;
+}
+function renderPdfPage(i,force){
+  const el=paneEls.get('doc');if(!el||!docState||!docState.pdf)return Promise.resolve();
+  const pg=el.querySelector(`.dpage[data-page="${i}"]`);if(!pg)return Promise.resolve();
+  if(docView.rendered.has(i)&&!force)return docView.rendered.get(i);
+  const st=docState,scale=docView.scale;
+  const job=(async()=>{
+    const page=await st.pdf.getPage(i);const vp=page.getViewport({scale});
+    const dpr=Math.min(2,window.devicePixelRatio||1);
+    const cv=document.createElement('canvas');cv.width=Math.floor(vp.width*dpr);cv.height=Math.floor(vp.height*dpr);cv.style.width=vp.width+'px';cv.style.height=vp.height+'px';
+    await page.render({canvasContext:cv.getContext('2d'),viewport:vp,transform:dpr!==1?[dpr,0,0,dpr,0,0]:null}).promise;
+    const tl=await makeTextLayer(page,vp);
+    if(docState!==st||docView.scale!==scale)return;
+    pg.style.width=vp.width+'px';pg.style.height=vp.height+'px';
+    pg.querySelectorAll('canvas,.textLayer,sup.fn').forEach(n=>n.remove());
+    pg.appendChild(cv);pg.appendChild(tl);applyDocAnchorsPdf(pg,tl,i-1);wiresSoon();
+  })().catch(e=>console.warn('page render failed',e));
+  docView.rendered.set(i,job);return job;
+}
+function docMarker(t){const s=document.createElement('sup');s.className='fn'+(t.resolved?' res':'');s.dataset.tid=t.id;s.style.setProperty('--c',color(t));s.textContent=branchNum(t);s.title=`Open branch ${branchNum(t)}: ${t.title||''}`;return s}
+function applyDocAnchorsPdf(pg,tl,pageIdx){
+  const used=[];
+  for(const t of docBranches().filter(t=>t.anchorPage===pageIdx)){
+    const first=wrapText(tl,t.anchorText,t,{noMarker:true});
+    let y=first?first.getBoundingClientRect().top-pg.getBoundingClientRect().top:6;
+    while(used.some(u=>Math.abs(u-y)<18))y+=18;used.push(y);
+    const m=docMarker(t);m.style.top=Math.max(0,y)+'px';pg.appendChild(m);
+  }
+}
+function applyDocAnchorsText(root){for(const t of docBranches())if(t.anchorText)wrapText(root,t.anchorText,t)}
+async function refreshDocAnchors(page){
+  if(!conv.doc||!docState||!docState.loaded)return;
+  const el=paneEls.get('doc');if(!el)return;
+  if(docState.kind!=='pdf'){renderDocPane(true);return}
+  const pages=page!=null?[page+1]:[...docView.rendered.keys()];
+  for(const i of pages){
+    const pg=el.querySelector(`.dpage[data-page="${i}"]`);if(!pg||!pg.querySelector('.textLayer'))continue;
+    const page_=await docState.pdf.getPage(i);const vp=page_.getViewport({scale:docView.scale});
+    const tl=await makeTextLayer(page_,vp);
+    pg.querySelectorAll('.textLayer,sup.fn').forEach(n=>n.remove());pg.appendChild(tl);applyDocAnchorsPdf(pg,tl,i-1);
+  }
+  wiresSoon();
+}
+function openDocPane(){
+  if(!conv.doc)return;
+  if(conv.ui.view==='canvas')setView(conv.ui.layout);
+  if(!conv.ui.open.includes('doc'))conv.ui.open.unshift('doc');
+  conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!=='doc');
+  layout();renderMap();save();
+}
+async function scrollDocToPage(n,flash=true){
+  const el=paneEls.get('doc');if(!el)return;const pb=el.querySelector('.pb');
+  const pg=el.querySelector(`.dpage[data-page="${n}"]`);if(!pg)return;
+  pb.scrollTop+=pg.getBoundingClientRect().top-pb.getBoundingClientRect().top-10;
+  if(flash){pg.classList.remove('flash');void pg.offsetWidth;pg.classList.add('flash')}
+}
+async function goToPage(n){
+  openDocPane();await docReady();if(!docState||!docState.loaded)return;
+  const el=paneEls.get('doc');if(!el)return;
+  if(docState.kind!=='pdf'){revealPane('doc');return}
+  n=Math.min(Math.max(1,n),docState.n);rememberSpot(el);
+  requestAnimationFrame(async()=>{await scrollDocToPage(n);revealPane('doc')});
+}
+async function revealDocAnchor(t){
+  openDocPane();await docReady();if(!docState||!docState.loaded)return;
+  const el=paneEls.get('doc');if(!el)return;const pb=el.querySelector('.pb');
+  rememberSpot(el);
+  if(docState.kind==='pdf'){await scrollDocToPage(t.anchorPage+1,false);await renderPdfPage(t.anchorPage+1)}
+  requestAnimationFrame(()=>{
+    const a=el.querySelector(`.anchor[data-tid="${t.id}"]`)||el.querySelector(`.dpage[data-page="${t.anchorPage+1}"]`);if(!a)return;
+    pb.scrollBy({top:a.getBoundingClientRect().top-pb.getBoundingClientRect().top-pb.clientHeight/3,behavior:'smooth'});
+    revealPane('doc');
+    el.querySelectorAll(`.anchor[data-tid="${t.id}"]`).forEach(s=>{s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash')});
+    setTimeout(wires,450);
+  });
+}
+function linkPages(root){
+  const test=/\[(?:pp?\.|pages?)\s*\d+/i,re=/\[(?:pp?\.|pages?)\s*(\d+)(?:\s*[–-]\s*\d+)?\]/gi;
+  const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement&&n.parentElement.closest('pre,code,.math,svg,a,mjx-container')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+  const hits=[];let n;while((n=w.nextNode()))if(test.test(n.nodeValue))hits.push(n);
+  for(const node of hits){
+    const s=node.nodeValue,frag=document.createDocumentFragment();let last=0,m;re.lastIndex=0;
+    while((m=re.exec(s))){frag.append(s.slice(last,m.index));const a=document.createElement('a');a.className='pref';a.dataset.page=m[1];a.textContent=m[0];a.title=`Show page ${m[1]} in the document`;frag.append(a);last=m.index+m[0].length}
+    frag.append(s.slice(last));node.replaceWith(frag);
+  }
+}
+function docPreamble(tid,question){
+  if(!conv.doc)return '';
+  if(!docState||!docState.loaded)return `[The learner is reading a document titled "${conv.doc.name}", but its text couldn't be loaded right now.]`;
+  const P=docState.pages,pdf=docState.kind==='pdf',label=i=>pdf?`p. ${i+1}`:`part ${i+1}`;
+  const total=P.reduce((n,p)=>n+p.length,0),BUDGET=80000,pick=new Set();
+  if(total<=BUDGET)P.forEach((_,i)=>pick.add(i));
+  else{
+    let used=0;const add=i=>{if(i<0||i>=P.length||pick.has(i)||used+P[i].length>BUDGET)return;pick.add(i);used+=P[i].length};
+    add(0);add(1);
+    const anc=ancestors(tid).map(T).find(isDocBranch);
+    if(anc){add(anc.anchorPage);add(anc.anchorPage-1);add(anc.anchorPage+1)}else if(pdf)add(docView.current-1);
+    const words=(question||'').toLowerCase().match(/[a-z0-9]{4,}/g)||[];
+    if(words.length)P.map((p,i)=>{const lp=p.toLowerCase();return [words.reduce((s,w)=>s+(lp.split(w).length-1),0),i]}).sort((a,b)=>b[0]-a[0]).forEach(([s,i])=>{if(s>0)add(i)});
+    for(let i=0;i<P.length;i++)add(i);
+  }
+  const partial=pick.size<P.length;
+  const body=[...pick].sort((a,b)=>a-b).map(i=>`[${label(i)}]\n${P[i]}`).join('\n\n');
+  return `The learner is reading a document titled "${docState.name}" (${P.length} ${pdf?'pages':'parts'}). Its extracted text is below${partial?`, but only some ${pdf?'pages':'parts'} fit; say so if the answer depends on ones that aren't included`:''}. ${pdf?'When you refer to specific places, cite them in square brackets like [p. 4] so the learner can click to jump there.':'When you refer to specific places, name the section heading.'} Extraction can garble equations, tables or columns; work around that.\n<document>\n${body}\n</document>`;
+}
+async function storeDocFile(c,kind,blob,text){
+  await io.ready;
+  if(io.files.canUpload){
+    try{const up=await io.files.upload(kind==='pdf'?blob:new Blob([text],{type:'text/markdown'}),kind==='pdf'?'application/pdf':'text/markdown');c.doc.assetId=up.id;delete c.doc.unsaved;return true}
+    catch(e){console.warn('upload failed',e);if(e&&e.code==='too_large')toast('That file is over the 20 MB storage limit.');else if(e&&e.code==='quota_or_state')toast('Document storage is full.')}
+  }
+  if(kind!=='pdf'&&text.length<150000){c.doc.text=text;delete c.doc.unsaved;return true}
+  c.doc.unsaved=true;return false;
+}
+async function reattachDoc(file){
+  const isPdf=/pdf$/i.test(file.type)||/\.pdf$/i.test(file.name);
+  const data=isPdf?await file.arrayBuffer():await file.text();
+  docBlobCache.set(conv.id,data);conv.doc.kind=isPdf?'pdf':'text';
+  await storeDocFile(conv,conv.doc.kind,file,isPdf?null:data);
+  docState=null;startDoc();renderDocPane(true);save();
+}
+/* new-from-document dialog */
+function openDocModal(){
+  $('#docFile').value='';$('#docPaste').value='';$('#docName').value='';$('#docFileLbl').textContent='Choose a PDF, Markdown or text file, or drop it here';$('#docMsg').textContent='';$('#docGo').disabled=false;
+  hideTip();$('#docModal').classList.add('show');
+}
+function closeDocModal(){$('#docModal').classList.remove('show')}
+async function startFromDoc(){
+  const f=$('#docFile').files[0],pasted=$('#docPaste').value.trim(),msg=(s)=>$('#docMsg').textContent=s;
+  if(!f&&!pasted){msg('Choose a file or paste some text.');return}
+  let kind,name,blob=null,text=null;
+  if(f){
+    const isPdf=/pdf$/i.test(f.type)||/\.pdf$/i.test(f.name);kind=isPdf?'pdf':'text';
+    if(f.size>20*1024*1024){msg('That file is over 20 MB, the most this page can store.');return}
+    name=$('#docName').value.trim()||f.name.replace(/\.[^.]+$/,'');
+    if(isPdf)blob=f;else text=await f.text();
+  }else{kind='text';text=pasted;name=$('#docName').value.trim()||trunc(pasted.split('\n').find(l=>l.trim())||'Pasted text',60).replace(/^#+\s*/,'')}
+  $('#docGo').disabled=true;msg('Saving the document…');
+  await flushNow();
+  const c=newConv();c.title=name;c.doc={kind,name};c.ui.open=['doc','main'];
+  const stored=await storeDocFile(c,kind,blob,text);
+  docBlobCache.set(c.id,kind==='pdf'?await blob.arrayBuffer():text);
+  closeDocModal();setConv(c);dirty=true;save();
+  if(!stored)toast('The document couldn\'t be stored here, so you\'ll need to attach it again after a reload.');
+}
+(()=>{
+  const drop=$('#docDrop'),fi=$('#docFile');
+  fi.onchange=()=>{if(fi.files[0])$('#docFileLbl').textContent=fi.files[0].name};
+  drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over')});
+  drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+  drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');if(e.dataTransfer.files[0]){fi.files=e.dataTransfer.files;fi.onchange()}});
+  $('#docCancel').onclick=closeDocModal;$('#docGo').onclick=startFromDoc;
+  $('#docModal').addEventListener('mousedown',e=>{if(e.target.id==='docModal')closeDocModal()});
+  $('#docModal').addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();closeDocModal()}});
+})();
+
+/* ---------- search: a per-conversation text index (kept separately, updated on save) + BM25 ranking ---------- */
+const KIND={ct:['Conversation',3],bt:['Branch',2.4],h:['Highlight',2.2],n:['Takeaway',2],q:['Question',1.6],a:['Answer',1],d:['Document',0.9]};
+const IDX={map:new Map(),loaded:false,loading:null,ms:null,dirty:true,lastSig:new Map(),backfilling:false};
+let miniP=null;
+function loadMini(){if(!miniP)miniP=loadScript('https://cdn.jsdelivr.net/npm/minisearch@7.1.0/dist/umd/index.js').catch(e=>{miniP=null;throw e});return miniP}
+function indexEntries(c,pages){
+  const E=[],push=(k,x,o)=>{x=plain(x);if(x)E.push({k,x:x.slice(0,6000),...o})};
+  push('ct',c.title,{tid:'main'});
+  for(const t of Object.values(c.threads||{})){if(!t.parent)continue;push('bt',t.title,{tid:t.id});if(t.anchorText)push('h',t.anchorText,{tid:t.id})}
+  for(const m of Object.values(c.msgs||{})){if(!m.content)continue;push(m.role==='user'?'q':m.role==='note'?'n':'a',m.content,{tid:m.thread,mid:m.id})}
+  if(pages)pages.forEach((p,i)=>push('d',p,{p:i+1}));
+  // stay well inside the 256 KB document limit: trim document pages first, then long answers
+  let size=JSON.stringify(E).length;
+  for(const k of ['d','a']){if(size<=200000)break;for(const e of E.filter(e=>e.k===k).sort((a,b)=>b.x.length-a.x.length)){if(size<=200000)break;const cut=Math.max(600,Math.floor(e.x.length/3));size-=e.x.length-cut;e.x=e.x.slice(0,cut)}}
+  return E;
+}
+function sigOf(E){const s=JSON.stringify(E);let h=0;for(let i=0;i<s.length;i+=3)h=(h*31+s.charCodeAt(i))|0;return s.length+':'+h}
+async function idxWrite(c,pages){
+  if(!io.index)return;
+  if(!pages&&c.doc){const old=IDX.map.get(c.id);if(old)pages=old.e.filter(e=>e.k==='d').map(e=>e.x)}
+  const E=indexEntries(c,pages),sig=sigOf(E);
+  if(IDX.lastSig.get(c.id)===sig)return;
+  const d={id:c.id,updated:c.updated||Date.now(),sig,e:E};
+  IDX.lastSig.set(c.id,sig);IDX.map.set(c.id,d);IDX.dirty=true;
+  try{await io.index.put(c.id,d)}
+  catch(e){console.warn('index write failed',e);IDX.lastSig.delete(c.id)}
+}
+async function idxDelete(id){IDX.map.delete(id);IDX.lastSig.delete(id);IDX.dirty=true;try{io.index&&await io.index.remove(id)}catch(e){}}
+function idxLoadAll(){
+  if(IDX.loaded)return Promise.resolve();
+  if(!IDX.loading)IDX.loading=(async()=>{
+    try{
+      await io.ready;
+      for(const {id,data} of await io.index.list()){IDX.map.set(id,data);IDX.lastSig.set(id,data.sig)}
+    }catch(e){console.warn('index load failed',e)}
+    IDX.loaded=true;IDX.dirty=true;
+  })();
+  return IDX.loading;
+}
+/* index any conversation that has no entry yet, or changed since (e.g. saved before search existed) */
+async function idxBackfill(onProgress){
+  if(IDX.backfilling||!io.store)return;IDX.backfilling=true;
+  try{
+    const stale=convList.filter(c=>c.id!==(conv&&conv.id)&&(!IDX.map.has(c.id)||(IDX.map.get(c.id).updated||0)<(c.updated||0)));
+    let i=0;
+    for(const c of stale){
+      onProgress&&onProgress(++i,stale.length);
+      let data=null;
+      try{data=await io.store.get(c.id)}catch(e){}
+      if(data)await idxWrite({...data,id:c.id},null);
+    }
+  }finally{IDX.backfilling=false}
+}
+async function idxEngine(){
+  await loadMini();
+  if(IDX.ms&&!IDX.dirty)return IDX.ms;
+  const ms=new MiniSearch({fields:['x'],storeFields:['cid','k','tid','mid','p','x'],
+    searchOptions:{fuzzy:(t)=>t.length>=5?0.2:false,prefix:(t,i,ts)=>i===ts.length-1&&t.length>1,boostDocument:(id,term,st)=>(KIND[st&&st.k]||[0,1])[1]}});
+  const all=new Map(IDX.map);
+  if(conv)all.set(conv.id,{id:conv.id,e:indexEntries(conv,docState&&docState.key===conv.id&&docState.loaded?docState.pages:(IDX.map.get(conv.id)||{e:[]}).e.filter(e=>e.k==='d').map(e=>e.x))});
+  const docs=[];for(const [cid,d] of all)(d.e||[]).forEach((en,i)=>docs.push({id:cid+'|'+i,cid,...en}));
+  ms.addAll(docs);IDX.ms=ms;IDX.dirty=false;return ms;
+}
+/* ---------- search palette ---------- */
+const PAL={results:[],sel:0,timer:0,q:''};
+function openPalette(initial){
+  hidePop();hideTip();
+  const p=$('#pal');p.classList.add('show');const inp=$('#palIn');inp.value=initial||'';inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);
+  $('#palFoot').textContent='';
+  runSearch();
+  (async()=>{
+    await idxLoadAll();IDX.dirty=true;
+    await idxBackfill((i,n)=>{$('#palFoot').textContent=`Indexing older conversations: ${i} of ${n}…`});
+    $('#palFoot').textContent='';if($('#pal').classList.contains('show'))runSearch();
+  })();
+}
+function closePalette(){$('#pal').classList.remove('show')}
+function snippet(x,terms){
+  const re=terms.length?new RegExp('('+terms.map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).sort((a,b)=>b.length-a.length).join('|')+')','gi'):null;
+  let start=0;if(re){const m=re.exec(x);re.lastIndex=0;if(m)start=Math.max(0,m.index-70)}
+  let s=x.slice(start,start+260);if(start>0)s='…'+s.replace(/^\S*\s/,'');if(start+260<x.length)s+='…';
+  return re?esc(s).replace(new RegExp('('+terms.map(t=>esc(t).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','gi'),'<mark>$1</mark>'):esc(s);
+}
+function convMeta(cid){return conv&&conv.id===cid?metaOf(conv):(convList.find(c=>c.id===cid)||{title:'Conversation'})}
+function threadTitle(cid,tid){
+  if(conv&&conv.id===cid){const t=T(tid);return t?(t.parent?t.title:'Main thread'):''}
+  const p=(IDX.map.get(cid)||{e:[]}).e.find(e=>e.k==='bt'&&e.tid===tid);return p?p.x:(tid==='main'?'Main thread':'')
+}
+async function runSearch(){
+  const q=$('#palIn').value.trim();PAL.q=q;const box=$('#palRes');
+  if(!q){
+    const items=[...convList.map(c=>conv&&c.id===conv.id?metaOf(conv):c)];if(conv&&!items.find(c=>c.id===conv.id))items.unshift(metaOf(conv));
+    const act=items.filter(c=>!c.archived);const list=[...act.filter(c=>c.pinned),...act.filter(c=>!c.pinned).sort((a,b)=>(b.updated||0)-(a.updated||0))].slice(0,8);
+    PAL.results=list.map(c=>({cid:c.id,k:'ct',tid:'main',x:c.title||'New conversation',jump:true,pinned:c.pinned}));PAL.sel=0;
+    box.innerHTML=list.length?'<div class="pgrp">Pinned and recent</div>':'<div class="pempty">No conversations yet.</div>';
+    PAL.results.forEach((r,i)=>box.appendChild(resultRow(r,i,[])));markSel();return;
+  }
+  let ms;try{ms=await idxEngine()}catch(e){box.innerHTML='<div class="pempty">Search couldn\'t load. Check your connection and try again.</div>';return}
+  if(q!==PAL.q)return;
+  let res=ms.search(q,{combineWith:'AND'});if(!res.length)res=ms.search(q);
+  // keep the best few hits per conversation, conversations ordered by their best hit
+  const by=new Map();for(const r of res){const a=by.get(r.cid)||[];if(a.length<4)a.push(r);by.set(r.cid,a)}
+  const groups=[...by.entries()].slice(0,12);
+  PAL.results=[];PAL.sel=0;box.replaceChildren();
+  if(!groups.length){box.innerHTML=`<div class="pempty">No matches for “${esc(q)}”.</div>`;return}
+  const qterms=q.toLowerCase().split(/\s+/).filter(Boolean);
+  for(const [cid,rs] of groups){
+    const m=convMeta(cid);const g=document.createElement('div');g.className='pgrp';
+    g.innerHTML=`${m.doc?ic('doc').replace('class="i"','class="i" style="width:12px;height:12px"'):''}<span></span>${m.archived?'<span class="arc">archived</span>':''}`;g.querySelector('span').textContent=m.title||'Conversation';box.appendChild(g);
+    for(const r of rs){const i=PAL.results.length;PAL.results.push(r);box.appendChild(resultRow(r,i,[...new Set([...(r.terms||[]),...qterms])]))}
+  }
+  markSel();
+}
+function resultRow(r,i,terms){
+  const d=document.createElement('div');d.className='pr';d.dataset.i=i;
+  const [label]=KIND[r.k]||['Match'];
+  let c='var(--faint)';if(conv&&conv.id===r.cid&&r.tid&&T(r.tid)&&T(r.tid).parent)c=color(T(r.tid));
+  d.style.setProperty('--c',c);
+  const where=r.jump?(r.pinned?'Pinned':''):r.k==='d'?`Page ${r.p}`:r.k==='ct'?'':threadTitle(r.cid,r.tid);
+  d.innerHTML=`<span class="pk">${r.jump?'Open':label+(r.k==='d'&&r.p?' p. '+r.p:'')}</span><div class="pm">${where?`<div class="pt"></div>`:''}<div class="ps">${r.jump?esc(r.x):snippet(r.x||'',terms)}</div></div>`;
+  if(where)d.querySelector('.pt').textContent=where;
+  return d;
+}
+function markSel(){document.querySelectorAll('#palRes .pr').forEach(el=>el.classList.toggle('sel',+el.dataset.i===PAL.sel));const s=document.querySelector('#palRes .pr.sel');s&&s.scrollIntoView({block:'nearest'})}
+async function openResult(r,keep){
+  if(!r)return;
+  if(!keep)closePalette();
+  if(!conv||conv.id!==r.cid)await openConv(r.cid);
+  if(!conv||conv.id!==r.cid)return;
+  if(r.k==='d'){goToPage(r.p||1);return}
+  if(r.k==='ct'||r.jump){if(conv.ui.view==='canvas')focusCard(conv.doc?'doc':'main');else revealPane('main');return}
+  const tid=r.tid;if(!T(tid)){toast('That part of the conversation no longer exists.');return}
+  if(conv.ui.view==='canvas'){focusCard(tid,r.mid);return}
+  if(r.k==='h'){openThread(tid);revealAnchor(tid);return}
+  if(r.mid&&conv.msgs[r.mid]&&conv.msgs[r.mid].role==='note'&&!conv.ui.open.includes(tid))openThread(tid);
+  openThread(tid);conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==tid);layout();revealPane(tid);
+  if(r.mid)revealMsg(tid,r.mid);
+}
+(()=>{
+  const inp=$('#palIn');
+  inp.addEventListener('input',()=>{clearTimeout(PAL.timer);PAL.timer=setTimeout(runSearch,90)});
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='ArrowDown'){e.preventDefault();PAL.sel=Math.min(PAL.results.length-1,PAL.sel+1);markSel()}
+    else if(e.key==='ArrowUp'){e.preventDefault();PAL.sel=Math.max(0,PAL.sel-1);markSel()}
+    else if(e.key==='Enter'){e.preventDefault();const keep=e.metaKey||e.ctrlKey;openResult(PAL.results[PAL.sel],keep);if(keep)inp.focus()}
+    else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closePalette()}
+  });
+  $('#palRes').addEventListener('mousemove',e=>{const r=e.target.closest('.pr');if(r&&+r.dataset.i!==PAL.sel){PAL.sel=+r.dataset.i;markSel()}});
+  $('#palRes').addEventListener('click',e=>{const r=e.target.closest('.pr');if(r){const keep=e.metaKey||e.ctrlKey;openResult(PAL.results[+r.dataset.i],keep);if(keep)inp.focus()}});
+  $('#pal').addEventListener('mousedown',e=>{if(e.target.id==='pal')closePalette()});
+  const sb=$('#sboxIn');
+  sb.addEventListener('focus',()=>{const v=sb.value;sb.value='';sb.blur();openPalette(v)});
+  document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='k'){e.preventDefault();if($('#pal').classList.contains('show'))closePalette();else openPalette('')}},true);
+  const mac=/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent);
+  document.querySelectorAll('.kmod').forEach(k=>k.textContent=mac?'⌘':'Ctrl+');
+})();
+
+/* ---------- sidebar ---------- */
+function renderTitle(){const el=$('#cTitle');if(document.activeElement!==el)el.textContent=conv.title||'New conversation';updateHeader('main')}
+function renderMap(){
+  const tree=$('#tree');
+  const fold=conv.ui.tfold=(conv.ui.tfold||[]).filter(id=>id==='doc'?conv.doc:conv.threads[id]);
+  const chev=(id,kids)=>{
+    if(!kids.length)return '<span class="tchev none"></span>';
+    const f=fold.includes(id),n=descendants(id).length;
+    return `<button class="tchev${f?'':' open'}" data-tfold="${id}" title="${f?'Show':'Hide'} the ${n} branch${n===1?'':'es'} under this">${ic('back').replace('class="i"','class="i" style="transform:rotate(180deg)"')}</button>`;
+  };
+  const hiddenBadge=(id)=>{const n=descendants(id).length;return fold.includes(id)&&n?`<span class="hid" title="${n} hidden branch${n===1?'':'es'}">+${n}</span>`:''};
+  const build=(tid)=>{
+    const t=T(tid),li=document.createElement('li');
+    const n=document.createElement('div');n.className='mnode'+(conv.ui.open.includes(tid)&&!isCollapsed(tid)?' open':'')+(t.resolved?' res':'');n.dataset.map=tid;n.style.setProperty('--c',tid==='main'?'var(--faint)':color(t));
+    const cnt=(conv.order[tid]||[]).filter(id=>conv.msgs[id]&&conv.msgs[id].role==='user').length;
+    const kids=kidsOf(tid);
+    n.innerHTML=`${chev(tid,kids)}${tid==='main'?'<span class="dot"></span>':statusDot(t)}<div style="min-width:0;flex:1"><div class="mt"></div>${t.anchorText?'<div class="ma"></div>':''}</div>${hiddenBadge(tid)}<span class="mc" title="Questions asked in this thread">${cnt||''}</span>${tid==='main'?'':`<button class="ib mp${t.pinned?' pinned':''}" data-pinthread="${tid}" title="${t.pinned?'Unpin this branch':'Pin this branch to the top of the sidebar'}">${ic('pin')}</button><button class="ib dz mx" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`}`;
+    n.title=tid==='main'?'Show the main thread':'Open this branch';
+    n.querySelector('.mt').textContent=tid==='main'?'Main thread':t.title;
+    if(t.anchorText)n.querySelector('.ma').textContent=(isDocBranch(t)&&conv.doc.kind==='pdf'?`p. ${t.anchorPage+1} · `:'')+'“'+trunc(t.anchorText,60)+'”';
+    li.appendChild(n);
+    if(kids.length&&!fold.includes(tid)){const ul=document.createElement('ul');kids.forEach(c=>ul.appendChild(build(c.id)));li.appendChild(ul)}
+    return li;
+  };
+  const ul=document.createElement('ul');
+  if(conv.doc){
+    const li=document.createElement('li'),n=document.createElement('div');
+    n.className='mnode'+(conv.ui.open.includes('doc')&&!isCollapsed('doc')?' open':'');n.dataset.mapdoc='1';n.title='Show the document';
+    const kids=[T('main'),...docBranches()];
+    n.innerHTML=`${chev('doc',kids)}<span class="docico">${ic('doc')}</span><div style="min-width:0;flex:1"><div class="mt"></div></div>${hiddenBadge('doc')}`;n.querySelector('.mt').textContent=conv.doc.name;
+    li.appendChild(n);if(!fold.includes('doc')){const sub=document.createElement('ul');kids.forEach(c=>sub.appendChild(build(c.id)));li.appendChild(sub)}ul.appendChild(li);
+  }else ul.appendChild(build('main'));
+  tree.replaceChildren(ul);
+  const any=fold.length>0,ta=$('#treeAll'),has=Object.keys(conv.threads).length>1;
+  ta.style.visibility=has?'':'hidden';ta.textContent=any?'Expand all':'Collapse all';
+  ta.title=any?'Show every branch':'Collapse every thread to its top level, so the tree is easier to scan';
+}
+function toggleTreeFold(id){const f=conv.ui.tfold||[];conv.ui.tfold=f.includes(id)?f.filter(x=>x!==id):[...f,id];renderMap();save()}
+function treeAll(){
+  if((conv.ui.tfold||[]).length){conv.ui.tfold=[]}
+  else{
+    // keep the top level visible: fold every thread that has branches, except the root
+    const root=conv.doc?'doc':'main';const ids=[root,...descendants(root)];
+    conv.ui.tfold=ids.filter(id=>id!==root&&kidsOf(id).length);
+    if(!conv.ui.tfold.length&&kidsOf(root).length)conv.ui.tfold=[root];
+  }
+  renderMap();save();
+}
+function metaOf(c){
+  return {id:c.id,title:c.title,updated:c.updated,pinned:!!c.pinned,archived:!!c.archived,doc:!!c.doc,
+    pins:Object.values(c.threads||{}).filter(t=>t.pinned).map(t=>({tid:t.id,title:t.title,ci:t.colorIdx}))};
+}
+let archOpen=false;try{archOpen=localStorage.getItem('sq:arch')==='1'}catch(e){}
+function renderConvList(){
+  const items=convList.map(c=>conv&&c.id===conv.id?metaOf(conv):c);
+  if(conv&&!items.find(c=>c.id===conv.id))items.unshift(metaOf(conv));
+  const row=(c,extra)=>{
+    const d=document.createElement('div');d.className='citem'+(conv&&c.id===conv.id?' cur':'');d.dataset.conv=c.id;
+    d.innerHTML=`${c.doc?`<span class="docico" style="color:var(--faint)">${ic('doc').replace('class="i"','class="i" style="width:13px;height:13px"')}</span>`:''}<span class="t"></span>${extra||''}<span class="acts">`+
+      (c.archived?'':`<button class="ib${c.pinned?' pinned':''}" data-pinconv="${esc(c.id)}" title="${c.pinned?'Unpin':'Pin to the top of the sidebar'}">${ic('pin')}</button>`)+
+      `<button class="ib" data-archconv="${esc(c.id)}" title="${c.archived?'Move back to your conversations':'Archive: move out of the way without deleting'}">${ic('archive')}</button>`+
+      `<button class="ib dz" data-del="${esc(c.id)}" title="Delete this conversation and all its branches">${ic('trash')}</button></span>`;
+    d.querySelector('.t').textContent=c.title||'New conversation';
+    return d;
+  };
+  const active=items.filter(c=>!c.archived),arch=items.filter(c=>c.archived);
+  // pinned: whole conversations, then individual branches
+  const pl=$('#plist');pl.replaceChildren();
+  for(const c of active.filter(c=>c.pinned))pl.appendChild(row(c,`<span class="pmark" title="Pinned">${ic('pin')}</span>`));
+  for(const c of active)for(const b of (c.pins||[])){
+    const d=document.createElement('div');d.className='citem pb';d.dataset.pinb=c.id+'|'+b.tid;d.style.setProperty('--c',PALETTE[(b.ci||0)%PALETTE.length]);
+    d.title='Jump to this pinned branch';
+    d.innerHTML=`<span class="bd"></span><span class="t"></span><span class="acts"><button class="ib pinned" data-unpinb="${esc(c.id+'|'+b.tid)}" title="Unpin this branch">${ic('pin')}</button></span>`;
+    const tt=d.querySelector('.t');tt.textContent=b.title+' ';const sm=document.createElement('small');sm.textContent='· '+(c.title||'');tt.appendChild(sm);
+    pl.appendChild(d);
+  }
+  $('#pinWrap').style.display=pl.children.length?'':'none';
+  const el=$('#clist');el.replaceChildren();
+  for(const c of active.filter(c=>!c.pinned))el.appendChild(row(c));
+  if(!el.children.length)el.innerHTML='<div class="citem" style="cursor:default;color:var(--faint)">No other conversations</div>';
+  const al=$('#alist');al.replaceChildren();arch.forEach(c=>al.appendChild(row(c)));
+  $('#archWrap').style.display=arch.length?'':'none';$('#archLbl').textContent=`Archive · ${arch.length}`;
+  $('#archToggle').classList.toggle('open',archOpen);al.classList.toggle('show',archOpen);
+}
+async function setConvFlag(id,patch){
+  await io.ready;
+  const m=convList.find(c=>c.id===id);
+  if(conv&&conv.id===id){Object.assign(conv,patch);save()}
+  else{
+    try{
+      await io.store.update(id,patch);
+    }catch(e){console.warn(e);toast('Couldn\'t update that conversation.');return}
+  }
+  if(m)Object.assign(m,patch);
+  renderConvList();updateHeader('main');
+}
+function toggleBranchPin(tid){
+  const t=T(tid);if(!t||!t.parent)return;
+  t.pinned=!t.pinned;if(!t.pinned)delete t.pinned;
+  updateHeader(tid);renderMap();renderConvList();save();
+  setStatus(t.pinned?'Branch pinned':'Branch unpinned');
+}
+async function unpinRemoteBranch(cid,tid){
+  if(conv&&conv.id===cid){toggleBranchPin(tid);return}
+  let data=null;
+  try{
+    data=await io.store.get(cid);
+    if(!data||!data.threads[tid])return;
+    delete data.threads[tid].pinned;
+    await io.store.update(cid,{threads:data.threads});
+  }catch(e){toast('Couldn\'t unpin it.');return}
+  const m=convList.find(c=>c.id===cid);if(m)m.pins=(m.pins||[]).filter(p=>p.tid!==tid);renderConvList();
+}
+async function openPinnedBranch(cid,tid){
+  if(!conv||conv.id!==cid)await openConv(cid);
+  if(!conv||conv.id!==cid||!T(tid)){toast('That branch no longer exists.');return}
+  if(conv.ui.view==='canvas'){focusCard(tid);return}
+  openThread(tid);conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==tid);layout();revealPane(tid);
+}
+
+/* ---------- persistence ---------- */
+let saveTimer=0,saving=false,dirty=false;
+function save(){if(!conv)return;conv.updated=Date.now();dirty=true;if(typeof IDX!=='undefined')IDX.dirty=true;clearTimeout(saveTimer);saveTimer=setTimeout(flush,700)}
+function serialize(c){
+  const msgs={};for(const [k,m] of Object.entries(c.msgs)){const {pending,...rest}=m;msgs[k]=rest}
+  return {...c,msgs};
+}
+async function flush(){
+  if(!dirty||!conv)return;
+  if(saving){clearTimeout(saveTimer);saveTimer=setTimeout(flush,500);return}
+  if(!conv.doc&&!conv.order.main.length&&Object.keys(conv.threads).length===1){dirty=false;return}
+  if(!io.store){clearTimeout(saveTimer);saveTimer=setTimeout(flush,400);return}
+  dirty=false;saving=true;const data=serialize(conv);
+  try{
+    await io.store.put(conv.id,data);if(io.store.label)setStatus(io.store.label);
+    await idxWrite(conv,docState&&docState.key===conv.id&&docState.loaded?docState.pages:null);
+  }catch(e){
+    console.warn('save failed',e);
+    if(e&&e.code==='quota_exceeded')toast('Storage is full. Delete an old conversation.');
+    else if(e&&e.code==='invalid_argument'&&JSON.stringify(data).length>250000)toast('This conversation is too large to save (256 KB limit).');
+    else setStatus('Not saved');
+  }
+  saving=false;
+  const i=convList.findIndex(c=>c.id===conv.id);const meta=metaOf(conv);
+  if(i>=0)convList[i]=meta;else convList.unshift(meta);
+  convList.sort((a,b)=>b.updated-a.updated);renderConvList();
+}
+async function loadList(){
+  await io.ready;
+  try{
+    convList=(await io.store.list()).map(({id,data})=>({...metaOf(data),id}));
+    convList.sort((a,b)=>(b.updated||0)-(a.updated||0));
+  }catch(e){console.warn('list failed',e)}
+  renderConvList();
+}
+async function openConv(id){
+  if(conv&&conv.id===id)return;
+  await io.ready;
+  await flushNow();
+  let data=null;
+  try{
+    data=await io.store.get(id);
+  }catch(e){console.warn(e)}
+  if(!data){toast('Couldn\'t open that conversation.');return}
+  setConv(data);
+}
+async function flushNow(){clearTimeout(saveTimer);if(dirty)await flush()}
+async function deleteConv(id){
+  await io.ready;
+  let assetId=null;try{if(conv&&conv.id===id)assetId=conv.doc&&conv.doc.assetId;else{const d=await io.store.get(id);assetId=d&&d.doc&&d.doc.assetId}}catch(e){}
+  try{await io.store.remove(id)}catch(e){toast('Couldn\'t delete it.');return}
+  if(assetId){try{await io.files.remove(assetId)}catch(e){console.warn(e)}}
+  idxDelete(id);
+  convList=convList.filter(c=>c.id!==id);
+  if(conv&&conv.id===id){dirty=false;setConv(newConv())}else renderConvList();
+}
+function setConv(c){
+  for(const s of streaming.values())s.ctrl.abort();streaming.clear();
+  conv=c;const ui=conv.ui=conv.ui||{};
+  ui.open=(ui.open||['main']).filter(id=>conv.threads[id]||(id==='doc'&&conv.doc));if(!ui.open.includes('main'))ui.open.unshift('main');
+  if(conv.doc&&!ui.open.includes('doc'))ui.open.unshift('doc');
+  if(docView.obs)docView.obs.disconnect();docState=null;if(conv.doc)startDoc();
+  ui.collapsed=(ui.collapsed||[]).filter(id=>ui.open.includes(id));
+  if(ui.focus){ui.collapsed=ui.open.filter(x=>x!==ui.focus);delete ui.focus}
+  ui.layout=ui.layout==='rows'?'rows':'cols';ui.view=ui.view==='canvas'?'canvas':'panes';ui.sizes=ui.sizes||{};
+  for(const m of Object.values(conv.msgs)){m.ver=m.ver||0;if(m.pending){delete m.pending;if(!m.content)m.error='Interrupted.'}}
+  msgCache.clear();for(const el of paneEls.values())el.remove();paneEls.clear();for(const g of gutEls.values())g.remove();gutEls.clear();
+  camFitted=false;
+  layout();renderTitle();renderMap();renderConvList();hidePop();
+  $('#stage').classList.toggle('canvas',ui.view==='canvas');if(ui.view==='canvas')renderCanvas();
+  syncViewSeg();
+}
+function setStatus(s){const el=$('#status');el.textContent=s;clearTimeout(setStatus.t);setStatus.t=setTimeout(()=>el.textContent='',2500)}
+function toast(s){const el=$('#toast');el.textContent=s;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),3000)}
+
+/* ---------- selection popover ---------- */
+const pop=$('#pop'),popIn=$('#popIn');
+QUICK.forEach(([l,q])=>{const b=document.createElement('button');b.className='chip';b.textContent=l;b.dataset.q=q;b.title='Opens a branch asking: '+q;$('#popChips').appendChild(b)});
+$('#popGo').innerHTML=ic('send');
+function checkSelection(){
+  const sel=window.getSelection();
+  if(!sel||sel.isCollapsed||!sel.rangeCount)return;
+  const raw=sel.toString().trim();const txt=raw.replace(/\s+/g,' ');if(txt.length<2)return;
+  const elOf=n=>n&&(n.nodeType===1?n:n.parentElement);
+  const rng=sel.getRangeAt(0);
+  const d1=conv.doc&&elOf(sel.anchorNode)&&elOf(sel.anchorNode).closest('.textLayer,.docbody');
+  const d2=conv.doc&&elOf(sel.focusNode)&&elOf(sel.focusNode).closest('.textLayer,.docbody');
+  if(d1&&d1===d2){
+    const page=d1.classList.contains('textLayer')?(+d1.closest('.dpage').dataset.page-1):0;
+    const s=charPos(d1,rng.startContainer,rng.startOffset),e2=charPos(d1,rng.endContainer,rng.endOffset);
+    popState={doc:true,page,text:txt.slice(0,1500),range:s>=0&&e2>s?{s,e:e2}:null};
+  }else{
+    const b1=elOf(sel.anchorNode)&&elOf(sel.anchorNode).closest('.msg.assistant .body');
+    const b2=elOf(sel.focusNode)&&elOf(sel.focusNode).closest('.msg.assistant .body');
+    if(!b1||b1!==b2)return;
+    const mid=b1.closest('.msg').dataset.mid;const m=conv.msgs[mid];if(!m||m.pending)return;
+    const s=charPos(b1,rng.startContainer,rng.startOffset),e2=charPos(b1,rng.endContainer,rng.endOffset);
+    popState={mid,text:txt.slice(0,1500),range:s>=0&&e2>s?{s,e:e2}:null};
+  }
+  $('#popQ').textContent=raw.slice(0,1500);popIn.value='';popIn.style.height='';
+  pop.style.setProperty('--c',PALETTE[conv.nextColor%PALETTE.length]);
+  const r=sel.getRangeAt(0).getBoundingClientRect();
+  pop.classList.add('show');$('#popQ').scrollTop=0;
+  const pw=pop.offsetWidth,ph=pop.offsetHeight;
+  let left=Math.min(Math.max(8,r.left+r.width/2-pw/2),innerWidth-pw-8);
+  let top=r.bottom+10;if(top+ph>innerHeight-8)top=Math.max(8,r.top-ph-10);
+  pop.style.left=left+'px';pop.style.top=top+'px';
+}
+function hidePop(){pop.classList.remove('show');popState=null}
+function popSubmit(q,chip){
+  if(!popState)return;const {mid,text,range,doc,page}=popState;hidePop();window.getSelection().removeAllRanges();
+  createBranch(doc?'DOC':mid,text,q||'',q&&chip?trunc(text,40):null,range,page);
+}
+popIn.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();popSubmit(popIn.value.trim())}else if(e.key==='Escape'){hidePop()}});
+popIn.addEventListener('input',()=>{
+  popIn.style.height='auto';popIn.style.height=Math.min(popIn.scrollHeight+2,200)+'px';
+  // keep the whole popup on screen as it grows
+  const r=pop.getBoundingClientRect();if(r.bottom>innerHeight-8)pop.style.top=Math.max(8,innerHeight-8-r.height)+'px';
+});
+$('#popGo').addEventListener('click',()=>popSubmit(popIn.value.trim()));
+$('#popChips').addEventListener('click',e=>{const b=e.target.closest('[data-q]');if(b)popSubmit(b.dataset.q,true)});
+document.addEventListener('mouseup',e=>{if(pop.contains(e.target))return;setTimeout(checkSelection,0)});
+let mouseHeld=false,selT=0;
+document.addEventListener('mousedown',()=>{mouseHeld=true},true);document.addEventListener('mouseup',()=>{mouseHeld=false},true);
+document.addEventListener('selectionchange',()=>{
+  if(mouseHeld||pop.contains(document.activeElement))return;
+  clearTimeout(selT);selT=setTimeout(()=>{if(!mouseHeld&&!pop.classList.contains('show'))checkSelection()},450);
+});
+document.addEventListener('mousedown',e=>{if(!pop.contains(e.target))hidePop()});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Tab'&&pop.classList.contains('show')&&document.activeElement!==popIn){e.preventDefault();popIn.focus();return}
+  if(conv&&conv.ui.view==='canvas'&&!e.target.closest('input,textarea,select,[contenteditable="true"]')&&!$('#pal').classList.contains('show')&&!pop.classList.contains('show')){
+    const S=cvState(),tid=S.sel,isD=tid&&S.dock&&S.dock[tid];
+    if(tid&&(e.ctrlKey||e.metaKey)&&e.altKey&&/^Arrow/.test(e.key)){
+      e.preventDefault();
+      if(e.key==='ArrowLeft')dockCard(tid,REGIONS.left);else if(e.key==='ArrowRight')dockCard(tid,REGIONS.right);else if(e.key==='ArrowUp')dockCard(tid,REGIONS.fill);else if(isD)restoreCard(tid);
+      return;
+    }
+    if(tid&&e.key===' '){e.preventDefault();if(isD)restoreCard(tid);else dockCard(tid,REGIONS.fill);return}
+    if(isD&&(e.key==='Escape'||e.key==='ArrowDown')){e.preventDefault();restoreCard(tid);return}
+  }
+  if(e.key==='Escape'){
+    if(pop.classList.contains('show')){hidePop();return}
+    if(conv.ui.view==='panes'&&conv.ui.open.some(isFocused)){conv.ui.collapsed=[];layout();save()}
+  }
+});
+document.addEventListener('keyup',e=>{if(e.shiftKey&&/Arrow/.test(e.key))checkSelection()});
+
+/* ---------- global clicks ---------- */
+document.addEventListener('click',e=>{
+  const delb=e.target.closest('[data-delb]');
+  if(delb){e.stopPropagation();confirmDeleteBranch(delb.dataset.delb);return}
+  const pref=e.target.closest('a.pref');if(pref){e.preventDefault();goToPage(+pref.dataset.page);return}
+  const tf=e.target.closest('[data-tfold]');if(tf){e.stopPropagation();toggleTreeFold(tf.dataset.tfold);return}
+  const md=e.target.closest('[data-mapdoc]');if(md){if(conv.ui.view==='canvas')focusCard('doc');else{openDocPane();revealPane('doc')}return}
+  const rs=e.target.closest('[data-resolve]');if(rs){e.stopPropagation();toggleResolved(rs.dataset.resolve);return}
+  const cnode=e.target.closest('.cnode');
+  if(cnode){
+    const tid=cnode.dataset.ctid;
+    const ca=e.target.closest('[data-cact]');if(ca){canvasAction(ca.dataset.cact,tid,ca);return}
+    const fn=e.target.closest('sup.fn,.anchor');if(fn&&window.getSelection().isCollapsed){focusCard(fn.dataset.tid);return}
+    const cq=e.target.closest('.cq');if(cq&&window.getSelection().isCollapsed){canvasRevealSource(tid);return}
+    const drow=e.target.closest('[data-cdocrow]');if(drow){focusCard(drow.dataset.cdocrow);return}
+    const row=e.target.closest('[data-cmid]');if(row){focusCard(tid,row.dataset.cmid);return}
+    return;
+  }
+  const fn=e.target.closest('sup.fn');if(fn){openThread(fn.dataset.tid,fn.closest('.pane').dataset.tid);return}
+  const a=e.target.closest('.anchor');if(a&&window.getSelection().isCollapsed){openThread(a.dataset.tid,a.closest('.pane').dataset.tid);return}
+  const chip=e.target.closest('.bchip');if(chip){openThread(chip.dataset.tid,chip.closest('.pane').dataset.tid);return}
+  const crumb=e.target.closest('[data-crumb]');if(crumb){e.stopPropagation();revealAnchor(crumb.dataset.via);return}
+  const back=e.target.closest('[data-back]');if(back&&window.getSelection().isCollapsed){revealAnchor(back.closest('.pane').dataset.tid);return}
+  const op=e.target.closest('[data-open]');if(op){openThread(op.dataset.open);return}
+  const ask=e.target.closest('[data-ask]');if(ask){send(ask.closest('.pane').dataset.tid,ask.dataset.ask);return}
+  const act=e.target.closest('[data-act]');
+  if(act){
+    const pane=act.closest('.pane'),tid=pane&&pane.dataset.tid,msg=act.closest('.msg'),mid=msg&&msg.dataset.mid;
+    switch(act.dataset.act){
+      case 'focus':toggleFocus(tid);break;
+      case 'pin':if(tid==='main')setConvFlag(conv.id,{pinned:!conv.pinned});else toggleBranchPin(tid);break;
+      case 'collapse':toggleCollapse(tid);break;
+      case 'close':closeThread(tid);break;
+      case 'back':revealAnchor(tid);break;
+      case 'jend':{const pb=pane.querySelector('.pb');pb.scrollTo({top:pb.scrollHeight,behavior:'smooth'});break}
+      case 'jlast':{const pb=pane.querySelector('.pb');const ms=pane.querySelectorAll('.msgs>.msg');let m=ms[ms.length-1];if(m&&m.classList.contains('assistant')&&ms.length>1&&ms[ms.length-2].classList.contains('user'))m=ms[ms.length-2];if(m)pb.scrollTo({top:pb.scrollTop+m.getBoundingClientRect().top-pb.getBoundingClientRect().top-12,behavior:'smooth'});break}
+      case 'jprev':{const pb=pane.querySelector('.pb');if(pane.__prev!=null)pb.scrollTo({top:pane.__prev,behavior:'smooth'});pane.__prev=null;pane.classList.remove('hasprev');break}
+      case 'take':{const tk=pane.querySelector('.tk');tk.classList.toggle('show');if(tk.classList.contains('show'))tk.querySelector('input').focus();break}
+      case 'wbranch':createBranch(mid,'',null);break;
+      case 'copy':navigator.clipboard.writeText(conv.msgs[mid].content).then(()=>toast('Copied'),()=>toast('Copy isn\'t allowed here'));break;
+      case 'retry':retry(mid);break;
+      case 'delnote':{const m=conv.msgs[mid];if(!m)break;const s=streaming.get(m.thread);if(s&&s.mid===mid)s.ctrl.abort();conv.order[m.thread]=conv.order[m.thread].filter(x=>x!==mid);delete conv.msgs[mid];msgCache.delete(mid);renderPane(m.thread);save();break}
+    }
+    return;
+  }
+  const rail=e.target.closest('.pane.rail');if(rail){toggleCollapse(rail.dataset.tid);return}
+  const mn=e.target.closest('[data-map]');if(mn){const id=mn.dataset.map;if(conv.ui.view==='canvas'){focusCard(id);return}openThread(id);conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==id);layout();renderMap();revealPane(id);return}
+  const del=e.target.closest('[data-del]');if(del){e.stopPropagation();const id=del.dataset.del;const c=convList.find(x=>x.id===id)||(conv.id===id?conv:null);
+    askConfirm('Delete this conversation?',`<b>${esc((c&&c.title)||'This conversation')}</b> and all of its branches will be permanently deleted, along with its document if it has one.`,()=>deleteConv(id));return}
+  const pc=e.target.closest('[data-pinconv]');if(pc){e.stopPropagation();const id=pc.dataset.pinconv;const m=convList.find(c=>c.id===id)||(conv.id===id?metaOf(conv):{});setConvFlag(id,{pinned:!m.pinned});return}
+  const ac=e.target.closest('[data-archconv]');if(ac){e.stopPropagation();const id=ac.dataset.archconv;const m=convList.find(c=>c.id===id)||(conv.id===id?metaOf(conv):{});const a=!m.archived;setConvFlag(id,a?{archived:true,pinned:false}:{archived:false});setStatus(a?'Archived':'Moved back to conversations');return}
+  const ub=e.target.closest('[data-unpinb]');if(ub){e.stopPropagation();const [c,t]=ub.dataset.unpinb.split('|');unpinRemoteBranch(c,t);return}
+  const pbr=e.target.closest('[data-pinb]');if(pbr){const [c,t]=pbr.dataset.pinb.split('|');openPinnedBranch(c,t);return}
+  const pt=e.target.closest('[data-pinthread]');if(pt){e.stopPropagation();toggleBranchPin(pt.dataset.pinthread);return}
+  const ci=e.target.closest('[data-conv]');if(ci){openConv(ci.dataset.conv);if(innerWidth<760)$('#app').classList.remove('sideopen');return}
+});
+document.addEventListener('mouseover',e=>{
+  document.querySelectorAll('.pane.hl').forEach(p=>p.classList.remove('hl'));
+  document.querySelectorAll('.anchor.hot,sup.fn.hot').forEach(p=>p.classList.remove('hot'));
+  const a=e.target.closest('.anchor,.bchip,sup.fn');
+  if(a&&!a.closest('.cnode')){const p=paneEls.get(a.dataset.tid);p&&p.classList.add('hl');return}
+  const o=e.target.closest('[data-back],.origin,[data-act="back"]');
+  if(o&&o.closest('.pane')){const tid=o.closest('.pane').dataset.tid;document.querySelectorAll(`.anchor[data-tid="${tid}"],sup.fn[data-tid="${tid}"]`).forEach(s=>s.classList.add('hot'))}
+});
+
+/* ---------- confirm dialog ---------- */
+let modalOk=null;
+function askConfirm(title,html,onOk){
+  $('#mTitle').textContent=title;$('#mBody').innerHTML=html;modalOk=onOk;hideTip();
+  $('#modal').classList.add('show');setTimeout(()=>$('#mOk').focus(),20);
+}
+function closeModal(){$('#modal').classList.remove('show');modalOk=null}
+$('#mCancel').onclick=closeModal;
+$('#mOk').onclick=()=>{const f=modalOk;closeModal();f&&f()};
+$('#modal').addEventListener('mousedown',e=>{if(e.target.id==='modal')closeModal()});
+$('#modal').addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();closeModal()}});
+function confirmDeleteBranch(tid){
+  const t=T(tid);if(!t||!t.parent)return;
+  const sub=Object.keys(conv.threads).filter(x=>isDesc(x,tid));
+  const all=[tid,...sub];
+  const msgs=all.reduce((n,k)=>n+(conv.order[k]||[]).filter(id=>conv.msgs[id]&&conv.msgs[id].role==='user').length,0);
+  const notes=Object.values(conv.msgs).filter(m=>m.role==='note'&&all.includes(m.fromThread)).length;
+  let html=`<b>${esc(t.title)}</b> will be permanently deleted`;
+  html+=sub.length?`, along with <b>${sub.length} sub-branch${sub.length===1?'':'es'}</b> branched from it:`:'.';
+  if(sub.length)html+='<ul>'+sub.slice(0,6).map(x=>`<li>${esc(T(x).title)}</li>`).join('')+(sub.length>6?`<li>and ${sub.length-6} more</li>`:'')+'</ul>';
+  html+=`<div style="margin-top:8px">That's ${msgs} question${msgs===1?'':'s'} and their answers.${notes?` Takeaways already added to a parent stay, labeled as from a deleted branch.`:''}</div>`;
+  askConfirm(sub.length?'Delete branch and its sub-branches?':'Delete branch?',html,()=>deleteBranch(tid));
+}
+
+/* ---------- tooltips ---------- */
+const tipbox=$('#tipbox');let tipFor=null,tipTimer=0;
+function hideTip(){clearTimeout(tipTimer);tipbox.classList.remove('show');tipFor=null}
+function showTip(el){
+  if(!el.isConnected)return;
+  tipbox.textContent=el.dataset.tip;tipbox.classList.add('show');
+  const r=el.getBoundingClientRect(),w=tipbox.offsetWidth,h=tipbox.offsetHeight;
+  let top=r.bottom+8;if(top+h>innerHeight-6)top=r.top-h-8;
+  const left=Math.min(Math.max(6,r.left+r.width/2-w/2),innerWidth-w-6);
+  tipbox.style.left=left+'px';tipbox.style.top=Math.max(6,top)+'px';
+}
+document.addEventListener('mouseover',e=>{
+  const el=e.target.closest('[title],[data-tip]');
+  if(el===tipFor)return;
+  hideTip();if(!el)return;
+  if(el.hasAttribute('title')){const t=el.getAttribute('title');el.removeAttribute('title');if(t)el.dataset.tip=t;else delete el.dataset.tip}
+  if(!el.dataset.tip)return;
+  tipFor=el;tipTimer=setTimeout(()=>showTip(el),380);
+});
+document.addEventListener('mousedown',hideTip,true);
+document.addEventListener('scroll',hideTip,true);
+document.addEventListener('mouseleave',hideTip);
+
+/* ---------- top bar ---------- */
+$('#tSide').innerHTML=ic('side');$('#logo').innerHTML=`<svg class="i logo" viewBox="0 0 24 24">${I.branch}</svg>`;
+$('#archToggle').querySelector('.chev').innerHTML=ic('back').replace('class="i"','class="i" style="width:12px;height:12px;transform:rotate(180deg)"');
+$('#treeAll').onclick=treeAll;
+$('#archToggle').onclick=()=>{archOpen=!archOpen;try{localStorage.setItem('sq:arch',archOpen?'1':'')}catch(e){}renderConvList()};
+$('#newConv').innerHTML=ic('plus')+'New conversation';$('#newDoc').innerHTML=ic('doc')+'New from a document';$('#newDoc').onclick=openDocModal;
+['cols','rows','canvas'].forEach(v=>{document.querySelector(`[data-v="${v}"] span`).outerHTML=ic(v)});
+const mSel=$('#mSel'),eSel=$('#eSel');
+MODELS.forEach(([v,l])=>mSel.add(new Option(l,v)));EFFORTS.forEach(([v,l])=>eSel.add(new Option(l,v)));
+function fillModelPicker(){
+  const list=io.llm?io.llm.models():MODELS;mSel.replaceChildren();list.forEach(([v,l])=>mSel.add(new Option(l,v)));
+  mSel.value=settings.model;if(!mSel.value)mSel.value=settings.model=list[0]?list[0][0]:'auto';
+  eSel.closest('.sel').style.display=io.llm&&io.llm.supportsEffort?'':'none';
+}
+mSel.value=settings.model;eSel.value=settings.effort;if(!mSel.value)mSel.value=settings.model='auto';if(!eSel.value)eSel.value=settings.effort='auto';
+mSel.onchange=()=>{settings.model=mSel.value;saveSettings();setStatus('New replies use '+modelLabel(mSel.value))};
+eSel.onchange=()=>{settings.effort=eSel.value;saveSettings()};
+$('#tSide').addEventListener('click',()=>{const app=$('#app');if(innerWidth<760){app.classList.toggle('sideopen')}else{app.classList.toggle('noside');try{localStorage.setItem('sq:noside',app.classList.contains('noside')?'1':'')}catch(e){}}setTimeout(()=>{wires();if(conv.ui.view==='canvas')applyCam()},50)});
+try{if(localStorage.getItem('sq:noside'))$('#app').classList.add('noside')}catch(e){}
+$('#viewSeg').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(b)setView(b.dataset.v)});
+$('#newConv').addEventListener('click',async()=>{await flushNow();setConv(newConv());setTimeout(()=>paneEls.get('main').querySelector('textarea').focus(),30)});
+const ct=$('#cTitle');
+ct.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();ct.blur()}});
+ct.addEventListener('blur',()=>{const v=ct.textContent.trim();if(v&&v!==conv.title){conv.title=v;updateHeader('main');save()}else renderTitle()});
+addEventListener('resize',wiresSoon);
+$('#panes').addEventListener('scroll',wiresSoon,{passive:true});
+new ResizeObserver(()=>{wiresSoon();if(conv&&conv.ui.view==='canvas'){placeDocked();drawEdgesSoon()}}).observe($('#stage'));
+
+/* ---------- boot ---------- */
+window.__mathReady=()=>{
+  if(mathReady)return;mathReady=true;
+  try{document.head.appendChild(MathJax.svgStylesheet())}catch(e){}
+  if(conv)for(const tid of conv.ui.open){try{renderPane(tid)}catch(e){console.warn(e)}}
+  if(conv&&conv.doc&&docState&&docState.loaded&&docState.kind!=='pdf')renderDocPane(true);
+};
+setConv(newConv());
+if(window.MathJax&&MathJax.tex2svg)window.__mathReady();
+setTimeout(()=>{const ta=paneEls.get('main')&&paneEls.get('main').querySelector('textarea');ta&&ta.focus()},50);
+
+function waitRuntime(){
+  if(!waitRuntime.p)waitRuntime.p=(async()=>{
+    for(let i=0;i<50&&!(window.claude&&window.claude.use);i++)await new Promise(r=>setTimeout(r,100));
+    return window.claude&&window.claude.use?window.claude:null;
+  })();
+  return waitRuntime.p;
+}
+io.ready=initConnectors().catch(e=>{console.warn('connector setup failed',e);io.llm=io.llm||noLlm('Couldn\'t connect to a model.');if(!io.store)browserStores();io.files=io.files||noFiles});
+io.ready.then(async()=>{fillModelPicker();await loadList();await maybeOpenLatest()});
+async function maybeOpenLatest(){
+  if(conv.order.main.length||!convList.length)return;
+  await openConv(convList[0].id);
+}
+function showBanner(on,msg){const b=$('#banner');b.textContent=msg||'Claude isn\'t connected in this view. Open this page on claude.ai while signed in to chat.';b.style.display=on?'block':'none'}
+})();
+</script>
+</body>
+</html>

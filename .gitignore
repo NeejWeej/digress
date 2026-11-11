@@ -1,0 +1,7 @@
+node_modules/
+data/
+.env
+tests/.artifacts/
+__pycache__/
+*.pyc
+.DS_Store
