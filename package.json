@@ -9,6 +9,7 @@
   "scripts": {
     "start": "node server/server.mjs",
     "dev": "DEV=1 node --watch-path=server server/server.mjs",
+    "chatgpt": "node server/chatgpt.mjs",
     "test": "python3 tests/run_all.py"
   },
   "devDependencies": {

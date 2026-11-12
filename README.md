@@ -38,6 +38,15 @@ Things to know:
 
 **With an API key:** put `ANTHROPIC_API_KEY=...` in `.env` (copy `.env.example`). When a key is set it is used unless `LLM_PROVIDER=claude-code`. The API path streams directly, caches the system prompt (handy for long PDFs) and lists every model your key can use.
 
+**ChatGPT models, with your ChatGPT plan (Plus or Pro):** sign in once and they appear in the model picker next to Claude's:
+
+```sh
+npm run chatgpt -- login       # opens the browser; --no-browser just prints the link
+npm run chatgpt -- status      # npm run chatgpt -- logout revokes it
+```
+
+This uses OpenAI's [Sign in with ChatGPT](https://developers.openai.com/siwc/token-sharing-open-source) for open-source apps: Digress registers as its own app (no API key, no Codex) and calls the public Responses API with `store: false`. The model gets no tools, or only OpenAI's hosted web search when you turn **Web** on. Usage counts against your plan; you can cap Digress at [chatgpt.com/settings/usage](https://chatgpt.com/settings/usage). The sign-in lives in `~/.config/digress/chatgpt.json` (owner-only). The server logs each reply's cached input tokens, so you can see the prompt cache working.
+
 ## Hosting on your tailnet
 
 The server listens on `127.0.0.1` only. Put [Tailscale Serve](https://tailscale.com/kb/1312/serve) in front of it to get a private HTTPS address that only devices on your tailnet can open:
@@ -48,7 +57,7 @@ tailscale serve --bg 8787       # → https://<machine>.<tailnet>.ts.net
 tailscale serve status          # see the URL; `tailscale serve --https=443 off` to stop
 ```
 
-Digress has no login of its own. Tailscale is the lock, so don't use `tailscale funnel` (public internet) or `HOST=0.0.0.0` unless you add authentication in front.
+Digress has no login of its own. It does refuse requests from other websites and requests addressed to names it doesn't expect (localhost, loopback addresses, the `HOST` address and, by default, `*.ts.net`; change the list with `ALLOWED_HOSTS` in `.env`), so a page open in your browser can't read or change your conversations. Tailscale is the lock, so don't use `tailscale funnel` (public internet) or `HOST=0.0.0.0` unless you add authentication in front.
 
 ### Keep it running (systemd)
 

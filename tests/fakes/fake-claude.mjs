@@ -12,7 +12,7 @@ process.stdin.on('end', async () => {
   const system = fs.readFileSync(arg('--system-prompt-file'), 'utf8');
   const model = arg('--model'), effort = arg('--effort') || 'none';
   const emit = (o) => process.stdout.write(JSON.stringify(o) + '\n');
-  log(JSON.stringify({ model, effort, tools: arg('--tools'), allowed: arg('--allowedTools') || null, apiKeyVisible: !!process.env.ANTHROPIC_API_KEY, systemChars: system.length, prompt }));
+  log(JSON.stringify({ model, effort, tools: arg('--tools'), allowed: arg('--allowedTools') || null, isolated: ['--strict-mcp-config', '--safe-mode', '--disable-slash-commands'].every((f) => args.includes(f)), apiKeyVisible: !!process.env.ANTHROPIC_API_KEY, systemChars: system.length, prompt }));
   process.on('SIGTERM', () => { log('KILLED'); process.exit(143); });
   if (prompt.includes('FAILAUTH')) {
     emit({ type: 'result', subtype: 'success', is_error: true, result: 'Invalid API key · Please run /login' });

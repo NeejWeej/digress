@@ -16,10 +16,10 @@ The client never calls a model, storage or file API directly. It goes through `i
 2. **claude.ai artifact runtime** (`window.claude`): `claudeAiLlm`, `claudeAiStore`, `claudeAiFiles`.
 3. **Plain browser**: `localStore` / `memoryStore`, `noLlm`, `noFiles`.
 
-New features must use `io.*` and work in all three. To add a model provider, add an entry to `PROVIDERS` in the server (`available`, `why`, `web`, `chat`; see `chatViaClaudeCode` / `chatViaApi`); the client just reads the NDJSON stream. Connectors that can't do something say so (`supportsEffort`, `supportsWeb`) and the UI hides that control.
+New features must use `io.*` and work in all three. To add a model provider, add an entry to `PROVIDERS` in the server (`available`, `why`, `models`, `web`, `chat`; see `chatViaClaudeCode` / `chatViaApi` / `server/chatgpt.mjs`); the client just reads the NDJSON stream. Several providers can be on at once (one Claude provider, plus ChatGPT once signed in): `/api/models` lists all their models and each chat goes to the provider that owns its model (`providerFor`). Connectors that can't do something say so (`supportsEffort`, `supportsWeb`) and the UI hides that control.
 
 Server contract:
-- `GET /api/health` → `{app:'digress', llm, provider, web, why}`
+- `GET /api/health` → `{app:'digress', llm, provider, providers, web, why}`
 - `GET /api/models` → `{models:[[id,label]], defaultLabel}`
 - `POST /api/chat` `{system, messages, model, effort, web}` → NDJSON lines: `{d:"text"}`, `{search:"query"}`, `{sources:[{title,url}]}` (any order), then `{done, model, truncated}` or `{error}`
 - `/api/store/{convs|index}[/:id]`: GET list / GET / PUT / PATCH / DELETE
@@ -40,7 +40,8 @@ Server contract:
 - **Canvas coordinates:** cards have world positions; the camera scale is `cam.k`, and each card has its own zoom (CSS `zoom` via `--cz`). Stored sizes are at 100%. Anything that converts screen ↔ content uses `contentScale(node)` (which is 1 for cards stuck to the screen). Scroll offsets inside a zoomed card must be divided by it.
 - **Startup order:** MathJax loads async and may already be cached, so `__mathReady` can fire before a conversation exists. Keep its guards, and keep `waitRuntime` a hoisted function.
 - **Class names:** generic names clash with top-bar styles (`.sel` did). Prefix new canvas classes.
-- **Web access is search only, and only when asked.** `web` is false unless the reader turned the Web toggle on. Claude Code gets `--tools WebSearch` and nothing else; never add WebFetch, Bash or file tools there: they run on this machine, and the server has no login. The API path uses the server-side `web_search` tool. Source URLs are filtered to http(s) on the server and again in the client.
+- **Web access is search only, and only when asked.** `web` is false unless the reader turned the Web toggle on. Claude Code gets `--tools WebSearch` and nothing else (and `--tools ""` when off), plus `--strict-mcp-config --safe-mode --disable-slash-commands` so none of the user's own MCP servers, hooks, CLAUDE.md or skills load; never add WebFetch, Bash or file tools there: they run on this machine, and the server has no login. The API path uses the server-side `web_search` tool. ChatGPT (`server/chatgpt.mjs`) sends no `tools` at all, or only `[{type:'web_search'}]` (hosted by OpenAI); it has no code that runs a tool call. Its plan route requires `store:false` + `stream:true` and rejects `system` messages and `max_output_tokens`. Keep the request prefix stable (system prompt as the first developer message, history as separate unchanged turns) so OpenAI's prompt cache keeps working. Source URLs are filtered to http(s) on the server and again in the client.
+- **The server only answers its own page.** `requestAllowed()` refuses requests whose Host isn't localhost/loopback/the `HOST` address/`ALLOWED_HOSTS` (default `.ts.net`; leading dot = suffix) (DNS rebinding) or whose Origin is another site (cross-site POSTs). Keep that check first in `route()`.
 - **Context building:** `buildContext(tid)` returns `{system, messages}`. The system prompt includes the document text (up to about 80k characters, with `[p. N]` page labels). Branches get a prefix quoting the anchor. The claude.ai connector folds `system` into the first message; the server passes it through properly.
 
 ## Testing

@@ -1,4 +1,4 @@
-"""End-to-end test of the self-hosted server, using fake stand-ins for Claude Code and the Anthropic API.
+"""End-to-end test of the self-hosted server, using fake stand-ins for Claude Code, the Anthropic API and OpenAI (ChatGPT sign-in).
 
 Starts server/server.mjs twice (once per model provider), checks the HTTP API directly,
 then drives the real app in a browser against it. Exits non-zero on the first failure.
@@ -36,20 +36,21 @@ def free_port():
 
 def start(env_extra):
     port = free_port()
-    env = {k: v for k, v in os.environ.items() if not k.startswith(('ANTHROPIC_', 'LLM_', 'CLAUDE_BIN'))}
-    env.update({'PORT': str(port), 'HOST': '127.0.0.1'}, **env_extra)
+    env = {k: v for k, v in os.environ.items() if not k.startswith(('ANTHROPIC_', 'LLM_', 'CLAUDE_BIN', 'CHATGPT_'))}
+    # never pick up a real ChatGPT sign-in from this machine
+    env.update({'PORT': str(port), 'HOST': '127.0.0.1', 'CHATGPT_AUTH_FILE': '/nonexistent/chatgpt.json'}, **env_extra)
     proc = subprocess.Popen(['node', SERVER], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     for _ in range(100):
         try:
-            urllib.request.urlopen(f'http://127.0.0.1:{port}/api/health', timeout=1); break
+            urllib.request.urlopen(f'http://{env["HOST"]}:{port}/api/health', timeout=1); break
         except Exception:
             time.sleep(0.1)
     return proc, f'http://127.0.0.1:{port}'
 
 
-def req(base, method, path, body=None, raw=None, ctype='application/json'):
+def req(base, method, path, body=None, raw=None, ctype='application/json', headers=None):
     data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
-    r = urllib.request.Request(base + path, data=data, method=method, headers={'content-type': ctype})
+    r = urllib.request.Request(base + path, data=data, method=method, headers={'content-type': ctype, **(headers or {})})
     try:
         with urllib.request.urlopen(r, timeout=30) as resp:
             return resp.status, resp.read()
@@ -146,6 +147,84 @@ async def browser_checks(base, data_dir):
         await b.close()
 
 
+def chatgpt_checks(tmp, fake_claude, log, procs):
+    """ChatGPT on the plan route, against tests/fakes/fake-openai.mjs: sign-in, refresh, requests, events."""
+    oport = free_port()
+    fo = subprocess.Popen(['node', os.path.join(FAKES, 'fake-openai.mjs'), str(oport)], stdout=subprocess.PIPE); procs.append(fo)
+    time.sleep(0.5)
+    obase = f'http://127.0.0.1:{oport}'
+    auth = os.path.join(tmp, 'cfg', 'chatgpt.json')
+    cli_env = {**{k: v for k, v in os.environ.items() if not k.startswith('CHATGPT_')}, 'CHATGPT_AUTH_FILE': auth, 'CHATGPT_AUTH_BASE': obase, 'CHATGPT_API_BASE': obase + '/v1'}
+
+    # sign in: the CLI prints a link; "the browser" follows it, OpenAI redirects to the CLI's loopback listener
+    lport = free_port()
+    cli = subprocess.Popen(['node', os.path.join(REPO, 'server', 'chatgpt.mjs'), 'login', '--no-browser'], env={**cli_env, 'CHATGPT_LOGIN_PORT': str(lport)}, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    url = None
+    for _ in range(50):
+        line = cli.stdout.readline()
+        if line.startswith(obase + '/api/accounts/authorize?'): url = line.strip(); break
+    check(url and f'redirect_uri=http%3A%2F%2F127.0.0.1%3A{lport}%2Fauth%2Fcallback' in url and 'agent_name_hint=Digress' in url, 'ChatGPT login: prints the sign-in link with a loopback callback')
+    with urllib.request.urlopen(url, timeout=10) as r: r.read()
+    out = cli.communicate(timeout=20)[0]
+    check(cli.returncode == 0 and 'Connected as reader@example.com' in out, f'ChatGPT login: PKCE code exchange and signed ID token accepted: {out!r}')
+    rec = json.load(open(auth))
+    check(rec['client_id'] == 'app_123' and rec['access_token'] == 'tok-login' and rec['host_id'].startswith('urn:uuid:') and oct(os.stat(auth).st_mode & 0o777) == '0o600',
+          'ChatGPT login: sign-in saved owner-only, with its own app registration')
+    st = subprocess.run(['node', os.path.join(REPO, 'server', 'chatgpt.mjs'), 'status'], env=cli_env, capture_output=True, text=True).stdout
+    check('"connected": true' in st and 'tok-' not in st and 'ref-' not in st, 'ChatGPT status: says connected, prints no tokens')
+
+    # the server, with Claude Code and ChatGPT side by side; the token is about to expire, so it gets refreshed
+    rec['expires_at'] = 0; json.dump(rec, open(auth, 'w'))
+    proc, base = start({'LLM_PROVIDER': 'claude-code', 'CLAUDE_BIN': fake_claude, 'DATA_DIR': os.path.join(tmp, 'data5'), 'FAKE_LOG': log,
+                        'CHATGPT_AUTH_FILE': auth, 'CHATGPT_AUTH_BASE': obase, 'CHATGPT_API_BASE': obase + '/v1'})
+    procs.append(proc)
+    h = json.loads(req(base, 'GET', '/api/health')[1])
+    check(h['providers'] == ['claude-code', 'chatgpt'] and h['web'], f'ChatGPT: available next to Claude once signed in {h}')
+    models = json.loads(req(base, 'GET', '/api/models')[1])['models']
+    check(['gpt-test-1', 'GPT Test'] in models and ['claude-opus-5-5', 'Opus 5.5'] in models and not any(m[0] == 'gpt-hidden' for m in models), 'ChatGPT: its listed models join the picker, hidden ones don\'t')
+    rec = json.load(open(auth))
+    check(rec['access_token'].startswith('tok-r') and rec['refresh_token'].startswith('ref-r') and rec['expires_at'] > time.time() * 1000 and oct(os.stat(auth).st_mode & 0o777) == '0o600',
+          'ChatGPT: an expiring sign-in is renewed and the rotated tokens saved')
+    last = lambda: json.loads(open(log).read().strip().splitlines()[-1])
+    hist = [{'role': 'user', 'content': 'hi'}, {'role': 'assistant', 'content': 'hello'}, {'role': 'user', 'content': 'and now?'}]
+    stc, text, lines = chat(base, {'system': 'D' * 5000, 'model': 'gpt-test-1', 'effort': 'high', 'messages': hist})
+    check(stc == 200 and text == 'gpt reply effort=high tools=0 dev=5000 n=4' and lines[-1] == {'done': True, 'model': 'gpt-test-1-2026', 'truncated': False}, f'ChatGPT: streams a reply with effort, system prompt and history {text!r} {lines[-1]}')
+    b = last()
+    check(b['store'] is False and b['stream'] is True and 'tools' not in b and 'max_output_tokens' not in b and b['token'] == rec['access_token'], 'ChatGPT: store:false, stream:true, no tools at all when web is off')
+    check([m['role'] for m in b['input']] == ['developer', 'user', 'assistant', 'user'] and b['input'][-1]['content'] == 'and now?', 'ChatGPT: system prompt first as a developer message, then the history as separate turns (cacheable prefix)')
+    key = b['prompt_cache_key']
+    chat(base, {'system': 'D' * 5000, 'model': 'gpt-test-1', 'effort': 'high', 'messages': hist + [{'role': 'assistant', 'content': 'x'}, {'role': 'user', 'content': 'more'}]})
+    b2 = last()
+    check(b2['prompt_cache_key'] == key and b2['input'][:4] == b['input'], 'ChatGPT: a follow-up keeps the same cache key and an unchanged prefix')
+    stc, text, lines = chat(base, {'model': 'gpt-test-1', 'messages': [{'role': 'user', 'content': 'SEARCHME'}]})
+    check('tools' not in last() and not any('search' in l for l in lines), 'ChatGPT: no web search unless the request asks for it')
+    stc, text, lines = chat(base, {'web': True, 'model': 'gpt-test-1', 'messages': [{'role': 'user', 'content': 'SEARCHME'}]})
+    b = last()
+    check(b['tools'] == [{'type': 'web_search'}] and b['include'] == ['web_search_call.action.sources'], f'ChatGPT: web on offers web_search and nothing else {b.get("tools")}')
+    check([l['search'] for l in lines if 'search' in l] == ['gpt search'], f'ChatGPT: search query relayed {lines}')
+    srcs = [s['url'] for l in lines if 'sources' in l for s in l['sources']]
+    check(srcs == ['https://example.net/c', 'https://example.net/d'], f'ChatGPT: searched and cited pages relayed, non-web links dropped {srcs}')
+    check(text == 'Let me check.\n\nFound: [net](https://example.net/c).', f'ChatGPT: text before and after a search kept apart {text!r}')
+    stc, text, lines = chat(base, {'model': 'gpt-test-1', 'effort': 'max', 'messages': [{'role': 'user', 'content': 'x'}]})
+    check('effort=none' in text, 'ChatGPT: retries without a reasoning effort the model rejects')
+    stc, text, lines = chat(base, {'model': 'gpt-test-1', 'messages': [{'role': 'user', 'content': 'LIMIT'}]})
+    check('error' in lines[-1] and 'usage limit' in lines[-1]['error'], f'ChatGPT: plan limit explained {lines[-1]}')
+    stc, text, lines = chat(base, {'model': 'gpt-test-1', 'messages': [{'role': 'user', 'content': 'DROP'}]})
+    check('error' in lines[-1] and 'dropped' in lines[-1]['error'], 'ChatGPT: a reply cut off without response.completed is an error, not a finished reply')
+    stc, text, lines = chat(base, {'model': 'claude-opus-5-5', 'messages': [{'role': 'user', 'content': 'x'}]})
+    check('Fake reply. model=claude-opus-5-5' in text, 'ChatGPT: Claude models still go to Claude')
+
+    # a sign-in file others can read is not used
+    os.chmod(auth, 0o644)
+    check(json.loads(req(base, 'GET', '/api/health')[1])['providers'] == ['claude-code'], 'ChatGPT: a sign-in file readable by others is refused')
+    os.chmod(auth, 0o600)
+    out = subprocess.run(['node', os.path.join(REPO, 'server', 'chatgpt.mjs'), 'logout'], env=cli_env, capture_output=True, text=True).stdout
+    rec2 = json.load(open(auth)); revoked = json.loads(urllib.request.urlopen(obase + '/revoked').read())
+    check('revoked' in out and 'refresh_token' not in rec2 and rec2['client_id'] == 'app_123' and len(revoked) == 1 and revoked[0].startswith('ref-r'),
+          'ChatGPT logout: refresh token revoked, tokens forgotten, app registration kept')
+    check(json.loads(req(base, 'GET', '/api/health')[1])['providers'] == ['claude-code'], 'ChatGPT: signing out removes it without a restart')
+
+
 def main():
     tmp = tempfile.mkdtemp(prefix='digress-test-')
     log = os.path.join(tmp, 'fake.log'); open(log, 'w').close(); os.environ['FAKE_LOG'] = log
@@ -157,6 +236,24 @@ def main():
         proc, base = start({'LLM_PROVIDER': 'claude-code', 'CLAUDE_BIN': fake_claude, 'DATA_DIR': data,
                             'ANTHROPIC_API_KEY': 'should-not-reach-the-cli', 'FAKE_LOG': log})
         procs.append(proc)
+        # only requests addressed to this server, from its own page, get through (DNS rebinding, cross-site POSTs)
+        port = base.rsplit(':', 1)[1]
+        check(req(base, 'GET', '/api/store/convs', headers={'host': 'evil.example:' + port})[0] == 403, 'a request addressed to another site name is refused (DNS rebinding)')
+        check(req(base, 'GET', '/', headers={'host': 'evil.example'})[0] == 403, 'the page itself is refused under another site name')
+        check(req(base, 'POST', '/api/chat', {'messages': [{'role': 'user', 'content': 'hi'}]}, headers={'origin': 'https://evil.example'})[0] == 403, 'a cross-site POST is refused')
+        check(req(base, 'POST', '/api/chat', {'messages': [{'role': 'user', 'content': 'hi'}]}, headers={'origin': 'null'})[0] == 403, 'a POST from a sandboxed or file:// page is refused')
+        check(req(base, 'GET', '/api/health', headers={'host': 'localhost:' + port, 'origin': 'http://localhost:' + port})[0] == 200, 'the app\'s own origin is allowed (localhost)')
+        check(req(base, 'GET', '/api/health', headers={'host': 'box.tail1234.ts.net', 'origin': 'https://box.tail1234.ts.net'})[0] == 200, 'Tailscale Serve names are allowed')
+        # ALLOWED_HOSTS replaces the default list; a leading dot matches names under it; a specific HOST is allowed
+        proc_h, base_h = start({'ALLOWED_HOSTS': 'mybox.lan,.home.arpa', 'DATA_DIR': os.path.join(tmp, 'data_h'), 'CLAUDE_BIN': fake_claude})
+        procs.append(proc_h)
+        allowed = lambda b, hst: req(b, 'GET', '/api/health', headers={'host': hst})[0] == 200
+        check(allowed(base_h, 'mybox.lan') and allowed(base_h, 'pi.home.arpa') and allowed(base_h, 'localhost') and not allowed(base_h, 'box.tail1234.ts.net') and not allowed(base_h, 'home.arpa.evil.example'),
+              'ALLOWED_HOSTS: exact names and .suffix entries allowed, replaces the .ts.net default')
+        proc_n, base_n = start({'ALLOWED_HOSTS': 'none', 'HOST': '127.0.0.2', 'DATA_DIR': os.path.join(tmp, 'data_n'), 'CLAUDE_BIN': fake_claude})
+        procs.append(proc_n)
+        base_n = base_n.replace('127.0.0.1', '127.0.0.2')
+        check(allowed(base_n, '127.0.0.2') and not allowed(base_n, 'box.tail1234.ts.net'), 'a specific HOST address is allowed; ALLOWED_HOSTS=none drops .ts.net')
         h = json.loads(req(base, 'GET', '/api/health')[1])
         check(h['app'] == 'digress' and h['llm'] and h['provider'] == 'claude-code' and h['web'] is True, f'health {h}')
         st, text, lines = chat(base, {'system': 'S' * 200000, 'model': 'claude-opus-5-5', 'effort': 'high',
@@ -173,6 +270,7 @@ def main():
         st, text, lines = chat(base, {'web': True, 'messages': [{'role': 'user', 'content': 'SEARCHME'}]})
         last = json.loads(open(log).read().strip().splitlines()[-1])
         check(last['tools'] == 'WebSearch' and last['allowed'] == 'WebSearch', f'Claude Code: web on allows WebSearch and nothing else {last["tools"]!r}')
+        check(last['isolated'], 'Claude Code: runs without MCP servers, hooks, CLAUDE.md, skills or commands')
         check([l['search'] for l in lines if 'search' in l] == ['fake search query'], f'Claude Code: search query relayed {lines}')
         srcs = [s for l in lines if 'sources' in l for s in l['sources']]
         check(srcs == [{'title': 'Example source', 'url': 'https://example.com/a'}], f'Claude Code: sources relayed, non-web links dropped {srcs}')
@@ -231,6 +329,7 @@ def main():
         procs.append(proc4)
         h = json.loads(req(base4, 'GET', '/api/health')[1])
         check(not h['llm'] and 'Claude Code CLI' in h['why'], 'missing CLI explained')
+        chatgpt_checks(tmp, fake_claude, log, procs)
         print(f'\nall {passed} checks passed')
     finally:
         for pr in procs: pr.kill()

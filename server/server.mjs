@@ -19,6 +19,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import os from 'node:os';
+import * as chatgpt from './chatgpt.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -106,13 +107,19 @@ async function readDoc(coll, id) {
 // ---- model providers ----------------------------------------------------------
 // claude-code: runs the Claude Code CLI (`claude -p`) signed in with your Claude subscription. Personal use only.
 // anthropic:   calls the Anthropic API with ANTHROPIC_API_KEY.
+// chatgpt:     ChatGPT models on your ChatGPT plan, via "Sign in with ChatGPT" (server/chatgpt.mjs).
+// One Claude provider is used (the CLI, or the API when there's a key), and ChatGPT joins it once you've
+// signed in, so both sets of models show in the picker. Each reply goes to the provider that owns its model.
 const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude';
+let cliFound = null;
 function hasClaudeCli() {
-  try { return spawnSync(CLAUDE_BIN, ['--version'], { timeout: 15000, stdio: 'ignore' }).status === 0; } catch { return false; }
+  if (cliFound === null) { try { cliFound = spawnSync(CLAUDE_BIN, ['--version'], { timeout: 15000, stdio: 'ignore' }).status === 0; } catch { cliFound = false; } }
+  return cliFound;
 }
-// Every provider has the same shape, so adding one (OpenAI, say) means adding an entry here:
+// Every provider has the same shape, so adding one means adding an entry here:
 //   label        shown in the server log
-//   available()  can it run at all (key present, CLI installed)?   why: what to do when it can't
+//   available()  can it run at all (key present, CLI installed, signed in)?   why: what to do when it can't
+//   models()     [[id, label]] it offers
 //   web          can it search the web when a request asks for it?
 //   chat(payload, res)  streams the reply as NDJSON lines (see startStream / relayEvent):
 //       {d:"text"}                    reply text, in order
@@ -124,26 +131,54 @@ function hasClaudeCli() {
 //     must not reach the internet at all. Keep it to search: no page fetching from this machine, no code.
 const PROVIDERS = {
   'claude-code': {
-    label: 'Claude Code CLI (your Claude subscription)', web: true, available: hasClaudeCli, chat: chatViaClaudeCode,
+    label: 'Claude Code CLI (your Claude subscription)', web: true, available: hasClaudeCli, models: async () => CC_MODELS, chat: chatViaClaudeCode,
     why: `The server could not find the Claude Code CLI ("${CLAUDE_BIN}"). Install it, run \`claude\` once to sign in, then restart the server.`,
   },
   anthropic: {
-    label: 'Anthropic API', web: true, available: () => !!API_KEY, chat: chatViaApi,
+    label: 'Anthropic API', web: true, available: () => !!API_KEY, models: anthropicModels, chat: chatViaApi,
     why: 'The server has no Anthropic API key. Add ANTHROPIC_API_KEY to .env and restart it.',
   },
+  chatgpt: {
+    label: 'ChatGPT (your ChatGPT plan)', web: true, available: chatgpt.available, why: chatgpt.WHY, models: chatgpt.listModels,
+    chat: (payload, res) => chatgpt.chat(payload, res, { startStream, sourcesLine, fail }),
+  },
 };
-const PROVIDER = (process.env.LLM_PROVIDER || (API_KEY ? 'anthropic' : 'claude-code')).toLowerCase();
-const P = PROVIDERS[PROVIDER];
-const LLM_OK = !!P && P.available();
-const LLM_WHY = P ? P.why : `Unknown LLM_PROVIDER "${PROVIDER}". Use ${Object.keys(PROVIDERS).join(' or ')}.`;
-const WEB_OK = LLM_OK && !!P.web && !/^(0|false|no|off)$/i.test(process.env.WEB_SEARCH || '');
+// LLM_PROVIDER picks the default (used when the picker says "Default"); the others still work when available.
+const PRIMARY = (process.env.LLM_PROVIDER || (API_KEY ? 'anthropic' : 'claude-code')).toLowerCase();
+const CLAUDE_SIDE = ['anthropic', 'claude-code'].includes(PRIMARY) ? PRIMARY : API_KEY ? 'anthropic' : 'claude-code';
+const CANDIDATES = [...new Set([PRIMARY, CLAUDE_SIDE, 'chatgpt'])].filter((k) => PROVIDERS[k]);
+const enabled = () => CANDIDATES.filter((k) => PROVIDERS[k].available()); // checked per request: signing in needs no restart
+const llmWhy = () => (PROVIDERS[PRIMARY] ? PROVIDERS[PRIMARY].why : `Unknown LLM_PROVIDER "${PRIMARY}". Use ${Object.keys(PROVIDERS).join(', ')}.`);
+const WEB_ALLOWED = !/^(0|false|no|off)$/i.test(process.env.WEB_SEARCH || '');
+const webOk = (k) => WEB_ALLOWED && !!(PROVIDERS[k] && PROVIDERS[k].web);
 const MAX_SEARCHES = Number(process.env.MAX_SEARCHES || 5);
 
 const CC_MODELS = [['claude-opus-5-5', 'Opus 5.5'], ['claude-sonnet-5-5', 'Sonnet 5.5'], ['claude-haiku-5-5', 'Haiku 5.5']];
-let modelCache = null;
+// all models from every available provider, remembering which provider each belongs to
+const owner = new Map();
 async function listModels() {
-  if (PROVIDER === 'claude-code') return CC_MODELS;
-  if (modelCache && Date.now() - modelCache.at < 10 * 60 * 1000) return modelCache.list;
+  const all = [];
+  for (const k of enabled()) for (const m of await PROVIDERS[k].models()) { owner.set(m[0], k); all.push(m); }
+  return all;
+}
+// "Default" means DEFAULT_MODEL if set, else the default provider's first choice
+async function defaultModel() {
+  if (process.env.DEFAULT_MODEL) return process.env.DEFAULT_MODEL;
+  const k = enabled()[0];
+  if (k === 'chatgpt') { const m = await chatgpt.listModels(); if (m.length) return m[0][0]; }
+  return DEFAULT_MODEL;
+}
+async function providerFor(model) {
+  const on = enabled();
+  if (!owner.has(model)) await listModels();
+  const k = owner.get(model);
+  if (k && on.includes(k)) return k;
+  // not in any list (an older Claude model id, say): Claude ids go to the Claude provider
+  return /^claude/i.test(model) && on.includes(CLAUDE_SIDE) ? CLAUDE_SIDE : on[0];
+}
+let anthropicCache = null;
+async function anthropicModels() {
+  if (anthropicCache && Date.now() - anthropicCache.at < 10 * 60 * 1000) return anthropicCache.list;
   let list = [];
   if (API_KEY) {
     try {
@@ -152,18 +187,20 @@ async function listModels() {
     } catch (e) { console.warn('model list failed:', e.message); }
   }
   if (!list.length) list = [[DEFAULT_MODEL, DEFAULT_MODEL]];
-  modelCache = { at: Date.now(), list };
+  anthropicCache = { at: Date.now(), list };
   return list;
 }
 const pickModel = (model) => (!model || model === 'auto' ? DEFAULT_MODEL : model);
 const EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
 async function handleChat(req, res) {
-  if (!LLM_OK) return fail(res, 503, LLM_WHY);
+  if (!enabled().length) return fail(res, 503, llmWhy());
   const payload = await readJson(req);
   if (!payload || !Array.isArray(payload.messages) || !payload.messages.length) return fail(res, 400, 'messages are required');
-  payload.web = payload.web === true && WEB_OK;
-  return P.chat(payload, res);
+  payload.model = !payload.model || payload.model === 'auto' ? await defaultModel() : String(payload.model);
+  const k = await providerFor(payload.model);
+  payload.web = payload.web === true && webOk(k); // the one place web access gets switched on, for every provider
+  return PROVIDERS[k].chat(payload, res);
 }
 function startStream(res) {
   res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store', 'x-accel-buffering': 'no' });
@@ -233,7 +270,8 @@ async function chatViaClaudeCode(payload, res) {
   // this server (127.0.0.1, no login) or the local network.
   const tools = payload.web ? ['--tools', 'WebSearch', '--allowedTools', 'WebSearch'] : ['--tools', ''];
   const args = ['-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
-    ...tools, '--strict-mcp-config', '--no-session-persistence',
+    // and none of your own Claude Code setup: no MCP servers, hooks, CLAUDE.md, skills or custom agents
+    ...tools, '--strict-mcp-config', '--safe-mode', '--disable-slash-commands', '--no-session-persistence',
     '--system-prompt-file', sysFile, '--model', pickModel(payload.model)];
   if (EFFORTS.has(payload.effort)) args.push('--effort', payload.effort);
   const env = { ...process.env };
@@ -382,8 +420,48 @@ const DEV_CLIENT = `<script>(()=>{
 })();</script>
 `;
 
+// ---- who may talk to this server ----------------------------------------------
+// The server has no login: anything that can reach it can read and change every conversation.
+// Listening on 127.0.0.1 keeps other machines out, but not web pages open in your own browser.
+// Two browser tricks need closing:
+//
+//  1. DNS rebinding. A site you visit (evil.example) briefly points its own name at 127.0.0.1.
+//     Your browser then treats this server as "evil.example", the same origin as the attacker's
+//     page, so the page may read every response. The request still says `Host: evil.example`,
+//     so we only answer requests addressed to a name we expect.
+//  2. Cross-site requests. Any page can send a form-style POST here (to start a model call on your
+//     subscription, or upload a file) even though it can't read the answer. Browsers mark those
+//     with an Origin header naming the other site, so we refuse requests whose Origin isn't us.
+//
+// Expected names, all configurable in .env without code changes:
+//   - localhost and the loopback addresses: always.
+//   - the address in HOST, if you bound the server to a specific one (HOST=192.168.1.20).
+//   - ALLOWED_HOSTS, comma separated. An entry starting with a dot matches any name under it.
+//     Default ".ts.net", for Tailscale Serve (see README); only Tailscale controls DNS for those names.
+//     Setting ALLOWED_HOSTS replaces the default, so add ".ts.net" yourself if you still want it,
+//     or set it to "none" to allow only localhost.
+const ALLOWED_HOSTS = (process.env.ALLOWED_HOSTS ?? '.ts.net').split(',').map((h) => h.trim().toLowerCase()).filter((h) => h && h !== 'none');
+function hostOf(value) {
+  try { return new URL(value.includes('://') ? value : 'http://' + value).hostname.toLowerCase(); } catch { return null; }
+}
+const EXACT = new Set(['localhost', '127.0.0.1', '[::1]', ...ALLOWED_HOSTS.filter((h) => !h.startsWith('.'))]);
+const bound = hostOf(HOST);
+if (bound && !['0.0.0.0', '[::]'].includes(bound)) EXACT.add(bound); // 0.0.0.0 means "every address": list the names you use
+const SUFFIXES = ALLOWED_HOSTS.filter((h) => h.startsWith('.'));
+const knownHost = (h) => !!h && (EXACT.has(h) || SUFFIXES.some((s) => h.endsWith(s)));
+function requestAllowed(req) {
+  const host = hostOf(req.headers.host || '');
+  if (!knownHost(host)) return false; // rebinding: the browser thinks it's talking to some other site
+  const origin = req.headers.origin;
+  // no Origin: not a cross-site browser request (same-origin GETs, curl, the tests).
+  // "null" comes from sandboxed frames and file:// pages; they don't get in either.
+  return !origin || hostOf(origin) === host;
+}
+
 // ---- routes -----------------------------------------------------------------
 async function route(req, res) {
+  // checked before anything else, so a refused request can't read or change data or start a model call
+  if (!requestAllowed(req)) return fail(res, 403, 'This server only answers its own page (see ALLOWED_HOSTS in .env.example).');
   const url = new URL(req.url, 'http://x');
   const parts = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
 
@@ -399,11 +477,14 @@ async function route(req, res) {
   if (DEV && url.pathname === '/__dev/events') return devEvents(req, res);
   if (parts[0] !== 'api') return fail(res, 404, 'Not found');
 
-  if (parts[1] === 'health' && req.method === 'GET') return send(res, 200, { app: 'digress', llm: LLM_OK, provider: PROVIDER, web: WEB_OK, why: LLM_OK ? undefined : LLM_WHY });
+  if (parts[1] === 'health' && req.method === 'GET') {
+    const on = enabled();
+    return send(res, 200, { app: 'digress', llm: on.length > 0, provider: on[0] || PRIMARY, providers: on, web: on.some(webOk), why: on.length ? undefined : llmWhy() });
+  }
   if (parts[1] === 'models' && req.method === 'GET') {
-    const models = await listModels();
-    const d = models.find((m) => m[0] === DEFAULT_MODEL);
-    return send(res, 200, { models, defaultLabel: d ? d[1] : DEFAULT_MODEL });
+    const models = await listModels(), def = await defaultModel();
+    const d = models.find((m) => m[0] === def);
+    return send(res, 200, { models, defaultLabel: d ? d[1] : def });
   }
   if (parts[1] === 'chat' && req.method === 'POST') return handleChat(req, res);
 
@@ -466,5 +547,7 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`Digress is running at http://${HOST}:${PORT}`);
   console.log(`Data folder: ${DATA}`);
-  console.log(LLM_OK ? `Model: ${P.label}, default ${DEFAULT_MODEL}${WEB_OK ? ', web search available (off until you turn it on)' : ''}` : 'No model yet: ' + LLM_WHY);
+  const on = enabled();
+  console.log(on.length ? `Models: ${on.map((k) => PROVIDERS[k].label).join(' + ')}${on.some(webOk) ? '; web search available (off until you turn it on)' : ''}` : 'No model yet: ' + llmWhy());
+  if (!on.includes('chatgpt')) console.log('ChatGPT models: run `npm run chatgpt -- login` to add them (ChatGPT Plus or Pro).');
 });
