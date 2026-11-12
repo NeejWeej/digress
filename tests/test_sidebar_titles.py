@@ -1,5 +1,6 @@
-"""Sidebar titles: a cut-off conversation title shows in full on hover, the open conversation's title
-wraps instead of being cut, and the sidebar can be dragged wider (remembered; double-click resets).
+"""Sidebar titles: a cut-off conversation title shows in full when hovering anywhere on its row (also
+if the list re-renders mid-hover), the open conversation's title wraps instead of being cut, branch rows
+name the branch and its passage, and the sidebar can be dragged wider (remembered; double-click resets).
 Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
@@ -54,6 +55,7 @@ async def main():
         shown = await pg.locator('#tipbox').evaluate("e=>e.classList.contains('show')")
         check('hovering it shows the full title', shown and tip == LONG1, repr(tip))
         await pg.screenshot(path=OUT + '/sidebar_tip.png')
+
         ch = await cur.evaluate('e=>[e.scrollWidth<=e.clientWidth, e.offsetHeight]')
         check('the open conversation shows its whole title', ch[0] and ch[1] > 20, str(ch))
 
@@ -65,6 +67,38 @@ async def main():
         await pg.mouse.move(5, 5); await pg.wait_for_timeout(100)
         await short.hover(); await pg.wait_for_timeout(700)
         check('a title that fits gets no tooltip', not await pg.locator('#tipbox').evaluate("e=>e.classList.contains('show')"))
+
+        async def tip_after_hover(x, y, during=None):
+            await pg.mouse.move(700, 500); await pg.wait_for_timeout(150)
+            await pg.mouse.move(x, y, steps=3)
+            if during: await pg.wait_for_timeout(150); await during()
+            await pg.wait_for_timeout(700)
+            return await pg.evaluate("[document.getElementById('tipbox').classList.contains('show'),document.getElementById('tipbox').textContent]")
+        row = pg.locator('#clist .citem:not(.cur)').filter(has_text='attention heads').first
+        rb = await row.bounding_box(); ab = await row.locator('.acts').bounding_box()
+        s_, t_ = await tip_after_hover(ab['x'] + 6, rb['y'] + rb['height'] / 2)
+        check('hovering the faded end of the row (beside the buttons) shows the title', s_ and t_ == LONG1, repr(t_))
+        s_, t_ = await tip_after_hover(rb['x'] + 4, rb['y'] + rb['height'] / 2)
+        check('hovering the row padding shows the title', s_ and t_ == LONG1, repr(t_))
+        async def rename_open_conv():   # keyboard only, so the pointer stays on the row while the list rebuilds
+            await pg.evaluate("window.__row=document.querySelector('#clist .citem:not(.cur)');const t=document.getElementById('cTitle');t.focus();getSelection().selectAllChildren(t)")
+            await pg.keyboard.type('Renamed'); await pg.keyboard.press('Enter'); await pg.wait_for_timeout(900)
+        s_, t_ = await tip_after_hover(rb['x'] + 60, rb['y'] + rb['height'] / 2, during=rename_open_conv)
+        rebuilt = await pg.evaluate("window.__row!==document.querySelector('#clist .citem:not(.cur)')")
+        check('title still shows when the list re-renders mid-hover', rebuilt and s_ and t_ == LONG1, f'rebuilt={rebuilt} {t_!r}')
+        await pg.evaluate("window.__row=document.querySelector('#clist .citem')")
+        await pg.locator('[data-v=rows]').click(); await pg.wait_for_timeout(1500); await pg.locator('[data-v=cols]').click(); await pg.wait_for_timeout(1500)
+        check('saving with nothing changed leaves the rows alone', await pg.evaluate("window.__row===document.querySelector('#clist .citem')"))
+
+        # branch rows: the tooltip names the branch and the passage it came from
+        await pg.evaluate('''() => { const body=document.querySelector('.pane[data-tid=main] .msg.assistant .body');
+          const w=document.createTreeWalker(body,NodeFilter.SHOW_TEXT); const n=w.nextNode(); const r=document.createRange(); r.setStart(n,2); r.setEnd(n,7);
+          const s=getSelection(); s.removeAllRanges(); s.addRange(r); document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true})); }''')
+        await pg.wait_for_timeout(150)
+        await pg.locator('#popIn').fill('What is this about?'); await pg.locator('#popIn').press('Enter'); await pg.wait_for_timeout(1200)
+        bn = pg.locator('.mnode:not([data-mapdoc])').nth(1); bb = await bn.bounding_box()
+        s_, t_ = await tip_after_hover(bb['x'] + 40, bb['y'] + 8)
+        check('a branch row names the branch and its passage', s_ and t_.startswith('Open “') and 'from “short”' in t_, repr(t_))
 
         # drag the edge wider
         w0 = await pg.locator('#side').evaluate('e=>e.offsetWidth')

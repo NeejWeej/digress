@@ -2293,7 +2293,7 @@ function renderMap(){
     const cnt=(conv.order[tid]||[]).filter(id=>conv.msgs[id]&&conv.msgs[id].role==='user').length;
     const kids=kidsOf(tid);
     n.innerHTML=`${chev(tid,kids)}${tid==='main'?'<span class="dot"></span>':statusDot(t)}<div style="min-width:0;flex:1"><div class="mt"></div>${t.anchorText?'<div class="ma"></div>':''}</div>${hiddenBadge(tid)}<span class="mc" title="Questions asked in this thread">${cnt||''}</span>${tid==='main'?'':`<button class="ib mp${t.pinned?' pinned':''}" data-pinthread="${tid}" title="${t.pinned?'Unpin this branch':'Pin this branch to the top of the sidebar'}">${ic('pin')}</button><button class="ib dz mx" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`}`;
-    n.title=tid==='main'?'Show the main thread':'Open this branch';
+    n.title=tid==='main'?'Show the main thread':`Open “${t.title}”`+(t.anchorText?`, from “${trunc(t.anchorText,240)}”`:'');
     n.querySelector('.mt').textContent=tid==='main'?'Main thread':t.title;
     if(t.anchorText)n.querySelector('.ma').textContent=(isDocBranch(t)&&conv.doc.kind==='pdf'?`p. ${t.anchorPage+1} · `:'')+'“'+trunc(t.anchorText,60)+'”';
     li.appendChild(n);
@@ -2329,16 +2329,21 @@ function metaOf(c){
     pins:Object.values(c.threads||{}).filter(t=>t.pinned).map(t=>({tid:t.id,title:t.title,ci:t.colorIdx}))};
 }
 let archOpen=false;try{archOpen=localStorage.getItem('sq:arch')==='1'}catch(e){}
+let convListSig='';
 function renderConvList(){
   const items=convList.map(c=>conv&&c.id===conv.id?metaOf(conv):c);
   if(conv&&!items.find(c=>c.id===conv.id))items.unshift(metaOf(conv));
+  // every save lands here; rebuild only when something shown changed, so rows don't vanish from under the pointer
+  const sig=JSON.stringify([conv&&conv.id,archOpen,items.map(c=>[c.id,c.title,c.pinned,c.archived,c.doc,c.pins])]);
+  if(sig===convListSig&&$('#clist').childElementCount+$('#plist').childElementCount+$('#alist').childElementCount)return;
+  convListSig=sig;
   const row=(c,extra)=>{
     const d=document.createElement('div');d.className='citem'+(conv&&c.id===conv.id?' cur':'');d.dataset.conv=c.id;
     d.innerHTML=`${c.doc?`<span class="docico" style="color:var(--faint)">${ic('doc').replace('class="i"','class="i" style="width:13px;height:13px"')}</span>`:''}<span class="t"></span>${extra||''}<span class="acts">`+
       (c.archived?'':`<button class="ib${c.pinned?' pinned':''}" data-pinconv="${esc(c.id)}" title="${c.pinned?'Unpin':'Pin to the top of the sidebar'}">${ic('pin')}</button>`)+
       `<button class="ib" data-archconv="${esc(c.id)}" title="${c.archived?'Move back to your conversations':'Archive: move out of the way without deleting'}">${ic('archive')}</button>`+
       `<button class="ib dz" data-del="${esc(c.id)}" title="Delete this conversation and all its branches">${ic('trash')}</button></span>`;
-    const tt=d.querySelector('.t');tt.textContent=c.title||'New conversation';tt.dataset.tip=tt.textContent;tt.dataset.clip='';
+    const tt=d.querySelector('.t');tt.textContent=c.title||'New conversation';d.dataset.tip=tt.textContent;d.dataset.clip='';
     return d;
   };
   const active=items.filter(c=>!c.archived),arch=items.filter(c=>c.archived);
@@ -2350,7 +2355,7 @@ function renderConvList(){
     d.title='Jump to this pinned branch';
     d.innerHTML=`<span class="bd"></span><span class="t"></span><span class="acts"><button class="ib pinned" data-unpinb="${esc(c.id+'|'+b.tid)}" title="Unpin this branch">${ic('pin')}</button></span>`;
     const tt=d.querySelector('.t');tt.textContent=b.title+' ';const sm=document.createElement('small');sm.textContent='· '+(c.title||'');tt.appendChild(sm);
-    d.removeAttribute('title');tt.dataset.tip=b.title+' · '+(c.title||'');tt.dataset.clip='';
+    d.removeAttribute('title');d.dataset.tip=b.title+' · '+(c.title||'');d.dataset.clip='';
     pl.appendChild(d);
   }
   $('#pinWrap').style.display=pl.children.length?'':'none';
@@ -2637,8 +2642,18 @@ function confirmDeleteBranch(tid){
 /* ---------- tooltips ---------- */
 const tipbox=$('#tipbox');let tipFor=null,tipTimer=0;
 function hideTip(){clearTimeout(tipTimer);tipbox.classList.remove('show');tipFor=null}
+// the element whose tooltip applies at this point (converts title= to data-tip= so the browser's own tooltip stays away)
+function tipTarget(from){
+  const el=from&&from.closest('[title],[data-tip]');if(!el)return null;
+  if(el.hasAttribute('title')){const t=el.getAttribute('title');el.removeAttribute('title');if(t)el.dataset.tip=t;else delete el.dataset.tip}
+  if(!el.dataset.tip)return null;
+  if('clip' in el.dataset){const t=el.querySelector('.t')||el;if(t.scrollWidth<=t.clientWidth+1)return null}   // data-clip: only when the title (.t) is cut off
+  return el;
+}
 function showTip(el){
-  if(!el.isConnected)return;
+  if(!el.isConnected){   // re-rendered while we waited: use whatever now sits under the pointer
+    const h=[...document.querySelectorAll(':hover')].pop();el=tipTarget(h);if(!el)return;tipFor=el;
+  }
   tipbox.textContent=el.dataset.tip;tipbox.classList.add('show');
   const r=el.getBoundingClientRect(),w=tipbox.offsetWidth,h=tipbox.offsetHeight;
   let top=r.bottom+8;if(top+h>innerHeight-6)top=r.top-h-8;
@@ -2648,10 +2663,7 @@ function showTip(el){
 document.addEventListener('mouseover',e=>{
   const el=e.target.closest('[title],[data-tip]');
   if(el===tipFor)return;
-  hideTip();if(!el)return;
-  if(el.hasAttribute('title')){const t=el.getAttribute('title');el.removeAttribute('title');if(t)el.dataset.tip=t;else delete el.dataset.tip}
-  if(!el.dataset.tip)return;
-  if('clip' in el.dataset&&el.scrollWidth<=el.clientWidth+1)return;   // data-clip: only when the text is cut off
+  hideTip();if(!el||!tipTarget(el))return;
   tipFor=el;tipTimer=setTimeout(()=>showTip(el),380);
 });
 document.addEventListener('mousedown',hideTip,true);
