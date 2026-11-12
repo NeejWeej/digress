@@ -249,6 +249,9 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 /* canvas */
 .cv{position:absolute;inset:0;overflow:hidden;display:none;cursor:grab;background-image:radial-gradient(circle,var(--line2) 1px,transparent 1px);background-size:22px 22px}
 .stage.canvas .cv{display:block}
+/* touch: the canvas handles pan, pinch and drags itself; card bodies still scroll natively */
+.cv{touch-action:none}
+.cnode .cfull,.cnode .cq,.cask textarea{touch-action:pan-x pan-y}
 .cv.drag{cursor:grabbing}
 #world{position:absolute;left:0;top:0;transform-origin:0 0}
 #edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
@@ -337,6 +340,7 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .cnode .rzh[data-dir=sw]::after{left:3px;bottom:3px;border-left-width:1.5px;border-bottom-width:1.5px}
 .cnode .rzh[data-dir=ne]::after{right:3px;top:3px;border-right-width:1.5px;border-top-width:1.5px}
 .cnode .rzh[data-dir=nw]::after{left:3px;top:3px;border-left-width:1.5px;border-top-width:1.5px}
+@media (pointer:coarse){.cnode .rzh[data-dir=e],.cnode .rzh[data-dir=w]{width:16px}.cnode .rzh.cor{width:26px;height:26px}}
 .cnode.sizing{transition:none}
 /* search */
 .sbox{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;margin-bottom:8px;border-radius:9px;border:1px solid var(--line2);background:var(--panel);color:var(--faint);font-size:13px;cursor:text}
@@ -1617,7 +1621,21 @@ function canvasAction(act,tid,btn){
 (()=>{
   const cv=$('#cv');let pan=null,cd=null;
   let rs=null,dd=null;
+  // touch: fingers currently down, and a two-finger pinch (zoom + pan around the fingers' midpoint)
+  const pts=new Map();let pinch=null;
+  const two=()=>{const [a,b]=[...pts.values()],r=cvRect();return {d:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),mx:(a.x+b.x)/2-r.left,my:(a.y+b.y)/2-r.top}};
+  const startPinch=()=>{
+    if(cd){for(const s of Object.values(cd.start)){s.el.style.left=s.x+'px';s.el.style.top=s.y+'px'}cd.n.classList.remove('lift');showSnapPreview(null);cd=null;drawEdgesSoon()}
+    pan=null;dd=null;cv.classList.remove('drag');
+    const g=two();pinch={...g,k:cam.k,x:cam.x,y:cam.y};
+  };
   cv.addEventListener('pointerdown',e=>{
+    if(e.pointerType==='touch'){
+      if(e.isPrimary)pts.clear();   // first finger of a new gesture: forget any finger whose lift we missed
+      pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      if(pts.size===2&&!rs){startPinch();(()=>{try{cv.setPointerCapture(e.pointerId)}catch(_){}})();e.preventDefault();return}
+      if(pinch||(rs&&pts.size>1))return;   // extra fingers during a pinch or a resize do nothing
+    }
     const anyCard=e.target.closest('.cnode');if(anyCard)raiseCard(anyCard.dataset.ctid);
     const hz=e.target.closest('.cnode .rzh');
     if(hz){
@@ -1642,6 +1660,13 @@ function canvasAction(act,tid,btn){
     pan={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y};cv.classList.add('drag');(()=>{try{cv.setPointerCapture(e.pointerId)}catch(_){}})();
   });
   cv.addEventListener('pointermove',e=>{
+    if(pts.has(e.pointerId))pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pinch){
+      if(pts.size<2)return;
+      const g=two(),k=Math.min(2.5,Math.max(0.15,pinch.k*g.d/pinch.d));
+      // keep the world point that was under the starting midpoint under the current midpoint
+      cam.x=g.mx-(pinch.mx-pinch.x)*(k/pinch.k);cam.y=g.my-(pinch.my-pinch.y)*(k/pinch.k);cam.k=k;applyCam();return;
+    }
     if(rs){
       const d=rs.dir,clamp=(v,a,b)=>Math.round(Math.min(b,Math.max(a,v)));
       if(rs.docked){   // stuck cards resize in screen pixels
@@ -1682,7 +1707,16 @@ function canvasAction(act,tid,btn){
     }
     if(!pan)return;cam.x=pan.cx+e.clientX-pan.x;cam.y=pan.cy+e.clientY-pan.y;applyCam();
   });
-  const end=()=>{
+  const end=e=>{
+    if(e&&e.pointerType==='touch'){
+      pts.delete(e.pointerId);
+      if(pinch){
+        if(pts.size<2){pinch=null;
+          // one finger left: carry on panning with it
+          const [f]=pts.values();if(f){pan={x:f.x,y:f.y,cx:cam.x,cy:cam.y};cv.classList.add('drag')}}
+        return;
+      }
+    }
     if(rs&&rs.docked){
       const S=cvState();S.dock[rs.tid]=pxRegion(rs.n.offsetLeft,rs.n.offsetTop,rs.n.offsetWidth,rs.n.offsetHeight);
       rs.n.classList.remove('sizing');rs=null;drawEdges();save();return;
