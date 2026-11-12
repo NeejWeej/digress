@@ -3,9 +3,10 @@
 // (through the Claude Code CLI on your subscription, or the Anthropic API with a key).
 // No dependencies; needs Node 18 or newer. Configuration comes from the environment or a .env file.
 //
-//   GET  /api/health                   {app:'digress', llm:bool, provider, why}
+//   GET  /api/health                   {app:'digress', llm:bool, provider, web:bool, why}
 //   GET  /api/models                   {models:[[id,label]], defaultLabel}
-//   POST /api/chat                     {system, messages, model, effort} -> streamed lines: {d}, then {done,model,truncated} or {error}
+//   POST /api/chat                     {system, messages, model, effort, web} -> streamed lines: {d}, {search}, {sources},
+//                                      then {done,model,truncated} or {error}  (see PROVIDERS)
 //   GET  /api/store/:coll              [{id, data}]          (coll: convs | index)
 //   GET|PUT|PATCH|DELETE /api/store/:coll/:id
 //   POST /api/files?type=...           raw body -> {id}
@@ -109,13 +110,34 @@ const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude';
 function hasClaudeCli() {
   try { return spawnSync(CLAUDE_BIN, ['--version'], { timeout: 15000, stdio: 'ignore' }).status === 0; } catch { return false; }
 }
+// Every provider has the same shape, so adding one (OpenAI, say) means adding an entry here:
+//   label        shown in the server log
+//   available()  can it run at all (key present, CLI installed)?   why: what to do when it can't
+//   web          can it search the web when a request asks for it?
+//   chat(payload, res)  streams the reply as NDJSON lines (see startStream / relayEvent):
+//       {d:"text"}                    reply text, in order
+//       {search:"query"}              the model ran a web search
+//       {sources:[{title, url}]}      pages that search returned
+//       then {done:true, model, truncated} or {error}
+//     payload = {system, messages:[{role, content}], model, effort, web}
+//     web is only true when the reader turned web access on for this message. Off means the provider
+//     must not reach the internet at all. Keep it to search: no page fetching from this machine, no code.
+const PROVIDERS = {
+  'claude-code': {
+    label: 'Claude Code CLI (your Claude subscription)', web: true, available: hasClaudeCli, chat: chatViaClaudeCode,
+    why: `The server could not find the Claude Code CLI ("${CLAUDE_BIN}"). Install it, run \`claude\` once to sign in, then restart the server.`,
+  },
+  anthropic: {
+    label: 'Anthropic API', web: true, available: () => !!API_KEY, chat: chatViaApi,
+    why: 'The server has no Anthropic API key. Add ANTHROPIC_API_KEY to .env and restart it.',
+  },
+};
 const PROVIDER = (process.env.LLM_PROVIDER || (API_KEY ? 'anthropic' : 'claude-code')).toLowerCase();
-const LLM_OK = PROVIDER === 'anthropic' ? !!API_KEY : PROVIDER === 'claude-code' ? hasClaudeCli() : false;
-const LLM_WHY = PROVIDER === 'anthropic'
-  ? 'The server has no Anthropic API key. Add ANTHROPIC_API_KEY to .env and restart it.'
-  : PROVIDER === 'claude-code'
-    ? `The server could not find the Claude Code CLI ("${CLAUDE_BIN}"). Install it, run \`claude\` once to sign in, then restart the server.`
-    : `Unknown LLM_PROVIDER "${PROVIDER}". Use claude-code or anthropic.`;
+const P = PROVIDERS[PROVIDER];
+const LLM_OK = !!P && P.available();
+const LLM_WHY = P ? P.why : `Unknown LLM_PROVIDER "${PROVIDER}". Use ${Object.keys(PROVIDERS).join(' or ')}.`;
+const WEB_OK = LLM_OK && !!P.web && !/^(0|false|no|off)$/i.test(process.env.WEB_SEARCH || '');
+const MAX_SEARCHES = Number(process.env.MAX_SEARCHES || 5);
 
 const CC_MODELS = [['claude-opus-5-5', 'Opus 5.5'], ['claude-sonnet-5-5', 'Sonnet 5.5'], ['claude-haiku-5-5', 'Haiku 5.5']];
 let modelCache = null;
@@ -140,18 +162,57 @@ async function handleChat(req, res) {
   if (!LLM_OK) return fail(res, 503, LLM_WHY);
   const payload = await readJson(req);
   if (!payload || !Array.isArray(payload.messages) || !payload.messages.length) return fail(res, 400, 'messages are required');
-  return PROVIDER === 'claude-code' ? chatViaClaudeCode(payload, res) : chatViaApi(payload, res);
+  payload.web = payload.web === true && WEB_OK;
+  return P.chat(payload, res);
 }
 function startStream(res) {
   res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store', 'x-accel-buffering': 'no' });
   return (o) => res.write(JSON.stringify(o) + '\n');
 }
-// both providers speak Anthropic's streaming events; this turns one into our {d} lines
+// Both Claude providers speak Anthropic's streaming events; this turns them into our lines.
+// It also rebuilds the content blocks of the current message (st.blocks), which the API needs
+// to resume a turn the server paused in the middle of searching.
+const SEARCH_TOOLS = new Set(['web_search', 'WebSearch']);
+function sourcesLine(list) {
+  const seen = new Set(), out = [];
+  for (const r of Array.isArray(list) ? list : []) {
+    const url = r && typeof r.url === 'string' ? r.url : '';
+    if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
+    seen.add(url); out.push({ title: String(r.title || url).slice(0, 300), url: url.slice(0, 2000) });
+  }
+  return out.length ? { sources: out.slice(0, 20) } : null;
+}
 function relayEvent(ev, out, st) {
-  if (ev.type === 'message_start') st.model = ev.message && ev.message.model;
-  else if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta') { st.any = true; out({ d: ev.delta.text }); }
-  else if (ev.type === 'message_delta' && ev.delta && ev.delta.stop_reason === 'max_tokens') st.truncated = true;
-  else if (ev.type === 'error') { st.failed = true; out({ error: (ev.error && ev.error.message) || 'The model returned an error.' }); }
+  if (ev.type === 'message_start') { st.model = ev.message && ev.message.model; st.blocks = []; }
+  else if (ev.type === 'content_block_start' && ev.content_block) {
+    const b = { ...ev.content_block };
+    (st.blocks || (st.blocks = []))[ev.index] = b;
+    if (b.type === 'tool_use' || b.type === 'server_tool_use') b._json = '';
+    if (b.type === 'text' && st.any) st.sep = true; // text again after a search: start a new paragraph
+    if (b.type === 'web_search_tool_result') { const s = sourcesLine(b.content); if (s) out(s); }
+  } else if (ev.type === 'content_block_delta' && ev.delta) {
+    const d = ev.delta, b = st.blocks && st.blocks[ev.index];
+    if (d.type === 'text_delta') {
+      if (b) b.text = (b.text || '') + d.text;
+      let t = d.text;
+      if (st.sep) { t = t.replace(/^\s+/, ''); if (!t) return; t = '\n\n' + t; st.sep = false; }
+      st.any = true; out({ d: t });
+    } else if (!b) return;
+    else if (d.type === 'input_json_delta') b._json += d.partial_json || '';
+    else if (d.type === 'thinking_delta') b.thinking = (b.thinking || '') + (d.thinking || '');
+    else if (d.type === 'signature_delta') b.signature = d.signature;
+    else if (d.type === 'citations_delta') (b.citations || (b.citations = [])).push(d.citation);
+  } else if (ev.type === 'content_block_stop') {
+    const b = st.blocks && st.blocks[ev.index];
+    if (b && '_json' in b) {
+      try { b.input = b._json ? JSON.parse(b._json) : b.input || {}; } catch { b.input = {}; }
+      delete b._json;
+      if (SEARCH_TOOLS.has(b.name) && b.input && b.input.query) out({ search: String(b.input.query).slice(0, 500) });
+    }
+  } else if (ev.type === 'message_delta' && ev.delta) {
+    st.stop = ev.delta.stop_reason;
+    if (st.stop === 'max_tokens') st.truncated = true;
+  } else if (ev.type === 'error') { st.failed = true; out({ error: (ev.error && ev.error.message) || 'The model returned an error.' }); }
 }
 const textOf = (c) => (typeof c === 'string' ? c : Array.isArray(c) ? c.map((b) => (b && b.type === 'text' ? b.text : '')).join('') : '');
 
@@ -167,8 +228,12 @@ async function chatViaClaudeCode(payload, res) {
   const sysFile = path.join(work, 'system.txt');
   // the system prompt can carry a whole paper, too long for a command-line argument, so it goes in a file
   await fs.writeFile(sysFile, payload.system || 'You are a helpful tutor.');
+  // Tools are off unless the reader turned web access on, and then the only one is WebSearch, which runs
+  // on Anthropic's side. Never WebFetch: it fetches from this machine, so a page could steer it at
+  // this server (127.0.0.1, no login) or the local network.
+  const tools = payload.web ? ['--tools', 'WebSearch', '--allowedTools', 'WebSearch'] : ['--tools', ''];
   const args = ['-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
-    '--tools', '', '--strict-mcp-config', '--no-session-persistence',
+    ...tools, '--strict-mcp-config', '--no-session-persistence',
     '--system-prompt-file', sysFile, '--model', pickModel(payload.model)];
   if (EFFORTS.has(payload.effort)) args.push('--effort', payload.effort);
   const env = { ...process.env };
@@ -193,6 +258,15 @@ async function chatViaClaudeCode(payload, res) {
         // no partial chunks arrived (older CLI): send the whole reply at once
         const t = textOf(m.message.content); if (t) { st.any = true; out({ d: t }); }
         st.model = st.model || m.message.model;
+      } else if (m.type === 'user' && m.message && Array.isArray(m.message.content)) {
+        // WebSearch results come back as a tool result: "Web search results for query: ...\n\nLinks: [{title,url},...]\n..."
+        for (const b of m.message.content) {
+          const txt = b && b.type === 'tool_result' ? textOf(b.content) : '';
+          const at = txt.indexOf('Links: [');
+          if (at < 0) continue;
+          const end = txt.indexOf('\n', at), raw = txt.slice(at + 7, end < 0 ? undefined : end);
+          try { const s = sourcesLine(JSON.parse(raw)); if (s) out(s); } catch { /* not the shape we know: skip the sources */ }
+        }
       } else if (m.type === 'result' && m.is_error) resultErr = String(m.result || m.subtype || 'The model returned an error.');
     }
   });
@@ -208,11 +282,13 @@ async function chatViaClaudeCode(payload, res) {
 }
 
 // ---- provider: Anthropic API ----
-function anthropicRequest({ system, messages, model, effort }, withEffort, signal) {
+function anthropicRequest({ system, messages, model, effort, web }, withEffort, signal) {
   const body = { model: pickModel(model), max_tokens: MAX_TOKENS, stream: true, messages };
   // cache the system prompt (which carries any document text), so follow-ups about the same paper are cheaper
   if (system) body.system = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
   if (withEffort && EFFORTS.has(effort)) body.output_config = { effort };
+  // web search runs on Anthropic's servers; nothing is fetched from this machine
+  if (web) body.tools = [{ type: 'web_search_20260209', name: 'web_search', max_uses: MAX_SEARCHES }];
   return fetch(API_BASE + '/v1/messages', {
     method: 'POST', signal,
     headers: { 'content-type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' },
@@ -222,27 +298,38 @@ function anthropicRequest({ system, messages, model, effort }, withEffort, signa
 async function chatViaApi(payload, res) {
   const ctrl = new AbortController();
   res.on('close', () => { if (!res.writableFinished) ctrl.abort(); }); // the reader pressed Stop or left
-  let upstream = await anthropicRequest(payload, true, ctrl.signal);
+  let upstream = await anthropicRequest(payload, true, ctrl.signal), withEffort = true;
   if (upstream.status === 400 && EFFORTS.has(payload.effort)) {
     // some models don't take an effort setting: ask again without it
     const txt = await upstream.text();
-    if (/effort|output_config/i.test(txt)) upstream = await anthropicRequest(payload, false, ctrl.signal);
+    if (/effort|output_config/i.test(txt)) { withEffort = false; upstream = await anthropicRequest(payload, false, ctrl.signal); }
     else return fail(res, 400, errorText(txt, 400));
   }
   if (!upstream.ok) return fail(res, upstream.status === 401 ? 502 : upstream.status, errorText(await upstream.text(), upstream.status));
   const out = startStream(res), st = { model: null, truncated: false, any: false, failed: false };
-  let buf = '';
   const dec = new TextDecoder();
+  let messages = payload.messages;
   try {
-    for await (const chunk of upstream.body) {
-      buf += dec.decode(chunk, { stream: true });
-      let i;
-      while ((i = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
-        if (!line.startsWith('data:')) continue;
-        let ev; try { ev = JSON.parse(line.slice(5)); } catch { continue; }
-        relayEvent(ev, out, st);
+    for (let turn = 0; ; turn++) {
+      if (turn > 0) {
+        upstream = await anthropicRequest({ ...payload, messages }, withEffort, ctrl.signal);
+        if (!upstream.ok) { st.failed = true; out({ error: errorText(await upstream.text(), upstream.status) }); break; }
       }
+      let buf = '';
+      st.stop = null;
+      for await (const chunk of upstream.body) {
+        buf += dec.decode(chunk, { stream: true });
+        let i;
+        while ((i = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+          if (!line.startsWith('data:')) continue;
+          let ev; try { ev = JSON.parse(line.slice(5)); } catch { continue; }
+          relayEvent(ev, out, st);
+        }
+      }
+      // a long search turn can pause; send back what came so far and the model carries on
+      if (st.stop !== 'pause_turn' || st.failed || turn >= 4) break;
+      messages = [...messages, { role: 'assistant', content: (st.blocks || []).filter(Boolean) }];
     }
     if (!st.failed) out({ done: true, model: st.model, truncated: st.truncated });
   } catch (e) {
@@ -312,7 +399,7 @@ async function route(req, res) {
   if (DEV && url.pathname === '/__dev/events') return devEvents(req, res);
   if (parts[0] !== 'api') return fail(res, 404, 'Not found');
 
-  if (parts[1] === 'health' && req.method === 'GET') return send(res, 200, { app: 'digress', llm: LLM_OK, provider: PROVIDER, why: LLM_OK ? undefined : LLM_WHY });
+  if (parts[1] === 'health' && req.method === 'GET') return send(res, 200, { app: 'digress', llm: LLM_OK, provider: PROVIDER, web: WEB_OK, why: LLM_OK ? undefined : LLM_WHY });
   if (parts[1] === 'models' && req.method === 'GET') {
     const models = await listModels();
     const d = models.find((m) => m[0] === DEFAULT_MODEL);
@@ -379,5 +466,5 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`Digress is running at http://${HOST}:${PORT}`);
   console.log(`Data folder: ${DATA}`);
-  console.log(LLM_OK ? `Model: ${PROVIDER === 'claude-code' ? 'Claude Code CLI (your Claude subscription)' : 'Anthropic API'}, default ${DEFAULT_MODEL}` : 'No model yet: ' + LLM_WHY);
+  console.log(LLM_OK ? `Model: ${P.label}, default ${DEFAULT_MODEL}${WEB_OK ? ', web search available (off until you turn it on)' : ''}` : 'No model yet: ' + LLM_WHY);
 });

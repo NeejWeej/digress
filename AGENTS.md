@@ -16,12 +16,12 @@ The client never calls a model, storage or file API directly. It goes through `i
 2. **claude.ai artifact runtime** (`window.claude`): `claudeAiLlm`, `claudeAiStore`, `claudeAiFiles`.
 3. **Plain browser**: `localStore` / `memoryStore`, `noLlm`, `noFiles`.
 
-New features must use `io.*` and work in all three. To add a model provider, change the server (see `chatViaClaudeCode` / `chatViaApi`); the client just reads the NDJSON stream.
+New features must use `io.*` and work in all three. To add a model provider, add an entry to `PROVIDERS` in the server (`available`, `why`, `web`, `chat`; see `chatViaClaudeCode` / `chatViaApi`); the client just reads the NDJSON stream. Connectors that can't do something say so (`supportsEffort`, `supportsWeb`) and the UI hides that control.
 
 Server contract:
-- `GET /api/health` → `{app:'digress', llm, provider, why}`
+- `GET /api/health` → `{app:'digress', llm, provider, web, why}`
 - `GET /api/models` → `{models:[[id,label]], defaultLabel}`
-- `POST /api/chat` `{system, messages, model, effort}` → NDJSON lines: `{d:"text"}`*, then `{done, model, truncated}` or `{error}`
+- `POST /api/chat` `{system, messages, model, effort, web}` → NDJSON lines: `{d:"text"}`, `{search:"query"}`, `{sources:[{title,url}]}` (any order), then `{done, model, truncated}` or `{error}`
 - `/api/store/{convs|index}[/:id]`: GET list / GET / PUT / PATCH / DELETE
 - `/api/files`: `POST ?type=` with raw body → `{id}`; `GET`/`DELETE /api/files/:id`
 
@@ -30,7 +30,7 @@ Server contract:
 `conv = {id, title, created, updated, threads, msgs, order, ui, nextColor, doc?, pinned?, archived?}`
 
 - `threads[tid] = {id, parent, anchorMsg, anchorText, anchorRange:{s,e}, anchorPage, title, colorIdx, resolved?, pinned?}`. `main` is the root.
-- `msgs[mid] = {role: user|assistant|note, thread, text, ...}`; `order[tid]` lists a thread's message ids. Notes are takeaways carried back from a branch (`fromThread`).
+- `msgs[mid] = {role: user|assistant|note, thread, text, ...}`; assistant replies made with web on also keep `web`, `searches` and `sources`; `order[tid]` lists a thread's message ids. Notes are takeaways carried back from a branch (`fromThread`).
 - `ui`: open/collapsed panes, layout, view (`panes` | `canvas` | `tree`), canvas state `ui.cv` (positions, sizes, z order, per-card zoom `cz`, docked cards `dock`).
 
 ## Traps
@@ -40,6 +40,7 @@ Server contract:
 - **Canvas coordinates:** cards have world positions; the camera scale is `cam.k`, and each card has its own zoom (CSS `zoom` via `--cz`). Stored sizes are at 100%. Anything that converts screen ↔ content uses `contentScale(node)` (which is 1 for cards stuck to the screen). Scroll offsets inside a zoomed card must be divided by it.
 - **Startup order:** MathJax loads async and may already be cached, so `__mathReady` can fire before a conversation exists. Keep its guards, and keep `waitRuntime` a hoisted function.
 - **Class names:** generic names clash with top-bar styles (`.sel` did). Prefix new canvas classes.
+- **Web access is search only, and only when asked.** `web` is false unless the reader turned the Web toggle on. Claude Code gets `--tools WebSearch` and nothing else; never add WebFetch, Bash or file tools there: they run on this machine, and the server has no login. The API path uses the server-side `web_search` tool. Source URLs are filtered to http(s) on the server and again in the client.
 - **Context building:** `buildContext(tid)` returns `{system, messages}`. The system prompt includes the document text (up to about 80k characters, with `[p. N]` page labels). Branches get a prefix quoting the anchor. The claude.ai connector folds `system` into the first message; the server passes it through properly.
 
 ## Testing

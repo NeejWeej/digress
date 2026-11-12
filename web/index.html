@@ -27,7 +27,13 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .tb:hover{background:var(--user-bg);color:var(--ink)}
 .tb svg.i{width:14px;height:14px}
 
-.app{display:grid;grid-template-rows:48px 1fr;grid-template-columns:272px 1fr;height:100vh}
+.app{display:grid;grid-template-rows:48px 1fr;grid-template-columns:var(--sidew,272px) 1fr;height:100vh;position:relative}
+/* drag the sidebar's edge to make it wider (double-click resets) */
+.sgrip{position:absolute;top:48px;bottom:0;left:calc(var(--sidew,272px) - 3px);width:7px;cursor:col-resize;z-index:6;touch-action:none}
+.sgrip::after{content:'';position:absolute;top:0;bottom:0;left:3px;width:1px;background:transparent;transition:background .12s}
+.sgrip:hover::after,.sgrip.on::after{background:var(--accent)}
+.app.noside .sgrip{display:none}
+.app.sizing{cursor:col-resize;user-select:none}
 .app.noside{grid-template-columns:0 1fr}
 .side{grid-column:1;grid-row:2}
 .stage{grid-column:2;grid-row:2}
@@ -43,6 +49,16 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .seg button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .status{font-size:12px;color:var(--faint);margin-right:4px;white-space:nowrap}
 .sel{display:flex;align-items:center;gap:4px;background:var(--user-bg);border-radius:9px;padding:2px 2px 2px 8px;color:var(--muted);font-size:12px;flex:none}
+.webt{display:flex;align-items:center;gap:5px;flex:none;border:1px solid transparent;background:var(--user-bg);color:var(--muted);border-radius:9px;padding:5px 9px;font:12px var(--sans);cursor:pointer}
+.webt .i{width:14px;height:14px}
+.webt.on{background:color-mix(in srgb,var(--accent) 14%,transparent);border-color:color-mix(in srgb,var(--accent) 45%,transparent);color:var(--ink)}
+.wact{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--faint);margin-top:2px}.wact .i{width:13px;height:13px;flex:none}
+.wsrc{margin:2px 0 4px;font-size:12.5px;color:var(--muted)}
+.wsrc summary{display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--faint);list-style:none;padding:2px 0}
+.wsrc summary::-webkit-details-marker{display:none}.wsrc summary .i{width:13px;height:13px}
+.wsrc[open] summary{color:var(--muted)}
+.wsrc .wq{color:var(--faint);margin:4px 0}
+.wsrc ol{margin:4px 0 6px;padding-left:20px}.wsrc li{margin:2px 0;overflow-wrap:anywhere}.wsrc .wh{color:var(--faint);font-size:11.5px}
 .sel select{font:13px var(--sans);color:var(--ink);background:var(--panel);border:0;border-radius:7px;padding:4px 6px;outline:none;cursor:pointer}
 
 .side{overflow:auto;border-right:1px solid var(--line);background:var(--panel-2);padding:12px 10px}
@@ -55,6 +71,7 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .citem:hover{background:var(--user-bg);color:var(--ink)}
 .citem.cur{background:var(--user-bg);color:var(--ink);font-weight:500}
 .citem .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.citem.cur:not(.pb) .t{white-space:normal;overflow-wrap:anywhere}   /* the open conversation shows its whole title */
 .del{opacity:0;font-size:11.5px;color:var(--faint);padding:2px 6px;border-radius:5px;font-weight:400}
 .citem:hover .del{opacity:1}
 .del.arm{opacity:1;color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,transparent)}
@@ -298,7 +315,11 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .cvhint{position:absolute;left:14px;bottom:14px;font-size:12px;color:var(--faint);z-index:3;pointer-events:none}
 /* pins and archive */
 .ib.pinned{color:var(--accent)}
-.citem .acts{display:flex;gap:0;opacity:0}
+.citem{position:relative}
+/* row actions float over the end of the row on hover, so titles get the full width */
+.citem .acts{display:flex;gap:0;opacity:0;pointer-events:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);padding-left:18px;border-radius:0 8px 8px 0;background:linear-gradient(to right,transparent,var(--user-bg) 16px)}
+.citem.cur:not(.pb) .acts{top:4px;transform:none}
+.citem:hover .acts{pointer-events:auto}
 .citem:hover .acts{opacity:1}
 .citem .acts .ib{width:22px;height:22px}
 .citem .acts .ib svg.i{width:13px;height:13px}
@@ -452,14 +473,14 @@ a.pref:hover{border-bottom-style:solid}
 .hljs-title,.hljs-title.function_,.hljs-section{color:#7fb4f0}
 .hljs-type,.hljs-class .hljs-title{color:#e5c06a}}
 @media (max-width:1100px){.top .lbl{display:none}.ctitle{max-width:18vw}}
-@media (max-width:760px){.app{grid-template-columns:0 1fr}.app .side{display:none}.app.sideopen .side{display:block;position:fixed;top:48px;bottom:0;left:0;width:min(300px,86vw);z-index:40;box-shadow:var(--shadow)}.pane{min-width:88vw}.sel span{display:none}
+@media (max-width:760px){.sgrip{display:none}.app{grid-template-columns:0 1fr}.app .side{display:none}.app.sideopen .side{display:block;position:fixed;top:48px;bottom:0;left:0;width:min(300px,86vw);z-index:40;box-shadow:var(--shadow)}.pane{min-width:88vw}.sel span{display:none}
   /* phone top bar: logo, model, and view switcher only */
   .top{gap:4px;padding:0 6px;overflow-x:auto}.brand{font-size:0;gap:0;margin:0 2px}.ctitle,.status,label.sel[title^="How much"]{display:none}
   .sel{padding:2px}.sel select{max-width:110px;font-size:12.5px}.seg button{padding:5px 8px}
   .panes{padding:8px}.pb{padding:6px 14px 8px}.composer{padding:6px 8px 10px}.ph{padding:10px 6px 8px 10px}
   .pop{width:auto;left:8px !important;right:8px}.pal{padding-top:8vh}.cvhint{display:none}}
 /* touch screens have no hover: show the controls that otherwise appear on hover */
-@media (hover:none){.citem .acts,.mnode .mp,.mnode .mx,.bchip .bx,.del,.mfoot .ib,.mfoot .tb,.cnode .ch .ib{opacity:1 !important}.tipbox{display:none !important}}
+@media (hover:none){.citem .acts{position:static;transform:none;background:none;padding:0;pointer-events:auto}.citem .acts,.mnode .mp,.mnode .mx,.bchip .bx,.del,.mfoot .ib,.mfoot .tb,.cnode .ch .ib{opacity:1 !important}.tipbox{display:none !important}}
 </style>
 </head>
 <body>
@@ -472,12 +493,14 @@ a.pref:hover{border-bottom-style:solid}
     <span class="status" id="status"></span>
     <label class="sel" title="Which Claude model answers new messages. Auto lets claude.ai choose. Each reply shows the model that answered."><span>Model</span><select id="mSel"></select></label>
     <label class="sel" title="How much the model thinks before answering. Higher is slower but more careful."><span>Effort</span><select id="eSel"></select></label>
+    <button class="webt" id="webT" aria-pressed="false" style="display:none" title="Web search: let new replies look things up online. Only search queries leave; your chats and documents stay on this server. You can switch this any time."><span class="wi"></span><span class="lbl">Web</span></button>
     <div class="seg" id="viewSeg">
       <button data-v="cols" title="Show threads as panes side by side"><span></span><b class="lbl" style="font-weight:inherit">Columns</b></button>
       <button data-v="rows" title="Show threads as panes stacked top to bottom"><span></span><b class="lbl" style="font-weight:inherit">Rows</b></button>
       <button data-v="canvas" title="See the whole conversation tree as cards on a canvas"><span></span><b class="lbl" style="font-weight:inherit">Canvas</b></button>
     </div>
   </div>
+  <div class="sgrip" id="sgrip" title="Drag to resize the sidebar. Double-click to reset."></div>
   <aside class="side" id="side">
     <label class="sbox" title="Search every conversation, highlight, takeaway and document"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="sboxIn" placeholder="Search" autocomplete="off"><kbd class="k"><span class="kmod">⌘</span>K</kbd></label>
     <button class="newbtn" id="newConv" title="Start a fresh conversation. This one stays saved in the list below."></button>
@@ -549,6 +572,7 @@ const MODELS=[['auto','Auto'],['claude-opus-5-5','Opus 5.5'],['claude-sonnet-5-5
 const TIER={'claude-opus-5-5':'complex','claude-fable-5-2':'complex','claude-sonnet-5-5':'default','claude-haiku-5-5':'quick'};
 const EFFORTS=[['auto','Auto'],['low','Low'],['medium','Medium'],['high','High']];
 const I={
+ globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
  side:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
  cols:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
  rows:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18M3 14.5h18"/>',
@@ -584,7 +608,7 @@ const trunc=(s,n)=>{s=String(s||'').replace(/\s+/g,' ').trim();return s.length>n
 const plain=(md)=>String(md||'').replace(/```mermaid[\s\S]*?(```|$)/g,' [diagram] ').replace(/```[\s\S]*?(```|$)/g,' [code] ').replace(/\$\$[\s\S]*?\$\$/g,' [equation] ').replace(/\$([^$\n]+)\$/g,'$1').replace(/\\(sqrt|frac|cdot|sum|int|left|right|text|mathbf|mathrm)/g,'').replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/[#*_`>|]/g,'').replace(/\s+/g,' ').trim();
 
 /* ---------- settings ---------- */
-const settings={model:'auto',effort:'auto'};
+const settings={model:'auto',effort:'auto',web:false};
 try{Object.assign(settings,JSON.parse(localStorage.getItem('sq:settings')||'{}'))}catch(e){}
 function saveSettings(){try{localStorage.setItem('sq:settings',JSON.stringify(settings))}catch(e){}}
 const modelLabel=(v)=>{if(!v)return '';if(typeof v==='object')v=v.model||v.id||'';const list=(typeof io!=='undefined'&&io.llm&&io.llm.models())||MODELS;const m=list.find(x=>x[0]===v)||MODELS.find(x=>x[0]===v);return m?m[1]:String(v).replace(/^claude-/,'')};
@@ -611,8 +635,10 @@ const branchNum=(t)=>branchesOn(t.anchorMsg).indexOf(t)+1;
 const isCollapsed=(tid)=>conv.ui.collapsed.includes(tid);
 
 /* ---------- connectors: the only code that knows where the app is running ----------
-   io.llm    complete({system, messages, model, effort, signal, onText}) -> {text, model, truncated}
-             ready() -> bool, why (reason it's unavailable), models() -> [[id, label]], supportsEffort
+   io.llm    complete({system, messages, model, effort, web, signal, onText, onSearch})
+               -> {text, model, truncated, searches:[query], sources:[{title, url}]}
+               web: may search the web for this reply (only pass true when supportsWeb). onSearch({searches, sources}) reports progress.
+             ready() -> bool, why (reason it's unavailable), models() -> [[id, label]], supportsEffort, supportsWeb
    io.store  conversations: list() -> [{id, data}], get(id), put(id, data), update(id, patch), remove(id)
    io.index  search index entries, same shape as io.store
    io.files  upload(blob, type) -> {id}, fetch(id, 'text'|'arrayBuffer'), remove(id), canUpload
@@ -648,7 +674,7 @@ function claudeAiStore(coll,label,opts){
 }
 function claudeAiLlm(cl){
   let s=null,p=null;
-  const llm={kind:'claude.ai',supportsEffort:true,
+  const llm={kind:'claude.ai',supportsEffort:true,supportsWeb:false,
     why:'claude.ai didn\'t give this view access to Claude. Open the artifact on its own page (not the preview) and try again.',
     models:()=>MODELS,
     ready(){
@@ -669,7 +695,7 @@ function claudeAiLlm(cl){
     }};
   return llm;
 }
-function noLlm(why){return {kind:'none',supportsEffort:false,why,models:()=>[['auto','Auto']],ready:async()=>false,complete:async()=>{throw {message:why}}}}
+function noLlm(why){return {kind:'none',supportsEffort:false,supportsWeb:false,why,models:()=>[['auto','Auto']],ready:async()=>false,complete:async()=>{throw {message:why}}}}
 function claudeAiFiles(assets){
   return {kind:'claude.ai',canUpload:!!assets,
     upload:async(blob,type)=>{if(!assets)throw {code:'unavailable'};const r=await assets.upload(blob,{type});return {id:r.id}},
@@ -700,18 +726,19 @@ function serverFiles(){
 }
 function serverLlm(info){
   let models=[['auto','Default']];
-  const llm={kind:'server',supportsEffort:true,
+  const llm={kind:'server',supportsEffort:true,supportsWeb:!!(info.llm&&info.web),
     why:info.why||'The server has no model configured yet. See the README to connect one.',
     models:()=>models,
     ready:async()=>!!info.llm,
     async loadModels(){
       try{const j=await (await okOrThrow(await fetch('api/models'))).json();models=[['auto','Default'+(j.defaultLabel?' ('+j.defaultLabel+')':'')],...j.models]}catch(e){console.warn('model list failed',e)}
     },
-    async complete({system,messages,model,effort,signal,onText}){
+    async complete({system,messages,model,effort,web,signal,onText,onSearch}){
       if(!info.llm)throw {message:llm.why};
-      const r=await okOrThrow(await fetch('api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({system,messages,model,effort}),signal}));
-      // the server streams one JSON object per line: {d:"text"} deltas, then {done:true,model,truncated} or {error}
-      const rd=r.body.getReader(),dec=new TextDecoder();let buf='',text='',model_=null,truncated=false;
+      const r=await okOrThrow(await fetch('api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({system,messages,model,effort,web:!!(web&&llm.supportsWeb)}),signal}));
+      // the server streams one JSON object per line: {d:"text"} deltas, {search:"query"}, {sources:[{title,url}]},
+      // then {done:true,model,truncated} or {error}
+      const rd=r.body.getReader(),dec=new TextDecoder();let buf='',text='',model_=null,truncated=false;const searches=[],sources=[];
       for(;;){
         const {value,done}=await rd.read();if(done)break;
         buf+=dec.decode(value,{stream:true});let i;
@@ -719,11 +746,13 @@ function serverLlm(info){
           const line=buf.slice(0,i);buf=buf.slice(i+1);if(!line.trim())continue;
           const ev=JSON.parse(line);
           if(ev.d){text+=ev.d;onText&&onText(text)}
-          else if(ev.error)throw {message:ev.error,text};
+          else if(ev.search){searches.push(String(ev.search));onSearch&&onSearch({searches,sources})}
+          else if(ev.sources){for(const x of ev.sources)if(x&&/^https?:\/\//i.test(x.url)&&!sources.some(y=>y.url===x.url))sources.push({title:String(x.title||x.url),url:String(x.url)});onSearch&&onSearch({searches,sources})}
+          else if(ev.error)throw {message:ev.error,text,searches,sources};
           else if(ev.done){model_=ev.model||null;truncated=!!ev.truncated}
         }
       }
-      return {text,truncated,model:model_};
+      return {text,truncated,model:model_,searches,sources};
     }};
   return llm;
 }
@@ -799,7 +828,7 @@ async function send(tid,text){
   text=(text||'').trim();if(!text)return;
   if(streaming.has(tid)){toast('Wait for the current reply to finish');return}
   const t=T(tid);
-  if(tid==='main'&&!conv.order.main.some(id=>conv.msgs[id].role==='user')){conv.title=trunc(text,60);renderTitle()}
+  if(tid==='main'&&!conv.order.main.some(id=>conv.msgs[id].role==='user')){conv.title=trunc(text,120);renderTitle()}
   if(t.autoTitle&&!conv.order[tid].length){t.title=trunc(text,48);delete t.autoTitle;refreshAnchorsFor(tid)}
   addMsg(tid,'user',text);
   const am=addMsg(tid,'assistant','');am.pending=true;
@@ -812,11 +841,15 @@ async function generate(m,ctx,lockTid){
   const ctrl=new AbortController();streaming.set(lockTid,{mid:m.id,ctrl});updateComposer(lockTid);
   try{
     if(!io.llm)await io.ready;
-    const r=await io.llm.complete({system:ctx.system,messages:ctx.messages,model:settings.model,effort:settings.effort,signal:ctrl.signal,onText:(text)=>{m.content=text;queueStream(m.id)}});
-    m.content=r.text;if(r.model)m.model=r.model;
+    const web=!!(settings.web&&io.llm.supportsWeb);if(web)m.web=true;else delete m.web;delete m.searches;delete m.sources;
+    const keepSearch=(x)=>{if(x.searches&&x.searches.length)m.searches=[...x.searches];if(x.sources&&x.sources.length)m.sources=x.sources.slice(0,30)};
+    const r=await io.llm.complete({system:ctx.system,messages:ctx.messages,model:settings.model,effort:settings.effort,web,signal:ctrl.signal,
+      onText:(text)=>{m.content=text;queueStream(m.id)},onSearch:(x)=>{keepSearch(x);queueStream(m.id)}});
+    m.content=r.text;if(r.model)m.model=r.model;keepSearch(r);
     if(r.truncated)m.error='Reply was cut off (length limit).';
   }catch(e){
     if(e&&e.text)m.content=e.text;
+    if(e&&e.searches&&e.searches.length)m.searches=[...e.searches];if(e&&e.sources&&e.sources.length)m.sources=e.sources.slice(0,30);
     m.error=ctrl.signal.aborted?'Stopped.':(e&&e.code==='rate_limited'?'Rate limited. Wait a moment and retry.':(e&&e.message)||'Something went wrong.');
   }
   delete m.pending;m.ver++;streaming.delete(lockTid);
@@ -1079,6 +1112,7 @@ function msgEl(m){
     else{
       renderRich(body,m.content,true);applyAnchors(body,m);renderMermaid(body);
       if(m.error){const e=document.createElement('div');e.className='err';e.textContent=m.error;body.appendChild(e)}
+      const ws=webSources(m);if(ws)el.insertBefore(ws,el.lastChild);
       buildFoot(el.lastChild,m);
     }
   }
@@ -1099,8 +1133,24 @@ function buildFoot(f,m){
   }
 }
 function streamInto(body,m){
-  if(!m.content){body.innerHTML='<span class="thinking"><i></i><i></i><i></i></span>';return}
+  const q=m.searches&&m.searches.length?m.searches[m.searches.length-1]:'';
+  if(!m.content){body.innerHTML='<span class="thinking"><i></i><i></i><i></i></span>'+(q?`<div class="wact">${ic('globe')}<span>Searching: ${esc(trunc(q,90))}</span></div>`:'');return}
   renderRich(body,m.content,false);
+}
+/* where a reply looked on the web: the searches it ran and the pages they returned (kept outside .body, so anchors never count it) */
+function webSources(m){
+  const qs=m.searches||[],src=(m.sources||[]).filter(s=>/^https?:\/\//i.test(s.url));
+  if(!qs.length&&!src.length)return null;
+  const d=document.createElement('details');d.className='wsrc';
+  const host=(u)=>{try{return new URL(u).hostname.replace(/^www\./,'')}catch(e){return ''}};
+  d.innerHTML=`<summary>${ic('globe')}<span></span></summary>`;
+  d.querySelector('summary span').textContent='Searched the web'+(qs.length>1?` ${qs.length} times`:'')+(src.length?` · ${src.length} source${src.length>1?'s':''}`:'');
+  if(qs.length){const p=document.createElement('div');p.className='wq';p.textContent=qs.map(q=>'“'+q+'”').join(' · ');d.appendChild(p)}
+  if(src.length){const ol=document.createElement('ol');
+    for(const s of src){const li=document.createElement('li'),a=document.createElement('a');a.href=s.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=s.title||s.url;
+      const h=document.createElement('span');h.className='wh';h.textContent=host(s.url);li.append(a,' ',h);ol.appendChild(li)}
+    d.appendChild(ol)}
+  return d;
 }
 const streamQ=new Set();let streamTimer=0;
 function queueStream(mid){
@@ -2288,7 +2338,7 @@ function renderConvList(){
       (c.archived?'':`<button class="ib${c.pinned?' pinned':''}" data-pinconv="${esc(c.id)}" title="${c.pinned?'Unpin':'Pin to the top of the sidebar'}">${ic('pin')}</button>`)+
       `<button class="ib" data-archconv="${esc(c.id)}" title="${c.archived?'Move back to your conversations':'Archive: move out of the way without deleting'}">${ic('archive')}</button>`+
       `<button class="ib dz" data-del="${esc(c.id)}" title="Delete this conversation and all its branches">${ic('trash')}</button></span>`;
-    d.querySelector('.t').textContent=c.title||'New conversation';
+    const tt=d.querySelector('.t');tt.textContent=c.title||'New conversation';tt.dataset.tip=tt.textContent;tt.dataset.clip='';
     return d;
   };
   const active=items.filter(c=>!c.archived),arch=items.filter(c=>c.archived);
@@ -2300,6 +2350,7 @@ function renderConvList(){
     d.title='Jump to this pinned branch';
     d.innerHTML=`<span class="bd"></span><span class="t"></span><span class="acts"><button class="ib pinned" data-unpinb="${esc(c.id+'|'+b.tid)}" title="Unpin this branch">${ic('pin')}</button></span>`;
     const tt=d.querySelector('.t');tt.textContent=b.title+' ';const sm=document.createElement('small');sm.textContent='· '+(c.title||'');tt.appendChild(sm);
+    d.removeAttribute('title');tt.dataset.tip=b.title+' · '+(c.title||'');tt.dataset.clip='';
     pl.appendChild(d);
   }
   $('#pinWrap').style.display=pl.children.length?'':'none';
@@ -2600,6 +2651,7 @@ document.addEventListener('mouseover',e=>{
   hideTip();if(!el)return;
   if(el.hasAttribute('title')){const t=el.getAttribute('title');el.removeAttribute('title');if(t)el.dataset.tip=t;else delete el.dataset.tip}
   if(!el.dataset.tip)return;
+  if('clip' in el.dataset&&el.scrollWidth<=el.clientWidth+1)return;   // data-clip: only when the text is cut off
   tipFor=el;tipTimer=setTimeout(()=>showTip(el),380);
 });
 document.addEventListener('mousedown',hideTip,true);
@@ -2613,18 +2665,35 @@ $('#treeAll').onclick=treeAll;
 $('#archToggle').onclick=()=>{archOpen=!archOpen;try{localStorage.setItem('sq:arch',archOpen?'1':'')}catch(e){}renderConvList()};
 $('#newConv').innerHTML=ic('plus')+'New conversation';$('#newDoc').innerHTML=ic('doc')+'New from a document';$('#newDoc').onclick=openDocModal;
 ['cols','rows','canvas'].forEach(v=>{document.querySelector(`[data-v="${v}"] span`).outerHTML=ic(v)});
-const mSel=$('#mSel'),eSel=$('#eSel');
+const mSel=$('#mSel'),eSel=$('#eSel'),webT=$('#webT');
 MODELS.forEach(([v,l])=>mSel.add(new Option(l,v)));EFFORTS.forEach(([v,l])=>eSel.add(new Option(l,v)));
 function fillModelPicker(){
   const list=io.llm?io.llm.models():MODELS;mSel.replaceChildren();list.forEach(([v,l])=>mSel.add(new Option(l,v)));
   mSel.value=settings.model;if(!mSel.value)mSel.value=settings.model=list[0]?list[0][0]:'auto';
   eSel.closest('.sel').style.display=io.llm&&io.llm.supportsEffort?'':'none';
+  webT.style.display=io.llm&&io.llm.supportsWeb?'':'none';
 }
+webT.querySelector('.wi').outerHTML=ic('globe');
+function showWeb(){webT.setAttribute('aria-pressed',settings.web?'true':'false');webT.classList.toggle('on',!!settings.web)}
+showWeb();
+webT.onclick=()=>{settings.web=!settings.web;saveSettings();showWeb();setStatus(settings.web?'Web search on for new replies':'Web search off')};
 mSel.value=settings.model;eSel.value=settings.effort;if(!mSel.value)mSel.value=settings.model='auto';if(!eSel.value)eSel.value=settings.effort='auto';
 mSel.onchange=()=>{settings.model=mSel.value;saveSettings();setStatus('New replies use '+modelLabel(mSel.value))};
 eSel.onchange=()=>{settings.effort=eSel.value;saveSettings()};
 $('#tSide').addEventListener('click',()=>{const app=$('#app');if(innerWidth<760){app.classList.toggle('sideopen')}else{app.classList.toggle('noside');try{localStorage.setItem('sq:noside',app.classList.contains('noside')?'1':'')}catch(e){}}setTimeout(()=>{wires();if(conv.ui.view==='canvas')applyCam()},50)});
 try{if(localStorage.getItem('sq:noside'))$('#app').classList.add('noside')}catch(e){}
+(()=>{
+  const app=$('#app'),g=$('#sgrip'),W0=272,clampW=(w)=>Math.round(Math.min(Math.max(200,w),Math.min(620,innerWidth-360)));
+  const setW=(w)=>{if(w)app.style.setProperty('--sidew',clampW(w)+'px');else app.style.removeProperty('--sidew')};
+  const after=()=>{wires();if(conv&&conv.ui.view==='canvas')applyCam()};
+  try{const w=+localStorage.getItem('sq:sidew');if(w)setW(w)}catch(e){}
+  let drag=null;
+  g.addEventListener('pointerdown',e=>{drag={x:e.clientX,w:$('#side').offsetWidth};g.classList.add('on');app.classList.add('sizing');try{g.setPointerCapture(e.pointerId)}catch(_){}e.preventDefault()});
+  g.addEventListener('pointermove',e=>{if(drag)setW(drag.w+e.clientX-drag.x)});
+  const end=()=>{if(!drag)return;drag=null;g.classList.remove('on');app.classList.remove('sizing');try{localStorage.setItem('sq:sidew',String($('#side').offsetWidth))}catch(e){}after()};
+  g.addEventListener('pointerup',end);g.addEventListener('pointercancel',end);
+  g.addEventListener('dblclick',()=>{setW(0);try{localStorage.removeItem('sq:sidew')}catch(e){}after()});
+})();
 $('#viewSeg').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(b)setView(b.dataset.v)});
 $('#newConv').addEventListener('click',async()=>{await flushNow();setConv(newConv());setTimeout(()=>paneEls.get('main').querySelector('textarea').focus(),30)});
 const ct=$('#cTitle');

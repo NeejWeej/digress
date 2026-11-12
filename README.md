@@ -90,7 +90,7 @@ Back it up by copying the folder. It's git-ignored.
 
 ## Configuration
 
-See `.env.example`. The main settings: `LLM_PROVIDER`, `DEFAULT_MODEL` (default `claude-opus-5-5`), `PORT` (8787), `HOST` (127.0.0.1), `DATA_DIR`, `CLAUDE_BIN`.
+See `.env.example`. The main settings: `LLM_PROVIDER`, `DEFAULT_MODEL` (default `claude-opus-5-5`), `PORT` (8787), `HOST` (127.0.0.1), `DATA_DIR`, `CLAUDE_BIN`. Web search: the **Web** button in the top bar lets new replies search the web (off by default, and only search: nothing is fetched from your machine). `MAX_SEARCHES` (5) caps searches per reply on the API path; `WEB_SEARCH=off` removes the option.
 
 ## Other ways to run it
 

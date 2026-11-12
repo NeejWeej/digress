@@ -14,7 +14,25 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const ev = (o) => res.write(`event: ${o.type}\ndata: ${JSON.stringify(o)}\n\n`);
     ev({ type: 'message_start', message: { model: j.model } });
-    const text = `api reply effort=${j.output_config ? j.output_config.effort : 'none'} cached=${!!(j.system && j.system[0].cache_control)} n=${j.messages.length}`;
+    const web = (j.tools || []).find((t) => t.name === 'web_search');
+    const last = j.messages[j.messages.length - 1];
+    if (web && last.role === 'assistant') {
+      // resuming a paused turn: the server must send back the search blocks it rebuilt from the stream
+      const types = last.content.map((b) => b.type).join(',');
+      const q = (last.content.find((b) => b.type === 'server_tool_use') || {}).input;
+      ev({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } });
+      ev({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: `resumed with ${types} query=${q && q.query}` } });
+      ev({ type: 'message_delta', delta: { stop_reason: 'end_turn' } }); ev({ type: 'message_stop' }); return res.end();
+    }
+    if (web && JSON.stringify(last.content).includes('SEARCHME')) {
+      ev({ type: 'content_block_start', index: 0, content_block: { type: 'server_tool_use', id: 's1', name: 'web_search', input: {} } });
+      ev({ type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"query":"api search"}' } });
+      ev({ type: 'content_block_stop', index: 0 });
+      ev({ type: 'content_block_start', index: 1, content_block: { type: 'web_search_tool_result', tool_use_id: 's1', content: [{ type: 'web_search_result', title: 'API source', url: 'https://example.org/b', encrypted_content: 'x' }] } });
+      ev({ type: 'content_block_stop', index: 1 });
+      ev({ type: 'message_delta', delta: { stop_reason: 'pause_turn' } }); ev({ type: 'message_stop' }); return res.end();
+    }
+    const text = `api reply web=${!!web} effort=${j.output_config ? j.output_config.effort : 'none'} cached=${!!(j.system && j.system[0].cache_control)} n=${j.messages.length}`;
     for (const p of text.match(/.{1,8}/g)) { ev({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: p } }); await new Promise((r) => setTimeout(r, 3)); }
     ev({ type: 'message_delta', delta: { stop_reason: j.max_tokens < 50 ? 'max_tokens' : 'end_turn' } });
     ev({ type: 'message_stop' });

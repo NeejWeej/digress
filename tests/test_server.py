@@ -97,6 +97,25 @@ async def browser_checks(base, data_dir):
         title = await pg.locator('#cTitle').text_content()
         await pg.screenshot(path=OUT + '/server_chat.png')
 
+        # web toggle: off by default, on for a reply shows where it searched, and it sticks
+        check(await pg.locator('#webT').is_visible() and await pg.get_attribute('#webT', 'aria-pressed') == 'false', 'web toggle shown, off by default')
+        await pg.locator('#webT').click()
+        check(await pg.get_attribute('#webT', 'aria-pressed') == 'true', 'web toggle turns on')
+        await ta.fill('SEARCHME what is new?'); await ta.press('Enter')
+        await pg.wait_for_selector('.pane[data-tid="main"] .msg.assistant .wsrc', timeout=15000)
+        ws = pg.locator('.pane[data-tid="main"] .msg.assistant .wsrc').last
+        check('Searched the web' in await ws.text_content() and '1 source' in await ws.text_content(), 'reply lists its search')
+        await ws.locator('summary').click()
+        hrefs = await ws.evaluate("e=>[...e.querySelectorAll('a')].map(a=>[a.href,a.rel])")
+        check(hrefs == [['https://example.com/a', 'noopener noreferrer']], f'source links open safely {hrefs}')
+        await pg.screenshot(path=OUT + '/server_web.png')
+        await pg.wait_for_timeout(1200)   # let the save land
+        await pg.reload(); await pg.wait_for_timeout(1500)
+        check(await pg.get_attribute('#webT', 'aria-pressed') == 'true', 'web toggle remembered after reload')
+        check(await pg.locator('.pane[data-tid="main"] .msg.assistant .wsrc').count() >= 1, 'search record saved with the reply')
+        await pg.locator('#webT').click()
+        check(await pg.get_attribute('#webT', 'aria-pressed') == 'false', 'web toggle turns back off')
+
         # a second browser (fresh storage) sees the same conversation, because it lives on the server
         pg2 = await page()
         items = await pg2.evaluate("[...document.querySelectorAll('.side .citem, .side [data-cid]')].map(e=>e.textContent)")
@@ -139,7 +158,7 @@ def main():
                             'ANTHROPIC_API_KEY': 'should-not-reach-the-cli', 'FAKE_LOG': log})
         procs.append(proc)
         h = json.loads(req(base, 'GET', '/api/health')[1])
-        check(h['app'] == 'digress' and h['llm'] and h['provider'] == 'claude-code', f'health {h}')
+        check(h['app'] == 'digress' and h['llm'] and h['provider'] == 'claude-code' and h['web'] is True, f'health {h}')
         st, text, lines = chat(base, {'system': 'S' * 200000, 'model': 'claude-opus-5-5', 'effort': 'high',
                                       'messages': [{'role': 'user', 'content': 'hi'}, {'role': 'assistant', 'content': 'hello'}, {'role': 'user', 'content': 'and now?'}]})
         check(st == 200 and 'model=claude-opus-5-5 effort=high system=200000 turns=2' in text, 'Claude Code: streams, passes model, effort, a 200k system prompt and history')
@@ -147,6 +166,17 @@ def main():
         last = json.loads(open(log).read().strip().splitlines()[-1])
         check(last['apiKeyVisible'] is False and last['tools'] == '', 'Claude Code: runs with tools off and without the API key, so it uses the subscription sign-in')
         check('<user>\nhi\n</user>' in last['prompt'] and last['prompt'].rstrip().endswith('and now?'), 'Claude Code: earlier turns go in the prompt')
+        # web search: only when asked, and then only WebSearch
+        st, text, lines = chat(base, {'messages': [{'role': 'user', 'content': 'SEARCHME'}]})
+        last = json.loads(open(log).read().strip().splitlines()[-1])
+        check(last['tools'] == '' and not any('search' in l for l in lines), 'Claude Code: no web access unless the request asks for it')
+        st, text, lines = chat(base, {'web': True, 'messages': [{'role': 'user', 'content': 'SEARCHME'}]})
+        last = json.loads(open(log).read().strip().splitlines()[-1])
+        check(last['tools'] == 'WebSearch' and last['allowed'] == 'WebSearch', f'Claude Code: web on allows WebSearch and nothing else {last["tools"]!r}')
+        check([l['search'] for l in lines if 'search' in l] == ['fake search query'], f'Claude Code: search query relayed {lines}')
+        srcs = [s for l in lines if 'sources' in l for s in l['sources']]
+        check(srcs == [{'title': 'Example source', 'url': 'https://example.com/a'}], f'Claude Code: sources relayed, non-web links dropped {srcs}')
+        check(text == 'Let me look.\n\nFound it: [Example](https://example.com/a).', f'Claude Code: text before and after a search kept apart {text!r}')
         st, text, lines = chat(base, {'messages': [{'role': 'user', 'content': 'FAILAUTH'}]})
         check('error' in lines[-1] and 'sign in' in lines[-1]['error'], f'Claude Code: sign-in problems explained: {lines[-1]}')
 
@@ -182,11 +212,15 @@ def main():
         proc2, base2 = start({'ANTHROPIC_API_KEY': 'test-key', 'ANTHROPIC_BASE_URL': f'http://127.0.0.1:{api_port}', 'DATA_DIR': os.path.join(tmp, 'data2')})
         procs.append(proc2)
         h = json.loads(req(base2, 'GET', '/api/health')[1])
-        check(h['provider'] == 'anthropic' and h['llm'], 'API key present: the Anthropic API is used')
+        check(h['provider'] == 'anthropic' and h['llm'] and h['web'], 'API key present: the Anthropic API is used')
         models = json.loads(req(base2, 'GET', '/api/models')[1])['models']
         check(['claude-test-1', 'Test One'] in models, 'API: model list comes from the API')
         st, text, _ = chat(base2, {'system': 'sys', 'model': 'claude-test-1', 'effort': 'high', 'messages': [{'role': 'user', 'content': 'x'}]})
-        check('effort=high cached=true n=1' in text, f'API: effort sent, system prompt cached: {text}')
+        check('web=false effort=high cached=true n=1' in text, f'API: effort sent, system prompt cached, no tools: {text}')
+        st, text, lines = chat(base2, {'web': True, 'model': 'claude-test-1', 'messages': [{'role': 'user', 'content': 'SEARCHME'}]})
+        check([l.get('search') for l in lines if 'search' in l] == ['api search'], f'API: web_search query relayed {lines}')
+        check(any(l.get('sources') == [{'title': 'API source', 'url': 'https://example.org/b'}] for l in lines), 'API: search results relayed as sources')
+        check('resumed with server_tool_use,web_search_tool_result query=api search' in text and lines[-1].get('done'), f'API: a paused search turn is resumed with its blocks {text!r}')
         st, text, _ = chat(base2, {'model': 'claude-noeffort', 'effort': 'high', 'messages': [{'role': 'user', 'content': 'x'}]})
         check('effort=none' in text, 'API: retries without effort when a model rejects it')
         proc3, base3 = start({'ANTHROPIC_API_KEY': 'wrong', 'ANTHROPIC_BASE_URL': f'http://127.0.0.1:{api_port}', 'DATA_DIR': os.path.join(tmp, 'data3')})
