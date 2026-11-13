@@ -1,5 +1,5 @@
 // Digress's service worker: keeps the app usable without a connection, for reviewing flashcards.
-//  - The page itself and prompts.js: network first, so you always get the latest; the cached copy only when offline.
+//  - The page itself, prompts.js and threads.js: network first, so you always get the latest; the cached copy only when offline.
 //  - Libraries from the CDNs and fonts: versioned URLs that never change, so cache first.
 //  - GET /api/files/<id> (pasted screenshots, snips kept with cards): ids are never reused, so cache first.
 //  - Everything else under /api/ (conversations, chat, cards) always goes to the server; the page keeps
@@ -40,6 +40,6 @@ self.addEventListener('fetch', (e) => {
   if (LIBS.test(req.url)) return e.respondWith(cacheFirst(req));
   if (url.origin !== self.location.origin) return;
   if (req.mode === 'navigate') return e.respondWith(networkFirst(req, new URL('./', self.registration.scope).href));
-  if (url.pathname.endsWith('/prompts.js')) return e.respondWith(networkFirst(req, url.origin + url.pathname));
+  if (/\/(prompts|threads)\.js$/.test(url.pathname)) return e.respondWith(networkFirst(req, url.origin + url.pathname));
   if (/\/api\/files\/[a-f0-9]{32}$/.test(url.pathname)) return e.respondWith(cacheFirst(req));
 });

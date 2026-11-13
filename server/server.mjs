@@ -536,8 +536,9 @@ async function route(req, res) {
     }
     return createReadStream(WEB).pipe(res);
   }
-  // sw.js: the service worker that lets you review flashcards offline; prompts.js: what the page tells the model
-  if (req.method === 'GET' && (url.pathname === '/sw.js' || url.pathname === '/prompts.js')) {
+  // sw.js: the service worker that lets you review flashcards offline; prompts.js: what the page tells the
+  // model; threads.js: how a conversation's threads fit together
+  if (req.method === 'GET' && ['/sw.js', '/prompts.js', '/threads.js'].includes(url.pathname)) {
     res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache' });
     return createReadStream(path.join(ROOT, 'web', url.pathname.slice(1))).pipe(res);
   }

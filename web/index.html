@@ -89,21 +89,29 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .app.noside{grid-template-columns:0 1fr}
 .side{grid-column:1;grid-row:2}
 .stage{grid-column:2;grid-row:2}
-.top{grid-column:1/3;display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:1px solid var(--line);background:var(--panel);min-width:0}
+.top{grid-column:1/3;display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:1px solid var(--line);background:var(--panel);min-width:0;overflow:hidden}
+/* what doesn't fit in the top bar goes in the "more" menu (fitTop) */
+.tmore{position:fixed;z-index:60;display:none;flex-direction:column;align-items:stretch;gap:8px;padding:10px;border:1px solid var(--line2);border-radius:12px;background:var(--panel);box-shadow:var(--shadow);min-width:230px;max-width:calc(100vw - 16px)}
+.tmore.open{display:flex}
+.tmore .sel{justify-content:space-between;padding:3px 3px 3px 10px}.tmore .sel span{display:inline !important}.tmore .sel select{max-width:none !important}
+.tmore .seg{justify-content:stretch}.tmore .seg button{flex:1;justify-content:center}.tmore .lbl{display:inline !important}
+.tmore .webt{justify-content:center;padding:7px 9px}
+.tmore #themeB{width:auto;height:32px;justify-content:center;gap:6px;background:var(--user-bg);color:var(--ink)}
+#themeB .mlbl{display:none;font-weight:inherit;font-size:13px}.tmore #themeB .mlbl{display:inline}
 .brand{font-weight:600;letter-spacing:-.01em;margin:0 6px 0 4px;display:flex;align-items:center;gap:7px;white-space:nowrap}
 .brand .logo{width:18px;height:18px;color:var(--accent)}
-.ctitle{color:var(--muted);padding:4px 8px;border-radius:6px;outline:none;max-width:30vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ctitle{color:var(--muted);padding:4px 8px;border-radius:6px;outline:none;max-width:30vw;min-width:min(120px,16vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ctitle:hover{background:var(--user-bg)}
 .ctitle:focus{background:var(--user-bg);color:var(--ink)}
 .sp{flex:1}
 .seg{display:flex;background:var(--user-bg);border-radius:9px;padding:2px;flex:none}
 .seg button{display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:7px;color:var(--muted);font-size:13px}
 .seg button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
-.status{font-size:12px;color:var(--faint);margin-right:4px;white-space:nowrap}
+.status{font-size:12px;color:var(--faint);margin-right:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .sel{display:flex;align-items:center;gap:4px;background:var(--user-bg);border-radius:9px;padding:2px 2px 2px 8px;color:var(--muted);font-size:12px;flex:none}
 .webt{display:flex;align-items:center;gap:5px;flex:none;border:1px solid transparent;background:var(--user-bg);color:var(--muted);border-radius:9px;padding:5px 9px;font:12px var(--sans);cursor:pointer}
 .webt .i{width:14px;height:14px}
-.thmenu{position:fixed;z-index:60;min-width:230px;padding:6px;border:1px solid var(--line2);border-radius:12px;background:var(--panel);box-shadow:var(--shadow);display:none}
+.thmenu{position:fixed;z-index:61;min-width:230px;padding:6px;border:1px solid var(--line2);border-radius:12px;background:var(--panel);box-shadow:var(--shadow);display:none}
 .thmenu.open{display:block}
 .thmenu .thh{padding:4px 8px 6px;font-size:11.5px;color:var(--faint)}
 .thmenu button{display:flex;align-items:center;gap:10px;width:100%;padding:6px 8px;border-radius:8px;text-align:left;font-size:13px;color:var(--ink)}
@@ -117,10 +125,40 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .thsw i:last-child{flex:.6;background:var(--accent)}
 .thsys{display:inline-flex;gap:2px;flex:none}.thsys .thsw{width:16px}.thsys .thsw i:first-child::after{display:none}
 .webt.on{background:color-mix(in srgb,var(--accent) 14%,transparent);border-color:color-mix(in srgb,var(--accent) 45%,transparent);color:var(--ink)}
+.live{margin:2px 0 4px;font-family:var(--sans)}
+.lhead{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)}
+.lhead .i{width:14px;height:14px;flex:none}
+.lhead .lt{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+.shimmer{background:linear-gradient(90deg,var(--faint) 0%,var(--faint) 35%,var(--ink) 50%,var(--faint) 65%,var(--faint) 100%);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shim 1.6s linear infinite}
+@keyframes shim{from{background-position:100% 0}to{background-position:0 0}}
+@media (prefers-reduced-motion:reduce){.shimmer{animation:none;color:var(--muted);background:none}}
+.lsteps{list-style:none;margin:6px 0 0;padding:0 0 0 7px;border-left:2px solid var(--line);font-size:12px;color:var(--faint);display:flex;flex-direction:column;gap:2px}
+.lsteps li{display:flex;align-items:center;gap:6px;padding-left:8px;min-width:0}
+.lsteps li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lsteps .i{width:12px;height:12px;flex:none}
+.lsteps .more{font-style:italic}
+.vchip{display:inline-flex;align-items:center;gap:4px;font:12px var(--sans);color:var(--muted);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:2px 8px;margin-right:4px;cursor:pointer}
+.vchip:hover{color:var(--ink);border-color:var(--line2)}.vchip .i{width:12px;height:12px}
+.msg.user .uact.has-v{opacity:1}
+.origin .ol>button{white-space:nowrap}
+.origin .usev{margin-left:6px;font:12px var(--sans);border:1px solid var(--line2);background:var(--panel);border-radius:8px;padding:3px 9px;color:var(--ink);cursor:pointer;white-space:nowrap}
+.origin .usev:hover{border-color:var(--c)}
+.mnode .mh{opacity:0;margin-left:2px;width:22px;height:22px}
+.mnode:hover .mh{opacity:1}
+.mnode.hiddenb .mt{font-style:italic;opacity:.7}
+.showhid{display:block;margin:6px 0 0 4px;font-size:11.5px;color:var(--faint);background:none;border:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.msg.user .uact{display:flex;justify-content:flex-end;margin-top:2px;opacity:0;transition:opacity .12s}
+.msg.user:hover .uact,.msg.user .uact:focus-within{opacity:1}
+.msg.user .uact .ib{width:24px;height:24px}.msg.user .uact .ib .i{width:13px;height:13px}
+.msg.user.editing{flex-direction:column;align-items:stretch}
+.uedit{display:flex;flex-direction:column;gap:6px;margin-left:12%}
+.uedit textarea{font:inherit;font-size:14.5px;line-height:1.5;color:var(--ink);background:var(--user-bg);border:1px solid var(--line2);border-radius:14px;padding:9px 14px;resize:vertical;min-height:60px}
+.uedit .ubtns{display:flex;justify-content:flex-end;gap:6px;align-items:center}
+.uedit .ubtns .hint{font-size:11.5px;color:var(--faint);margin-right:auto}
 .wact{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--faint);margin-top:2px}.wact .i{width:13px;height:13px;flex:none}
 .wsrc{margin:2px 0 4px;font-size:12.5px;color:var(--muted)}
 .wsrc summary{display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--faint);list-style:none;padding:2px 0}
-.wsrc summary::-webkit-details-marker{display:none}.wsrc summary .i{width:13px;height:13px}
+.wsrc.flat summary{cursor:default}.wsrc summary::-webkit-details-marker{display:none}.wsrc summary .i{width:13px;height:13px}
 .wsrc[open] summary{color:var(--muted)}
 .wsrc .wq{color:var(--faint);margin:4px 0}
 .wsrc ol{margin:4px 0 6px;padding-left:20px}.wsrc li{margin:2px 0;overflow-wrap:anywhere}.wsrc .wh{color:var(--faint);font-size:11.5px}
@@ -219,7 +257,8 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .chip:hover{color:var(--ink);border-color:var(--faint)}
 
 .msg{margin:4px 0}
-.msg.user{display:flex;justify-content:flex-end;margin-top:20px}
+.msg.user{display:flex;flex-wrap:wrap;justify-content:flex-end;margin-top:20px}
+.msg.user .uact{flex-basis:100%}
 .msg.user.hasimg{flex-direction:column;align-items:flex-end}
 .msg.user .body:empty{display:none}
 .uimgs{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-bottom:6px;max-width:88%}
@@ -629,12 +668,13 @@ a.pref:hover{border-bottom-style:solid}
 .hljs-meta{color:var(--hm)}
 @media (max-width:1100px){.top .lbl{display:none}.ctitle{max-width:18vw}}
 @media (max-width:760px){.sgrip{display:none}.app{grid-template-columns:0 1fr}.app .side{display:none}.app.sideopen .side{display:block;position:fixed;top:48px;bottom:0;left:0;width:min(300px,86vw);z-index:40;box-shadow:var(--shadow)}.pane{min-width:88vw}.sel span{display:none}
-  /* phone top bar: logo, model, and view switcher only */
-  .top{gap:4px;padding:0 6px;overflow-x:auto}.brand{font-size:0;gap:0;margin:0 2px}.ctitle,.status,label.sel[title^="How much"]{display:none}
+  /* phone top bar: what fits; the rest is in the "more" menu */
+  .top{gap:4px;padding:0 6px}.brand{font-size:0;gap:0;margin:0 2px}.ctitle,.status{display:none}
   .sel{padding:2px}.sel select{max-width:110px;font-size:12.5px}.seg button{padding:5px 8px}
   .panes{padding:8px}.pb{padding:6px 14px 8px}.composer{padding:6px 8px 10px}.ph{padding:10px 6px 8px 10px}
   .pop{width:auto;left:8px !important;right:8px}.pal{padding-top:8vh}.cvhint{display:none}}
 /* touch screens have no hover: show the controls that otherwise appear on hover */
+@media (hover:none){.msg.user .uact,.mnode .mh{opacity:1}}
 @media (hover:none){.citem .acts{position:static;transform:none;background:none;padding:0;pointer-events:auto}.citem .acts,.mnode .mp,.mnode .mx,.bchip .bx,.del,.mfoot .ib,.mfoot .tb,.cnode .ch .ib{opacity:1 !important}.tipbox{display:none !important}}
 </style>
 </head>
@@ -650,12 +690,13 @@ a.pref:hover{border-bottom-style:solid}
     <label class="sel" title="How much the model thinks before answering. Higher is slower but more careful."><span>Effort</span><select id="eSel"></select></label>
     <button class="webt" id="webT" aria-pressed="false" style="display:none" title="Web search: let new replies look things up online. Only search queries leave; your chats and documents stay on this server. You can switch this any time."><span class="wi"></span><span class="lbl">Web</span></button>
     <button class="webt" id="resetOrder" style="display:none" title="Put the panes back in branching order: each branch right after the thread it came from">Reset order</button>
-    <button class="ib" id="themeB" title="Theme" aria-haspopup="true" aria-expanded="false"></button>
+    <button class="ib" id="themeB" title="Theme" aria-haspopup="true" aria-expanded="false"><b class="mlbl">Theme</b></button>
     <div class="seg" id="viewSeg">
       <button data-v="cols" title="Show threads as panes side by side"><span></span><b class="lbl" style="font-weight:inherit">Columns</b></button>
       <button data-v="rows" title="Show threads as panes stacked top to bottom"><span></span><b class="lbl" style="font-weight:inherit">Rows</b></button>
       <button data-v="canvas" title="See the whole conversation tree as cards on a canvas"><span></span><b class="lbl" style="font-weight:inherit">Canvas</b></button>
     </div>
+    <button class="ib" id="moreB" title="More: the settings that don’t fit up here" aria-haspopup="true" aria-expanded="false" style="display:none"></button>
   </div>
   <div class="sgrip" id="sgrip" title="Drag to resize the sidebar. Double-click to reset."></div>
   <aside class="side" id="side">
@@ -708,6 +749,7 @@ a.pref:hover{border-bottom-style:solid}
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script src="prompts.js"></script>
+<script src="threads.js"></script>
 <script>
 window.MathJax={svg:{fontCache:'local'},startup:{typeset:false,ready(){MathJax.startup.defaultReady();MathJax.startup.promise.then(()=>{window.__mathReady&&window.__mathReady()})}}};
 </script>
@@ -722,8 +764,14 @@ const STARTERS=['How does self-attention in transformers work?','Explain the Raf
 // shown until the server's own model list (/api/models) arrives
 const MODELS=[['auto','Auto'],['claude-opus-5-5','Opus 5.5'],['claude-sonnet-5-5','Sonnet 5.5'],['claude-haiku-5-5','Haiku 5.5'],['claude-fable-5-2','Fable 5.2']];
 const EFFORTS=[['auto','Auto'],['low','Low'],['medium','Medium'],['high','High']];
+const effortLabel=(e)=>e==='auto'?'auto effort':((EFFORTS.find(x=>x[0]===e)||[0,e])[1]+' effort').toLowerCase().replace(/^./,c=>c.toUpperCase());
 const I={
  check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+ dots:'<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>',
+ edit:'<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
+ eye:'<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+ eyeoff:'<path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.3 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7c1.8 0 3.4-.5 4.8-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+ versions:'<path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
  palette:'<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.8 1.7-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7h2a5 5 0 0 0 5-5C21.4 6.4 17.2 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7" r="1.2"/><circle cx="15.5" cy="7.5" r="1.2"/>',
  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
  side:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
@@ -789,6 +837,11 @@ function ancestors(tid){const p=[];let t=T(tid);while(t){p.unshift(t.id);t=t.par
 function isDesc(a,b){let t=T(a);while(t&&t.parent){if(t.parent===b)return true;t=T(t.parent)}return false}
 const children=(tid)=>Object.values(conv.threads).filter(t=>t.parent===tid).sort((a,b)=>a.created-b.created);
 const branchesOn=(mid)=>Object.values(conv.threads).filter(t=>t.anchorMsg===mid).sort((a,b)=>a.created-b.created);
+// branches you hid (and everything under them) stay out of the tree, the canvas and the reply chips, unless
+// "show hidden" is on; the versions marker on a question still lists hidden versions
+function hiddenNow(tid){if(conv.ui.showHidden)return false;let t=T(tid);while(t){if(t.hidden)return true;t=t.parent?T(t.parent):null}return false}
+// the side branches shown on a reply (other versions show on their question instead)
+const shownOn=(mid)=>branchesOn(mid).filter(t=>!t.alt&&!hiddenNow(t.id));
 const branchNum=(t)=>branchesOn(t.anchorMsg).indexOf(t)+1;
 const isCollapsed=(tid)=>conv.ui.collapsed.includes(tid);
 
@@ -1328,25 +1381,20 @@ function joinParts(parts){   // neighbouring text parts become one; all-text bec
 function appendText(msg,s){if(typeof msg.content==='string')msg.content+=s;else msg.content=[...msg.content,{type:'text',text:s}]}
 function buildContext(tid,excludeMid,opts){
   const tools=toolsWanted(opts);   // the model can read the document itself (see runDocTool); opts.tools:false for side jobs like drafting cards
-  const path=ancestors(tid),out=[];
+  const out=[];
   const push=(role,c)=>{const parts=typeof c==='string'?[{type:'text',text:c}]:c;const last=out[out.length-1];if(last&&last.role===role)last.parts.push({type:'text',text:'\n\n'},...parts);else out.push({role,parts:[...parts]})};
-  path.forEach((id,i)=>{
-    const t=T(id);let mids=conv.order[id];
-    if(i<path.length-1){const ch=T(path[i+1]);const k=mids.indexOf(ch.anchorMsg);mids=mids.slice(0,k+1)}
-    let firstUser=true;
-    for(const mid of mids){
-      if(mid===excludeMid)continue;
-      const m=conv.msgs[mid];if(!m)continue;let c=m.content||'';
-      if(m.role==='note'){if(c&&!m.pending)push('user',PROMPTS.takeawayNote(T(m.fromThread)?T(m.fromThread).title:'(deleted)',c));continue}
-      if(m.role==='assistant'&&(!c||m.pending))continue;
-      let parts=[{type:'text',text:c}];
-      if(m.role==='user'){
-        if(m.images&&m.images.length)parts=[...m.images.map((ref,k)=>({type:'image',ref,label:`image ${k+1} attached to “${trunc(c||'a message',40)}”`})),...(c?parts:[])];
-        if(firstUser&&t.parent)parts=[...branchParts(t,tools),...parts];
-        firstUser=false;
-      }
-      push(m.role,parts);
+  // the messages on this thread's path, in order (threads.js: the same walk its checks use)
+  ThreadOps.walk(conv,tid,(m,pre)=>{
+    if(m.id===excludeMid)return;
+    let c=m.content||'';
+    if(m.role==='note'){if(c&&!m.pending)push('user',PROMPTS.takeawayNote(T(m.fromThread)?T(m.fromThread).title:(m.fromTitle||'(deleted)'),c));return}
+    if(m.role==='assistant'&&(!c||m.pending))return;
+    let parts=[{type:'text',text:c}];
+    if(m.role==='user'){
+      if(m.images&&m.images.length)parts=[...m.images.map((ref,k)=>({type:'image',ref,label:`image ${k+1} attached to “${trunc(c||'a message',40)}”`})),...(c?parts:[])];
+      if(pre)parts=[...branchParts(pre,tools),...parts];
     }
+    push(m.role,parts);
   });
   while(out.length&&out[0].role!=='user')out.shift();
   let system=SYS;lastDocSeen=null;
@@ -1397,18 +1445,23 @@ async function send(tid,text,imgs){
   await generate(am,buildContext(tid,am.id),tid);
 }
 async function generate(m,ctx,lockTid){
-  const ctrl=new AbortController();streaming.set(lockTid,{mid:m.id,ctrl});updateComposer(lockTid);
+  const ctrl=new AbortController();streaming.set(lockTid,{mid:m.id,ctrl});updateComposer(lockTid);let tick=0;
   try{
     if(!io.llm)await io.ready;
     const web=!!(settings.web&&io.llm.supportsWeb);if(web)m.web=true;else delete m.web;delete m.searches;delete m.sources;delete m.reads;delete m.toolNow;
+    if(io.llm.supportsEffort)m.effort=settings.effort;else delete m.effort;
+    // m.live: what it has done so far, shown while it works (not saved: generate drops it when done)
+    m.live=[];m.t0=Date.now();tick=setInterval(()=>queueStream(m.id),1000);
+    const step=(icon,text,done)=>{const l=m.live[m.live.length-1];if(l)l.done=true;m.live.push({icon,text,done});queueStream(m.id)};
     const trail=[],tools=ctx.tools?{run:async(name,input)=>{   // the model reading the document: run the call here, show what it's doing
-      m.toolNow=trailText(name==='search'?{t:'search',q:String(input.query||'')}:name==='read_pages'?{t:'read',a:input.from,b:input.to||input.from}:{t:'view',p:input.page});queueStream(m.id);
-      const r=await runDocTool(name,input,trail);m.reads=[...trail];queueStream(m.id);return r}}:undefined;
-    const keepSearch=(x)=>{if(x.searches&&x.searches.length)m.searches=[...x.searches];if(x.sources&&x.sources.length)m.sources=x.sources.slice(0,30)};
+      step('doc',trailText(name==='search'?{t:'search',q:String(input.query||'')}:name==='read_pages'?{t:'read',a:input.from,b:input.to||input.from}:{t:'view',p:input.page}),false);
+      try{return await runDocTool(name,input,trail)}finally{m.reads=[...trail];const l=m.live[m.live.length-1];if(l)l.done=true;queueStream(m.id)}}}:undefined;
+    let nq=0;
+    const keepSearch=(x)=>{if(x.searches&&x.searches.length){m.searches=[...x.searches];for(;nq<x.searches.length;nq++)step('globe',`searched the web for “${x.searches[nq]}”`,false)}if(x.sources&&x.sources.length)m.sources=x.sources.slice(0,30)};
     const rc=await resolveContext(ctx,!!io.llm.supportsImages);
     if(rc.skipped)toast('This connection can’t send images, so Claude only gets a note where each image was.');
     const r=await io.llm.complete({system:rc.system,messages:rc.messages,model:settings.model,effort:settings.effort,web,signal:ctrl.signal,
-      onText:(text)=>{m.content=text;queueStream(m.id)},onSearch:(x)=>{keepSearch(x);queueStream(m.id)},tools});
+      onText:(text)=>{m.content=text;const l=m.live[m.live.length-1];if(l)l.done=true;queueStream(m.id)},onSearch:(x)=>{keepSearch(x);queueStream(m.id)},tools});
     m.content=r.text;if(r.model)m.model=r.model;keepSearch(r);if(ctx.docSeen)m.docSeen=ctx.docSeen;else delete m.docSeen;
     if(r.truncated)m.error='Reply was cut off (length limit).';
   }catch(e){
@@ -1416,7 +1469,7 @@ async function generate(m,ctx,lockTid){
     if(e&&e.searches&&e.searches.length)m.searches=[...e.searches];if(e&&e.sources&&e.sources.length)m.sources=e.sources.slice(0,30);
     m.error=ctrl.signal.aborted?'Stopped.':(e&&e.code==='rate_limited'?'Rate limited. Wait a moment and retry.':(e&&e.message)||'Something went wrong.');
   }
-  delete m.pending;delete m.toolNow;if(m.reads&&!m.reads.length)delete m.reads;m.ver++;streaming.delete(lockTid);
+  clearInterval(tick);delete m.pending;delete m.toolNow;delete m.live;delete m.t0;if(m.reads&&!m.reads.length)delete m.reads;m.ver++;streaming.delete(lockTid);
   cardsAfterReply(m);
   renderPane(m.thread);updateComposer(lockTid);renderMap();save();
   if(conv.ui.view==='canvas')renderCanvas();
@@ -1425,6 +1478,116 @@ function retry(mid){
   const m=conv.msgs[mid];if(!m||streaming.has(m.thread))return;
   if(m.role==='note'){m.thread&&delete conv.msgs[mid];conv.order[m.thread]=conv.order[m.thread].filter(x=>x!==mid);bringBack(m.fromThread,m.focus||'');return}
   m.content='';delete m.error;m.pending=true;m.ver++;renderPane(m.thread);generate(m,buildContext(m.thread,m.id),m.thread);
+}
+/* Redo and Edit (the simple case): replace the latest reply in a thread, or change the question before it,
+   only while nothing depends on that reply: it's the thread's last message, no branch starts from it and no
+   flashcard was drafted from it. Anything else would leave branches or cards pointing at text that's gone. */
+function redoBlock(mid){   // why this reply can't be redone in place, or '' if it can
+  const m=conv.msgs[mid];if(!m||m.role!=='assistant'||m.pending)return 'busy';
+  if(streaming.has(m.thread))return 'busy';
+  const ord=conv.order[m.thread];if(ord[ord.length-1]!==mid)return 'later';
+  if(branchesOn(mid).length)return 'branches';
+  for(const c of CARDS.values())if(c.conv===conv.id&&c.at&&c.at.msg===mid)return 'cards';
+  return '';
+}
+const REDO_WHY={later:'the conversation has gone on after it',branches:'branches start from it',cards:'flashcards were drafted from it',busy:'a reply is being written'};
+function questionOf(mid){const m=conv.msgs[mid],ord=conv.order[m.thread],i=ord.indexOf(mid);for(let k=i-1;k>=0;k--){const q=conv.msgs[ord[k]];if(q&&q.role==='user')return q;if(q&&q.role==='assistant')return null}return null}
+// the reply to a question, if it's right after it
+function replyTo(qid){const q=conv.msgs[qid],ord=conv.order[q.thread],n=conv.msgs[ord[ord.indexOf(qid)+1]];return n&&n.role==='assistant'?n:null}
+function editBlock(qid){   // why this question can't be edited in place, or ''
+  const q=conv.msgs[qid];if(!q||q.role!=='user')return 'busy';if(streaming.has(q.thread))return 'busy';
+  const ord=conv.order[q.thread],r=replyTo(qid),last=r?r.id:qid;
+  if(ord[ord.length-1]!==last)return 'later';
+  return r?redoBlock(r.id):'';
+}
+/* Another version: when a reply can't be replaced in place, Redo and Edit ask again in a new thread that
+   starts where the question did (threads.js: an 'alt' thread, no side-question prefix). Nothing that was
+   there changes. "Use this version" (ThreadOps.swap) makes it the one the conversation goes on with. */
+// the question's versions: [{tid, qid}] for every thread that asks it from the same starting point
+function versionsOf(qid){
+  const q=conv.msgs[qid];if(!q||q.role!=='user')return [];
+  const t=T(q.thread),ord=conv.order[q.thread],i=ord.indexOf(qid);
+  let base=q.thread,anchor=i?ord[i-1]:'START';
+  if(i===0&&t.alt){base=t.parent;anchor=t.anchorMsg}
+  if(i===0&&!t.alt&&t.parent)return [];   // the first question of a side branch has no versions
+  const out=[],bo=conv.order[base],j=anchor==='START'?0:bo.indexOf(anchor)+1;
+  if(j>=0&&bo[j]&&conv.msgs[bo[j]].role==='user')out.push({tid:base,qid:bo[j]});
+  for(const x of Object.values(conv.threads))if(x.alt&&x.parent===base&&x.anchorMsg===anchor&&conv.order[x.id].length)out.push({tid:x.id,qid:conv.order[x.id][0]});
+  return out;
+}
+function openVersions(qid){
+  const q=conv.msgs[qid];if(!q)return;
+  for(const v of versionsOf(qid))if(v.tid!==q.thread)openThread(v.tid,q.thread);
+  const base=versionsOf(qid).find(v=>!T(v.tid).alt||v.tid===T(q.thread).parent);
+  if(base&&base.tid!==q.thread)revealMsg(base.tid,base.qid);
+  renderMap();save();
+}
+async function newVersion(qid,text){
+  const q=conv.msgs[qid],t=T(q.thread),ord=conv.order[q.thread],i=ord.indexOf(qid);
+  text=(text||'').trim();if(!text&&!(q.images&&q.images.length))return;
+  let x;
+  if(i===0&&ThreadOps.prefixed(t)){   // the first question of a side branch: ask it again as a new side branch about the same passage
+    x={...t,id:'t'+rid(),created:Date.now(),colorIdx:conv.nextColor++};for(const k of ['pinned','resolved','hidden','autoTitle'])delete x[k];
+  }else{
+    let parent=q.thread,anchor=i?ord[i-1]:'START';
+    if(i===0&&t.alt){parent=t.parent;anchor=t.anchorMsg}   // a version of a version starts where both do
+    x={id:'t'+rid(),parent,anchorMsg:anchor,anchorText:'',alt:true,created:Date.now(),colorIdx:conv.nextColor++,title:'↻ '+trunc(text||'Another version',46)};
+  }
+  conv.threads[x.id]=x;conv.order[x.id]=[];
+  addMsg(x.id,'user',text,q.images&&q.images.length?{images:q.images}:undefined);
+  const am=addMsg(x.id,'assistant','');am.pending=true;
+  q.ver++;renderPane(q.thread);openThread(x.id,q.thread);renderMap();save();
+  if(conv.ui.view==='canvas'){const S=cvState();if(!S.open.includes(x.id))S.open.push(x.id);renderCanvas();focusCard(x.id)}
+  await docReady();
+  await generate(am,buildContext(x.id,am.id),x.id);
+}
+function useVersion(tid){
+  const t=T(tid);if(!t||!t.alt)return;
+  if(streaming.has(tid)||streaming.has(t.parent)){toast('Wait for the reply to finish');return}
+  const firstQ=(id)=>conv.order[id].find(x=>conv.msgs[x].role==='user');
+  const oldFirst=t.parent==='main'?firstQ('main'):null;
+  let changed;try{changed=ThreadOps.swap(conv,[...CARDS.values()],tid)}catch(e){toast(e.message);return}
+  for(const c of changed)putCard(c);
+  // a title that came from the first question follows the version now in use
+  if(t.parent==='main'&&!conv.titleKept&&oldFirst&&conv.title===trunc(conv.msgs[oldFirst].content||'Question about an image',120)){const q=conv.msgs[firstQ('main')];conv.title=trunc(q.content||'Question about an image',120);renderTitle()}
+  const newQ=conv.msgs[conv.order[tid][0]];if(newQ&&newQ.role==='user')t.title='↻ '+trunc(newQ.content||'Another version',46);
+  for(const id of [t.parent,tid])for(const m of conv.order[id])conv.msgs[m].ver++;
+  refreshAll();revealPane(t.parent);
+  setStatus('Now using this version; the other one is in “'+t.title+'”');
+}
+async function redo(mid){
+  const why=redoBlock(mid);
+  if(why){const q=questionOf(mid);if(why==='busy'||!q){toast(`This reply can’t be redone: ${REDO_WHY[why]}.`);return}return newVersion(q.id,q.content)}
+  const m=conv.msgs[mid];
+  m.content='';for(const k of ['error','model','effort','docSeen','reads','searches','sources','web'])delete m[k];
+  m.pending=true;m.ver++;renderPane(m.thread);renderMap();
+  await docReady();
+  await generate(m,buildContext(m.thread,m.id),m.thread);
+}
+async function saveEdit(qid,text){
+  const why=editBlock(qid);if(why==='busy'){toast(`This question can’t be edited now: ${REDO_WHY[why]}.`);return false}
+  if(why){if(!(text||'').trim()&&!(conv.msgs[qid].images||[]).length)return false;newVersion(qid,text);return false}
+  const q=conv.msgs[qid],tid=q.thread,t=T(tid),old=q.content||'';text=(text||'').trim();
+  if(!text&&!(q.images&&q.images.length))return false;
+  q.content=text;q.ver++;
+  // a title that came from this question follows it
+  if(tid==='main'&&!conv.titleKept&&conv.order.main.find(id=>conv.msgs[id].role==='user')===qid&&conv.title===trunc(old||'Question about an image',120)){conv.title=trunc(text||'Question about an image',120);renderTitle()}
+  if(t.parent&&conv.order[tid].find(id=>conv.msgs[id].role==='user')===qid&&t.title===trunc(old||'About an image',48)){t.title=trunc(text||'About an image',48);refreshAnchorsFor(tid);updateHeader(tid)}
+  let r=replyTo(qid);
+  if(!r){r=addMsg(tid,'assistant','');r.pending=true;renderPane(tid);save();await docReady();await generate(r,buildContext(tid,r.id),tid);return true}
+  await redo(r.id);return true;
+}
+function startEdit(el,qid){
+  const q=conv.msgs[qid];const why=editBlock(qid);if(why==='busy'){toast(`This question can’t be edited now: ${REDO_WHY[why]}.`);return}
+  el.classList.add('editing');
+  const box=document.createElement('div');box.className='uedit';
+  box.innerHTML=`<textarea rows="3"></textarea><div class="ubtns"><span class="hint">${why?'Asks it as another version next to this one, with the model and effort selected now. Nothing here changes.':'Asks again with the model and effort selected now, replacing the reply.'}</span><button class="mbtn" data-ue="cancel">Cancel</button><button class="mbtn primary" data-ue="save">Send</button></div>`;
+  const ta=box.querySelector('textarea');ta.value=q.content||'';
+  [...el.children].forEach(c=>c.style.display='none');el.appendChild(box);ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);
+  const close=()=>{box.remove();el.classList.remove('editing');[...el.children].forEach(c=>c.style.display='')};
+  box.addEventListener('click',async e=>{const b=e.target.closest('[data-ue]');if(!b)return;e.stopPropagation();if(b.dataset.ue==='cancel')return close();
+    b.disabled=true;const ok=await saveEdit(qid,ta.value);if(!ok){b.disabled=false;close()}});
+  ta.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close()}else if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();box.querySelector('[data-ue=save]').click()}});
 }
 async function bringBack(tid,focus){
   const t=T(tid);if(!t||!t.parent)return;
@@ -1523,7 +1686,8 @@ function revealAnchor(tid){
   if(isCollapsed(t.parent)){conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==t.parent);layout()}
   const pe=paneEls.get(t.parent);if(!pe)return;
   requestAnimationFrame(()=>{
-    const a=pe.querySelector(`.anchor[data-tid="${tid}"]`)||pe.querySelector(`.msg[data-mid="${t.anchorMsg}"]`);
+    const po=conv.order[t.parent],alt=t.alt?po[t.anchorMsg==='START'?0:po.indexOf(t.anchorMsg)+1]:null;
+    const a=alt?pe.querySelector(`.msg[data-mid="${alt}"]`):pe.querySelector(`.anchor[data-tid="${tid}"]`)||pe.querySelector(`.msg[data-mid="${t.anchorMsg}"]`);
     if(!a)return;
     const pb=pe.querySelector('.pb');const ar=a.getBoundingClientRect(),br=pb.getBoundingClientRect();
     rememberSpot(pe);
@@ -1531,7 +1695,7 @@ function revealAnchor(tid){
     revealPane(t.parent);
     const spans=pe.querySelectorAll(`.anchor[data-tid="${tid}"]`);
     if(spans.length)spans.forEach(s=>{s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash')});
-    else{const m=pe.querySelector(`.msg[data-mid="${t.anchorMsg}"]`);if(m){m.style.setProperty('--c',color(t));m.classList.remove('flash');void m.offsetWidth;m.classList.add('flash')}}
+    else{const m=pe.querySelector(`.msg[data-mid="${alt||t.anchorMsg}"]`);if(m){m.style.setProperty('--c',color(t));m.classList.remove('flash');void m.offsetWidth;m.classList.add('flash')}}
     setTimeout(wires,450);
   });
 }
@@ -1606,7 +1770,7 @@ function showMermaidSrc(box){box.innerHTML='<pre class="mm-err"><code></code></p
 
 /* anchors: wrap the highlighted text and add a numbered footnote marker after it */
 function applyAnchors(root,m){
-  for(const t of branchesOn(m.id))if(t.anchorText)wrapText(root,t.anchorText,t);
+  for(const t of shownOn(m.id))if(t.anchorText)wrapText(root,t.anchorText,t);
 }
 /* Positions are counted in non-whitespace characters of the reply's visible text (skipping math,
    diagrams and markers), so they survive re-rendering and don't depend on how the browser
@@ -1665,12 +1829,13 @@ function wrapText(root,needle,t,opts){
 }
 
 /* ---------- message elements ---------- */
-function anchorsKey(m){return branchesOn(m.id).map(t=>t.id+t.title+(t.resolved?'r':'')).join(',')}
+function anchorsKey(m){return branchesOn(m.id).map(t=>t.id+t.title+(t.resolved?'r':'')+(hiddenNow(t.id)?'h':'')).join(',')}
 function msgEl(m){
-  const key=`${m.ver}|${m.pending?1:0}|${mathReady?1:0}|${m.role!=='user'?anchorsKey(m):''}|${m.role==='note'&&T(m.fromThread)?T(m.fromThread).title:''}`;
+  const key=`${m.ver}|${m.pending?1:0}|${mathReady?1:0}|${m.role==='user'?editBlock(m.id)+versionsOf(m.id).length:m.role==='assistant'?redoBlock(m.id):''}|${m.role!=='user'?anchorsKey(m):''}|${m.role==='note'&&T(m.fromThread)?T(m.fromThread).title:''}`;
   const c=msgCache.get(m.id);if(c&&c.key===key)return c.el;
   const el=document.createElement('div');el.className='msg '+m.role;el.dataset.mid=m.id;
-  if(m.role==='user')userMsgBody(el,m);
+  if(m.role==='user'){userMsgBody(el,m);const eb=editBlock(m.id),vs=versionsOf(m.id);
+    if(eb!=='busy'||vs.length>1)el.insertAdjacentHTML('beforeend',`<div class="uact${vs.length>1?' has-v':''}">${vs.length>1?`<button class="vchip" data-vers="${m.id}" title="This question was asked more than once from here. Open the other versions side by side.">${ic('versions')}${vs.length} versions</button>`:''}${eb!=='busy'?`<button class="ib" data-act="edit" title="${eb?'Edit and ask as another version (this conversation stays as it is)':'Edit this question and ask again (replaces the reply)'}">${ic('edit')}</button>`:''}</div>`)}
   else if(m.role==='note'){
     const src=T(m.fromThread);el.style.setProperty('--c',src?color(src):'var(--faint)');
     el.innerHTML=`<div class="nh"><span class="d"></span>Takeaway from ${src?`<button class="nl" data-open="${src.id}" title="Open the branch this came from"></button>`:'<i>deleted branch</i>'}<span style="flex:1"></span>${m.error?`<button class="ib" data-act="retry" title="Retry">${ic('retry')}</button>`:''}<button class="ib" data-act="delnote" title="Remove takeaway">${ic('x')}</button></div><div class="body"></div>`;
@@ -1692,8 +1857,8 @@ function msgEl(m){
   msgCache.set(m.id,{key,el});return el;
 }
 function buildFoot(f,m){
-  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(m.error?`<button class="ib" data-act="retry" title="Retry">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}</span>`:'')+(m.docSeen&&!m.docSeen.tools?`<span class="model dseen" title="The document was too long to send whole. This reply saw: ${esc(m.docSeen.pages)}">saw ${m.docSeen.n} of ${m.docSeen.of} pages</span>`:'');
-  const bs=branchesOn(m.id);
+  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(m.error?`<button class="ib" data-act="retry" title="Retry">${ic('retry')}</button>`:m.role==='assistant'&&redoBlock(m.id)!=='busy'&&questionOf(m.id)?`<button class="ib" data-act="redo" title="${redoBlock(m.id)?'Redo as another version: asks again with the model and effort selected now, next to this one. Nothing here changes.':'Redo: ask again with the model and effort selected now (replaces this reply)'}">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}${m.effort?` · ${esc(effortLabel(m.effort))}`:''}</span>`:'');
+  const bs=shownOn(m.id);
   if(bs.length){
     const wrap=document.createElement('div');wrap.className='bchips';
     for(const t of bs){
@@ -1705,12 +1870,20 @@ function buildFoot(f,m){
     f.appendChild(wrap);
   }
 }
+// While a reply is being written: a shimmering line saying what it's doing now (with the time so far) and,
+// before any text arrives, the steps so far (searches, pages read), the 10 most recent.
 function streamInto(body,m){
-  const q=m.searches&&m.searches.length?m.searches[m.searches.length-1]:'';
-  const doing=m.toolNow?`<div class="wact">${ic('doc')}<span>${esc(trunc(m.toolNow[0].toUpperCase()+m.toolNow.slice(1),90))}…</span></div>`:'';
-  if(!m.content){body.innerHTML='<span class="thinking"><i></i><i></i><i></i></span>'+(q?`<div class="wact">${ic('globe')}<span>Searching: ${esc(trunc(q,90))}</span></div>`:'')+doing;return}
+  const st=m.live||[],cur=st.length&&!st[st.length-1].done?st[st.length-1]:null,secs=m.t0?Math.floor((Date.now()-m.t0)/1000):0;
+  const cap=(x)=>x[0].toUpperCase()+x.slice(1),now=(x)=>x.replace(/^searched /,'searching ').replace(/^read /,'reading ').replace(/^looked at /,'looking at ');
+  const what=cur?cap(now(cur.text)):m.content?'':st.length?'Thinking about what it found':'Thinking';
+  const head=what?`<div class="lhead">${ic(cur?cur.icon:'dots')}<span class="shimmer">${esc(trunc(what,110))}…</span>${secs>=2?`<span class="lt">${secs}s</span>`:''}</div>`:'';
+  if(!m.content){
+    const done=st.filter(x=>x!==cur),shown=done.slice(-10),more=done.length-shown.length;
+    const list=shown.length?`<ol class="lsteps">${more?`<li class="more"><span>${more} earlier step${more>1?'s':''}</span></li>`:''}${shown.map(x=>`<li>${ic(x.icon)}<span>${esc(trunc(cap(x.text),120))}</span></li>`).join('')}</ol>`:'';
+    body.innerHTML=`<div class="live">${head}${list}</div>`;return;
+  }
   renderRich(body,m.content,false);
-  if(doing)body.insertAdjacentHTML('beforeend',doing);   // still reading after some text: say so (the final render drops it)
+  if(head)body.insertAdjacentHTML('beforeend',`<div class="live">${head}</div>`);   // still working after some text: say so (the final render drops it)
 }
 /* where a reply looked on the web: the searches it ran and the pages they returned (kept outside .body, so anchors never count it) */
 function webSources(m){
@@ -1803,7 +1976,7 @@ function updateHeader(tid){
       const label=esc(trunc(id==='main'?(isDocBranch(T(via))?'Document':'Main'):T(id).title,22));
       if(via===tid)return `<span class="crumb-parent">${label}</span>`;
       return `<span class="crumb" data-crumb="${id}" data-via="${via}" title="${esc(`Show where “${T(via).title}” branches off ${name}`)}">${label}</span>`}).join(' › ');
-    o.innerHTML=`↳ ${crumbs} <sup style="font-size:10px;color:${color(t)}">${branchNum(t)}</sup>${t.anchorText?` · <q data-back="1" title="Show this passage in its source">${esc(trunc(t.anchorText,70))}</q>`:' · whole reply'}`;
+    o.innerHTML=`↳ ${crumbs} <sup style="font-size:10px;color:${color(t)}">${branchNum(t)}</sup>${t.anchorText?` · <q data-back="1" title="Show this passage in its source">${esc(trunc(t.anchorText,70))}</q>`:t.alt?' · another version':' · whole reply'}`;
   }else{const n=Object.keys(conv.threads).length-1;o.textContent=`${n} branch${n===1?'':'es'}`}
   const pb_=el.querySelector('[data-act="pin"]');if(pb_){const pinned=tid==='main'?!!conv.pinned:!!t.pinned;pb_.innerHTML=ic('pin');pb_.classList.toggle('pinned',pinned);pb_.title=tid==='main'?(pinned?'Unpin this conversation':'Pin this conversation to the top of the sidebar'):(pinned?'Unpin this branch':'Pin this branch to the top of the sidebar, so you can jump straight back to it')}
   const f=el.querySelector('[data-act="focus"]');const on=isFocused(tid);f.innerHTML=ic(on?'unfocus':'focus');f.title=on?'Show all panes (Esc)':'Focus: collapse every other pane';f.classList.toggle('on',on);
@@ -1816,6 +1989,7 @@ function originCard(t){
   if(isDocBranch(t)&&t.anchorRegion){d.innerHTML=`<div class="ol"><span>Branched from ${isWholePage(t.anchorRegion)?'':'a snip of '}page ${t.anchorPage+1} of the document</span><button data-back="1" title="Scroll the document to this ${isWholePage(t.anchorRegion)?'page':'snip'}">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(regionRef(t)).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The document isn’t loaded, so the snip can’t be shown.'}))});d.querySelector('.oimg').__ref=regionRef(t);return d}
   if(isDocBranch(t)){d.innerHTML=`<div class="ol"><span>Branched from the document${conv.doc&&conv.doc.kind==='pdf'?`, page ${t.anchorPage+1}`:''}</span><button data-back="1" title="Scroll the document to the exact passage this branch came from">Show in source</button></div><div class="oq"></div>`;const oq0=d.querySelector('.oq');oq0.textContent=t.anchorText;oq0.dataset.back='1';oq0.title='Jump to this passage in the document';return d}
   const p=T(t.parent);
+  if(t.alt){d.innerHTML=`<div class="ol"><span>Another version of a question in ${esc(p.parent?'“'+trunc(p.title,30)+'”':'the main thread')}</span><button data-back="1" title="Show the version it's an alternative to">Show other</button><button class="usev" data-usev="${t.id}" title="Make this the version ${esc(p.parent?'“'+p.title+'”':'the main thread')} goes on with. The other one moves here; nothing is lost.">Use this version</button></div>`;return d}
   d.innerHTML=`<div class="ol"><span>Branched from ${esc(p.parent?p.title:'the main thread')}${t.anchorText?'':' (the whole reply)'}</span><button data-back="1" title="Scroll the parent to the exact passage this branch came from">Show in source</button></div>${t.anchorText?'<div class="oq"></div>':''}`;
   if(t.anchorText){const oq=d.querySelector('.oq');oq.textContent=t.anchorText;oq.dataset.back='1';oq.title='Jump to this passage in the reply it came from'}
   return d;
@@ -2010,12 +2184,12 @@ function wires(){
 const cam={x:40,y:40,k:1};let camFitted=false;
 const CW=320,CWX=580,HG=90,VG=26;
 function kidsOf(tid){
-  if(tid==='doc')return [T('main'),...docBranches()];
-  const k=children(tid);return tid==='main'&&conv.doc?k.filter(c=>!isDocBranch(c)):k;
+  if(tid==='doc')return [T('main'),...docBranches().filter(c=>!hiddenNow(c.id))];
+  const k=children(tid).filter(c=>!hiddenNow(c.id));return tid==='main'&&conv.doc?k.filter(c=>!isDocBranch(c)):k;
 }
 function visParentId(tid){if(tid==='doc')return null;if(tid==='main')return conv.doc?'doc':null;const t=T(tid);return t?(isDocBranch(t)?'doc':t.parent):null}
 function cvState(){const u=conv.ui;u.cv=u.cv||{};u.cv.pos=u.cv.pos||{};u.cv.size=u.cv.size||{};u.cv.open=u.cv.open||[];u.cv.fold=u.cv.fold||[];return u.cv}
-function foldHidden(tid){let p=visParentId(tid);while(p){if(cvState().fold.includes(p))return true;p=visParentId(p)}return false}
+function foldHidden(tid){if(tid!=='doc'&&tid!=='main'&&hiddenNow(tid))return true;let p=visParentId(tid);while(p){if(cvState().fold.includes(p))return true;p=visParentId(p)}return false}
 function descendants(tid){const out=[];const go=id=>kidsOf(id).forEach(k=>{out.push(k.id);go(k.id)});go(tid);return out}
 function applyCam(){$('#world').style.transform=`translate(${cam.x}px,${cam.y}px) scale(${cam.k})`;if($('#dock').children.length)drawEdgesSoon()}
 function canvasMsgEl(m){
@@ -2834,13 +3008,13 @@ function docPreamble(tid,question,tools){
     // whole conversation (the same text every question, so every thread shares one prompt cache): all of
     // it when it fits; otherwise the table of contents and the first pages. Branches about a passage add
     // the pages around it to their own first message (branchParts), where they stay for the whole branch.
-    const head=D.head(docState.name,P.length,unit);
-    const look=pdf?D.lookPdf:conv.doc.article?D.lookArticle(conv.doc.source):'';
-    if(!docTooLong())return `${head}${D.whole}${look} ${cite}
+    const head=D.head(docState.name,P.length,unit,conv.doc.source);
+    const look=pdf?D.lookPdf:conv.doc.article?D.lookArticle:'';
+    if(!docTooLong()){lastDocSeen={of:P.length,all:true,tools:true};return `${head}${D.whole}${look} ${cite}
 <document>
 ${P.map((_,i)=>`[${label(i)}]
 ${pageText(i)}`).join('\n\n')}
-</document>`;
+</document>`}
     const ol=docState.outline,n=Math.min(DOC_FIRST,P.length);
     let toc='';if(ol&&ol.length){for(const x of ol){const l='  '.repeat(Math.min(x.depth,6))+x.title+(x.page?` … ${label(x.page-1)}`:'');if(toc.length+l.length>16000){toc+='  … (the contents go on)\n';break}toc+=l+'\n'}}
     lastDocSeen={of:P.length,tools:true,pages:`${toc?'the contents and ':''}${n>1?`pp. 1–${n}`:'p. 1'}`};
@@ -2876,9 +3050,9 @@ ${pageText(i)}`).join('\n\n')}
     out.push(`[${label(i)}]\n${P[i].trim()?P[i]:`(no text on this ${pdf?'page':'part'}: it may be a scan, an image or a figure)`}`);prev=i;
   }
   if(prev<P.length-1)out.push(`[${span([prev+1,P.length-1])} not included]`);
-  lastDocSeen=partial?{n:pick.size,of:P.length,pages:ranges(sorted).map(span).join(', ')}:null;
+  lastDocSeen=partial?{n:pick.size,of:P.length,pages:ranges(sorted).map(span).join(', ')}:{of:P.length,all:true};
   const cut=partial?D.cut({n:pick.size,of:P.length,unit,missing:missing.map(span).join(', '),one:pdf?'page':'part'}):'';
-  return `${D.head(docState.name,P.length,unit)}${D.textOnly}${cut} ${cite}${D.noVisuals}\n<document>\n${out.join('\n\n')}\n</document>`;
+  return `${D.head(docState.name,P.length,unit,conv.doc.source)}${D.textOnly}${cut} ${cite}${D.noVisuals}\n<document>\n${out.join('\n\n')}\n</document>`;
 }
 /* ---------- document tools: what runs here when the model calls one ----------
    The definitions the model sees, the rules and the loop are on the server (server/doctools.mjs); the server
@@ -2942,21 +3116,33 @@ async function runDocTool(name,input,trail){
 const trailText=(x)=>{const pd=!(docState&&docState.kind!=='pdf');
   return x.t==='search'?`searched “${x.q}”`:x.t==='read'?(x.a===x.b?`read ${pd?'p.':'part'} ${x.a}`:`read ${pd?'pp.':'parts'} ${x.a}–${x.b}`):pd?`looked at p. ${x.p}`:`looked at the pictures in part ${x.p}`};
 // under a reply: what it read of the document beyond what it started with (kept outside .body, so anchors never count it)
+// pages as short ranges: [41,42,43,2] → "pp. 2, 41–43" (at most 6 ranges, then …)
+function pageList(ps,pd){
+  const u=[...new Set(ps)].sort((a,b)=>a-b),r=[];for(const p of u){const l=r[r.length-1];if(l&&l[1]===p-1)l[1]=p;else r.push([p,p])}
+  const txt=r.slice(0,6).map(([a,b])=>a===b?`${a}`:`${a}–${b}`).join(', ')+(r.length>6?', …':'');
+  return (u.length>1?(pd?'pp. ':'parts '):(pd?'p. ':'part '))+txt;
+}
+// under a reply: what it had of the document and what it read with its tools (outside .body, so anchors never count it)
 function docReads(m){
-  const r=m.reads||[],seen=m.docSeen&&m.docSeen.tools?m.docSeen:null;
+  const r=m.reads||[],seen=m.docSeen||null;
   if(!r.length&&!seen)return null;
+  const pd=!(docState&&docState.kind!=='pdf'),unit=(n)=>pd?`page${n>1?'s':''}`:`part${n>1?'s':''}`;
   const d=document.createElement('details');d.className='wsrc dreads';
-  const nS=r.filter(x=>x.t==='search').length,nR=r.filter(x=>x.t==='read').length,nV=r.filter(x=>x.t==='view').length;
-  const sum=[nS&&`searched${nS>1?` ${nS}×`:''}`,nR&&`read ${r.filter(x=>x.t==='read').reduce((n,x)=>n+x.b-x.a+1,0)} page${r.filter(x=>x.t==='read').reduce((n,x)=>n+x.b-x.a+1,0)>1?'s':''}`,nV&&`looked at ${nV} page${nV>1?'s':''}`].filter(Boolean).join(' · ');
+  const nS=r.filter(x=>x.t==='search').length;
+  const read=r.filter(x=>x.t==='read').flatMap(x=>{const o=[];for(let p=x.a;p<=x.b&&o.length<400;p++)o.push(p);return o}),viewed=r.filter(x=>x.t==='view').map(x=>x.p);
+  const nR=new Set(read).size,nV=new Set(viewed).size;
+  const had=!seen?'':seen.all?`had all ${seen.of} ${unit(seen.of)}`:seen.tools?`started from ${seen.pages} of ${seen.of}`:`saw ${seen.n} of ${seen.of} ${unit(seen.of)} (${seen.pages})`;
+  const sum=[had,nS&&`searched${nS>1?` ${nS}×`:''}`,nR&&`read ${nR} ${unit(nR)} (${pageList(read,pd)})`,nV&&`looked at ${nV} ${unit(nV)} (${pageList(viewed,pd)})`].filter(Boolean).join(' · ');
   d.innerHTML=`<summary>${ic('doc')}<span></span></summary>`;
-  d.querySelector('summary span').textContent=(sum?'Document: '+sum:'Used no document tools')+(seen?` · started from ${seen.pages} of ${seen.of}`:'');
-  d.title=seen?`The document was too long to send whole. This reply started from ${seen.pages} and read the rest with its tools.`:'';
+  d.querySelector('summary span').textContent='Document: '+sum;
+  d.title=seen&&seen.all?'The whole document was sent with this question.':seen&&seen.tools?`The document was too long to send whole. This reply started from ${seen.pages} and read the rest with its tools.`:seen?'The document was too long to send whole, and this connection can’t read more on its own: this reply only had these pages.':'';
+  if(!r.length){d.classList.add('flat');return d}
   const ol=document.createElement('ol');
   for(const x of r){const li=document.createElement('li');
     const pg=x.t==='read'?x.a:x.t==='view'?x.p:null;li.textContent=trailText(x)+(x.t==='search'?` → ${x.n?`${x.n} match${x.n>1?'es':''}${x.pages.length?` (p. ${x.pages.slice(0,8).join(', ')}${x.pages.length>8?', …':''})`:''}`:'no matches'}`:'');
     if(pg&&docState&&docState.kind==='pdf'){const a=document.createElement('a');a.className='pref';a.dataset.page=pg;a.textContent='show';a.title=`Show page ${pg} in the document`;li.append(' ',a)}
     ol.appendChild(li)}
-  if(r.length)d.appendChild(ol);
+  d.appendChild(ol);
   return d;
 }
 async function storeDocFile(c,kind,blob,text){
@@ -3027,6 +3213,28 @@ async function articleToMarkdown(html,url){
   let body=td.turndown(a.content).replace(/\n{3,}/g,'\n\n').trim();
   if(title&&body.startsWith('# '+title))body=body.slice(title.length+2).trim();
   return {md:`${title?`# ${title}\n\n`:''}${meta.length?`*${meta.join(' · ')}*\n\n`:''}${body}\n`,title};
+}
+// A note clipped with a web clipper (Obsidian Web Clipper and the like) starts with YAML front matter:
+// title, source, author, published... Read the simple top-level fields, drop the block, and start the text
+// with the same heading and byline a web article gets. Returns null when there is no front matter.
+function clipFrontMatter(text){
+  const m=/^\uFEFF?---[ \t]*\r?\n([\s\S]{0,8000}?)\r?\n---[ \t]*(\r?\n|$)/.exec(text);if(!m)return null;
+  const f={};let key=null;
+  const val=(v)=>v.trim().replace(/^(["'])(.*)\1$/,'$2').replace(/\[\[([^\]|]*)(\|[^\]]*)?\]\]/g,'$1').trim();
+  for(const line of m[1].split(/\r?\n/)){
+    const kv=/^([A-Za-z][\w -]*):\s*(.*)$/.exec(line),li=/^\s+-\s+(.*)$/.exec(line);
+    if(kv){key=kv[1].trim().toLowerCase();const v=val(kv[2]);f[key]=v?[v]:[]}
+    else if(li&&key)f[key].push(val(li[1]));
+  }
+  const one=(...ks)=>{for(const k of ks)if(f[k]&&f[k].filter(Boolean).length)return f[k].filter(Boolean).join(', ');return ''};
+  const title=one('title').replace(/\s+/g,' ').slice(0,300),src=one('source','url','link');
+  const source=/^https?:\/\/\S+$/i.test(src)?src:'';
+  let host='';try{host=source?new URL(source).hostname.replace(/^www\./,''):''}catch(e){}
+  let date='';const pub=one('published','date');if(pub){const d=new Date(pub);date=isNaN(d)?pub:d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}
+  const meta=[one('author','authors'),one('site','site_name')||host,date].map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
+  let body=text.slice(m[0].length).replace(/^\s+/,'');
+  if(title&&body.startsWith('# '+title))body=body.slice(title.length+2).replace(/^\s+/,'');
+  return {md:`${title?`# ${title}\n\n`:''}${meta.length?`*${meta.join(' · ')}*\n\n`:''}${body}`,title,source};
 }
 // placeholders → figures. The caption's text node is moved, not copied, and the buttons hold only icons,
 // so the document's text (which highlights are counted in) is exactly the same as before
@@ -3114,11 +3322,13 @@ async function startFromDoc(){
     name=$('#docName').value.trim()||f.name.replace(/\.[^.]+$/,'');
     if(isPdf)blob=f;else text=await f.text();
   }else{kind='text';text=pasted;name=$('#docName').value.trim()||trunc(pasted.split('\n').find(l=>l.trim())||'Pasted text',60).replace(/^#+\s*/,'')}
+  const clip=kind==='text'&&!article&&clipFrontMatter(text);
+  if(clip){text=clip.md;if(!typed&&clip.title)name=clip.title;if(clip.source&&!source)source=clip.source}
   $('#docGo').disabled=true;msg('Saving the document…');
   await flushNow();
   const c=newConv();c.title=name;c.doc={kind,name};
   // a typed title stays; otherwise a PDF may swap in its own title once pdf.js reads it (startDoc)
-  if(typed||(article&&article.title))c.titleKept=true;else if(kind==='pdf')c.autoTitle=name;if(source)c.doc.source=source;c.ui.open=['doc','main'];
+  if(typed||(article&&article.title)||(clip&&clip.title))c.titleKept=true;else if(kind==='pdf')c.autoTitle=name;if(source)c.doc.source=source;c.ui.open=['doc','main'];
   if(article){c.doc.article=true;c.doc.images={}}
   const stored=await storeDocFile(c,kind,blob,text);
   docBlobCache.set(c.id,kind==='pdf'?await blob.arrayBuffer():text);
@@ -3310,7 +3520,8 @@ function renderMap(){
     const n=document.createElement('div');n.className='mnode'+(conv.ui.open.includes(tid)&&!isCollapsed(tid)?' open':'')+(t.resolved?' res':'');n.dataset.map=tid;n.style.setProperty('--c',tid==='main'?'var(--faint)':color(t));
     const cnt=(conv.order[tid]||[]).filter(id=>conv.msgs[id]&&conv.msgs[id].role==='user').length;
     const kids=kidsOf(tid);
-    n.innerHTML=`${chev(tid,kids)}${tid==='main'?'<span class="dot"></span>':statusDot(t)}<div style="min-width:0;flex:1"><div class="mt"></div>${t.anchorText?'<div class="ma"></div>':''}</div>${hiddenBadge(tid)}<span class="mc" title="Questions asked in this thread">${cnt||''}</span>${tid==='main'?'':`<button class="ib mp${t.pinned?' pinned':''}" data-pinthread="${tid}" title="${t.pinned?'Unpin this branch':'Pin this branch to the top of the sidebar'}">${ic('pin')}</button><button class="ib dz mx" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`}`;
+    n.innerHTML=`${chev(tid,kids)}${tid==='main'?'<span class="dot"></span>':statusDot(t)}<div style="min-width:0;flex:1"><div class="mt"></div>${t.anchorText?'<div class="ma"></div>':''}</div>${hiddenBadge(tid)}<span class="mc" title="Questions asked in this thread">${cnt||''}</span>${tid==='main'?'':`<button class="ib mp${t.pinned?' pinned':''}" data-pinthread="${tid}" title="${t.pinned?'Unpin this branch':'Pin this branch to the top of the sidebar'}">${ic('pin')}</button><button class="ib mh" data-hideb="${tid}" title="${t.hidden?'Show this branch in the tree again':'Hide this branch (and what’s under it) from the tree and canvas; nothing is deleted'}">${ic(t.hidden?'eye':'eyeoff')}</button><button class="ib dz mx" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`}`;
+    if(t.hidden)n.classList.add('hiddenb');
     n.title=tid==='main'?'Show the main thread':`Open “${t.title}”`+(t.anchorText?`, from “${trunc(t.anchorText,240)}”`:'');
     n.querySelector('.mt').textContent=tid==='main'?'Main thread':t.title;
     if(t.anchorText)n.querySelector('.ma').textContent=(isDocBranch(t)&&conv.doc.kind==='pdf'?`p. ${t.anchorPage+1} · `:'')+'“'+trunc(t.anchorText,60)+'”';
@@ -3322,11 +3533,13 @@ function renderMap(){
   if(conv.doc){
     const li=document.createElement('li'),n=document.createElement('div');
     n.className='mnode'+(conv.ui.open.includes('doc')&&!isCollapsed('doc')?' open':'');n.dataset.mapdoc='1';n.title='Show the document';
-    const kids=[T('main'),...docBranches()];
+    const kids=kidsOf('doc');
     n.innerHTML=`${chev('doc',kids)}<span class="docico">${ic('doc')}</span><div style="min-width:0;flex:1"><div class="mt"></div></div>${hiddenBadge('doc')}`;n.querySelector('.mt').textContent=conv.doc.name;
     li.appendChild(n);if(!fold.includes('doc')){const sub=document.createElement('ul');kids.forEach(c=>sub.appendChild(build(c.id)));li.appendChild(sub)}ul.appendChild(li);
   }else ul.appendChild(build('main'));
   tree.replaceChildren(ul);
+  const nh=Object.values(conv.threads).filter(t=>t.hidden).length;
+  if(nh){const b=document.createElement('button');b.className='showhid';b.dataset.showhid='1';b.textContent=conv.ui.showHidden?'Hide the hidden branches again':`Show ${nh} hidden branch${nh>1?'es':''}`;tree.appendChild(b)}
   const any=fold.length>0,ta=$('#treeAll'),has=Object.keys(conv.threads).length>1;
   ta.style.visibility=has?'':'hidden';ta.textContent=any?'Expand all':'Collapse all';
   ta.title=any?'Show every branch':'Collapse every thread to its top level, so the tree is easier to scan';
@@ -3396,6 +3609,13 @@ async function setConvFlag(id,patch){
   if(m)Object.assign(m,patch);
   renderConvList();updateHeader('main');
 }
+function toggleHidden(tid){
+  const t=T(tid);if(!t||!t.parent)return;
+  t.hidden=!t.hidden;if(!t.hidden)delete t.hidden;
+  refreshAll();setStatus(t.hidden?'Hidden from the tree and canvas (“Show hidden” under the tree brings it back)':'Shown again');
+}
+// after something changes which branches show: every pane, the tree and the canvas
+function refreshAll(){for(const id of conv.ui.open)if(id!=='doc'&&T(id)){renderPane(id);updateHeader(id)}renderMap();if(conv.ui.view==='canvas')renderCanvas();save()}
 function toggleBranchPin(tid){
   const t=T(tid);if(!t||!t.parent)return;
   t.pinned=!t.pinned;if(!t.pinned)delete t.pinned;
@@ -3633,11 +3853,16 @@ document.addEventListener('click',e=>{
       case 'wbranch':createBranch(mid,'',null);break;
       case 'copy':navigator.clipboard.writeText(conv.msgs[mid].content).then(()=>toast('Copied'),()=>toast('Copy isn\'t allowed here'));break;
       case 'retry':retry(mid);break;
+      case 'redo':redo(mid);break;
+      case 'edit':startEdit(act.closest('.msg'),mid);break;
       case 'delnote':{const m=conv.msgs[mid];if(!m)break;const s=streaming.get(m.thread);if(s&&s.mid===mid)s.ctrl.abort();conv.order[m.thread]=conv.order[m.thread].filter(x=>x!==mid);delete conv.msgs[mid];msgCache.delete(mid);renderPane(m.thread);save();break}
     }
     return;
   }
   const rail=e.target.closest('.pane.rail');if(rail){toggleCollapse(rail.dataset.tid);return}
+  // buttons on a tree row, before the row itself opens its thread
+  const pt=e.target.closest('[data-pinthread]');if(pt){e.stopPropagation();toggleBranchPin(pt.dataset.pinthread);return}
+  const hb=e.target.closest('[data-hideb]');if(hb){e.stopPropagation();toggleHidden(hb.dataset.hideb);return}
   const mn=e.target.closest('[data-map]');if(mn){const id=mn.dataset.map;if(conv.ui.view==='canvas'){focusCard(id);return}openThread(id);conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==id);layout();renderMap();revealPane(id);return}
   const del=e.target.closest('[data-del]');if(del){e.stopPropagation();const id=del.dataset.del;const c=convList.find(x=>x.id===id)||(conv.id===id?conv:null);
     askConfirm('Delete this conversation?',`<b>${esc((c&&c.title)||'This conversation')}</b> and all of its branches will be permanently deleted, along with its document if it has one.`,()=>deleteConv(id));return}
@@ -3645,7 +3870,9 @@ document.addEventListener('click',e=>{
   const ac=e.target.closest('[data-archconv]');if(ac){e.stopPropagation();const id=ac.dataset.archconv;const m=convList.find(c=>c.id===id)||(conv.id===id?metaOf(conv):{});const a=!m.archived;setConvFlag(id,a?{archived:true,pinned:false}:{archived:false});setStatus(a?'Archived':'Moved back to conversations');return}
   const ub=e.target.closest('[data-unpinb]');if(ub){e.stopPropagation();const [c,t]=ub.dataset.unpinb.split('|');unpinRemoteBranch(c,t);return}
   const pbr=e.target.closest('[data-pinb]');if(pbr){const [c,t]=pbr.dataset.pinb.split('|');openPinnedBranch(c,t);return}
-  const pt=e.target.closest('[data-pinthread]');if(pt){e.stopPropagation();toggleBranchPin(pt.dataset.pinthread);return}
+  const sh=e.target.closest('[data-showhid]');if(sh){e.stopPropagation();conv.ui.showHidden=!conv.ui.showHidden;if(!conv.ui.showHidden)delete conv.ui.showHidden;refreshAll();return}
+  const uv=e.target.closest('[data-usev]');if(uv){e.stopPropagation();useVersion(uv.dataset.usev);return}
+  const vc=e.target.closest('[data-vers]');if(vc){e.stopPropagation();openVersions(vc.dataset.vers);return}
   const ci=e.target.closest('[data-conv]');if(ci){openConv(ci.dataset.conv);if(innerWidth<760)$('#app').classList.remove('sideopen');return}
 });
 document.addEventListener('mouseover',e=>{
@@ -3729,7 +3956,7 @@ function fillModelPicker(){
 }
 webT.querySelector('.wi').outerHTML=ic('globe');
 /* theme menu: hovering a theme previews it, clicking keeps it (the menu stays open to try others) */
-const themeB=$('#themeB');themeB.innerHTML=ic('palette');
+const themeB=$('#themeB');themeB.innerHTML=ic('palette')+'<b class="mlbl">Theme</b>';
 const themeMenu=document.createElement('div');themeMenu.className='thmenu';themeMenu.setAttribute('role','menu');themeMenu.innerHTML='<div class="thh">Theme</div>';
 const sw=(id)=>`<span class="thsw" data-theme="${id}"><i></i><i></i><i></i></span>`;
 for(const [id,name] of THEMES){
@@ -3754,6 +3981,35 @@ themeMenu.addEventListener('click',e=>{e.stopPropagation();const b=e.target.clos
 document.addEventListener('click',closeThemes);
 addEventListener('keydown',e=>{if(e.key==='Escape'&&themeMenu.classList.contains('open')){e.stopPropagation();closeThemes()}},true);
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(settings.theme==='system')setTheme('system')});
+/* The top bar keeps what fits. The rest moves, in this order, into the "more" menu (⋯): the same controls,
+   moved, not copied, so they keep working the same way. Rechecked whenever the bar's size or contents change. */
+const topBar=$('.top'),moreB=$('#moreB'),moreMenu=document.createElement('div');moreMenu.className='tmore';moreMenu.setAttribute('role','menu');document.body.appendChild(moreMenu);
+moreB.innerHTML=ic('dots');
+const TOP_MOVABLE=[$('#resetOrder'),themeB,webT,eSel.closest('.sel'),$('#viewSeg'),mSel.closest('.sel')];
+const MENU_ORDER=new Map([[mSel.closest('.sel'),0],[eSel.closest('.sel'),1],[webT,2],[$('#viewSeg'),3],[themeB,4],[$('#resetOrder'),5]]);
+for(const el of TOP_MOVABLE){el.__home=document.createComment('');el.before(el.__home)}
+let fitting=false;
+function fitTop(){
+  if(fitting)return;fitting=true;
+  try{
+    for(const el of TOP_MOVABLE)if(el.parentNode!==topBar)el.__home.after(el);
+    moreB.style.display='';
+    const over=()=>topBar.scrollWidth>topBar.clientWidth+1;
+    const moved=[];
+    for(const el of TOP_MOVABLE){if(!over())break;if(el.style.display==='none')continue;moreMenu.appendChild(el);moved.push(el)}
+    moved.sort((a,b)=>MENU_ORDER.get(a)-MENU_ORDER.get(b)).forEach(el=>moreMenu.appendChild(el));
+    moreB.style.display=moved.length?'':'none';
+    if(!moved.length)closeMore();
+  }finally{fitting=false;if(typeof topObs!=='undefined')topObs.takeRecords()}   // its own moves aren't a reason to run again
+}
+function closeMore(){moreMenu.classList.remove('open');moreB.setAttribute('aria-expanded','false')}
+moreB.onclick=(e)=>{e.stopPropagation();if(moreMenu.classList.contains('open'))return closeMore();
+  moreMenu.classList.add('open');moreB.setAttribute('aria-expanded','true');const r=moreB.getBoundingClientRect();
+  moreMenu.style.top=(r.bottom+6)+'px';moreMenu.style.left=Math.max(8,Math.min(innerWidth-moreMenu.offsetWidth-8,r.right-moreMenu.offsetWidth))+'px'};
+document.addEventListener('click',e=>{if(moreMenu.classList.contains('open')&&!moreMenu.contains(e.target)&&!themeMenu.contains(e.target))closeMore()});
+addEventListener('keydown',e=>{if(e.key==='Escape'&&moreMenu.classList.contains('open')&&!themeMenu.classList.contains('open')){closeMore()}});
+new ResizeObserver(()=>fitTop()).observe(topBar);
+const topObs=new MutationObserver(()=>fitTop());topObs.observe(topBar,{subtree:true,childList:true,attributes:true,attributeFilter:['style','class'],characterData:true});
 function showWeb(){webT.setAttribute('aria-pressed',settings.web?'true':'false');webT.classList.toggle('on',!!settings.web)}
 showWeb();
 webT.onclick=()=>{settings.web=!settings.web;saveSettings();showWeb();setStatus(settings.web?'Web search on for new replies':'Web search off')};

@@ -24,6 +24,12 @@ Select any text in a reply and type a question (or pick a quick one: *Explain si
 
 When a branch has answered your question, press **Takeaway**. Digress writes two to four bullets of what you learned and adds them to the end of the parent thread, optionally focused on what you ask for. The main thread then builds on them, so your understanding accumulates instead of staying scattered across tangents.
 
+## Fix a reply: redo, edit, other versions
+
+Picked the wrong model, or asked the wrong thing? **Redo** asks again with the model and effort selected now, and the pencil on a question lets you **edit** it. On the latest reply, with nothing hanging off it, the new answer simply replaces the old one. Further back, it becomes **another version**: the question asked again from the same point, in its own pane next to the original, so you can compare. Nothing that was there changes. The question shows how many versions it has, and **Use this version** makes the conversation go on with the one you prefer. The other one stays, and you can switch back. Branches you're done with can be hidden from the tree without deleting them.
+
+While a reply is being written you see what it's doing (searching, reading pages) and for how long. Under each reply: the model and effort it used, and what it had of the document (all of it, or which pages it started from and read).
+
 ## Read with a document
 
 ![A PDF of lecture notes on the left, a summary with page links in the middle, and a branch about one highlighted sentence on the right](docs/media/document.png)
@@ -52,7 +58,7 @@ Switch views from the top bar at any time; the conversation is the same.
 
 <img src="docs/media/canvas.png" alt="The same conversation as cards on a canvas, connected by lines from each highlight to its branch" width="700">
 
-Answers render Markdown, code with syntax highlighting, LaTeX math and Mermaid diagrams. Panes collapse to thin strips, **Focus** hides everything else, and each pane keeps its own zoom. The palette button in the top bar switches themes: light and dark (or match your device), plus Sand, Sea glass, Rosé Pine Dawn, Gruvbox, Shades of Purple and Nord.
+Answers render Markdown, code with syntax highlighting, LaTeX math and Mermaid diagrams. Panes collapse to thin strips, **Focus** hides everything else, and each pane keeps its own zoom. On a narrow window or a phone, whatever doesn't fit in the top bar moves into a ⋯ menu. The palette button switches themes: light and dark (or match your device), plus Sand, Sea glass, Rosé Pine Dawn, Gruvbox, Shades of Purple and Nord.
 
 ## Search everything
 

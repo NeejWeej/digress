@@ -7,7 +7,8 @@
 // The fake model is whatever the test puts in window.fakeLLM:
 //   window.fakeLLM = { use: async (name) => name === 'sample' ? async (messages, opts) => ({text, truncated}) : null }
 // It gets the conversation with the system prompt folded into the first message, and
-// opts = {model, effort, web, signal, onText({text})}; call onText with the text so far to stream.
+// opts = {model, effort, web, signal, onText({text}), onSearch(query)}; call onText with the text so far to stream,
+// onSearch to report a web search the way the server does.
 // Until window.fakeLLM exists, /api/health waits (up to 6 s), like a server that is slow to start.
 // Conversations, the search index and files are kept in localStorage, so they survive a reload.
 (() => {
@@ -39,7 +40,7 @@
           if (!sample) throw new Error('No fake model (window.fakeLLM) in this test.');
           const model = body.model && body.model !== 'auto' ? body.model : undefined;
           const effort = body.effort && body.effort !== 'auto' ? body.effort : undefined;
-          const r = await sample(msgs, { model, effort, web: !!body.web, signal, onText: ({ text }) => push(text) });
+          const r = await sample(msgs, { model, effort, web: !!body.web, signal, onText: ({ text }) => push(text), onSearch: (q) => line({ search: q }) });
           push(r.text);
           line({ done: true, model: r.modelApplied || model || 'claude-opus-5-5', truncated: !!r.truncated });
         } catch (e) {

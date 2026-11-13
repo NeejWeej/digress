@@ -63,13 +63,13 @@ The interface lets the learner open side branches off any reply. A side branch a
   // (docPreamble in index.html), labeled [p. N] for a PDF or [part N] for other documents.
   doc: {
     notLoaded: (name) => `[The learner is reading a document titled "${name}", but its text couldn't be loaded right now.]`,
-    head: (name, n, unit) => `The learner is reading a document titled "${name}" (${n} ${unit}).`,
+    head: (name, n, unit, source) => `The learner is reading a document titled "${name}" (${n} ${unit}${source ? `, from ${source}` : ''}).`,
     cite: (pdf) => pdf ? 'When you refer to specific places, cite them in square brackets like [p. 4] so the learner can click to jump there.'
       : 'When you refer to specific places, name the section heading.',
 
     // with the document tools
     lookPdf: ` Only text was extracted, so figures, charts, images and layout are missing and equations or tables may be garbled: when one matters, look at the page with view_page instead of guessing what it shows.`,
-    lookArticle: (source) => ` It is a web article${source ? ` (from ${source})` : ''}, kept as Markdown. Its pictures are marked [Image: description](link): you can't see them in the text, so when one matters, call view_page with that part's number to see the pictures in it, instead of guessing what they show. The parts are the [part N] labels below.`,
+    lookArticle: ` It is a web article, kept as Markdown. Its pictures are marked [Image: description](link): you can't see them in the text, so when one matters, call view_page with that part's number to see the pictures in it, instead of guessing what they show. The parts are the [part N] labels below.`,
     whole: ` Its full extracted text is below, so you don't need search or read_pages.`,
     tooLong: ({ toc, n, unit, pdf }) => ` It is too long to include whole. Below are ${toc ? 'its table of contents and ' : ''}its first ${n} ${unit}; a side question about a passage also comes with the text around it. You can read the rest yourself with your tools: search finds where something is, read_pages reads it${pdf ? ', view_page shows a page as an image' : ''}. Use them whenever the answer depends on something you haven't read: a section, figure, table, definition or result the question or the text refers to. Look first, then answer. If you can't find something, say so plainly; never guess what an unread part says.`,
 

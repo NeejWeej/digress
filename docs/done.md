@@ -16,6 +16,14 @@ pages around it. Each reply shows what it searched, read and looked at.
 Built (see AGENTS.md, "Web articles"): paste a link to an article and it opens in reader view as a
 Markdown document, images as placeholders you can load.
 
+## Redo, edit and other versions
+
+The conversation is a tree of messages, and threads are just a way of cutting it into runs. Redo and Edit
+replace a reply in place when nothing depends on it; otherwise they ask again as another version (an `alt`
+thread starting where the question did), and "Use this version" swaps which one the conversation goes on
+with. The swap is built from two general operations, split and join (`web/threads.js`), checked by a
+randomized test that no message's context ever changes. Branches can be hidden from the tree.
+
 ## Prompts in one place, and themes
 
 Every instruction the page sends the model lives in `web/prompts.js`, so it can be read and changed without
