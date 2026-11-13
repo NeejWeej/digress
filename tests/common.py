@@ -43,4 +43,5 @@ async def goto_app(pg, page=PAGE):
     Call it after the test's own pg.route(...) so this route wins for the page itself."""
     await pg.add_init_script(PAGE_SERVER)
     await pg.route(APP_URL, lambda r: r.fulfill(path=page, content_type='text/html; charset=utf-8'))
+    await pg.route(APP_URL + 'prompts.js', lambda r: r.fulfill(path=os.path.join(REPO, 'web', 'prompts.js'), content_type='text/javascript; charset=utf-8'))
     await pg.goto(APP_URL)

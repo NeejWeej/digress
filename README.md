@@ -52,7 +52,7 @@ Switch views from the top bar at any time; the conversation is the same.
 
 <img src="docs/media/canvas.png" alt="The same conversation as cards on a canvas, connected by lines from each highlight to its branch" width="700">
 
-Answers render Markdown, code with syntax highlighting, LaTeX math and Mermaid diagrams. Panes collapse to thin strips, **Focus** hides everything else, and each pane keeps its own zoom.
+Answers render Markdown, code with syntax highlighting, LaTeX math and Mermaid diagrams. Panes collapse to thin strips, **Focus** hides everything else, and each pane keeps its own zoom. The palette button in the top bar switches themes: light and dark (or match your device), plus Sand, Sea glass, Rosé Pine Dawn, Gruvbox, Shades of Purple and Nord.
 
 ## Search everything
 
@@ -70,7 +70,11 @@ Claude and ChatGPT can be connected at the same time. Pick a model per message f
 
 ## Web search, only when you ask
 
-Models answer from what they know unless you turn on **Web** in the top bar. Then they may search the web, and the reply lists its sources. It is search only: the search runs on Anthropic's or OpenAI's side, and the model gets no tool that fetches pages or runs anything on your machine.
+Models answer from what they know unless you turn on **Web** in the top bar. Then they may search the web, link the pages they use right in the answer, and the reply lists its sources. It is search only: the search runs on Anthropic's or OpenAI's side, and the model gets no tool that fetches pages or runs anything on your machine.
+
+## The prompts are yours to change
+
+Everything Digress tells the model (the tutor instructions, how branches, takeaways and flashcards are asked for, how documents are introduced) is in one file, [`web/prompts.js`](web/prompts.js). Edit it and reload.
 
 ## Your data stays on your machine
 
@@ -99,6 +103,7 @@ Open <http://127.0.0.1:8787>, click **New conversation** or **New from a documen
 - [Using it from other devices](docs/remote-access.md): Tailscale, running it as a service, using it on your phone.
 - [Development](docs/development.md): tests, live reload, regenerating these screenshots. [AGENTS.md](AGENTS.md) explains how the code fits together.
 - [Future directions](docs/future.md): ideas for later, like sub-agents that explore and codebases as a source.
+- [Done](docs/done.md): ideas from that list that have been built.
 
 ## License
 

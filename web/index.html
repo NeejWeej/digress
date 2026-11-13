@@ -4,18 +4,70 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Digress</title>
+<script>
+/* Themes: [id, name, mode]. The colors are in the CSS (:root[data-theme=…]); 'system' follows the device's
+   light or dark setting. Set here, before anything paints, so there's no flash of the wrong one. */
+window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['gruvbox-light','Gruvbox Light','light'],['dark','Dark','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark']];
+window.applyTheme=function(id){
+  var t=THEMES.find(function(x){return x[0]===id})||THEMES[0],dark=t[2]==='auto'?matchMedia('(prefers-color-scheme: dark)').matches:t[2]==='dark';
+  var name=t[0]==='system'?(dark?'dark':'light'):t[0],r=document.documentElement;
+  r.dataset.theme=name;r.dataset.mode=dark?'dark':'light';return t[0];
+};
+(function(){var id='system';try{id=JSON.parse(localStorage.getItem('sq:settings')||'{}').theme||id}catch(e){}applyTheme(id)})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{
+:root,.thsw[data-theme=light]{
   --bg:#f5f3ee;--panel:#fffdf9;--panel-2:#faf8f3;--ink:#1f1d19;--muted:#6d695f;--faint:#a29d92;
   --line:#e7e2d8;--line2:#d7d0c3;--user-bg:#efebe3;--code-bg:#f4f1ea;--accent:#c4643c;--danger:#c0392b;--shadow:0 12px 32px rgba(40,30,10,.14);
+  --hk:#a0439a;--hs:#3b7d3b;--hn:#b5562a;--ht:#2d6cb5;--hy:#9a6a00;--hm:#8a6d3b;   /* code: keyword, string, number, title, type, meta */
   --sans:'Inter',system-ui,sans-serif;--serif:'Source Serif 4',Georgia,serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  color-scheme:light;
 }
-@media (prefers-color-scheme:dark){:root{
+/* Themes (the palette button in the top bar). THEMES in the <head> script lists them; data-theme is set
+   before the page paints. A theme only sets these variables; data-mode=dark|light says which kind it is. */
+:root[data-mode=dark]{color-scheme:dark;--shadow:0 12px 32px rgba(0,0,0,.5)}
+:root[data-theme=dark],.thsw[data-theme=dark]{
   --bg:#161513;--panel:#1f1e1b;--panel-2:#252420;--ink:#ece8df;--muted:#a6a196;--faint:#77736a;
-  --line:#33312c;--line2:#45423b;--user-bg:#2b2925;--code-bg:#262521;--danger:#e0705f;--shadow:0 12px 32px rgba(0,0,0,.5);
-}}
+  --line:#33312c;--line2:#45423b;--user-bg:#2b2925;--code-bg:#262521;--accent:#c4643c;--danger:#e0705f;
+  --hk:#d295e8;--hs:#9ccc8a;--hn:#f0a070;--ht:#7fb4f0;--hy:#e5c06a;--hm:#c8a878;
+}
+:root[data-theme=sand],.thsw[data-theme=sand]{   /* beach: warm sand, sea-glass teal, not bright */
+  --bg:#e9e0cf;--panel:#f3ecdf;--panel-2:#eee6d6;--ink:#2c3a3f;--muted:#5f6f72;--faint:#949d98;
+  --line:#ddd2bd;--line2:#cbbfa6;--user-bg:#e3eadf;--code-bg:#ebe3d3;--accent:#2b8784;--danger:#c4553f;
+  --hk:#b0506a;--hs:#4e7d3a;--hn:#c0603c;--ht:#2a6f97;--hy:#8f6a12;--hm:#8a6d3b;
+}
+:root[data-theme=seaglass],.thsw[data-theme=seaglass]{   /* beach: pale sea-glass, coral */
+  --bg:#dde7e2;--panel:#ecf2ee;--panel-2:#e5ede8;--ink:#22343a;--muted:#587075;--faint:#8fa3a2;
+  --line:#ccdbd3;--line2:#b6c9be;--user-bg:#f3e6da;--code-bg:#e3ebe6;--accent:#c2694b;--danger:#b5432f;
+  --hk:#a8457a;--hs:#3f7a47;--hn:#c0603c;--ht:#2a6593;--hy:#8d6b14;--hm:#7c6a4a;
+}
+:root[data-theme=dawn],.thsw[data-theme=dawn]{   /* Rosé Pine Dawn */
+  --bg:#f2e9e1;--panel:#faf4ed;--panel-2:#f6efe8;--ink:#575279;--muted:#797593;--faint:#9893a5;
+  --line:#e6dfda;--line2:#cecacd;--user-bg:#ede4dc;--code-bg:#f4ede8;--accent:#d7827e;--danger:#b4637a;
+  --hk:#286983;--hs:#c0861f;--hn:#b4637a;--ht:#d7827e;--hy:#56949f;--hm:#907aa9;
+}
+:root[data-theme=gruvbox-light],.thsw[data-theme=gruvbox-light]{
+  --bg:#f2e5bc;--panel:#fbf1c7;--panel-2:#f7ecc3;--ink:#3c3836;--muted:#665c54;--faint:#928374;
+  --line:#e5d5ad;--line2:#d5c4a1;--user-bg:#ebdbb2;--code-bg:#f2e5bc;--accent:#af3a03;--danger:#9d0006;
+  --hk:#9d0006;--hs:#79740e;--hn:#8f3f71;--ht:#076678;--hy:#b57614;--hm:#af3a03;
+}
+:root[data-theme=gruvbox],.thsw[data-theme=gruvbox]{
+  --bg:#1d2021;--panel:#282828;--panel-2:#2e2c2b;--ink:#ebdbb2;--muted:#bdae93;--faint:#928374;
+  --line:#3c3836;--line2:#504945;--user-bg:#3c3836;--code-bg:#32302f;--accent:#fe8019;--danger:#fb4934;
+  --hk:#fb4934;--hs:#b8bb26;--hn:#d3869b;--ht:#8ec07c;--hy:#fabd2f;--hm:#fe8019;
+}
+:root[data-theme=purple],.thsw[data-theme=purple]{   /* Shades of Purple */
+  --bg:#1e1e3f;--panel:#2d2b55;--panel-2:#322f5e;--ink:#f1eeff;--muted:#b6aef0;--faint:#8178c7;
+  --line:#3d3a72;--line2:#4e4a90;--user-bg:#3b3870;--code-bg:#25234a;--accent:#fad000;--danger:#ff628c;
+  --hk:#ff9d00;--hs:#a5ff90;--hn:#ff628c;--ht:#fad000;--hy:#9effff;--hm:#b362ff;
+}
+:root[data-theme=nord],.thsw[data-theme=nord]{
+  --bg:#2a303c;--panel:#2e3440;--panel-2:#353c4a;--ink:#eceff4;--muted:#b8c1d1;--faint:#7b88a1;
+  --line:#3b4252;--line2:#4c566a;--user-bg:#3b4252;--code-bg:#323946;--accent:#88c0d0;--danger:#bf616a;
+  --hk:#81a1c1;--hs:#a3be8c;--hn:#b48ead;--ht:#88c0d0;--hy:#8fbcbb;--hm:#d08770;
+}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
@@ -51,6 +103,19 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .sel{display:flex;align-items:center;gap:4px;background:var(--user-bg);border-radius:9px;padding:2px 2px 2px 8px;color:var(--muted);font-size:12px;flex:none}
 .webt{display:flex;align-items:center;gap:5px;flex:none;border:1px solid transparent;background:var(--user-bg);color:var(--muted);border-radius:9px;padding:5px 9px;font:12px var(--sans);cursor:pointer}
 .webt .i{width:14px;height:14px}
+.thmenu{position:fixed;z-index:60;min-width:230px;padding:6px;border:1px solid var(--line2);border-radius:12px;background:var(--panel);box-shadow:var(--shadow);display:none}
+.thmenu.open{display:block}
+.thmenu .thh{padding:4px 8px 6px;font-size:11.5px;color:var(--faint)}
+.thmenu button{display:flex;align-items:center;gap:10px;width:100%;padding:6px 8px;border-radius:8px;text-align:left;font-size:13px;color:var(--ink)}
+.thmenu button:hover,.thmenu button:focus-visible{background:var(--user-bg);outline:none}
+.thmenu button .ck{margin-left:auto;color:var(--accent);visibility:hidden}
+.thmenu button[aria-checked=true] .ck{visibility:visible}
+.thsw{display:inline-flex;width:34px;height:20px;border-radius:6px;overflow:hidden;border:1px solid var(--line2);flex:none;background:var(--bg)}
+.thsw i{flex:1;background:var(--panel);border-left:1px solid var(--line)}
+.thsw i:first-child{flex:1.3;background:var(--bg);border:0;position:relative}
+.thsw i:first-child::after{content:'';position:absolute;left:4px;right:4px;top:8px;height:3px;border-radius:2px;background:var(--ink);opacity:.7}
+.thsw i:last-child{flex:.6;background:var(--accent)}
+.thsys{display:inline-flex;gap:2px;flex:none}.thsys .thsw{width:16px}.thsys .thsw i:first-child::after{display:none}
 .webt.on{background:color-mix(in srgb,var(--accent) 14%,transparent);border-color:color-mix(in srgb,var(--accent) 45%,transparent);color:var(--ink)}
 .wact{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--faint);margin-top:2px}.wact .i{width:13px;height:13px;flex:none}
 .wsrc{margin:2px 0 4px;font-size:12.5px;color:var(--muted)}
@@ -555,19 +620,13 @@ a.pref:hover{border-bottom-style:solid}
 .dmsg{flex:1;font-size:12.5px;color:var(--muted);align-self:center}
 .cnode.docnode .crs .cr{font-family:var(--sans)}
 .mnode .docico{margin-top:1px}
-.hljs-keyword,.hljs-selector-tag,.hljs-built_in{color:#a0439a}
-.hljs-string,.hljs-attr,.hljs-template-string{color:#3b7d3b}
-.hljs-number,.hljs-literal{color:#b5562a}
+.hljs-keyword,.hljs-selector-tag,.hljs-built_in{color:var(--hk)}
+.hljs-string,.hljs-attr,.hljs-template-string{color:var(--hs)}
+.hljs-number,.hljs-literal{color:var(--hn)}
 .hljs-comment{color:var(--faint);font-style:italic}
-.hljs-title,.hljs-title.function_,.hljs-section{color:#2d6cb5}
-.hljs-type,.hljs-class .hljs-title{color:#9a6a00}
-.hljs-meta{color:#8a6d3b}
-@media (prefers-color-scheme:dark){
-.hljs-keyword,.hljs-selector-tag,.hljs-built_in{color:#d295e8}
-.hljs-string,.hljs-attr,.hljs-template-string{color:#9ccc8a}
-.hljs-number,.hljs-literal{color:#f0a070}
-.hljs-title,.hljs-title.function_,.hljs-section{color:#7fb4f0}
-.hljs-type,.hljs-class .hljs-title{color:#e5c06a}}
+.hljs-title,.hljs-title.function_,.hljs-section{color:var(--ht)}
+.hljs-type,.hljs-class .hljs-title{color:var(--hy)}
+.hljs-meta{color:var(--hm)}
 @media (max-width:1100px){.top .lbl{display:none}.ctitle{max-width:18vw}}
 @media (max-width:760px){.sgrip{display:none}.app{grid-template-columns:0 1fr}.app .side{display:none}.app.sideopen .side{display:block;position:fixed;top:48px;bottom:0;left:0;width:min(300px,86vw);z-index:40;box-shadow:var(--shadow)}.pane{min-width:88vw}.sel span{display:none}
   /* phone top bar: logo, model, and view switcher only */
@@ -591,6 +650,7 @@ a.pref:hover{border-bottom-style:solid}
     <label class="sel" title="How much the model thinks before answering. Higher is slower but more careful."><span>Effort</span><select id="eSel"></select></label>
     <button class="webt" id="webT" aria-pressed="false" style="display:none" title="Web search: let new replies look things up online. Only search queries leave; your chats and documents stay on this server. You can switch this any time."><span class="wi"></span><span class="lbl">Web</span></button>
     <button class="webt" id="resetOrder" style="display:none" title="Put the panes back in branching order: each branch right after the thread it came from">Reset order</button>
+    <button class="ib" id="themeB" title="Theme" aria-haspopup="true" aria-expanded="false"></button>
     <div class="seg" id="viewSeg">
       <button data-v="cols" title="Show threads as panes side by side"><span></span><b class="lbl" style="font-weight:inherit">Columns</b></button>
       <button data-v="rows" title="Show threads as panes stacked top to bottom"><span></span><b class="lbl" style="font-weight:inherit">Rows</b></button>
@@ -647,6 +707,7 @@ a.pref:hover{border-bottom-style:solid}
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="prompts.js"></script>
 <script>
 window.MathJax={svg:{fontCache:'local'},startup:{typeset:false,ready(){MathJax.startup.defaultReady();MathJax.startup.promise.then(()=>{window.__mathReady&&window.__mathReady()})}}};
 </script>
@@ -656,21 +717,14 @@ window.MathJax={svg:{fontCache:'local'},startup:{typeset:false,ready(){MathJax.s
 'use strict';
 /* ---------- constants ---------- */
 const PALETTE=['#d9774b','#3f8fd2','#3fa077','#9d6ad6','#cc9a2e','#d65a8a','#2a9ea3','#7f8f36'];
-const SYS=`You are a patient, precise tutor helping someone learn technical concepts through conversation.
-Formatting: write in Markdown. Use LaTeX for math: $...$ inline and $$...$$ for display. When a diagram genuinely helps (a flow, architecture, sequence, state machine, or hierarchy), include a Mermaid code block (\`\`\`mermaid). Keep Mermaid simple and valid: quote node labels that contain punctuation. Use code blocks with a language tag for code.
-Style: build intuition first, then precision. Prefer short sections, concrete examples and clear structure over long walls of text.
-The interface lets the learner open side branches off any reply. A side branch always includes the full conversation up to that reply. When a message is marked as a side question, answer that question directly and in context, focused on the highlighted passage if there is one, without re-explaining everything. Notes marked as takeaways were carried back from side branches; build on them.`;
-const QUICK=[
-  ['Explain simpler','Explain this more simply, as if I\'m new to it.'],
-  ['Example','Give me a concrete example of this.'],
-  ['Why?','Why is this the case? What\'s the intuition?'],
-  ['Go deeper','Go deeper on this. What\'s really going on under the hood?'],
-];
+const SYS=PROMPTS.system,QUICK=PROMPTS.quick;   // every instruction to the model is in web/prompts.js
 const STARTERS=['How does self-attention in transformers work?','Explain the Raft consensus algorithm','What is a Fourier transform, intuitively?','How does a B-tree index speed up queries?'];
 // shown until the server's own model list (/api/models) arrives
 const MODELS=[['auto','Auto'],['claude-opus-5-5','Opus 5.5'],['claude-sonnet-5-5','Sonnet 5.5'],['claude-haiku-5-5','Haiku 5.5'],['claude-fable-5-2','Fable 5.2']];
 const EFFORTS=[['auto','Auto'],['low','Low'],['medium','Medium'],['high','High']];
 const I={
+ check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+ palette:'<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.8 1.7-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7h2a5 5 0 0 0 5-5C21.4 6.4 17.2 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7" r="1.2"/><circle cx="15.5" cy="7.5" r="1.2"/>',
  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
  side:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
  cols:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
@@ -712,7 +766,7 @@ const trunc=(s,n)=>{s=String(s||'').replace(/\s+/g,' ').trim();return s.length>n
 const plain=(md)=>String(md||'').replace(/```mermaid[\s\S]*?(```|$)/g,' [diagram] ').replace(/```[\s\S]*?(```|$)/g,' [code] ').replace(/\$\$[\s\S]*?\$\$/g,' [equation] ').replace(/\$([^$\n]+)\$/g,'$1').replace(/\\(sqrt|frac|cdot|sum|int|left|right|text|mathbf|mathrm)/g,'').replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/[#*_`>|]/g,'').replace(/\s+/g,' ').trim();
 
 /* ---------- settings ---------- */
-const settings={model:'auto',effort:'auto',web:false};
+const settings={model:'auto',effort:'auto',web:false,theme:'system'};
 try{Object.assign(settings,JSON.parse(localStorage.getItem('sq:settings')||'{}'))}catch(e){}
 function saveSettings(){try{localStorage.setItem('sq:settings',JSON.stringify(settings))}catch(e){}}
 const modelLabel=(v)=>{if(!v)return '';if(typeof v==='object')v=v.model||v.id||'';const list=(typeof io!=='undefined'&&io.llm&&io.llm.models())||MODELS;const m=list.find(x=>x[0]===v)||MODELS.find(x=>x[0]===v);return m?m[1]:String(v).replace(/^claude-/,'')};
@@ -1096,8 +1150,7 @@ async function draftCards(c0,tid,o){
   await docReady();
   const ctx=buildContext(tid),seen=lastReply(tid);   // the same context and document tools as the conversation, so it can check the document and shares its prompt cache
   const have=[...CARDS.values()].filter(c=>c.conv===conv.id).map(c=>'- '+c.front.replace(/\s+/g,' ').slice(0,160)).slice(-80);
-  const what=o.takeaway?`the takeaway below, which the learner carried back from this side branch:\n\n${o.takeaway}\n\n`:tid==='main'?'the main thread of this conversation. ':`this side branch${t.anchorText?` (about “${trunc(t.regionText||t.anchorText,120)}”)`:''}. `;
-  const ask=`[Flashcards] Make spaced-repetition flashcards from ${what}Keep only what is worth remembering for a long time: key ideas, definitions, reasons, and corrections of misunderstandings, especially what the learner asked about. Each card has a "front" that asks one specific question, understandable on its own months from now${t.anchorRegion&&!isWholePage(t.anchorRegion)?' (the snipped image will be shown with it)':''}, and a "back" with a short answer (one to three sentences; Markdown and LaTeX are fine). At most ${o.takeaway?4:3} cards; fewer is better, and none if nothing here is worth remembering.${have.length?`\nDon't repeat these existing cards:\n${have.join('\n')}`:''}\nReply with only a JSON array, like [{"front": "...", "back": "..."}].`;
+  const ask=PROMPTS.cardsAsk({what:o.takeaway?'takeaway':tid==='main'?'main':'branch',about:t.anchorText?trunc(t.regionText||t.anchorText,120):'',takeaway:o.takeaway,snip:!!(t.anchorRegion&&!isWholePage(t.anchorRegion)),max:o.takeaway?4:3,have});
   const msgs=ctx.messages,last=msgs[msgs.length-1];if(last&&last.role==='user')appendText(last,'\n\n'+ask);else msgs.push({role:'user',content:ask});
   if(!io.llm)await io.ready;
   const rc=await resolveContext(ctx,!!io.llm.supportsImages);
@@ -1244,10 +1297,9 @@ $('#reviewBtn').addEventListener('click',()=>openCards('all'));
 
 /* ---------- context for Claude ---------- */
 function branchPrefix(t){
-  if(isDocBranch(t))return `[Side question about this passage from the document${conv.doc&&conv.doc.kind==='pdf'?` (p. ${t.anchorPage+1})`:''}:]\n> ${(t.anchorText||'').replace(/\n+/g,'\n> ')}\n\n`;
-  return t.anchorText
-    ? `[Side question about your reply above. The learner highlighted this part of it:]\n> ${t.anchorText.replace(/\n+/g,'\n> ')}\n\n`
-    : `[Side question about your reply above:]\n\n`;
+  const quote=(x)=>'> '+String(x||'').replace(/\n+/g,'\n> ');
+  if(isDocBranch(t))return PROMPTS.branch.docPassage(quote(t.anchorText),conv.doc&&conv.doc.kind==='pdf'?t.anchorPage+1:0);
+  return t.anchorText?PROMPTS.branch.replyPassage(quote(t.anchorText)):PROMPTS.branch.reply();
 }
 /* Messages are built as lists of parts: {type:'text',text} and {type:'image',ref,label}, where ref says
    where the image comes from (a snip or page of the PDF: {region}, a pasted file: {asset} or {data}).
@@ -1257,14 +1309,13 @@ function branchPrefix(t){
 // full text of its page and the pages on either side, in its first message, where it stays for the branch.
 function aroundParts(t){
   const P=docState.pages,pdf=docState.kind==='pdf',a=Math.max(0,t.anchorPage-1),b=Math.min(P.length-1,t.anchorPage+1),lab=(i)=>pdf?`p. ${i+1}`:`part ${i+1}`;
-  return [{type:'text',text:`[The text of ${a===b?lab(a):`${pdf?'pp.':'parts'} ${a+1}–${b+1}`}, around it:]\n${P.slice(a,b+1).map((_,k)=>`[${lab(a+k)}]\n${pageText(a+k)}`).join('\n\n')}\n\n`}];
+  return [{type:'text',text:PROMPTS.branch.around(a===b?lab(a):`${pdf?'pp.':'parts'} ${a+1}–${b+1}`,P.slice(a,b+1).map((_,k)=>`[${lab(a+k)}]\n${pageText(a+k)}`).join('\n\n'))}];
 }
 function branchParts(t,tools){
   if(tools&&isDocBranch(t)&&docTooLong()&&Number.isInteger(t.anchorPage))return [...branchParts(t,false),...aroundParts(t)];
   if(isDocBranch(t)&&t.anchorRegion){
     const r=t.anchorRegion,p=t.anchorPage+1,whole=isWholePage(r);
-    const head=whole?`[Side question about page ${p} of the document, shown in this image of the page:]\n`
-      :`[Side question about this area of the document (p. ${p}), shown in this image${t.regionText?`. Text found inside it: "${t.regionText}"`:''}:]\n`;
+    const head=whole?PROMPTS.branch.docPage(p):PROMPTS.branch.docSnip(p,t.regionText);
     return [{type:'text',text:head},{type:'image',ref:{region:{page:p,x:r.x,y:r.y,w:r.w,h:r.h}},label:whole?`page ${p}`:`the snip from p. ${p}`},{type:'text',text:'\n\n'}];
   }
   return [{type:'text',text:branchPrefix(t)}];
@@ -1286,7 +1337,7 @@ function buildContext(tid,excludeMid,opts){
     for(const mid of mids){
       if(mid===excludeMid)continue;
       const m=conv.msgs[mid];if(!m)continue;let c=m.content||'';
-      if(m.role==='note'){if(c&&!m.pending)push('user',`[Takeaway carried back from the side branch "${T(m.fromThread)?T(m.fromThread).title:'(deleted)'}":]\n${c}`);continue}
+      if(m.role==='note'){if(c&&!m.pending)push('user',PROMPTS.takeawayNote(T(m.fromThread)?T(m.fromThread).title:'(deleted)',c));continue}
       if(m.role==='assistant'&&(!c||m.pending))continue;
       let parts=[{type:'text',text:c}];
       if(m.role==='user'){
@@ -1302,7 +1353,7 @@ function buildContext(tid,excludeMid,opts){
   if(out.length&&conv.doc){
     const last=out[out.length-1];
     system=SYS+'\n\n'+docPreamble(tid,last.role==='user'?partsText(last.parts):'',tools);
-    if(tid==='main'&&docState&&docState.kind==='pdf'&&conv.ui.open.includes('doc')&&!isCollapsed('doc')&&last.role==='user')last.parts.push({type:'text',text:`\n\n(The learner is currently looking at p. ${docView.current} of the document.)`});
+    if(tid==='main'&&docState&&docState.kind==='pdf'&&conv.ui.open.includes('doc')&&!isCollapsed('doc')&&last.role==='user')last.parts.push({type:'text',text:PROMPTS.lookingAt(docView.current)});
   }
   return {system,messages:out.map(o=>({role:o.role,content:joinParts(o.parts)})),docSeen:lastDocSeen,tools:tools&&!!(conv.doc&&docState&&docState.loaded)};
 }
@@ -1316,7 +1367,7 @@ async function resolveContext(ctx,canImages){
     const parts=[];
     for(const p of m.content){
       if(p.type!=='image'){parts.push(p);continue}
-      if(!canImages){skipped++;parts.push({type:'text',text:`[An image was here (${p.label||'an image'}), but this connection can't send images.]`});continue}
+      if(!canImages){skipped++;parts.push({type:'text',text:PROMPTS.noImages(p.label||'an image')});continue}
       let b;try{b=await imageBlob(p.ref)}catch(e){throw {message:`An image in this conversation (${p.label||'an image'}) couldn’t be loaded, so nothing was sent. ${(e&&e.message)||''}`}}
       parts.push({type:'image',mediaType:b.type,data:await blobB64(b)});
     }
@@ -1382,7 +1433,7 @@ async function bringBack(tid,focus){
   if(streaming.has(parent)){toast('Wait for the parent thread to finish replying');return}
   await docReady();
   const ctx=buildContext(tid);
-  const ask=`Write a short takeaway from this side branch that I can carry back into the parent discussion: 2 to 4 brief bullet points with the key insights, conclusions or corrections worth remembering${focus?`, focusing on: ${focus}`:''}. No preamble or heading.`;
+  const ask=PROMPTS.takeawayAsk(focus);
   const msgs=ctx.messages,last=msgs[msgs.length-1];if(last&&last.role==='user')appendText(last,'\n\n'+ask);else msgs.push({role:'user',content:ask});
   const note=addMsg(parent,'note','',{fromThread:tid,focus});note.pending=true;
   if(!conv.ui.open.includes(parent))openThread(parent);
@@ -1528,11 +1579,17 @@ function loadMermaid(){
   if(mermaidReady)return mermaidReady;
   mermaidReady=new Promise(res=>{
     const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
-    s.onload=()=>{try{const dark=matchMedia('(prefers-color-scheme: dark)').matches;
-      mermaid.initialize({startOnLoad:false,securityLevel:'strict',theme:dark?'dark':'neutral',fontFamily:'Inter, system-ui, sans-serif'});mermaidOk=true}catch(e){}res()};
+    s.onload=()=>{try{mermaidTheme();mermaidOk=true}catch(e){}res()};
     s.onerror=()=>res();document.head.appendChild(s);
   });
   return mermaidReady;
+}
+// diagrams take the theme's colors (mermaid's 'base' theme derives the rest from these)
+function mermaidTheme(){
+  const v=(n)=>getComputedStyle(document.documentElement).getPropertyValue(n).trim(),dark=document.documentElement.dataset.mode==='dark';
+  mermaid.initialize({startOnLoad:false,securityLevel:'strict',theme:'base',fontFamily:'Inter, system-ui, sans-serif',
+    themeVariables:{darkMode:dark,background:v('--panel'),primaryColor:v('--panel-2'),primaryTextColor:v('--ink'),primaryBorderColor:v('--line2'),
+      secondaryColor:v('--user-bg'),tertiaryColor:v('--code-bg'),lineColor:v('--muted'),textColor:v('--ink'),noteBkgColor:v('--user-bg'),noteTextColor:v('--ink'),noteBorderColor:v('--line2'),fontSize:'14px'}});
 }
 async function renderMermaid(root){
   const boxes=[...root.querySelectorAll('.mermaid-box:not([data-done])')];if(!boxes.length)return;
@@ -2769,18 +2826,17 @@ const docTooLong=()=>!!(docState&&docState.loaded&&docState.pages.reduce((n,p)=>
 function docPreamble(tid,question,tools){
   lastDocSeen=null;
   if(!conv.doc)return '';
-  if(!docState||!docState.loaded)return `[The learner is reading a document titled "${conv.doc.name}", but its text couldn't be loaded right now.]`;
+  if(!docState||!docState.loaded)return PROMPTS.doc.notLoaded(conv.doc.name);
   const P=docState.pages,pdf=docState.kind==='pdf',label=i=>pdf?`p. ${i+1}`:`part ${i+1}`;
-  const cite=pdf?'When you refer to specific places, cite them in square brackets like [p. 4] so the learner can click to jump there.':'When you refer to specific places, name the section heading.';
+  const D=PROMPTS.doc,cite=D.cite(pdf),unit=pdf?'pages':'parts';
   if(tools){
     // With the document tools the model reads what it needs itself. What it starts with is fixed for the
     // whole conversation (the same text every question, so every thread shares one prompt cache): all of
     // it when it fits; otherwise the table of contents and the first pages. Branches about a passage add
     // the pages around it to their own first message (branchParts), where they stay for the whole branch.
-    const head=`The learner is reading a document titled "${docState.name}" (${P.length} ${pdf?'pages':'parts'}).`;
-    const look=pdf?` Only text was extracted, so figures, charts, images and layout are missing and equations or tables may be garbled: when one matters, look at the page with view_page instead of guessing what it shows.`
-      :conv.doc.article?` It is a web article${conv.doc.source?` (from ${conv.doc.source})`:''}, kept as Markdown. Its pictures are marked [Image: description](link): you can't see them in the text, so when one matters, call view_page with that part's number to see the pictures in it, instead of guessing what they show. The parts are the [part N] labels below.`:'';
-    if(!docTooLong())return `${head} Its full extracted text is below, so you don't need search or read_pages.${look} ${cite}
+    const head=D.head(docState.name,P.length,unit);
+    const look=pdf?D.lookPdf:conv.doc.article?D.lookArticle(conv.doc.source):'';
+    if(!docTooLong())return `${head}${D.whole}${look} ${cite}
 <document>
 ${P.map((_,i)=>`[${label(i)}]
 ${pageText(i)}`).join('\n\n')}
@@ -2788,7 +2844,7 @@ ${pageText(i)}`).join('\n\n')}
     const ol=docState.outline,n=Math.min(DOC_FIRST,P.length);
     let toc='';if(ol&&ol.length){for(const x of ol){const l='  '.repeat(Math.min(x.depth,6))+x.title+(x.page?` … ${label(x.page-1)}`:'');if(toc.length+l.length>16000){toc+='  … (the contents go on)\n';break}toc+=l+'\n'}}
     lastDocSeen={of:P.length,tools:true,pages:`${toc?'the contents and ':''}${n>1?`pp. 1–${n}`:'p. 1'}`};
-    return `${head} It is too long to include whole. Below are ${toc?'its table of contents and ':''}its first ${n} ${pdf?'pages':'parts'}; a side question about a passage also comes with the text around it. You can read the rest yourself with your tools: search finds where something is, read_pages reads it${pdf?', view_page shows a page as an image':''}. Use them whenever the answer depends on something you haven't read: a section, figure, table, definition or result the question or the text refers to. Look first, then answer. If you can't find something, say so plainly; never guess what an unread part says.${look} ${cite}
+    return `${head}${D.tooLong({toc:!!toc,n,unit,pdf})}${look} ${cite}
 ${toc?`<contents>
 ${toc}</contents>
 `:''}<document>
@@ -2821,8 +2877,8 @@ ${pageText(i)}`).join('\n\n')}
   }
   if(prev<P.length-1)out.push(`[${span([prev+1,P.length-1])} not included]`);
   lastDocSeen=partial?{n:pick.size,of:P.length,pages:ranges(sorted).map(span).join(', ')}:null;
-  const cut=partial?` The document is too long to include whole: only ${pick.size} of its ${P.length} ${pdf?'pages':'parts'} are below, and each gap is marked. Missing: ${missing.map(span).join(', ')}. If the answer could depend on a part that isn't included (a section, figure or table it refers to), say so plainly and name the ${pdf?'page':'part'} the learner should send you; never guess what it says.`:'';
-  return `The learner is reading a document titled "${docState.name}" (${P.length} ${pdf?'pages':'parts'}). Its extracted text is below.${cut} ${pdf?'When you refer to specific places, cite them in square brackets like [p. 4] so the learner can click to jump there.':'When you refer to specific places, name the section heading.'} Only the text was extracted: you can't see figures, charts, images or the layout, and extraction can garble equations, tables or columns. If a question depends on something visual you can't see, say so and suggest the learner snip it (they can send you a picture of any area of a page); don't describe what it probably shows.\n<document>\n${out.join('\n\n')}\n</document>`;
+  const cut=partial?D.cut({n:pick.size,of:P.length,unit,missing:missing.map(span).join(', '),one:pdf?'page':'part'}):'';
+  return `${D.head(docState.name,P.length,unit)}${D.textOnly}${cut} ${cite}${D.noVisuals}\n<document>\n${out.join('\n\n')}\n</document>`;
 }
 /* ---------- document tools: what runs here when the model calls one ----------
    The definitions the model sees, the rules and the loop are on the server (server/doctools.mjs); the server
@@ -3672,6 +3728,32 @@ function fillModelPicker(){
   webT.style.display=io.llm&&io.llm.supportsWeb?'':'none';
 }
 webT.querySelector('.wi').outerHTML=ic('globe');
+/* theme menu: hovering a theme previews it, clicking keeps it (the menu stays open to try others) */
+const themeB=$('#themeB');themeB.innerHTML=ic('palette');
+const themeMenu=document.createElement('div');themeMenu.className='thmenu';themeMenu.setAttribute('role','menu');themeMenu.innerHTML='<div class="thh">Theme</div>';
+const sw=(id)=>`<span class="thsw" data-theme="${id}"><i></i><i></i><i></i></span>`;
+for(const [id,name] of THEMES){
+  const b=document.createElement('button');b.dataset.theme=id;b.setAttribute('role','menuitemradio');
+  b.innerHTML=(id==='system'?`<span class="thsys">${sw('light')}${sw('dark')}</span>`:sw(id))+`<span></span><span class="ck">${ic('check')}</span>`;
+  b.children[1].textContent=name;themeMenu.appendChild(b);
+}
+document.body.appendChild(themeMenu);
+function setTheme(id,keep){
+  const was=document.documentElement.dataset.theme;applyTheme(id);
+  if(keep){settings.theme=id;saveSettings();themeMenu.querySelectorAll('button').forEach(b=>b.setAttribute('aria-checked',b.dataset.theme===settings.theme?'true':'false'))}
+  if(document.documentElement.dataset.theme!==was&&mermaidOk){mermaidTheme();document.querySelectorAll('.mermaid-box[data-done]').forEach(b=>b.removeAttribute('data-done'));renderMermaid(document)}
+}
+setTheme(settings.theme,true);
+function closeThemes(){if(!themeMenu.classList.contains('open'))return;themeMenu.classList.remove('open');themeB.setAttribute('aria-expanded','false');setTheme(settings.theme)}
+themeB.onclick=(e)=>{e.stopPropagation();if(themeMenu.classList.contains('open'))return closeThemes();
+  const r=themeB.getBoundingClientRect();themeMenu.classList.add('open');themeB.setAttribute('aria-expanded','true');
+  themeMenu.style.top=(r.bottom+6)+'px';themeMenu.style.left=Math.max(8,Math.min(innerWidth-themeMenu.offsetWidth-8,r.right-themeMenu.offsetWidth))+'px'};
+themeMenu.addEventListener('mouseover',e=>{const b=e.target.closest('button');if(b)setTheme(b.dataset.theme)});
+themeMenu.addEventListener('mouseleave',()=>setTheme(settings.theme));
+themeMenu.addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('button');if(b)setTheme(b.dataset.theme,true)});
+document.addEventListener('click',closeThemes);
+addEventListener('keydown',e=>{if(e.key==='Escape'&&themeMenu.classList.contains('open')){e.stopPropagation();closeThemes()}},true);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(settings.theme==='system')setTheme('system')});
 function showWeb(){webT.setAttribute('aria-pressed',settings.web?'true':'false');webT.classList.toggle('on',!!settings.web)}
 showWeb();
 webT.onclick=()=>{settings.web=!settings.web;saveSettings();showWeb();setStatus(settings.web?'Web search on for new replies':'Web search off')};

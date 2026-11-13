@@ -1,5 +1,5 @@
 // Digress's service worker: keeps the app usable without a connection, for reviewing flashcards.
-//  - The page itself: network first, so you always get the latest; the cached copy only when offline.
+//  - The page itself and prompts.js: network first, so you always get the latest; the cached copy only when offline.
 //  - Libraries from the CDNs and fonts: versioned URLs that never change, so cache first.
 //  - GET /api/files/<id> (pasted screenshots, snips kept with cards): ids are never reused, so cache first.
 //  - Everything else under /api/ (conversations, chat, cards) always goes to the server; the page keeps
@@ -22,14 +22,14 @@ async function cacheFirst(req) {
   if (res.ok || res.type === 'opaque') c.put(req, res.clone());
   return res;
 }
-async function networkFirst(req) {
+async function networkFirst(req, key) {
   const c = await caches.open(CACHE);
   try {
     const res = await fetch(req);
-    if (res.ok) c.put(new URL('./', self.registration.scope).href, res.clone());
+    if (res.ok) c.put(key, res.clone());
     return res;
   } catch (e) {
-    return (await c.match(new URL('./', self.registration.scope).href)) || Response.error();
+    return (await c.match(key)) || Response.error();
   }
 }
 
@@ -39,6 +39,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (LIBS.test(req.url)) return e.respondWith(cacheFirst(req));
   if (url.origin !== self.location.origin) return;
-  if (req.mode === 'navigate') return e.respondWith(networkFirst(req));
+  if (req.mode === 'navigate') return e.respondWith(networkFirst(req, new URL('./', self.registration.scope).href));
+  if (url.pathname.endsWith('/prompts.js')) return e.respondWith(networkFirst(req, url.origin + url.pathname));
   if (/\/api\/files\/[a-f0-9]{32}$/.test(url.pathname)) return e.respondWith(cacheFirst(req));
 });

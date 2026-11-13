@@ -1,30 +1,18 @@
 # Future directions
 
-Ideas that aren't built yet, written down so they aren't lost, plus what was built from here and what's
-still open about it.
+Ideas that aren't built yet, written down so they aren't lost. What's already built is in [done.md](done.md).
 
-## Done: the model reads documents itself
+## Loose ends
 
-Built and tested (see AGENTS.md, "Document tools"): `search`, `read_pages` and `view_page`, defined once in
-`server/doctools.mjs` and run in the browser tab, with one agentic loop per provider (Anthropic API, ChatGPT
-function calls, Claude Code through a one-reply MCP endpoint). A document under 200k characters goes whole;
-a longer one starts from its table of contents and first 3 pages, and a branch about a passage carries the
-pages around it. Each reply shows what it searched, read and looked at.
-
-Still open:
-- A `view_area` tool (a sharp crop of part of a page) if small chart text turns out to be misread.
-- OpenAI's prompt cache on the plan route is best-effort: measured hit rates from 0 to 5 of 8 identical
+- **Document tools:** a `view_area` tool (a sharp crop of part of a page) if small chart text turns out to
+  be misread.
+- **Prompt cache on the ChatGPT plan route** is best-effort: measured hit rates from 0 to 5 of 8 identical
   requests with the same prompt_cache_key, with or without tools. Nothing more to set on our side
   (prompt_cache_retention isn't accepted there); recheck if OpenAI documents more.
-
-## Done: web articles as documents
-
-Built (see AGENTS.md, "Web articles"): paste a link to an article and it opens in reader view as a
-Markdown document, images as placeholders you can load. Still open:
-- A bookmarklet or small browser extension that sends the article from the tab you're reading, for pages
-  the server can't fetch (logins, paywalls you pay for).
-- Pasted or uploaded Markdown with image links still loads those images straight from their sites; it
-  could get the same placeholders.
+- **Web articles:** a bookmarklet or small browser extension that sends the article from the tab you're
+  reading, for pages the server can't fetch (logins, paywalls you pay for).
+- **Images in Markdown:** pasted or uploaded Markdown with image links still loads those images straight
+  from their sites; it could get the same placeholders as web articles.
 
 ## Sub-agents that explore
 

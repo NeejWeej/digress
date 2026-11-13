@@ -536,9 +536,10 @@ async function route(req, res) {
     }
     return createReadStream(WEB).pipe(res);
   }
-  if (req.method === 'GET' && url.pathname === '/sw.js') {   // the service worker that lets you review flashcards offline
+  // sw.js: the service worker that lets you review flashcards offline; prompts.js: what the page tells the model
+  if (req.method === 'GET' && (url.pathname === '/sw.js' || url.pathname === '/prompts.js')) {
     res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache' });
-    return createReadStream(path.join(ROOT, 'web', 'sw.js')).pipe(res);
+    return createReadStream(path.join(ROOT, 'web', url.pathname.slice(1))).pipe(res);
   }
   if (DEV && url.pathname === '/__dev/events') return devEvents(req, res);
   if (parts[0] !== 'api') return fail(res, 404, 'Not found');
