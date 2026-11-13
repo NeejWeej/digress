@@ -47,10 +47,9 @@ async def main():
 
         main = pg.locator('.pane[data-tid=main]')
         z = main.locator('.pzoom')
-        await pg.mouse.move(5, 880); await pg.wait_for_timeout(300)
-        check('zoom controls are hidden until you hover the pane', await z.evaluate('e=>getComputedStyle(e).opacity') == '0')
-        await main.hover(); await pg.wait_for_timeout(250)
-        check('hovering a pane shows them', await z.evaluate('e=>getComputedStyle(e).opacity') == '1' and await main.locator('.pzl').text_content() == '100%')
+        check('the zoom controls sit in the pane header, above the text, never over it',
+              await z.evaluate("e=>!!e.closest('.ph')&&e.getBoundingClientRect().bottom<=e.closest('.pane').querySelector('.pb').getBoundingClientRect().top")
+              and await z.is_visible() and await main.locator('.pzl').text_content() == '100%')
         msg = main.locator('.msg.assistant .body').first
         h0 = await msg.evaluate('e=>e.getBoundingClientRect().height'); w0 = await msg.evaluate('e=>e.getBoundingClientRect().width')
         for _ in range(3): await main.locator('[data-act=zin]').click()

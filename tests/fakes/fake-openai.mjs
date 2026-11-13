@@ -8,6 +8,7 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { scriptFor, INTRO, answer } from './doc-script.mjs';
 const port = Number(process.argv[2] || 8798);
 const BASE = `http://127.0.0.1:${port}`;
 const log = (o) => process.env.FAKE_LOG && fs.appendFileSync(process.env.FAKE_LOG, JSON.stringify(o) + '\n');
@@ -68,7 +69,7 @@ http.createServer((req, res) => {
     const j = JSON.parse(body);
     log({ token: auth, ...j });
     const bad = j.store !== false ? 'store' : j.stream !== true ? 'stream' : 'max_output_tokens' in j ? 'max_output_tokens' : 'temperature' in j ? 'temperature'
-      : j.input.some((m) => m.role === 'system') ? 'input' : (j.tools || []).some((t) => t.type !== 'web_search') ? 'tools' : null;
+      : j.input.some((m) => m.role === 'system') ? 'input' : (j.tools || []).some((t) => t.type !== 'web_search' && t.type !== 'function') ? 'tools' : null;
     if (bad) return json(400, { error: { code: 'subscription_sharing_unsupported_capability', param: bad, message: 'unsupported ' + bad } });
     if (j.reasoning && j.reasoning.effort === 'max') return json(400, { error: { message: "Unsupported value: 'reasoning.effort' does not support 'max' with this model." } });
     res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -82,6 +83,32 @@ http.createServer((req, res) => {
       for (const p of text.match(/[\s\S]{1,10}/g)) ev({ type: 'response.output_text.delta', output_index: i, delta: p });
       ev({ type: 'response.output_item.done', output_index: i, item: { type: 'message', role: 'assistant', content: [{ type: 'output_text', text, annotations }] } });
     };
+    const asked = [...j.input].reverse().find((m) => m.role === 'user');
+    const ROUNDS = asked && scriptFor(JSON.stringify(asked.content));
+    if ((j.tools || []).some((t) => t.type === 'function' && t.name === 'read_pages') && ROUNDS) {
+      const outs = j.input.filter((it) => it.type === 'function_call_output'), calls = j.input.filter((it) => it.type === 'function_call');
+      let done = 0; for (let n = 0; done < ROUNDS.length && n + ROUNDS[done].length <= outs.length; done++) n += ROUNDS[done].length;
+      if (done > 0) {
+        // store:false: the model's encrypted reasoning from each earlier round must come back, as must its calls
+        const enc = j.input.filter((it) => it.type === 'reasoning').map((it) => it.encrypted_content);
+        if (!(j.include || []).includes('reasoning.encrypted_content') || !Array.from({ length: done }, (_, k) => `ENC-${k + 1}`).every((e) => enc.includes(e)) || calls.length !== outs.length) {
+          ev({ type: 'response.failed', response: { ...resp, status: 'failed', error: { message: `tool loop state not sent back: include=${j.include} reasoning=${enc} calls=${calls.length} outputs=${outs.length}` } } }); return res.end();
+        }
+      }
+      if (done < ROUNDS.length) {
+        let i = 0;
+        ev({ type: 'response.output_item.done', output_index: i++, item: { type: 'reasoning', id: `rs_${done + 1}`, summary: [], encrypted_content: `ENC-${done + 1}` } });
+        if (done === 0) say(i++, INTRO);
+        ROUNDS[done].forEach(([name, input], k) => ev({ type: 'response.output_item.done', output_index: i++, item: { type: 'function_call', id: `fc_${done}${k}`, call_id: `call_${done}${k}`, name, arguments: JSON.stringify(input), status: 'completed' } }));
+      } else {
+        const names = new Map(calls.map((c) => [c.call_id, c.name]));
+        const results = outs.map((o) => ({ name: names.get(o.call_id) || 'UNMATCHED', error: /^\(?error/i.test(o.output[0] && o.output[0].text || ''),
+          parts: o.output.map((c) => (c.type === 'input_text' ? { type: 'text', text: c.text } : { type: 'image', mediaType: c.image_url.slice(5, c.image_url.indexOf(';')), data: c.image_url.split(',', 2)[1] })) }));
+        say(0, answer(results));
+      }
+      ev({ type: 'response.completed', response: { ...resp, status: 'completed', usage: { input_tokens: 1200, input_tokens_details: { cached_tokens: 1024 }, output_tokens: 20 } } });
+      return res.end();
+    }
     if (last.includes('LIMIT')) {
       say(0, 'Partial ');
       ev({ type: 'response.failed', response: { ...resp, status: 'failed', error: { code: 'subscription_sharing_usage_limit_exceeded', message: 'limit' } } });

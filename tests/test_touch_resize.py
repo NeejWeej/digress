@@ -32,6 +32,8 @@ async def main():
         await pg.wait_for_timeout(150)
         await pg.locator('#popIn').fill('Why soft?'); await pg.locator('#popIn').press('Enter'); await pg.wait_for_timeout(1200)
         main = pg.locator('.pane[data-tid=main]')
+        fit = await pg.evaluate("[getComputedStyle(document.querySelector('.app')).height, innerHeight, document.scrollingElement.scrollHeight, getComputedStyle(document.body).overflow]")
+        check('on a phone the app fits the visible screen and the page itself never scrolls (top bar stays put)', abs(float(fit[0][:-2]) - fit[1]) < 1 and fit[2] <= fit[1] and fit[3] == 'hidden', str(fit))
         w0 = await main.evaluate('e=>e.getBoundingClientRect().width')
         g = await pg.locator('.gut').first.bounding_box()
         check('the grip has a finger-sized touch area', await pg.evaluate("parseFloat(getComputedStyle(document.querySelector('.gut'),'::before').left)") <= -8)

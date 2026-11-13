@@ -77,12 +77,18 @@ The **Web** button in the top bar is off until you turn it on, and it applies to
 
 ## Documents from a link
 
-Paste a link to a PDF (or a Markdown or text file) into the **New from a document** dialog and the server downloads it; after that it's stored like an upload. Because the server does the fetching, it is strict:
+Paste a link to a PDF, a Markdown or text file, or a web article into the **New from a document** dialog and the server downloads it; after that it's stored like an upload. Because the server does the fetching, it is strict:
 
 - `http` and `https` only, and no user names or passwords in the link.
 - Public internet addresses only: never this machine or your local network. This is checked when the name is looked up and again on every redirect, so a site can't redirect or re-point its name to get around it.
 - It asks you first before opening an unencrypted `http` link, a bare IP address or an unusual port.
-- It keeps only real PDFs and valid UTF-8 text, up to `MAX_UPLOAD_MB`.
+- It keeps only real PDFs, valid UTF-8 text and web pages, up to `MAX_UPLOAD_MB`.
+
+**Web articles** (blog posts, essays, news) open in reader view. The page is handed to your browser as plain text, never shown as a page, so nothing on it runs. Your browser keeps just the article, using [Readability](https://github.com/mozilla/readability), the engine behind Firefox's reader view, and saves it as Markdown. From then on it works like any text document: highlight to branch, search, flashcards, and the model's document tools. Its links point where they did on the site.
+
+Images aren't downloaded. Each one becomes a placeholder showing its description, with buttons to **load** it or **open the original** in a new tab. Loading goes through the same strict download, accepts only real PNG, JPEG, WebP or GIF files (no SVG), and keeps a copy with the conversation, so the site doesn't see you looking at it again. The model sees the placeholders as text. It can ask to see the pictures in a part of the article (`view_page`), but only the article's own image links, and an image from a link that needs your OK stays unloaded until you load it yourself.
+
+Pages behind a login, or apps rather than articles, won't work: copy the text and paste it instead.
 
 ## Who can talk to the server
 
@@ -121,6 +127,7 @@ Back it up by copying the folder. It's git-ignored.
 | `CHATGPT_LOGIN_PORT` | `1457` | Port for the one-time sign-in callback |
 | `WEB_SEARCH` | on | `off` removes the Web button |
 | `MAX_SEARCHES` | `5` | Searches per reply (API path) |
+| `MAX_TOOL_CALLS` | `15` | Document tool calls (search, read, view) per reply |
 | `PORT` | `8787` | Port to listen on |
 | `HOST` | `127.0.0.1` | Address to listen on |
 | `ALLOWED_HOSTS` | `.ts.net` | Extra names the server answers to (see above) |

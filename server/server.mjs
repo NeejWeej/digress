@@ -22,6 +22,7 @@ import os from 'node:os';
 import * as chatgpt from './chatgpt.mjs';
 import { fetchDocument, WARNINGS } from './fetchdoc.mjs';
 import { normalizeMessages, toAnthropic, toClaudeCodeBlocks, IMAGE_TYPES, isImage } from './content.mjs';
+import { openSession, deliverResult, handleMcp, toolsForAnthropic, resultForAnthropic, CLAUDE_CODE_TOOL_NAMES, MAX_TOOL_ROUNDS } from './doctools.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -49,7 +50,7 @@ const MAX_UPLOAD = Number(process.env.MAX_UPLOAD_MB || 50) * 1024 * 1024;
 const MAX_JSON = 8 * 1024 * 1024;
 const MAX_CHAT_JSON = 64 * 1024 * 1024; // a conversation can carry images (snips, pages, screenshots), each up to 5 MB
 const WEB = path.join(ROOT, 'web', 'index.html');
-const COLLECTIONS = new Set(['convs', 'index']);
+const COLLECTIONS = new Set(['convs', 'index', 'cards']); // cards: flashcards, kept apart from conversations because review spans all of them
 const FILE_TYPES = new Set(['application/pdf', 'text/markdown', 'text/plain', ...IMAGE_TYPES]); // images: pasted screenshots (no SVG: it can carry scripts)
 
 // ---- helpers --------------------------------------------------------------
@@ -129,20 +130,24 @@ function hasClaudeCli() {
 //       {search:"query"}              the model ran a web search
 //       {sources:[{title, url}]}      pages that search returned
 //       then {done:true, model, truncated} or {error}
-//     payload = {system, messages:[{role, content}], model, effort, web}
+//       {tool:{id, name, input}}      (from doctools.mjs) the model called a document tool; the page runs it
+//     payload = {system, messages:[{role, content}], model, effort, web, session}
 //     web is only true when the reader turned web access on for this message. Off means the provider
 //     must not reach the internet at all. Keep it to search: no page fetching from this machine, no code.
+//   tools        can it use the document tools (server/doctools.mjs)? When payload.session is set, it offers
+//     them and runs the loop: while the model stops on tool calls, run each through session.call and send
+//     the results back. Set session.out once the stream starts.
 const PROVIDERS = {
   'claude-code': {
-    label: 'Claude Code CLI (your Claude subscription)', web: true, available: hasClaudeCli, models: async () => CC_MODELS, chat: chatViaClaudeCode,
+    label: 'Claude Code CLI (your Claude subscription)', web: true, tools: true, available: hasClaudeCli, models: async () => CC_MODELS, chat: chatViaClaudeCode,
     why: `The server could not find the Claude Code CLI ("${CLAUDE_BIN}"). Install it, run \`claude\` once to sign in, then restart the server.`,
   },
   anthropic: {
-    label: 'Anthropic API', web: true, available: () => !!API_KEY, models: anthropicModels, chat: chatViaApi,
+    label: 'Anthropic API', web: true, tools: true, available: () => !!API_KEY, models: anthropicModels, chat: chatViaApi,
     why: 'The server has no Anthropic API key. Add ANTHROPIC_API_KEY to .env and restart it.',
   },
   chatgpt: {
-    label: 'ChatGPT (your ChatGPT plan)', web: true, available: chatgpt.available, why: chatgpt.WHY, models: chatgpt.listModels,
+    label: 'ChatGPT (your ChatGPT plan)', web: true, tools: true, available: chatgpt.available, why: chatgpt.WHY, models: chatgpt.listModels,
     chat: (payload, res) => chatgpt.chat(payload, res, { startStream, sourcesLine, fail }),
   },
 };
@@ -193,6 +198,8 @@ async function anthropicModels() {
   anthropicCache = { at: Date.now(), list };
   return list;
 }
+// how Claude Code, running on this machine, reaches this server (for the document tools' MCP endpoint)
+const selfUrl = () => { const h = hostOf(HOST); return `http://${!h || ['0.0.0.0', '[::]', 'localhost'].includes(h) ? '127.0.0.1' : h}:${server.address().port}`; };
 const pickModel = (model) => (!model || model === 'auto' ? DEFAULT_MODEL : model);
 const EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
@@ -205,6 +212,10 @@ async function handleChat(req, res) {
   payload.model = !payload.model || payload.model === 'auto' ? await defaultModel() : String(payload.model);
   const k = await providerFor(payload.model);
   payload.web = payload.web === true && webOk(k); // the one place web access gets switched on, for every provider
+  // document tools: only when the page asked for them (a conversation with a document open) and the provider can
+  payload.session = payload.tools === true && PROVIDERS[k].tools ? openSession(payload.chat) : null;
+  delete payload.tools; delete payload.chat;
+  if (payload.session) res.on('close', payload.session.close); // finished, stopped or the page went away: no more calls
   return PROVIDERS[k].chat(payload, res);
 }
 function startStream(res) {
@@ -267,14 +278,24 @@ async function chatViaClaudeCode(payload, res) {
   // Tools are off unless the reader turned web access on, and then the only one is WebSearch, which runs
   // on Anthropic's side. Never WebFetch: it fetches from this machine, so a page could steer it at
   // this server (127.0.0.1, no login) or the local network.
-  const tools = payload.web ? ['--tools', 'WebSearch', '--allowedTools', 'WebSearch'] : ['--tools', ''];
+  // The document tools come from this server, as an MCP server made for this one reply (doctools.mjs).
+  const s = payload.session;
+  const allowed = [...(payload.web ? ['WebSearch'] : []), ...(s ? CLAUDE_CODE_TOOL_NAMES : [])];
+  const tools = ['--tools', payload.web ? 'WebSearch' : '', ...(allowed.length ? ['--allowedTools', allowed.join(',')] : [])];
+  // And none of your own Claude Code setup: no MCP servers, hooks, CLAUDE.md, memory, skills or plugins.
+  // --safe-mode does all of that, but it also turns off --mcp-config servers, so with document tools the
+  // same is done piece by piece: no settings files (hooks, plugins, permissions), hooks off anyway, only our
+  // MCP server, no slash commands or skills, and no CLAUDE.md or auto-memory (the two env switches below).
+  const isolate = s
+    ? ['--mcp-config', JSON.stringify({ mcpServers: { digress: { type: 'http', url: `${selfUrl()}/api/mcp/${s.token}` } } }), '--strict-mcp-config',
+      '--setting-sources', '', '--settings', '{"disableAllHooks":true}', '--disable-slash-commands', '--max-turns', String(MAX_TOOL_ROUNDS)]
+    : ['--strict-mcp-config', '--safe-mode', '--disable-slash-commands'];
   const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
-    // and none of your own Claude Code setup: no MCP servers, hooks, CLAUDE.md, skills or custom agents
-    ...tools, '--strict-mcp-config', '--safe-mode', '--disable-slash-commands', '--no-session-persistence',
-    '--system-prompt-file', sysFile, '--model', pickModel(payload.model)];
+    ...tools, ...isolate, '--no-session-persistence', '--system-prompt-file', sysFile, '--model', pickModel(payload.model)];
   if (EFFORTS.has(payload.effort)) args.push('--effort', payload.effort);
   const env = { ...process.env };
   delete env.ANTHROPIC_API_KEY; // make the CLI use your subscription sign-in, not an API key
+  if (s) Object.assign(env, { CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1', CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1' });
   // run in an empty folder so no project files or CLAUDE.md get pulled in
   const child = spawn(CLAUDE_BIN, args, { cwd: work, env, stdio: ['pipe', 'pipe', 'pipe'] });
   const cleanup = () => fs.rm(work, { recursive: true, force: true }).catch(() => {});
@@ -283,6 +304,7 @@ async function chatViaClaudeCode(payload, res) {
   child.stdin.end(JSON.stringify({ type: 'user', message: { role: 'user', content: toClaudeCodeBlocks(payload.messages) } }) + '\n');
 
   const out = startStream(res), st = { model: null, truncated: false, any: false, failed: false };
+  if (s) s.out = out;
   let stderr = '', buf = '', resultErr = null;
   // decode as UTF-8 across chunk boundaries: a character split between two chunks would otherwise turn into �
   child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8');
@@ -302,6 +324,7 @@ async function chatViaClaudeCode(payload, res) {
         // WebSearch results come back as a tool result: "Web search results for query: ...\n\nLinks: [{title,url},...]\n..."
         for (const b of m.message.content) {
           const txt = b && b.type === 'tool_result' ? textOf(b.content) : '';
+          if (!txt.startsWith('Web search results for query')) continue; // a document tool's result can contain anything
           const at = txt.indexOf('Links: [');
           if (at < 0) continue;
           const end = txt.indexOf('\n', at), raw = txt.slice(at + 7, end < 0 ? undefined : end);
@@ -322,13 +345,14 @@ async function chatViaClaudeCode(payload, res) {
 }
 
 // ---- provider: Anthropic API ----
-function anthropicRequest({ system, messages, model, effort, web }, withEffort, signal) {
+function anthropicRequest({ system, messages, model, effort, web, session }, withEffort, signal) {
   const body = { model: pickModel(model), max_tokens: MAX_TOKENS, stream: true, messages };
   // cache the system prompt (which carries any document text), so follow-ups about the same paper are cheaper
   if (system) body.system = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
   if (withEffort && EFFORTS.has(effort)) body.output_config = { effort };
   // web search runs on Anthropic's servers; nothing is fetched from this machine
-  if (web) body.tools = [{ type: 'web_search_20260209', name: 'web_search', max_uses: MAX_SEARCHES }];
+  const tools = [...(web ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: MAX_SEARCHES }] : []), ...(session ? toolsForAnthropic() : [])];
+  if (tools.length) body.tools = tools;
   return fetch(API_BASE + '/v1/messages', {
     method: 'POST', signal,
     headers: { 'content-type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' },
@@ -348,9 +372,13 @@ async function chatViaApi(payload, res) {
   }
   if (!upstream.ok) return fail(res, upstream.status === 401 ? 502 : upstream.status, errorText(await upstream.text(), upstream.status));
   const out = startStream(res), st = { model: null, truncated: false, any: false, failed: false };
+  if (payload.session) payload.session.out = out;
   const dec = new TextDecoder();
-  let messages = payload.messages;
+  let messages = payload.messages, pauses = 0, rounds = 0;
   try {
+    // The agentic loop: one request per round. The model's reply streams to the page; if it stopped to call
+    // document tools, run them (in the page, via session.call), add its reply and the results to the
+    // conversation, and ask again. It ends when the model answers without calling a tool.
     for (let turn = 0; ; turn++) {
       if (turn > 0) {
         upstream = await anthropicRequest({ ...payload, messages }, withEffort, ctrl.signal);
@@ -368,9 +396,18 @@ async function chatViaApi(payload, res) {
           relayEvent(ev, out, st);
         }
       }
+      if (st.failed) break;
+      const blocks = (st.blocks || []).filter(Boolean);
       // a long search turn can pause; send back what came so far and the model carries on
-      if (st.stop !== 'pause_turn' || st.failed || turn >= 4) break;
-      messages = [...messages, { role: 'assistant', content: (st.blocks || []).filter(Boolean) }];
+      if (st.stop === 'pause_turn' && pauses++ < 4) { messages = [...messages, { role: 'assistant', content: blocks }]; continue; }
+      const calls = blocks.filter((b) => b.type === 'tool_use');
+      if (st.stop === 'tool_use' && payload.session && calls.length && ++rounds < MAX_TOOL_ROUNDS) {
+        const results = [];
+        for (const b of calls) results.push(resultForAnthropic(await payload.session.call(b.name, b.input), b.id));
+        messages = [...messages, { role: 'assistant', content: blocks }, { role: 'user', content: results }];
+        continue;
+      }
+      break;
     }
     if (!st.failed) out({ done: true, model: st.model, truncated: st.truncated });
   } catch (e) {
@@ -433,7 +470,7 @@ async function handleFetchDoc(req, res) {
   const ctrl = new AbortController();
   req.on('close', () => { if (!res.writableFinished) ctrl.abort(); });
   try {
-    const d = await fetchDocument(p.url, { confirmed: Array.isArray(p.confirm) ? p.confirm.map(String) : [], maxBytes: MAX_UPLOAD, signal: ctrl.signal, testAllow: process.env.DOC_FETCH_TEST_ALLOW || '' });
+    const d = await fetchDocument(p.url, { confirmed: Array.isArray(p.confirm) ? p.confirm.map(String) : [], maxBytes: MAX_UPLOAD, signal: ctrl.signal, testAllow: process.env.DOC_FETCH_TEST_ALLOW || '', want: p.image === true ? 'image' : 'doc' });
     res.writeHead(200, { 'content-type': d.type, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-disposition': 'attachment',
       'x-doc-kind': d.kind, 'x-doc-name': encodeURIComponent(d.name), 'x-doc-url': encodeURIComponent(d.url) });
     res.end(d.body);
@@ -499,19 +536,28 @@ async function route(req, res) {
     }
     return createReadStream(WEB).pipe(res);
   }
+  if (req.method === 'GET' && url.pathname === '/sw.js') {   // the service worker that lets you review flashcards offline
+    res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache' });
+    return createReadStream(path.join(ROOT, 'web', 'sw.js')).pipe(res);
+  }
   if (DEV && url.pathname === '/__dev/events') return devEvents(req, res);
   if (parts[0] !== 'api') return fail(res, 404, 'Not found');
 
   if (parts[1] === 'health' && req.method === 'GET') {
     const on = enabled();
-    return send(res, 200, { app: 'digress', llm: on.length > 0, provider: on[0] || PRIMARY, providers: on, web: on.some(webOk), why: on.length ? undefined : llmWhy() });
+    return send(res, 200, { app: 'digress', llm: on.length > 0, provider: on[0] || PRIMARY, providers: on, web: on.some(webOk), tools: on.length > 0 && on.every((k) => PROVIDERS[k].tools), why: on.length ? undefined : llmWhy() });
   }
   if (parts[1] === 'models' && req.method === 'GET') {
     const models = await listModels(), def = await defaultModel();
     const d = models.find((m) => m[0] === def);
     return send(res, 200, { models, defaultLabel: d ? d[1] : def });
   }
-  if (parts[1] === 'chat' && req.method === 'POST') return handleChat(req, res);
+  if (parts[1] === 'chat' && req.method === 'POST' && parts.length === 2) return handleChat(req, res);
+  if (parts[1] === 'chat' && parts[2] === 'tool' && req.method === 'POST' && parts.length === 3) {   // the page returns a document tool's result
+    const r = deliverResult(await readJson(req, MAX_CHAT_JSON));
+    return r.status === 200 ? send(res, 200, { ok: true }) : fail(res, r.status, r.error);
+  }
+  if (parts[1] === 'mcp' && parts.length === 3) return handleMcp(parts[2], req, res, readJson);   // Claude Code calling the document tools
   if (parts[1] === 'fetch-doc' && req.method === 'POST' && parts.length === 2) return handleFetchDoc(req, res);
 
   if (parts[1] === 'store') {

@@ -7,9 +7,10 @@
 //   npm run chatgpt -- status     connected or not (never prints tokens)
 //   npm run chatgpt -- logout     revoke the sign-in and forget the tokens
 //
-// What the model can do: every request has no tools at all, or, only when you turned Web on for that
-// message, OpenAI's hosted `web_search` (it runs on OpenAI's servers; nothing is fetched from this
-// machine). There is no code here that runs a tool, so even a model asking for one gets nothing.
+// What the model can do: OpenAI's hosted `web_search`, only when you turned Web on for that message (it
+// runs on OpenAI's servers; nothing is fetched from this machine), and, in a conversation with a
+// document, the document tools from doctools.mjs (search / read_pages / view_page), which only read the
+// document open in your browser. Nothing else: no code here runs any other tool.
 // `store: false` means OpenAI doesn't keep the conversation as a stored response.
 //
 // The sign-in is saved in ~/.config/digress/chatgpt.json (owner-only, 0600), outside the data folder,
@@ -22,6 +23,7 @@ import { promises as fs, readFileSync, lstatSync, existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { toOpenAI } from './content.mjs';
+import { toolsForOpenAI, resultForOpenAI, MAX_TOOL_ROUNDS } from './doctools.mjs';
 
 // The *_BASE overrides exist for the tests' fake OpenAI; leave them unset.
 const AUTH = (process.env.CHATGPT_AUTH_BASE || 'https://auth.openai.com').replace(/\/$/, '');
@@ -148,13 +150,19 @@ export async function listModels() {
 //    (toggling Web or the effort costs one uncached reply, then caching resumes).
 // The plan route rejects `system` messages, max_output_tokens, temperature and previous_response_id,
 // and requires store:false + stream:true.
-export function requestBody({ system, messages, model, effort, web }, withEffort) {
+// `more`: what this reply has added so far in a tool loop (the model's own output items, then the tool results).
+export function requestBody({ system, messages, model, effort, web, session }, withEffort, more = []) {
   const input = [];
   if (system) input.push({ role: 'developer', content: system });
-  input.push(...toOpenAI(messages)); // messages arrive checked by server/content.mjs; images become input_image parts
+  input.push(...toOpenAI(messages), ...more); // messages arrive checked by server/content.mjs; images become input_image parts
   const body = { model, input, store: false, stream: true, prompt_cache_key: 'digress-' + crypto.createHash('sha256').update(system || '').digest('hex').slice(0, 32) };
   if (withEffort && effort) body.reasoning = { effort };
-  if (web) { body.tools = [{ type: 'web_search' }]; body.include = ['web_search_call.action.sources']; }
+  const tools = [...(web ? [{ type: 'web_search' }] : []), ...(session ? toolsForOpenAI() : [])];
+  // with store:false nothing is kept on OpenAI's side, so the model's reasoning comes back encrypted and is
+  // sent again with the tool results, letting it carry on from where it stopped
+  const include = [...(web ? ['web_search_call.action.sources'] : []), ...(session ? ['reasoning.encrypted_content'] : [])];
+  if (tools.length) body.tools = tools;
+  if (include.length) body.include = include;
   return body;
 }
 
@@ -184,10 +192,11 @@ function errorMessage(err, status, web) {
 export async function chat(payload, res, h) {
   const ctrl = new AbortController();
   res.on('close', () => { if (!res.writableFinished) ctrl.abort(); }); // Stop pressed or page closed
+  let more = []; // the tool loop's additions, resent with each round (store:false keeps nothing between requests)
   const send = async (withEffort, force) => fetch(API + '/responses', {
     method: 'POST', signal: ctrl.signal, redirect: 'error',
     headers: { authorization: 'Bearer ' + (await accessToken(force)), 'content-type': 'application/json', accept: 'text/event-stream' },
-    body: JSON.stringify(requestBody(payload, withEffort)),
+    body: JSON.stringify(requestBody(payload, withEffort, more)),
   });
   let up, withEffort = !!payload.effort;
   try {
@@ -208,7 +217,8 @@ export async function chat(payload, res, h) {
     return h.fail(res, up.status === 401 ? 502 : up.status, errorMessage(j, up.status, payload.web));
   }
 
-  const out = h.startStream(res), st = { model: null, any: false, sep: false, end: null };
+  const out = h.startStream(res), st = { model: null, any: false, sep: false, end: null, items: [] };
+  if (payload.session) payload.session.out = out;
   const sources = (list) => { const s = h.sourcesLine(list); if (s) out(s); };
   const onEvent = (ev) => {
     const r = ev.response;
@@ -221,6 +231,7 @@ export async function chat(payload, res, h) {
       st.any = true; out({ d: t });
     } else if (ev.type === 'response.output_item.done' && ev.item) {
       const it = ev.item;
+      st.items.push(it);
       if (it.type === 'web_search_call') {
         const a = it.action || {};
         const q = a.query || (Array.isArray(a.queries) ? a.queries.join(' · ') : '');
@@ -237,20 +248,42 @@ export async function chat(payload, res, h) {
     else if (ev.type === 'response.failed') st.end = { error: errorMessage(r && r.error, 200, payload.web) };
     else if (ev.type === 'error') st.end = { error: errorMessage(ev.error || ev, 200, payload.web) };
   };
-  try {
-    const dec = new TextDecoder(); let buf = '';
-    for await (const chunk of up.body) {
-      buf += dec.decode(chunk, { stream: true });
-      let i;
-      while ((i = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
-        if (!line.startsWith('data:')) continue;
-        let ev; try { ev = JSON.parse(line.slice(5)); } catch { continue; }
-        onEvent(ev);
+  // The agentic loop: one request per round. The reply streams to the page; if the model called document
+  // tools, run them (in the page, via session.call), add its output and the results to `more`, and ask
+  // again. It ends when the model answers without calling a tool.
+  for (let round = 0; ; round++) {
+    try {
+      const dec = new TextDecoder(); let buf = '';
+      for await (const chunk of up.body) {
+        buf += dec.decode(chunk, { stream: true });
+        let i;
+        while ((i = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+          if (!line.startsWith('data:')) continue;
+          let ev; try { ev = JSON.parse(line.slice(5)); } catch { continue; }
+          onEvent(ev);
+        }
       }
+    } catch (e) {
+      if (ctrl.signal.aborted) return res.end();
     }
-  } catch (e) {
-    if (ctrl.signal.aborted) return res.end();
+    const calls = st.items.filter((it) => it.type === 'function_call');
+    if (!payload.session || !calls.length || !st.end || st.end.error || round + 1 >= MAX_TOOL_ROUNDS) break;
+    // send back what the model produced this round (its reasoning, any text, the calls), then each result
+    more = [...more, ...st.items.filter((it) => ['reasoning', 'message', 'function_call'].includes(it.type))];
+    for (const c of calls) {
+      let args = {}; try { args = JSON.parse(c.arguments || '{}'); } catch { /* the tool reports missing arguments */ }
+      more.push(resultForOpenAI(await payload.session.call(c.name, args), c.call_id));
+    }
+    st.items = []; st.end = null;
+    try {
+      up = await send(withEffort, false);
+      if (up.status === 401) up = await send(withEffort, true);
+    } catch (e) {
+      if (ctrl.signal.aborted) return res.end();
+      st.end = { error: 'Could not reach OpenAI: ' + e.message }; break;
+    }
+    if (!up.ok) { const txt = await up.text(); let j = null; try { j = JSON.parse(txt); } catch { /* */ } st.end = { error: errorMessage(j, up.status, payload.web) }; break; }
   }
   if (st.end && st.end.error) out({ error: st.end.error });
   else if (st.end) out({ done: true, model: st.model || payload.model, truncated: st.end.truncated });

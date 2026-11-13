@@ -28,13 +28,19 @@ When a branch has answered your question, press **Takeaway**. Digress writes two
 
 ![A PDF of lecture notes on the left, a summary with page links in the middle, and a branch about one highlighted sentence on the right](docs/media/document.png)
 
-Start from a **PDF, Markdown or text file**: upload one, paste text, or paste a link to a PDF and the server downloads it. The document opens beside a main thread about the whole thing, and the model has its text, with page numbers.
+Start from a **PDF, Markdown or text file, or a web article**: upload one, paste text, or paste a link and the server downloads it. A blog post or article opens in reader view (just the article, as Markdown, nothing on the page runs). Its images stay as placeholders until you load them. The document opens beside a main thread about the whole thing, and the model has its text, with page numbers.
+
+The model can also read the document itself. It can search it, read pages and look at a page as an image (for figures and tables), as many times as a question needs. A document up to about 200k characters (around 100 dense pages) is sent whole. For a longer one, the model starts from the table of contents and the first pages, then reads what the question needs. Under each reply you see what it read, with links to the pages. These tools only read the open document: nothing else on your machine.
 
 - Highlight any passage in the PDF to branch about just that part. Markers sit in the margin of the page.
 - Page references in answers, like [p. 2], are links that scroll the document there.
 - Ask about a whole page, or snip a figure, table or equation, and the model gets a sharp image of it, rendered from the PDF.
 
 You can also paste or drop screenshots into any message box: a plot from your notebook, a slide, a whiteboard photo.
+
+## Remember it: flashcards (optional)
+
+Turn on flashcards for a conversation and the model drafts cards from what you dug into: each highlight you branched from, each snip, each takeaway. They wait in an inbox until you keep, edit or delete them; **Make cards** drafts more from whatever changed since last time, and each branch has its own **Cards** button. Kept cards come back for review on a spaced-repetition schedule (FSRS), and each card links back to where it came from: the branch opens at the reply the card was made from, with the passage you highlighted flashing, and **Back to review** returns you to the same card (press **O** while reviewing). Reviewing works offline too: the page and your cards stay available in the browser, and reviews sync when the server is reachable again. Conversations where you don't turn it on look exactly as before.
 
 ## Three ways to see it
 
@@ -57,7 +63,7 @@ Answers render Markdown, code with syntax highlighting, LaTeX math and Mermaid d
 Digress needs no API key if you already have a subscription.
 
 - **ChatGPT, with your ChatGPT plan (Plus or Pro).** Run `npm run chatgpt -- login` once and sign in with your ChatGPT account. Digress uses OpenAI's *Sign in with ChatGPT* for open-source apps: it registers as its own app, calls the Responses API with `store: false`, and usage counts against your plan. Your plan's models appear in the model picker.
-- **Claude, with your Claude subscription (Pro or Max).** If the [Claude Code](https://docs.claude.com/en/docs/claude-code) CLI is installed and signed in, Digress runs it for each reply with all tools turned off, so it answers on your plan.
+- **Claude, with your Claude subscription (Pro or Max).** If the [Claude Code](https://docs.claude.com/en/docs/claude-code) CLI is installed and signed in, Digress runs it for each reply with all of its own tools turned off and none of your Claude Code setup loaded (only web search when you ask, and the document tools above), so it answers on your plan.
 - **Claude, with an Anthropic API key.** Put `ANTHROPIC_API_KEY` in `.env` and Digress calls the API directly, with prompt caching for long documents.
 
 Claude and ChatGPT can be connected at the same time. Pick a model per message from the top bar (each reply shows which model wrote it), along with how much effort it should put in.
@@ -92,6 +98,7 @@ Open <http://127.0.0.1:8787>, click **New conversation** or **New from a documen
 - [Setup and configuration](docs/setup.md): each model connection in detail, `.env` options, documents from links, where data lives.
 - [Using it from other devices](docs/remote-access.md): Tailscale, running it as a service, using it on your phone.
 - [Development](docs/development.md): tests, live reload, regenerating these screenshots. [AGENTS.md](AGENTS.md) explains how the code fits together.
+- [Future directions](docs/future.md): ideas for later, like sub-agents that explore and codebases as a source.
 
 ## License
 

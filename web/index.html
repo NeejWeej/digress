@@ -17,7 +17,7 @@
   --line:#33312c;--line2:#45423b;--user-bg:#2b2925;--code-bg:#262521;--danger:#e0705f;--shadow:0 12px 32px rgba(0,0,0,.5);
 }}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased}
+html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
 svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .ib{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;color:var(--muted);flex:none}
@@ -27,7 +27,7 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .tb:hover{background:var(--user-bg);color:var(--ink)}
 .tb svg.i{width:14px;height:14px}
 
-.app{display:grid;grid-template-rows:48px 1fr;grid-template-columns:var(--sidew,272px) 1fr;height:100vh;position:relative}
+.app{display:grid;grid-template-rows:48px 1fr;grid-template-columns:var(--sidew,272px) 1fr;height:100vh;height:100dvh;position:relative}   /* dvh: the visible height on phones, with the address bar showing (100vh is taller, which made the page scroll the top bar away) */
 /* drag the sidebar's edge to make it wider (double-click resets) */
 .sgrip{position:absolute;top:48px;bottom:0;left:calc(var(--sidew,272px) - 3px);width:7px;cursor:col-resize;z-index:6;touch-action:none}
 .sgrip::after{content:'';position:absolute;top:0;bottom:0;left:3px;width:1px;background:transparent;transition:background .12s}
@@ -130,6 +130,10 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .pane.rail:hover{border-color:var(--c)}
 .pane.rail:hover .rail-label{color:var(--ink)}
 
+.panes .pane:not(.rail)>.ph{cursor:grab;touch-action:none}   /* the header is the drag handle; swiping on a pane's content still scrolls */
+.panes .pane>.ph :is(button,q,.crumb,[data-resolve],[contenteditable=true]){cursor:pointer}
+.pane.pdrag{opacity:.7;box-shadow:0 0 0 2px var(--c),0 10px 30px rgba(0,0,0,.18);z-index:5}
+.panes.reordering,.panes.reordering *{cursor:grabbing !important;user-select:none !important}
 .gut{flex:0 0 10px;cursor:col-resize;position:relative;touch-action:none}   /* touch-action: a finger drag resizes instead of scrolling the page */
 .gut::after{content:"";position:absolute;top:30%;bottom:30%;left:4px;width:2px;border-radius:2px;background:transparent;transition:background .15s}
 .gut:hover::after,.gut.drag::after{background:var(--line2)}
@@ -224,11 +228,9 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .tk .go{font-size:12.5px;font-weight:500;background:var(--ink);color:var(--panel);border-radius:8px;padding:6px 10px;white-space:nowrap}
 
 .jumpw{position:relative;height:0;z-index:6}
-.pzw{position:relative;height:0;z-index:7}
-.pzoom{position:absolute;right:16px;top:6px;display:flex;align-items:center;gap:1px;padding:2px;border:1px solid var(--line);border-radius:9px;background:var(--panel);box-shadow:0 1px 4px rgba(0,0,0,.08);opacity:0;pointer-events:none;transition:opacity .15s}
-.pane:hover .pzoom,.pane.zoomed .pzoom,.pzoom:focus-within{opacity:1;pointer-events:auto}
-.pane.zoomed:not(:hover) .pzoom{opacity:.55}
-.pzoom .ib{width:26px;height:24px}
+/* per-pane zoom, in each pane's header (so it never covers the text or the page) */
+.pzoom{display:flex;align-items:center;gap:1px;margin-right:2px}
+.pzoom .ib{width:26px;height:24px;color:var(--faint)}.pzoom .ib:hover{color:var(--ink)}
 .pzoom .pzl{min-width:44px;height:24px;border:0;background:none;color:var(--muted);font:12px var(--sans);border-radius:6px;cursor:pointer}
 .pzoom .pzl:hover{background:var(--panel-2);color:var(--ink)}
 .zin{width:46px;height:22px;border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--ink);font:12px var(--sans);text-align:center;padding:0 2px;outline:none}
@@ -236,9 +238,7 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .czoom .zin{width:38px;height:20px;font-size:11px}
 .pzoom .pzf:disabled{opacity:.35;cursor:default}
 .pane .msgs,.pane .docwrap{zoom:var(--pz,1)}
-.pane.rail .pzw{display:none}
-/* the document pane keeps them in its header instead, so they never cover the page */
-.ph .pzoom{position:static;border:0;box-shadow:none;background:none;padding:0;margin-right:2px}
+@container (max-width:340px){.ph .pzoom .ib{display:none}}   /* narrow panes: just the percentage (click it to type a level) */
 .pane.rail .ph .pzoom{display:none}
 .jump{position:absolute;right:16px;bottom:8px;display:flex;flex-direction:column;gap:4px;opacity:0;pointer-events:none;transform:translateY(4px);transition:opacity .15s,transform .15s}
 .pane.away .jump,.pane.hasprev .jump{opacity:.9;pointer-events:auto;transform:none}
@@ -253,6 +253,46 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .cimg{position:relative}.cimg img{display:block;height:56px;max-width:120px;object-fit:cover;border-radius:8px;border:1px solid var(--line2);background:#fff}
 .cimg .cix{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;border:1px solid var(--line2);background:var(--panel);color:var(--muted);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
 .cimg .cix svg{width:11px;height:11px}
+/* flashcards */
+.kmk{display:none !important}.cardson .kmk{display:inline-flex !important}
+.kicon.on{color:var(--accent,var(--ink))}
+#cardsModal .kbox{width:min(760px,100%);max-height:min(88vh,900px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line2);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+.khead{display:flex;align-items:center;gap:8px;padding:12px 14px 8px}
+.khead .kt{font-weight:600;font-size:15px}.khead .sp{flex:1}
+.khead select{border:1px solid var(--line2);border-radius:8px;background:var(--panel);color:var(--ink);font:13px var(--sans);padding:3px 6px}
+.ktabs{display:flex;gap:4px;padding:0 14px;border-bottom:1px solid var(--line)}
+.ktabs button{border:0;background:none;padding:7px 10px;font:13px var(--sans);color:var(--muted);border-bottom:2px solid transparent;cursor:pointer}
+.ktabs button.on{color:var(--ink);border-bottom-color:var(--accent,var(--ink))}
+.kbody{padding:14px;overflow:auto;flex:1;min-height:200px}
+.kempty{color:var(--muted);font-size:13.5px;line-height:1.6;padding:18px 4px;text-align:center}
+.kempty .mbtn{margin-top:10px}
+.kcard{border:1px solid var(--line2);border-radius:12px;padding:16px 18px;background:var(--panel)}
+.kface{font-size:15px;line-height:1.55}.kface p:first-child{margin-top:0}.kface p:last-child{margin-bottom:0}
+.kback{border-top:1px dashed var(--line2);margin-top:14px;padding-top:14px}
+.kimg{display:block;margin:0 0 10px;border:0;padding:0;background:none;cursor:zoom-in;max-width:100%}.kimg img{display:block;max-width:100%;max-height:260px;border-radius:6px;border:1px solid var(--line);background:#fff}
+.ksrc{border:0;background:none;padding:2px 0;font:12.5px var(--sans);color:var(--muted);cursor:pointer;text-align:left;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ksrc:hover{color:var(--ink);text-decoration:underline}
+.kbar .ksrc{flex:0 1 auto;min-width:0}
+#backReview{position:fixed;bottom:84px;left:50%;transform:translateX(-50%);z-index:70;display:none;align-items:center;background:var(--ink);color:var(--panel);border-radius:999px;box-shadow:var(--shadow);padding:2px}
+#backReview.show{display:flex}
+#backReview button{border:0;background:none;color:inherit;font:13.5px var(--sans);cursor:pointer;padding:8px 12px;border-radius:999px}
+#backReview .br-x{padding:8px 10px 8px 4px;display:flex;opacity:.7}#backReview .br-x:hover{opacity:1}#backReview .br-x svg{width:13px;height:13px}
+#backReview .br-go:hover{background:color-mix(in srgb,var(--panel) 15%,transparent)}
+.krate{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.krate button{flex:1;min-width:90px;border:1px solid var(--line2);border-radius:10px;background:var(--panel);padding:8px 6px;font:13px var(--sans);color:var(--ink);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
+.krate button:hover{background:var(--user-bg)}.krate small{color:var(--muted);font-size:11px}
+.kshow{display:block;margin:14px auto 0}
+.kfoot{display:flex;gap:12px;align-items:center;margin-top:10px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.kfoot button:not(.mbtn),.klink{border:0;background:none;padding:0;color:var(--muted);font:12px var(--sans);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.kfoot button:not(.mbtn):hover,.klink:hover{color:var(--ink)}
+.kfoot .mbtn{padding:5px 12px}
+.khead .mbtn:disabled{opacity:.55;cursor:default}
+.kfoot .sp{flex:1}
+.kitem{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.kitem textarea{width:100%;box-sizing:border-box;border:1px solid var(--line2);border-radius:8px;background:var(--panel-2);color:var(--ink);font:13.5px/1.45 var(--sans);padding:6px 8px;resize:vertical;min-height:38px;margin-bottom:6px}
+.kitem .kfr{font-weight:500;margin-bottom:4px}.kitem .kbk{color:var(--muted);font-size:13px}
+.kitem .kimg img{max-height:120px}
+.kbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;font-size:12.5px;color:var(--muted)}.kbar .sp{flex:1}
+.kmeta{font-size:11.5px;color:var(--faint)}
 .lightbox{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out}
 .lightbox img{max-width:100%;max-height:100%;background:#fff;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,.4)}
 .cbox{max-width:760px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;border:1px solid var(--line2);border-radius:14px;background:var(--panel);padding:6px 6px 6px 14px;transition:border-color .15s,box-shadow .15s}
@@ -492,6 +532,12 @@ sup.fn.res{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px va
 .textLayer>:not(.markedContent),.textLayer .markedContent span:not(.markedContent){z-index:1}   /* words above the gap filler */
 .textLayer .endOfContent{display:block;position:absolute;inset:100% 0 0;z-index:0;cursor:default;user-select:none;-webkit-user-select:none}
 .textLayer.selecting .endOfContent{top:0}
+.aimg{display:flex;flex-direction:column;gap:6px;margin:4px 0;padding:10px 12px;border:1px dashed var(--line2);border-radius:10px;background:var(--user-bg);font-family:var(--sans);font-size:13px;color:var(--muted)}
+.aimg .acap{font-style:italic}.aimg .acap::before{content:'';display:inline-block;width:14px;height:14px;margin-right:6px;vertical-align:-2px;background:currentColor;opacity:.55;-webkit-mask:var(--imgico) center/contain no-repeat;mask:var(--imgico) center/contain no-repeat}
+.aimg .abtns{display:flex;gap:4px}.aimg.busy{opacity:.6}
+.aimg.loaded{border-style:solid;background:none;padding:6px}.aimg .aview{border:0;padding:0;background:none;cursor:zoom-in;display:block}.aimg .aview img{display:block;max-width:100%;max-height:520px;border-radius:6px;margin:0 auto}
+.abar{max-width:760px;margin:0 auto 10px;display:flex;align-items:center;gap:8px;font:12.5px var(--sans);color:var(--muted);padding:0 4px;flex-wrap:wrap}.abar .i{width:14px;height:14px}.abar span{flex:1;min-width:200px}
+:root{--imgico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='16' rx='2'/%3E%3Ccircle cx='9' cy='10' r='2'/%3E%3Cpath d='M21 16l-5-5-9 9'/%3E%3C/svg%3E")}
 .docbody{max-width:760px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 28px 18px;font-family:var(--serif);font-size:16px;line-height:1.66;width:100%}
 .docload,.docerr{color:var(--muted);padding:40px 10px;text-align:center;line-height:1.6}
 .docerr input{margin-top:10px}
@@ -530,7 +576,7 @@ a.pref:hover{border-bottom-style:solid}
   .panes{padding:8px}.pb{padding:6px 14px 8px}.composer{padding:6px 8px 10px}.ph{padding:10px 6px 8px 10px}
   .pop{width:auto;left:8px !important;right:8px}.pal{padding-top:8vh}.cvhint{display:none}}
 /* touch screens have no hover: show the controls that otherwise appear on hover */
-@media (hover:none){.pzoom{opacity:1 !important;pointer-events:auto !important}.citem .acts{position:static;transform:none;background:none;padding:0;pointer-events:auto}.citem .acts,.mnode .mp,.mnode .mx,.bchip .bx,.del,.mfoot .ib,.mfoot .tb,.cnode .ch .ib{opacity:1 !important}.tipbox{display:none !important}}
+@media (hover:none){.citem .acts{position:static;transform:none;background:none;padding:0;pointer-events:auto}.citem .acts,.mnode .mp,.mnode .mx,.bchip .bx,.del,.mfoot .ib,.mfoot .tb,.cnode .ch .ib{opacity:1 !important}.tipbox{display:none !important}}
 </style>
 </head>
 <body>
@@ -544,6 +590,7 @@ a.pref:hover{border-bottom-style:solid}
     <label class="sel" title="Which model answers new messages. Each reply shows the model that answered."><span>Model</span><select id="mSel"></select></label>
     <label class="sel" title="How much the model thinks before answering. Higher is slower but more careful."><span>Effort</span><select id="eSel"></select></label>
     <button class="webt" id="webT" aria-pressed="false" style="display:none" title="Web search: let new replies look things up online. Only search queries leave; your chats and documents stay on this server. You can switch this any time."><span class="wi"></span><span class="lbl">Web</span></button>
+    <button class="webt" id="resetOrder" style="display:none" title="Put the panes back in branching order: each branch right after the thread it came from">Reset order</button>
     <div class="seg" id="viewSeg">
       <button data-v="cols" title="Show threads as panes side by side"><span></span><b class="lbl" style="font-weight:inherit">Columns</b></button>
       <button data-v="rows" title="Show threads as panes stacked top to bottom"><span></span><b class="lbl" style="font-weight:inherit">Rows</b></button>
@@ -555,6 +602,7 @@ a.pref:hover{border-bottom-style:solid}
     <label class="sbox" title="Search every conversation, highlight, takeaway and document"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="sboxIn" placeholder="Search" autocomplete="off"><kbd class="k"><span class="kmod">⌘</span>K</kbd></label>
     <button class="newbtn" id="newConv" title="Start a fresh conversation. This one stays saved in the list below."></button>
     <button class="newbtn" id="newDoc" title="Start from a PDF, Markdown or text file: read it side by side with a chat about it, and highlight any passage to branch."></button>
+    <button class="newbtn" id="reviewBtn" style="display:none" title="Review your flashcards"></button>
     <div id="pinWrap" style="display:none"><div class="sh">Pinned</div><div class="clist" id="plist"></div></div>
     <div class="sh">Conversations</div>
     <div class="clist" id="clist"></div>
@@ -593,6 +641,7 @@ a.pref:hover{border-bottom-style:solid}
 <div class="tipbox" id="tipbox"></div>
 <div class="pal" id="pal"><div class="pbox" role="dialog" aria-modal="true" aria-label="Search"><div class="pin"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="palIn" placeholder="Search conversations, highlights, takeaways, documents…" autocomplete="off" spellcheck="false"></div><div class="pres" id="palRes"></div><div class="pfoot"><span id="palFoot"></span><span class="sp"></span><span><kbd class="k">↑</kbd> <kbd class="k">↓</kbd> move</span><span><kbd class="k">Enter</kbd> open</span><span><kbd class="k"><span class="kmod">⌘</span>Enter</kbd> open, keep searching</span><span><kbd class="k">Esc</kbd> close</span></div></div></div>
 <div class="modal" id="docModal"><div class="mbox wide" role="dialog" aria-modal="true"><div class="mt">Start from a document</div><div class="mb">The document opens next to a main thread for questions about the whole thing. Highlight any passage in it to open a branch about that part.</div><label class="drop" id="docDrop"><input type="file" id="docFile" accept=".pdf,.md,.markdown,.txt,application/pdf,text/markdown,text/plain"><span id="docFileLbl"></span></label><textarea id="docPaste" placeholder="…or paste text, Markdown, or a link to a PDF"></textarea><input id="docName" placeholder="Title (optional)" autocomplete="off"><div class="ma"><span class="dmsg" id="docMsg"></span><button class="mbtn" id="docCancel">Cancel</button><button class="mbtn primary" id="docGo">Start</button></div></div></div>
+<div class="modal" id="cardsModal"><div class="kbox" role="dialog" aria-modal="true" aria-label="Flashcards"></div></div>
 <div class="modal" id="modal"><div class="mbox" role="dialog" aria-modal="true"><div class="mt" id="mTitle"></div><div class="mb" id="mBody"></div><div class="ma"><button class="mbtn" id="mCancel">Cancel</button><button class="mbtn danger" id="mOk">Delete</button></div></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
@@ -640,6 +689,7 @@ const I={
  plus:'<path d="M12 5v14M5 12h14"/>',
  minus:'<path d="M5 12h14"/>',
  snip:'<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>',
+ cards:'<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>',
  fit:'<path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/>',
  doc:'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>',
  pin:'<path d="M9 3h6l-1 7 3.5 3.5h-11L10 10zM12 13.5V21"/>',
@@ -650,6 +700,9 @@ const I={
  jlast:'<path d="M12 6v12M6 12l6 6 6-6M5 4h14"/>',
  jprev:'<path d="M9 14l-5-5 5-5M4 9h10a6 6 0 0 1 0 12h-3"/>',
  trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
+ dl:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+ ext:'<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+ img:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
 };
 const ic=(n)=>`<svg class="i" viewBox="0 0 24 24">${I[n]}</svg>`;
 const $=(s,r=document)=>r.querySelector(s);
@@ -694,7 +747,7 @@ const isCollapsed=(tid)=>conv.ui.collapsed.includes(tid);
    io.index  search index entries, same shape as io.store
    io.files  upload(blob, type) -> {id}, fetch(id, 'text'|'arrayBuffer'), remove(id), canUpload
    They come from the Digress server (server/server.mjs); nothing else in the app should call the server directly. */
-const io={llm:null,store:null,index:null,files:null,ready:null};
+const io={llm:null,store:null,index:null,files:null,cards:null,ready:null};
 function memoryStore(label){
   const m=new Map();
   return {kind:'memory',label:label||'',
@@ -712,6 +765,40 @@ async function findServer(){
   try{const r=await fetch('api/health',{cache:'no-store'});if(!r.ok)return null;const j=await r.json();return j&&j.app==='digress'?j:null}catch(e){return null}
 }
 async function okOrThrow(r){if(r.ok)return r;let msg='';try{msg=(await r.json()).error||''}catch(e){}const err=new Error(msg||('Server error '+r.status));err.status=r.status;throw err}
+/* Flashcards keep working offline: a copy of every card is kept in this browser (localStorage), and
+   changes made while the server can't be reached wait in an outbox, sent in order once it's back
+   (the latest change per card wins). Paired with web/sw.js, which keeps the page and its libraries. */
+function offlineCards(base){
+  const MK='digress:cards',QK='digress:cards-outbox';
+  const rd=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}};
+  const wr=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){console.warn('local copy of cards not saved',e)}};
+  let flushing=null;
+  const st={kind:'cards',
+    pending:()=>rd(QK,[]).length,
+    flush(){   // -> true when nothing is left to send
+      if(!flushing)flushing=(async()=>{
+        for(let q=rd(QK,[]);q.length;q=rd(QK,[])){
+          const op=q[0];try{if(op.del)await base.remove(op.id);else await base.put(op.id,op.card)}catch(e){return false}
+          const now=rd(QK,[]);if(now.length&&now[0].id===op.id&&now[0].at===op.at)now.shift();wr(QK,now);
+        }
+        return true;
+      })().finally(()=>{flushing=null});
+      return flushing;
+    },
+    async list(){
+      try{
+        if(!await st.flush())throw new Error('offline');
+        const l=await base.list(),m={};for(const {id,data} of l)m[id]=data;wr(MK,m);return l;
+      }catch(e){return Object.entries(rd(MK,{})).map(([id,data])=>({id,data}))}
+    },
+    async get(id){return rd(MK,{})[id]||null},
+    async put(id,d){const m=rd(MK,{});m[id]=d;wr(MK,m);await send({id,card:d})},
+    async update(id,p){const m=rd(MK,{});if(!m[id])return;Object.assign(m[id],p);await st.put(id,m[id])},
+    async remove(id){const m=rd(MK,{});delete m[id];wr(MK,m);await send({id,del:true})}};
+  async function send(op){op.at=Date.now()+Math.random();const q=rd(QK,[]).filter(o=>o.id!==op.id);q.push(op);wr(QK,q);await st.flush()}
+  addEventListener('online',()=>st.flush());
+  return st;
+}
 function serverStore(coll,label){
   const base='api/store/'+coll,u=(id)=>base+'/'+encodeURIComponent(id),json={'content-type':'application/json'};
   return {kind:'server',label:label||'',
@@ -730,7 +817,14 @@ function serverFiles(){
       if(r.status===409){const j=await r.json();throw {message:j.error,warnings:j.warnings||[],url:j.url}}
       await okOrThrow(r);
       const dec=(h)=>{try{return decodeURIComponent(r.headers.get(h)||'')}catch(e){return ''}};
-      return {blob:await r.blob(),kind:r.headers.get('x-doc-kind')==='pdf'?'pdf':'text',name:dec('x-doc-name'),url:dec('x-doc-url')};
+      const k=r.headers.get('x-doc-kind');
+      return {blob:await r.blob(),kind:k==='pdf'?'pdf':k==='html'?'html':'text',name:dec('x-doc-name'),url:dec('x-doc-url')};
+    },
+    // one of a web article's images, through the same strict download (only real PNG/JPEG/WebP/GIF)
+    fetchImage:async(url,confirm)=>{
+      const r=await fetch('api/fetch-doc',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url,confirm:confirm||[],image:true})});
+      if(r.status===409){const j=await r.json();throw {message:j.error,warnings:j.warnings||[],url:j.url}}
+      return (await okOrThrow(r)).blob();
     },
     upload:async(blob,type)=>{const r=await fetch('api/files?type='+encodeURIComponent(type),{method:'POST',body:blob});if(r.status===413)throw {code:'too_large'};return (await okOrThrow(r)).json()},
     fetch:async(id,as)=>{const r=await okOrThrow(await fetch('api/files/'+encodeURIComponent(id)));return as==='text'?r.text():r.arrayBuffer()},
@@ -738,18 +832,24 @@ function serverFiles(){
 }
 function serverLlm(info){
   let models=[['auto','Default']];
-  const llm={kind:'server',supportsEffort:true,supportsWeb:!!(info.llm&&info.web),supportsImages:true,
+  const llm={kind:'server',supportsEffort:true,supportsWeb:!!(info.llm&&info.web),supportsImages:true,supportsTools:!!(info.llm&&info.tools),
     why:info.why||'The server has no model configured yet. See the README to connect one.',
     models:()=>models,
     ready:async()=>!!info.llm,
     async loadModels(){
       try{const j=await (await okOrThrow(await fetch('api/models'))).json();models=[['auto','Default'+(j.defaultLabel?' ('+j.defaultLabel+')':'')],...j.models]}catch(e){console.warn('model list failed',e)}
     },
-    async complete({system,messages,model,effort,web,signal,onText,onSearch}){
+    // tools: {run(name,input) → {parts}|{error}} lets the model use the document tools (server/doctools.mjs):
+    // the server sends each call down this stream as {tool:{id,name,input}}, we run it here (this page has the
+    // document open) and post the result back to api/chat/tool, where the server's loop is waiting for it.
+    async complete({system,messages,model,effort,web,signal,onText,onSearch,tools}){
       if(!info.llm)throw {message:llm.why};
-      const r=await okOrThrow(await fetch('api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({system,messages,model,effort,web:!!(web&&llm.supportsWeb)}),signal}));
+      const useTools=!!(tools&&llm.supportsTools),chat=useTools?[...crypto.getRandomValues(new Uint8Array(16))].map(b=>b.toString(16).padStart(2,'0')).join(''):undefined;
+      const r=await okOrThrow(await fetch('api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({system,messages,model,effort,web:!!(web&&llm.supportsWeb),...(useTools?{tools:true,chat}:{})}),signal}));
+      const answer=async(call)=>{let res;try{res=await tools.run(call.name,call.input||{})}catch(e){res={error:'The tool failed: '+((e&&e.message)||e)}}
+        try{await fetch('api/chat/tool',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({chat,id:call.id,...res})})}catch(e){console.warn('tool result not delivered',e)}};
       // the server streams one JSON object per line: {d:"text"} deltas, {search:"query"}, {sources:[{title,url}]},
-      // then {done:true,model,truncated} or {error}
+      // {tool:{id,name,input}}, then {done:true,model,truncated} or {error}
       const rd=r.body.getReader(),dec=new TextDecoder();let buf='',text='',model_=null,truncated=false;const searches=[],sources=[];
       for(;;){
         const {value,done}=await rd.read();if(done)break;
@@ -760,6 +860,7 @@ function serverLlm(info){
           if(ev.d){text+=ev.d;onText&&onText(text)}
           else if(ev.search){searches.push(String(ev.search));onSearch&&onSearch({searches,sources})}
           else if(ev.sources){for(const x of ev.sources)if(x&&/^https?:\/\//i.test(x.url)&&!sources.some(y=>y.url===x.url))sources.push({title:String(x.title||x.url),url:String(x.url)});onSearch&&onSearch({searches,sources})}
+          else if(ev.tool&&useTools)answer(ev.tool);   // not awaited: keep reading the stream meanwhile
           else if(ev.error)throw {message:ev.error,text,searches,sources};
           else if(ev.done){model_=ev.model||null;truncated=!!ev.truncated}
         }
@@ -771,15 +872,23 @@ function serverLlm(info){
 async function initConnectors(){
   const srv=await findServer();
   if(srv){
-    io.llm=serverLlm(srv);io.store=serverStore('convs','Saved');io.index=serverStore('index');io.files=serverFiles();
+    io.llm=serverLlm(srv);io.store=serverStore('convs','Saved');io.index=serverStore('index');io.cards=offlineCards(serverStore('cards'));io.files=serverFiles();
     await io.llm.loadModels();
     if(!srv.llm)showBanner(true,io.llm.why);
     return;
   }
-  noServer();
+  if(/^https?:$/.test(location.protocol))offlineMode();else noServer();
+}
+// served over http(s) but the server can't be reached: flashcards only, from this browser's copy
+const OFFLINE='You’re offline: the Digress server can’t be reached. Your flashcards still work (Review, in the sidebar); changes are sent once it’s back.';
+function offlineMode(){
+  io.offline=true;io.llm=noLlm(OFFLINE);io.store=memoryStore();io.index=memoryStore();io.cards=offlineCards(serverStore('cards'));io.files=serverFiles();
+  showBanner(true,OFFLINE);
+  const tryBack=async()=>{if(!await findServer())return;clearInterval(t);await io.cards.flush();const b=$('#banner');b.textContent='Back online. Click here to reload and chat again.';b.style.cursor='pointer';b.onclick=()=>location.reload()};
+  const t=setInterval(tryBack,15000);addEventListener('online',tryBack);
 }
 // opened without its server (e.g. the HTML file on its own): nothing is saved and there's no model
-function noServer(){io.llm=noLlm(NO_SERVER);io.store=io.store||memoryStore();io.index=io.index||memoryStore();io.files=noFiles;showBanner(true,NO_SERVER)}
+function noServer(){io.llm=noLlm(NO_SERVER);io.store=io.store||memoryStore();io.index=io.index||memoryStore();io.cards=io.cards||memoryStore();io.files=noFiles;showBanner(true,NO_SERVER)}
 const NO_SERVER='Digress needs its server: run `npm start` in the digress folder and open the address it prints.';
 const connected=()=>!!(io.store&&io.index&&io.files&&io.llm);
 
@@ -901,7 +1010,7 @@ function regionText(pageNo,r){   // the PDF's own words that fall inside the box
     if(sp.querySelector('span'))continue;const q=sp.getBoundingClientRect();if(!q.width)continue;
     const cx=q.left+q.width/2,cy=q.top+q.height/2;if(cx>=L&&cx<=R&&cy>=T_&&cy<=B)out.push(sp.textContent);
   }
-  return out.join(' ').replace(/\s+/g,' ').trim().slice(0,600);
+  const t=out.join(' ').replace(/\s+/g,' ').trim();return t.length>600?t.slice(0,600)+' …(cut off; the image shows all of it)':t;
 }
 function startSnip(e,el){
   const pg=e.target.closest('.dpage');if(!pg)return;
@@ -924,6 +1033,215 @@ document.addEventListener('pointerdown',e=>{const el=e.target.closest&&e.target.
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.querySelector('.docpane.snipping'))setSnip(false)});
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-pask]');if(!b)return;e.stopPropagation();openImagePop(+b.dataset.pask,{x:0,y:0,w:1,h:1},b.closest('.dpage'))},true);
 
+/* ---------- flashcards (optional, per conversation) ----------
+   Off unless turned on for a conversation (conv.cards.on). Then the model drafts cards from each answered
+   highlight or snip branch and from each takeaway, into an inbox; "Make cards" drafts from whatever
+   changed since last time (conv.cards.done[tid] = the last reply it saw). Kept cards are reviewed with
+   FSRS. Cards live in their own collection (io.cards), so review can span every conversation:
+   {id, conv, convTitle, thread, src, front, back, image?, status:'inbox'|'active'|'suspended', created, due, fsrs, reviews} */
+const CARDS=new Map();let cardsLoaded=null;
+function loadCards(){if(!cardsLoaded)cardsLoaded=(async()=>{await io.ready;try{for(const {id,data} of await io.cards.list())CARDS.set(id,data)}catch(e){console.warn('cards failed to load',e)}syncCardsUI();
+  // fetch each card's image once while online, so the service worker has it for offline review
+  if(!io.offline&&navigator.serviceWorker&&navigator.serviceWorker.controller)for(const c of CARDS.values())if(c.image&&c.image.asset)imageBlob(c.image).catch(()=>{});
+})();return cardsLoaded}
+let offlineNoted=false;
+async function putCard(c){c.updated=Date.now();CARDS.set(c.id,c);try{await io.cards.put(c.id,c)}catch(e){toast('Couldn’t save the card.')}if(io.cards.pending&&io.cards.pending()&&!offlineNoted){offlineNoted=true;toast('Saved on this device; it will sync when the server is back.')}syncCardsUI()}
+async function dropCard(id){CARDS.delete(id);try{await io.cards.remove(id)}catch(e){console.warn(e)}syncCardsUI()}
+const cardsOn=()=>!!(conv&&conv.cards&&conv.cards.on);
+const dueCards=(scope)=>[...CARDS.values()].filter(c=>c.status==='active'&&(c.due||0)<=Date.now()&&inScope(c,scope)).sort((a,b)=>(a.due||0)-(b.due||0));
+const inScope=(c,scope)=>scope!=='conv'||(conv&&c.conv===conv.id);
+function syncCardsUI(){
+  $('#stage').classList.toggle('cardson',cardsOn());
+  const k=paneEls.get('main')&&paneEls.get('main').querySelector('.kicon');if(k)k.classList.toggle('on',cardsOn());
+  const due=dueCards('all').length,inbox=[...CARDS.values()].filter(c=>c.status==='inbox').length,any=CARDS.size>0;
+  const b=$('#reviewBtn');b.style.display=any?'':'none';
+  b.innerHTML=ic('cards')+'Review'+(due?` · ${due} due`:'')+(inbox?` · ${inbox} in inbox`:'');
+  if($('#cardsModal').classList.contains('show'))renderCards();
+}
+// FSRS-4.5 with its default parameters, aiming for 90% recall (so the next interval is the stability, in days).
+const FW=[0.4872,1.4003,3.7145,13.8206,5.1618,1.2298,0.8975,0.031,1.6474,0.1367,1.0461,2.1072,0.0793,0.3246,1.587,0.2272,2.8755];
+const DAY=864e5,MIN=6e4;
+function fsrsNext(f,g,now){   // f: {S,D,state,last,reps,lapses} or null; g: 1 Again, 2 Hard, 3 Good, 4 Easy -> {fsrs, due}
+  const cl=(d)=>Math.min(10,Math.max(1,d)),D0=(x)=>cl(FW[4]-(x-3)*FW[5]);
+  let S,D;const fresh=!f||f.state==='new';
+  if(fresh){S=FW[g-1];D=D0(g)}
+  else{
+    const t=Math.max(0,(now-f.last)/DAY),R=Math.pow(1+19/81*t/f.S,-0.5);
+    D=cl(FW[7]*D0(4)+(1-FW[7])*(f.D-FW[6]*(g-3)));
+    S=g===1?Math.min(f.S,FW[11]*Math.pow(f.D,-FW[12])*(Math.pow(f.S+1,FW[13])-1)*Math.exp(FW[14]*(1-R)))
+      :f.S*(1+Math.exp(FW[8])*(11-f.D)*Math.pow(f.S,-FW[9])*(Math.exp(FW[10]*(1-R))-1)*(g===2?FW[15]:1)*(g===4?FW[16]:1));
+  }
+  const learning=g===1||(g===2&&(fresh||f.state==='learning'));
+  const due=now+(learning?(g===1?(fresh||f.state==='learning'?MIN:10*MIN):10*MIN):Math.max(1,Math.round(S))*DAY);
+  return {fsrs:{S,D,state:learning?'learning':'review',last:now,reps:((f&&f.reps)||0)+1,lapses:((f&&f.lapses)||0)+(g===1&&f&&f.state==='review'?1:0)},due};
+}
+const ivlText=(ms)=>ms<60*MIN?Math.max(1,Math.round(ms/MIN))+' min':ms<DAY?Math.round(ms/36e5)+' h':ms<30*DAY?Math.round(ms/DAY)+' d':ms<365*DAY?(Math.round(ms/DAY/3.04)/10)+' mo':(Math.round(ms/DAY/36.5)/10)+' y';
+// --- drafting cards with the model (one branch at a time, queued) ---
+let draftChain=Promise.resolve(),drafting=0;
+const lastReply=(tid)=>{const ids=(conv.order[tid]||[]).filter(id=>{const m=conv.msgs[id];return m&&(m.role==='assistant'||m.role==='note')&&m.content&&!m.pending&&!m.error});return ids[ids.length-1]||null};
+function newForCards(){if(!cardsOn())return [];const done=conv.cards.done||{};return Object.keys(conv.threads).filter(tid=>{const r=lastReply(tid);return r&&done[tid]!==r})}
+function cardsAfterReply(m){
+  if(!cardsOn()||m.error||!m.content)return;
+  const t=T(m.thread);
+  if(m.role==='note'&&T(m.fromThread))queueDraft(m.fromThread,{takeaway:m.content,note:m.id,noteThread:m.thread,src:'takeaway',quiet:true});
+  else if(m.role==='assistant'&&t&&t.parent&&(t.anchorText||t.anchorRegion)&&conv.order[t.id].filter(id=>conv.msgs[id].role==='assistant').length===1)
+    queueDraft(t.id,{src:t.anchorRegion?(isWholePage(t.anchorRegion)?'page':'snip'):'highlight',quiet:true});
+}
+function makeCardsFor(tid){if(!lastReply(tid)){toast('Ask something in this branch first');return}queueDraft(tid,{src:'made'})}
+function makeNewCards(){const l=newForCards();if(!l.length){toast('Nothing new since cards were last made.');return}for(const tid of l)queueDraft(tid,{src:'made',quiet:true});toast(`Drafting cards from ${l.length} thread${l.length>1?'s':''}…`)}
+function queueDraft(tid,o){drafting++;syncCardsUI();const c0=conv;draftChain=draftChain.then(()=>draftCards(c0,tid,o)).catch(e=>{console.warn('card drafting failed',e);toast('Couldn’t draft cards: '+((e&&e.message)||e))}).finally(()=>{drafting--;syncCardsUI()});return draftChain}
+async function draftCards(c0,tid,o){
+  if(conv!==c0)return;   // the conversation was switched before this branch's turn came
+  const t=T(tid);if(!t)return;
+  await docReady();
+  const ctx=buildContext(tid),seen=lastReply(tid);   // the same context and document tools as the conversation, so it can check the document and shares its prompt cache
+  const have=[...CARDS.values()].filter(c=>c.conv===conv.id).map(c=>'- '+c.front.replace(/\s+/g,' ').slice(0,160)).slice(-80);
+  const what=o.takeaway?`the takeaway below, which the learner carried back from this side branch:\n\n${o.takeaway}\n\n`:tid==='main'?'the main thread of this conversation. ':`this side branch${t.anchorText?` (about “${trunc(t.regionText||t.anchorText,120)}”)`:''}. `;
+  const ask=`[Flashcards] Make spaced-repetition flashcards from ${what}Keep only what is worth remembering for a long time: key ideas, definitions, reasons, and corrections of misunderstandings, especially what the learner asked about. Each card has a "front" that asks one specific question, understandable on its own months from now${t.anchorRegion&&!isWholePage(t.anchorRegion)?' (the snipped image will be shown with it)':''}, and a "back" with a short answer (one to three sentences; Markdown and LaTeX are fine). At most ${o.takeaway?4:3} cards; fewer is better, and none if nothing here is worth remembering.${have.length?`\nDon't repeat these existing cards:\n${have.join('\n')}`:''}\nReply with only a JSON array, like [{"front": "...", "back": "..."}].`;
+  const msgs=ctx.messages,last=msgs[msgs.length-1];if(last&&last.role==='user')appendText(last,'\n\n'+ask);else msgs.push({role:'user',content:ask});
+  if(!io.llm)await io.ready;
+  const rc=await resolveContext(ctx,!!io.llm.supportsImages);
+  const r=await io.llm.complete({system:rc.system,messages:rc.messages,model:settings.model,effort:'low',web:false,tools:ctx.tools?{run:(n,i)=>runDocTool(n,i,[])}:undefined});
+  let list=[];try{const a=r.text.indexOf('['),b=r.text.lastIndexOf(']');list=JSON.parse(r.text.slice(a,b+1))}catch(e){throw new Error('the model’s reply wasn’t a list of cards')}
+  list=(Array.isArray(list)?list:[]).filter(x=>x&&typeof x.front==='string'&&typeof x.back==='string'&&x.front.trim()).slice(0,6);
+  let image=null;
+  if(list.length&&t.anchorRegion&&!isWholePage(t.anchorRegion)&&o.src!=='takeaway'){   // keep a copy of the snip with the card, so it can be reviewed without opening the PDF
+    try{const bl=await imageBlob(regionRef(t));const [im]=await storeImages([{blob:bl,type:bl.type}]);image=im}catch(e){console.warn('snip not kept with the card',e)}
+  }
+  const at=o.note?{thread:o.noteThread,msg:o.note}:{thread:tid,msg:seen},where=tid==='main'?'Main thread':trunc(t.title||t.anchorText||'Branch',70);   // where to take the reader back to
+  for(const x of list)await putCard({id:'k'+rid()+rid(),conv:c0.id,convTitle:c0.title||'',thread:tid,at,where,src:o.src,front:x.front.trim(),back:x.back.trim(),...(image?{image}:{}),status:'inbox',created:Date.now(),due:null,fsrs:null,reviews:[]});
+  if(seen&&!o.takeaway){c0.cards.done=c0.cards.done||{};c0.cards.done[tid]=seen;if(conv===c0)save();else io.store.update(c0.id,{cards:c0.cards}).catch(()=>{})}
+  if(!o.quiet||list.length)toast(list.length?`${list.length} card${list.length>1?'s':''} drafted into your inbox`:'Nothing new worth a card there.');
+}
+// --- the panel: Review / Inbox / All ---
+const KS={scope:'conv',tab:'review',shown:false,editing:null};
+async function openCards(scope,tab){
+  await loadCards();KS.scope=scope||'conv';if(KS.scope==='conv'&&!conv)KS.scope='all';
+  KS.tab=tab||(dueCards(KS.scope).length?'review':[...CARDS.values()].some(c=>c.status==='inbox'&&inScope(c,KS.scope))?'inbox':'review');
+  KS.shown=false;KS.editing=null;hideBackToReview();$('#cardsModal').classList.add('show');renderCards();
+}
+function closeCards(){$('#cardsModal').classList.remove('show')}
+const hideBackToReview=()=>{const b=$('#backReview');if(b)b.classList.remove('show')};
+function renderCards(){
+  const box=$('#cardsModal .kbox'),scope=KS.scope,all=[...CARDS.values()].filter(c=>inScope(c,scope));
+  const due=dueCards(scope),inbox=all.filter(c=>c.status==='inbox'),kept=all.filter(c=>c.status!=='inbox');
+  const off=scope==='conv'&&!cardsOn(),nNew=scope==='conv'?newForCards().length:0;
+  box.innerHTML=`<div class="khead"><span class="kt">Flashcards</span><select data-kscope aria-label="Which cards"><option value="conv">This conversation</option><option value="all">All conversations</option></select><span class="sp"></span>${scope==='conv'&&!off?`<button class="mbtn" data-kact="make" ${nNew&&!drafting?'':'disabled'} title="Have the model draft cards from the threads that changed since cards were last made">${drafting?'Drafting…':nNew?`Make cards · ${nNew} new`:'Up to date'}</button>`:''}<button class="ib" data-kact="close" title="Close (Esc)">${ic('x')}</button></div>
+    ${off?'':`<div class="ktabs"><button data-ktab="review" class="${KS.tab==='review'?'on':''}">Review${due.length?` (${due.length})`:''}</button><button data-ktab="inbox" class="${KS.tab==='inbox'?'on':''}">Inbox${inbox.length?` (${inbox.length})`:''}</button><button data-ktab="all" class="${KS.tab==='all'?'on':''}">All cards (${kept.length})</button></div>`}
+    <div class="kbody"></div>${scope==='conv'&&cardsOn()?`<div class="kfoot" style="padding:0 14px 12px"><span class="sp"></span><button data-kact="off" title="Stop drafting cards for this conversation. Cards you have stay.">Turn off for this conversation</button></div>`:''}`;
+  box.querySelector('[data-kscope]').value=scope;
+  const body=box.querySelector('.kbody');
+  if(off){body.innerHTML=`<div class="kempty"><b>Flashcards are off for this conversation.</b><br>Turn them on and the model drafts cards from your highlights, snips and takeaways into an inbox. You keep the ones you want and review them with spaced repetition. Nothing changes until you do.<br><button class="mbtn primary" data-kact="on">Turn on for this conversation</button></div>`;return}
+  if(KS.tab==='review')renderReview(body,due);
+  else if(KS.tab==='inbox')renderInbox(body,inbox);
+  else renderAllCards(body,kept);
+}
+function cardFace(el,text,image){
+  if(image){const b=document.createElement('button');b.className='kimg';b.dataset.zoomref='1';b.__ref=image;b.title='Show larger';const im=document.createElement('img');im.alt='';b.appendChild(im);el.appendChild(b);imageURL(image).then(u=>{im.src=u}).catch(()=>b.remove())}
+  const d=document.createElement('div');d.className='kface';el.appendChild(d);renderRich(d,text,true);
+}
+function srcLink(c,withConv){const b=document.createElement('button');b.className='ksrc';b.dataset.kact='open';b.dataset.kid=c.id;b.title=`Open it in its conversation, at the reply it came from (${srcLabel(c)})${KS.tab==='review'?'. Key: O':''}`;b.textContent='↗ '+[withConv&&c.convTitle?trunc(c.convTitle,40):'',c.where||srcLabel(c)].filter(Boolean).join(' › ');return b}
+function srcLabel(c){return ({highlight:'from a highlight',snip:'from a snip',page:'from a page',takeaway:'from a takeaway',made:'made from a branch'})[c.src]||''}
+function renderReview(body,due){
+  if(!due.length){
+    const next=[...CARDS.values()].filter(c=>c.status==='active'&&inScope(c,KS.scope)).sort((a,b)=>a.due-b.due)[0];
+    const n=[...CARDS.values()].filter(c=>c.status==='inbox'&&inScope(c,KS.scope)).length;
+    body.innerHTML=`<div class="kempty">${next?`Nothing due right now. The next card is due in ${ivlText(next.due-Date.now())}.`:'No cards to review yet.'}${n?`<br><button class="mbtn" data-ktab="inbox">${n} card${n>1?'s':''} waiting in the inbox</button>`:''}</div>`;return;
+  }
+  const c=due[0],now=Date.now();
+  body.innerHTML=`<div class="kbar"><span>${due.length} due</span><span class="sp"></span><span class="kmeta"></span></div><div class="kcard"><div class="kfront"></div></div><div class="kfoot"><button data-kact="del" data-kid="${c.id}">Delete card</button><span class="sp"></span></div>`;
+  body.querySelector('.kmeta').replaceWith(srcLink(c,KS.scope==='all'));
+  const card=body.querySelector('.kcard');cardFace(card.querySelector('.kfront'),c.front,c.image);
+  if(!KS.shown){const b=document.createElement('button');b.className='mbtn primary kshow';b.dataset.kact='show';b.textContent='Show answer';b.title='Space';card.after(b);return}
+  const back=document.createElement('div');back.className='kback';card.appendChild(back);cardFace(back,c.back);
+  const rate=document.createElement('div');rate.className='krate';
+  rate.innerHTML=[['Again',1],['Hard',2],['Good',3],['Easy',4]].map(([l,g])=>`<button data-krate="${g}" data-kid="${c.id}" title="${l} (${g})">${l}<small>${ivlText(fsrsNext(c.fsrs,g,now).due-now)}</small></button>`).join('');
+  card.after(rate);
+}
+function renderInbox(body,inbox){
+  if(!inbox.length){body.innerHTML=`<div class="kempty">The inbox is empty.${KS.scope==='conv'?' Cards drafted from your highlights, snips and takeaways land here, and so do the ones from “Make cards”.':''}</div>`;return}
+  body.innerHTML=`<div class="kbar"><span>Keep the cards worth reviewing; edit them first if you like.</span><span class="sp"></span><button class="mbtn" data-kact="keepall">Keep all</button><button class="mbtn" data-kact="delall">Delete all</button></div>`;
+  for(const c of inbox.sort((a,b)=>a.created-b.created))body.appendChild(cardEditor(c,true));
+}
+function cardEditor(c,isInbox){
+  const it=document.createElement('div');it.className='kitem';it.dataset.kid=c.id;
+  if(c.image)cardFace(it,'',c.image);
+  it.insertAdjacentHTML('beforeend',`<textarea class="kef" rows="2" aria-label="Front"></textarea><textarea class="keb" rows="3" aria-label="Back"></textarea><div class="kfoot">${isInbox?`<button class="mbtn primary" data-kact="keep" data-kid="${c.id}">Keep</button>`:`<button class="mbtn primary" data-kact="saveedit" data-kid="${c.id}">Save</button><button data-kact="canceledit">Cancel</button>`}<button data-kact="del" data-kid="${c.id}">Delete</button><span class="sp"></span><span class="kmeta"></span></div>`);
+  it.querySelector('.kef').value=c.front;it.querySelector('.keb').value=c.back;
+  it.querySelector('.kmeta').replaceWith(srcLink(c,KS.scope==='all'));
+  return it;
+}
+function renderAllCards(body,kept){
+  if(!kept.length){body.innerHTML='<div class="kempty">No kept cards yet. Keep some from the inbox.</div>';return}
+  for(const c of kept.sort((a,b)=>(a.due||0)-(b.due||0))){
+    if(KS.editing===c.id){body.appendChild(cardEditor(c,false));continue}
+    const it=document.createElement('div');it.className='kitem';it.dataset.kid=c.id;
+    it.innerHTML=`<div class="kfr"></div><div class="kbk"></div><div class="kfoot"><span class="kmeta"></span><span class="sp"></span><button data-kact="edit" data-kid="${c.id}">Edit</button><button data-kact="suspend" data-kid="${c.id}">${c.status==='suspended'?'Resume':'Suspend'}</button><button data-kact="del" data-kid="${c.id}">Delete</button></div>`;
+    it.querySelector('.kfr').textContent=c.front;it.querySelector('.kbk').textContent=c.back;
+    it.querySelector('.kmeta').textContent=(c.status==='suspended'?'suspended':c.due<=Date.now()?'due now':'due in '+ivlText(c.due-Date.now()))+' · ';it.querySelector('.kmeta').after(srcLink(c,KS.scope==='all'));
+    body.appendChild(it);
+  }
+}
+async function rateCard(id,g){
+  const c=CARDS.get(id);if(!c)return;const now=Date.now(),n=fsrsNext(c.fsrs,g,now);
+  c.fsrs=n.fsrs;c.due=n.due;(c.reviews=c.reviews||[]).push({at:now,g});KS.shown=false;await putCard(c);
+}
+// Takes you to where a card came from: its branch, scrolled to the reply it was drafted from (or the takeaway),
+// with the highlighted passage flashing in the parent. A "Back to review" pill returns to the same card.
+async function openCardSource(c){
+  if(io.offline){toast('The conversation opens once you’re back online.');return}
+  if(!conv||conv.id!==c.conv){if(!convList.some(x=>x.id===c.conv)){toast('That conversation was deleted.');return}closeCards();await openConv(c.conv)}
+  if(!T(c.thread)){toast('That branch was deleted.');return}
+  closeCards();showBackToReview();
+  const at=c.at&&T(c.at.thread)&&conv.msgs[c.at.msg]?c.at:{thread:c.thread,msg:lastReply(c.thread)};
+  const t=T(c.thread);
+  if(t.parent&&conv.ui.view!=='canvas')revealAnchor(c.thread);   // flash the passage it branched from
+  if(at.thread!=='main'&&!conv.ui.open.includes(at.thread))openThread(at.thread,T(at.thread).parent);
+  if(isCollapsed(at.thread)){conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==at.thread);layout()}
+  if(at.msg)revealMsg(at.thread,at.msg);
+  revealPane(at.thread);
+}
+function showBackToReview(){
+  let b=$('#backReview');
+  if(!b){b=document.createElement('div');b.id='backReview';b.innerHTML=`<button class="br-go" title="Back to the card you were on (Esc on the card closes it)">← Back to review</button><button class="br-x" title="Dismiss">${ic('x')}</button>`;document.body.appendChild(b);
+    b.querySelector('.br-go').onclick=()=>{b.classList.remove('show');$('#cardsModal').classList.add('show');renderCards()};   // same tab, scope and card, answer still shown if it was
+    b.querySelector('.br-x').onclick=()=>b.classList.remove('show')}
+  b.classList.add('show');
+}
+$('#cardsModal').addEventListener('click',async e=>{
+  if(e.target.id==='cardsModal'){closeCards();return}
+  const tab=e.target.closest('[data-ktab]');if(tab){KS.tab=tab.dataset.ktab;KS.shown=false;KS.editing=null;renderCards();return}
+  const r=e.target.closest('[data-krate]');if(r){await rateCard(r.dataset.kid,+r.dataset.krate);return}
+  const b=e.target.closest('[data-kact]');if(!b)return;
+  const a=b.dataset.kact,c=b.dataset.kid&&CARDS.get(b.dataset.kid),it=b.closest('.kitem');
+  const edited=()=>({front:it.querySelector('.kef').value.trim(),back:it.querySelector('.keb').value.trim()});
+  if(a==='close')closeCards();
+  else if(a==='on'){conv.cards={...(conv.cards||{}),on:true,done:(conv.cards&&conv.cards.done)||{}};save();syncCardsUI();renderCards();const n=newForCards().length;if(n)toast(`Turned on. “Make cards” can draft cards from the ${n} thread${n>1?'s':''} already here.`)}
+  else if(a==='off'){conv.cards.on=false;save();syncCardsUI();renderCards()}
+  else if(a==='make')makeNewCards();
+  else if(a==='show'){KS.shown=true;renderCards()}
+  else if(a==='open'&&c)openCardSource(c);
+  else if(a==='del'&&c)await dropCard(c.id);
+  else if(a==='keep'&&c){const x=edited();if(!x.front){toast('A card needs a front.');return}Object.assign(c,x,{status:'active',due:Date.now()});await putCard(c)}
+  else if(a==='keepall'){for(const k of [...CARDS.values()].filter(k=>k.status==='inbox'&&inScope(k,KS.scope))){const el=$('#cardsModal').querySelector(`.kitem[data-kid="${k.id}"]`);if(el){k.front=el.querySelector('.kef').value.trim()||k.front;k.back=el.querySelector('.keb').value.trim()}k.status='active';k.due=Date.now();await putCard(k)}}
+  else if(a==='delall'){for(const k of [...CARDS.values()].filter(k=>k.status==='inbox'&&inScope(k,KS.scope)))await dropCard(k.id)}
+  else if(a==='edit'&&c){KS.editing=c.id;renderCards()}
+  else if(a==='canceledit'){KS.editing=null;renderCards()}
+  else if(a==='saveedit'&&c){const x=edited();if(!x.front){toast('A card needs a front.');return}KS.editing=null;Object.assign(c,x);await putCard(c)}
+  else if(a==='suspend'&&c){c.status=c.status==='suspended'?'active':'suspended';await putCard(c)}
+});
+$('#cardsModal').addEventListener('change',e=>{if(e.target.matches('[data-kscope]')){KS.scope=e.target.value;KS.shown=false;KS.editing=null;renderCards()}});
+document.addEventListener('keydown',e=>{
+  if(!$('#cardsModal').classList.contains('show'))return;
+  if(e.key==='Escape'){e.preventDefault();closeCards();return}
+  if(e.target.closest('textarea,input,select')||KS.tab!=='review')return;
+  const due=dueCards(KS.scope);if(!due.length)return;
+  if(!KS.shown&&(e.key===' '||e.key==='Enter')){e.preventDefault();KS.shown=true;renderCards()}
+  else if(KS.shown&&/^[1-4]$/.test(e.key)){e.preventDefault();rateCard(due[0].id,+e.key)}
+  else if(e.key==='o'||e.key==='O'){e.preventDefault();openCardSource(due[0])}
+});
+$('#reviewBtn').addEventListener('click',()=>openCards('all'));
+
 /* ---------- context for Claude ---------- */
 function branchPrefix(t){
   if(isDocBranch(t))return `[Side question about this passage from the document${conv.doc&&conv.doc.kind==='pdf'?` (p. ${t.anchorPage+1})`:''}:]\n> ${(t.anchorText||'').replace(/\n+/g,'\n> ')}\n\n`;
@@ -935,7 +1253,14 @@ function branchPrefix(t){
    where the image comes from (a snip or page of the PDF: {region}, a pasted file: {asset} or {data}).
    A message that is all text becomes a plain string, exactly as before images existed.
    resolveContext (below) turns each ref into the image's bytes just before sending. */
-function branchParts(t){
+// With the document tools and a document too long to send whole, a branch about a passage also gets the
+// full text of its page and the pages on either side, in its first message, where it stays for the branch.
+function aroundParts(t){
+  const P=docState.pages,pdf=docState.kind==='pdf',a=Math.max(0,t.anchorPage-1),b=Math.min(P.length-1,t.anchorPage+1),lab=(i)=>pdf?`p. ${i+1}`:`part ${i+1}`;
+  return [{type:'text',text:`[The text of ${a===b?lab(a):`${pdf?'pp.':'parts'} ${a+1}–${b+1}`}, around it:]\n${P.slice(a,b+1).map((_,k)=>`[${lab(a+k)}]\n${pageText(a+k)}`).join('\n\n')}\n\n`}];
+}
+function branchParts(t,tools){
+  if(tools&&isDocBranch(t)&&docTooLong()&&Number.isInteger(t.anchorPage))return [...branchParts(t,false),...aroundParts(t)];
   if(isDocBranch(t)&&t.anchorRegion){
     const r=t.anchorRegion,p=t.anchorPage+1,whole=isWholePage(r);
     const head=whole?`[Side question about page ${p} of the document, shown in this image of the page:]\n`
@@ -950,7 +1275,8 @@ function joinParts(parts){   // neighbouring text parts become one; all-text bec
   return out.every(p=>p.type==='text')?partsText(out):out.filter(p=>p.type!=='text'||p.text);
 }
 function appendText(msg,s){if(typeof msg.content==='string')msg.content+=s;else msg.content=[...msg.content,{type:'text',text:s}]}
-function buildContext(tid,excludeMid){
+function buildContext(tid,excludeMid,opts){
+  const tools=toolsWanted(opts);   // the model can read the document itself (see runDocTool); opts.tools:false for side jobs like drafting cards
   const path=ancestors(tid),out=[];
   const push=(role,c)=>{const parts=typeof c==='string'?[{type:'text',text:c}]:c;const last=out[out.length-1];if(last&&last.role===role)last.parts.push({type:'text',text:'\n\n'},...parts);else out.push({role,parts:[...parts]})};
   path.forEach((id,i)=>{
@@ -965,20 +1291,20 @@ function buildContext(tid,excludeMid){
       let parts=[{type:'text',text:c}];
       if(m.role==='user'){
         if(m.images&&m.images.length)parts=[...m.images.map((ref,k)=>({type:'image',ref,label:`image ${k+1} attached to “${trunc(c||'a message',40)}”`})),...(c?parts:[])];
-        if(firstUser&&t.parent)parts=[...branchParts(t),...parts];
+        if(firstUser&&t.parent)parts=[...branchParts(t,tools),...parts];
         firstUser=false;
       }
       push(m.role,parts);
     }
   });
   while(out.length&&out[0].role!=='user')out.shift();
-  let system=SYS;
+  let system=SYS;lastDocSeen=null;
   if(out.length&&conv.doc){
     const last=out[out.length-1];
-    system=SYS+'\n\n'+docPreamble(tid,last.role==='user'?partsText(last.parts):'');
+    system=SYS+'\n\n'+docPreamble(tid,last.role==='user'?partsText(last.parts):'',tools);
     if(tid==='main'&&docState&&docState.kind==='pdf'&&conv.ui.open.includes('doc')&&!isCollapsed('doc')&&last.role==='user')last.parts.push({type:'text',text:`\n\n(The learner is currently looking at p. ${docView.current} of the document.)`});
   }
-  return {system,messages:out.map(o=>({role:o.role,content:joinParts(o.parts)}))};
+  return {system,messages:out.map(o=>({role:o.role,content:joinParts(o.parts)})),docSeen:lastDocSeen,tools:tools&&!!(conv.doc&&docState&&docState.loaded)};
 }
 // Turns image refs into what the connector sends: {type:'image',mediaType,data(base64)}. If an image
 // can't be loaded the whole request fails with a clear error: nothing is sent with a piece missing.
@@ -1010,7 +1336,7 @@ async function send(tid,text,imgs){
   const t=T(tid);
   let extra;
   if(imgs.length){streaming.set(tid,{mid:null,ctrl:new AbortController()});try{extra={images:await storeImages(imgs)}}finally{streaming.delete(tid)}}
-  if(tid==='main'&&!conv.order.main.some(id=>conv.msgs[id].role==='user')){conv.title=trunc(text||'Question about an image',120);renderTitle()}
+  if(tid==='main'&&!conv.titleKept&&!conv.order.main.some(id=>conv.msgs[id].role==='user')){conv.title=trunc(text||'Question about an image',120);delete conv.autoTitle;renderTitle()}
   if(t.autoTitle&&!conv.order[tid].length){t.title=trunc(text||'About an image',48);delete t.autoTitle;refreshAnchorsFor(tid)}
   addMsg(tid,'user',text,extra);
   const am=addMsg(tid,'assistant','');am.pending=true;
@@ -1023,20 +1349,24 @@ async function generate(m,ctx,lockTid){
   const ctrl=new AbortController();streaming.set(lockTid,{mid:m.id,ctrl});updateComposer(lockTid);
   try{
     if(!io.llm)await io.ready;
-    const web=!!(settings.web&&io.llm.supportsWeb);if(web)m.web=true;else delete m.web;delete m.searches;delete m.sources;
+    const web=!!(settings.web&&io.llm.supportsWeb);if(web)m.web=true;else delete m.web;delete m.searches;delete m.sources;delete m.reads;delete m.toolNow;
+    const trail=[],tools=ctx.tools?{run:async(name,input)=>{   // the model reading the document: run the call here, show what it's doing
+      m.toolNow=trailText(name==='search'?{t:'search',q:String(input.query||'')}:name==='read_pages'?{t:'read',a:input.from,b:input.to||input.from}:{t:'view',p:input.page});queueStream(m.id);
+      const r=await runDocTool(name,input,trail);m.reads=[...trail];queueStream(m.id);return r}}:undefined;
     const keepSearch=(x)=>{if(x.searches&&x.searches.length)m.searches=[...x.searches];if(x.sources&&x.sources.length)m.sources=x.sources.slice(0,30)};
     const rc=await resolveContext(ctx,!!io.llm.supportsImages);
     if(rc.skipped)toast('This connection can’t send images, so Claude only gets a note where each image was.');
     const r=await io.llm.complete({system:rc.system,messages:rc.messages,model:settings.model,effort:settings.effort,web,signal:ctrl.signal,
-      onText:(text)=>{m.content=text;queueStream(m.id)},onSearch:(x)=>{keepSearch(x);queueStream(m.id)}});
-    m.content=r.text;if(r.model)m.model=r.model;keepSearch(r);
+      onText:(text)=>{m.content=text;queueStream(m.id)},onSearch:(x)=>{keepSearch(x);queueStream(m.id)},tools});
+    m.content=r.text;if(r.model)m.model=r.model;keepSearch(r);if(ctx.docSeen)m.docSeen=ctx.docSeen;else delete m.docSeen;
     if(r.truncated)m.error='Reply was cut off (length limit).';
   }catch(e){
     if(e&&e.text)m.content=e.text;
     if(e&&e.searches&&e.searches.length)m.searches=[...e.searches];if(e&&e.sources&&e.sources.length)m.sources=e.sources.slice(0,30);
     m.error=ctrl.signal.aborted?'Stopped.':(e&&e.code==='rate_limited'?'Rate limited. Wait a moment and retry.':(e&&e.message)||'Something went wrong.');
   }
-  delete m.pending;m.ver++;streaming.delete(lockTid);
+  delete m.pending;delete m.toolNow;if(m.reads&&!m.reads.length)delete m.reads;m.ver++;streaming.delete(lockTid);
+  cardsAfterReply(m);
   renderPane(m.thread);updateComposer(lockTid);renderMap();save();
   if(conv.ui.view==='canvas')renderCanvas();
 }
@@ -1298,13 +1628,14 @@ function msgEl(m){
       renderRich(body,m.content,true);applyAnchors(body,m);renderMermaid(body);
       if(m.error){const e=document.createElement('div');e.className='err';e.textContent=m.error;body.appendChild(e)}
       const ws=webSources(m);if(ws)el.insertBefore(ws,el.lastChild);
+      const dr=docReads(m);if(dr)el.insertBefore(dr,el.lastChild);
       buildFoot(el.lastChild,m);
     }
   }
   msgCache.set(m.id,{key,el});return el;
 }
 function buildFoot(f,m){
-  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(m.error?`<button class="ib" data-act="retry" title="Retry">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}</span>`:'');
+  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(m.error?`<button class="ib" data-act="retry" title="Retry">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}</span>`:'')+(m.docSeen&&!m.docSeen.tools?`<span class="model dseen" title="The document was too long to send whole. This reply saw: ${esc(m.docSeen.pages)}">saw ${m.docSeen.n} of ${m.docSeen.of} pages</span>`:'');
   const bs=branchesOn(m.id);
   if(bs.length){
     const wrap=document.createElement('div');wrap.className='bchips';
@@ -1319,8 +1650,10 @@ function buildFoot(f,m){
 }
 function streamInto(body,m){
   const q=m.searches&&m.searches.length?m.searches[m.searches.length-1]:'';
-  if(!m.content){body.innerHTML='<span class="thinking"><i></i><i></i><i></i></span>'+(q?`<div class="wact">${ic('globe')}<span>Searching: ${esc(trunc(q,90))}</span></div>`:'');return}
+  const doing=m.toolNow?`<div class="wact">${ic('doc')}<span>${esc(trunc(m.toolNow[0].toUpperCase()+m.toolNow.slice(1),90))}…</span></div>`:'';
+  if(!m.content){body.innerHTML='<span class="thinking"><i></i><i></i><i></i></span>'+(q?`<div class="wact">${ic('globe')}<span>Searching: ${esc(trunc(q,90))}</span></div>`:'')+doing;return}
   renderRich(body,m.content,false);
+  if(doing)body.insertAdjacentHTML('beforeend',doing);   // still reading after some text: say so (the final render drops it)
 }
 /* where a reply looked on the web: the searches it ran and the pages they returned (kept outside .body, so anchors never count it) */
 function webSources(m){
@@ -1361,9 +1694,8 @@ function paneEl(tid){
   const isMain=tid==='main';
   el=document.createElement('section');el.className='pane'+(isMain?' main':'');el.dataset.tid=tid;
   el.innerHTML=`<div class="ph">${isMain?'<span class="dot"></span>':`<span class="sdot" data-resolve="${tid}"></span>`}<div class="ph-main"><div class="ph-title" spellcheck="false"></div><div class="ph-origin"></div></div>
-    <div class="ph-act">${isMain?'':`<button class="tb" data-act="back" title="Go back to where this branched from">${ic('back')}<span class="tl">Back</span></button><button class="tb" data-act="take" title="Add a short takeaway from this branch to its parent">${ic('take')}<span class="tl">Takeaway</span></button>`}
+    <div class="ph-act"><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button></div>${isMain?'':`<button class="tb" data-act="back" title="Go back to where this branched from">${ic('back')}<span class="tl">Back</span></button><button class="tb" data-act="take" title="Add a short takeaway from this branch to its parent">${ic('take')}<span class="tl">Takeaway</span></button><button class="tb kmk" data-act="mkcards" title="Have the model draft flashcards from this branch into your inbox">${ic('cards')}<span class="tl">Cards</span></button>`}${isMain?`<button class="ib kicon" data-act="cards" title="Flashcards for this conversation">${ic('cards')}</button>`:''}
     <button class="ib" data-act="pin"></button><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it.">${ic('collapse')}</button><button class="ib" data-act="focus"></button>${isMain?'':`<button class="ib dz" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button><button class="ib" data-act="close" title="Close this pane and jump back to where it branched from. The branch stays saved.">${ic('x')}</button>`}</div></div>
-    <div class="pzw"><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button></div></div>
     <div class="pb"><div class="msgs"></div></div>
     ${isMain?'':`<div class="tk"><div class="tkb"><span class="tkl">Takeaway to parent</span><input placeholder="Optional: what to focus on" autocomplete="off"><button class="go" title="Generate 2–4 takeaway bullets and add them to the end of the parent thread">Add</button><button class="ib" data-act="take" title="Cancel">${ic('x')}</button></div></div>`}
     <div class="jumpw"><div class="jump"><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button><button class="ib jl" data-act="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib je" data-act="jend" title="Jump to the very bottom">${ic('jend')}</button></div></div>
@@ -1408,7 +1740,12 @@ function updateHeader(tid){
   const o=el.querySelector('.ph-origin');
   if(t.parent){
     const path=ancestors(tid);
-    const crumbs=path.slice(0,-1).map((id,i)=>`<span class="crumb" data-crumb="${id}" data-via="${path[i+1]}" title="Go to where the next branch starts">${esc(trunc(id==='main'?(isDocBranch(T(path[i+1]))?'Document':'Main'):T(id).title,22))}</span>`).join(' › ');
+    // each crumb is an ancestor; clicking it shows the spot in that ancestor where the path continues
+    // the last one (the direct parent) is plain text: the quote already goes to where this branch starts
+    const crumbs=path.slice(0,-1).map((id,i)=>{const via=path[i+1],name=id==='main'?(isDocBranch(T(via))?'the document':'the main thread'):`“${T(id).title}”`;
+      const label=esc(trunc(id==='main'?(isDocBranch(T(via))?'Document':'Main'):T(id).title,22));
+      if(via===tid)return `<span class="crumb-parent">${label}</span>`;
+      return `<span class="crumb" data-crumb="${id}" data-via="${via}" title="${esc(`Show where “${T(via).title}” branches off ${name}`)}">${label}</span>`}).join(' › ');
     o.innerHTML=`↳ ${crumbs} <sup style="font-size:10px;color:${color(t)}">${branchNum(t)}</sup>${t.anchorText?` · <q data-back="1" title="Show this passage in its source">${esc(trunc(t.anchorText,70))}</q>`:' · whole reply'}`;
   }else{const n=Object.keys(conv.threads).length-1;o.textContent=`${n} branch${n===1?'':'es'}`}
   const pb_=el.querySelector('[data-act="pin"]');if(pb_){const pinned=tid==='main'?!!conv.pinned:!!t.pinned;pb_.innerHTML=ic('pin');pb_.classList.toggle('pinned',pinned);pb_.title=tid==='main'?(pinned?'Unpin this conversation':'Pin this conversation to the top of the sidebar'):(pinned?'Unpin this branch':'Pin this branch to the top of the sidebar, so you can jump straight back to it')}
@@ -1528,6 +1865,43 @@ function layout(){
   syncViewSeg();
   wiresSoon();
 }
+/* Reorder panes by dragging a pane's header (Columns / Rows). With a mouse the drag starts after a few
+   pixels, so clicks, buttons and double-click-to-rename still work. On touch it needs a short press and hold,
+   so a stray swipe doesn't shuffle panes (headers don't scroll the page; swipe on a pane's content for that).
+   The order is conv.ui.open. */
+(function paneReorder(){
+  let st=null,quietUntil=0;
+  addEventListener('click',e=>{if(Date.now()<quietUntil){e.stopPropagation();e.preventDefault()}},true);   // the click that ends a drag does nothing
+  const skip=(t)=>t.closest('button,input,textarea,q,.crumb,[data-resolve],[data-back],[contenteditable=true],.pzoom');
+  $('#panes').addEventListener('pointerdown',e=>{
+    const ph=e.target.closest('.pane>.ph');if(!ph||e.button>0||skip(e.target))return;
+    const pane=ph.parentElement;if(pane.classList.contains('rail')||conv.ui.open.length<2)return;
+    st={tid:pane.dataset.tid,pane,x:e.clientX,y:e.clientY,id:e.pointerId,touch:e.pointerType!=='mouse',on:false,timer:0};
+    if(st.touch)st.timer=setTimeout(()=>{if(st)begin()},350);
+  });
+  function begin(){st.on=true;st.pane.classList.add('pdrag');$('#panes').classList.add('reordering');getSelection().removeAllRanges();if(navigator.vibrate)try{navigator.vibrate(10)}catch(_){}}
+  document.addEventListener('pointermove',e=>{
+    if(!st||e.pointerId!==st.id)return;
+    const moved=Math.hypot(e.clientX-st.x,e.clientY-st.y);
+    if(!st.on){if(st.touch){if(moved>8){clearTimeout(st.timer);st=null}return}if(moved<6)return;begin()}
+    const wrap=$('#panes'),cols=conv.ui.layout==='cols',pos=cols?e.clientX:e.clientY;
+    const wr=wrap.getBoundingClientRect(),edge=cols?[wr.left,wr.right]:[wr.top,wr.bottom];   // scroll along near the edges
+    if(pos<edge[0]+40)wrap[cols?'scrollLeft':'scrollTop']-=14;else if(pos>edge[1]-40)wrap[cols?'scrollLeft':'scrollTop']+=14;
+    const others=[...wrap.querySelectorAll(':scope>.pane')].filter(p=>p!==st.pane);
+    let idx=others.filter(p=>{const r=p.getBoundingClientRect();return (cols?r.left+r.width/2:r.top+r.height/2)<pos}).length;
+    const order=conv.ui.open.filter(x=>x!==st.tid);order.splice(idx,0,st.tid);
+    if(order.join()!==conv.ui.open.join()){conv.ui.open=order;layout()}
+  });
+  document.addEventListener('touchmove',e=>{if(st&&st.on)e.preventDefault()},{passive:false});
+  const end=(e)=>{
+    if(!st||(e&&e.pointerId!==st.id))return;clearTimeout(st.timer);
+    if(st.on){st.pane.classList.remove('pdrag');$('#panes').classList.remove('reordering');save();wiresSoon();
+      quietUntil=Date.now()+250}
+    st=null;
+  };
+  document.addEventListener('pointerup',end);document.addEventListener('pointercancel',e=>{if(st&&!st.on)end(e);else if(st&&e.pointerId===st.id)end(e)});
+  $('#panes').addEventListener('contextmenu',e=>{if(st&&st.touch)e.preventDefault()});
+})();
 let drag=null;
 function startDrag(e,g){
   const tid=g.dataset.left,el=paneEls.get(tid);if(!el||el.classList.contains('rail'))return;
@@ -2060,7 +2434,15 @@ function setView(v){
   }
   syncViewSeg();save();
 }
-function syncViewSeg(){const v=conv.ui.view==='canvas'?'canvas':conv.ui.layout;document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===v))}
+function syncViewSeg(){const v=conv.ui.view==='canvas'?'canvas':conv.ui.layout;document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  $('#resetOrder').style.display=conv.ui.view!=='canvas'&&conv.ui.open.join()!==branchOrder().join()?'':'none'}
+// the order panes open in: the document, then main, each branch right after the thread it came from (oldest first)
+function branchOrder(){
+  const open=conv.ui.open,out=open.includes('doc')?['doc']:[];
+  const walk=(tid)=>{if(open.includes(tid))out.push(tid);for(const c of children(tid))walk(c.id)};walk('main');
+  for(const x of open)if(!out.includes(x))out.push(x);return out;
+}
+$('#resetOrder').addEventListener('click',()=>{conv.ui.open=branchOrder();layout();save()});
 
 /* ---------- open / resolved status ---------- */
 function toggleResolved(tid){
@@ -2132,12 +2514,14 @@ function startDoc(){
         const lib=await loadPdfLib();
         const pdf=await lib.getDocument({data:new Uint8Array(data.slice(0)),isEvalSupported:false}).promise;
         st.pdf=pdf;st.n=pdf.numPages;const pages=[];
+        if(conv&&conv.id===key&&conv.autoTitle!=null)applyPdfTitle(pdf);
         for(let i=1;i<=pdf.numPages;i++){
           const tc=await (await pdf.getPage(i)).getTextContent();
           pages.push(tc.items.map(it=>(it.str||'')+(it.hasEOL?'\n':' ')).join('').replace(/[ \t]+/g,' ').trim());
           st.progress=i;if(i%4===0&&docState===st)updateHeader('doc');
         }
         st.pages=pages;
+        try{st.outline=await pdfOutline(pdf)}catch(e){st.outline=null}
       }else{st.text=String(data);st.pages=chunkText(st.text);st.n=st.pages.length}
       st.loaded=true;
       if(!d.pages||d.pages!==st.n){d.pages=st.n}
@@ -2145,6 +2529,40 @@ function startDoc(){
     if(docState===st){renderDocPane(true);updateHeader('doc');if(conv.ui.view==='canvas')renderCanvas();if(st.loaded&&conv.id===key&&(conv.order.main.length||Object.keys(conv.threads).length>1||conv.doc))idxWrite(conv,st.pages)}
   })();
   return st.ready;
+}
+// the PDF's built-in table of contents (bookmarks), flattened: [{title, depth, page}]; null if it has none
+async function pdfOutline(pdf){
+  const o=await pdf.getOutline();if(!o||!o.length)return null;
+  const out=[],pageOf=async(dest)=>{try{if(typeof dest==='string')dest=await pdf.getDestination(dest);if(!Array.isArray(dest))return null;const r=dest[0];return typeof r==='number'?r+1:(await pdf.getPageIndex(r))+1}catch(e){return null}};
+  const walk=async(items,d)=>{for(const x of items){if(out.length>=400)return;const title=String(x.title||'').replace(/\s+/g,' ').trim();if(title)out.push({title:title.slice(0,200),depth:d,page:await pageOf(x.dest)});if(x.items&&x.items.length)await walk(x.items,d+1)}};
+  await walk(o,0);return out.length?out:null;
+}
+// name a new conversation after its PDF's own title, if it has a real one and the title is still the automatic one
+async function applyPdfTitle(pdf){
+  const c=conv;let meta;
+  try{meta=await pdf.getMetadata()}catch(e){return}
+  if(conv!==c||c.autoTitle==null)return;
+  if(c.title===c.autoTitle&&!c.titleKept){
+    let dc=null;try{dc=meta.metadata&&meta.metadata.get('dc:title')}catch(e){}
+    if(Array.isArray(dc))dc=dc[0];
+    const t=pdfTitleOk(meta.info&&meta.info.Title)||pdfTitleOk(dc);
+    if(t){c.title=t;c.titleKept=true;renderTitle()}
+  }
+  delete c.autoTitle;save();
+}
+// a PDF's Title metadata, cleaned, or '' when it's missing or junk (a file name, "Untitled", "Microsoft Word - x.docx", "Slide 1"...)
+function pdfTitleOk(raw){
+  if(typeof raw!=='string')return '';
+  let s=raw.replace(/[\u0000-\u001f\u007f﻿​]/g,' ').replace(/\s+/g,' ').trim().replace(/^["'“‘]+|["'”’]+$/g,'').trim();
+  s=s.replace(/^(microsoft\s+)?(word|powerpoint|excel|publisher)\s*-\s*/i,'');
+  if(/^[a-z]:[\\/]|^\/|^\\\\|^(https?|file):/i.test(s)||/[\\/][^ ]*\.[a-z0-9]{2,5}$/i.test(s))return '';
+  const ext=/\.(pdf|docx?|dotx?|odt|rtf|txt|md|tex|dvi|ps|eps|pptx?|odp|key|xlsx?|pages|indd|html?|qxd|wpd|png|jpe?g|tiff?)$/i;
+  if(ext.test(s)){s=s.slice(0,s.search(ext)).trim();if(!/\s/.test(s))return ''}
+  if(!/\s/.test(s)&&/[_.]|\d{3}/.test(s))return '';
+  if(s.length<3||(s.match(/\p{L}/gu)||[]).length<2)return '';
+  if(/^(untitled|no title|title|none|null|unknown|default|blank|draft|document|new document|presentation|slide|page|layout|doc|file|pdf|print|microsoft word|powerpoint presentation|title of (the )?(paper|document|thesis)|your title here|insert title here|template|output|scan|scanned document|image)(\s*[-_#:]?\s*\d+)?$/i.test(s))return '';
+  if(/^untitled\b/i.test(s))return '';
+  return trunc(s,120);
 }
 async function docReady(){if(conv&&conv.doc&&docState)await docState.ready}
 
@@ -2200,7 +2618,8 @@ function renderDocPane(force){
   else{
     const st=el.querySelector('.pb').scrollTop;
     wrap.innerHTML='<div class="docbody"></div>';const b=wrap.firstChild;
-    renderRich(b,docState.text,true);applyDocAnchorsText(b);renderMermaid(b);
+    renderRich(b,docState.text,true);articleFigures(b);applyDocAnchorsText(b);renderMermaid(b);
+    articleBar(wrap,b);
     el.querySelector('.pb').scrollTop=st;
   }
   updateDocHeader();wiresSoon();
@@ -2342,11 +2761,46 @@ function linkPages(root){
     frag.append(s.slice(last));node.replaceWith(frag);
   }
 }
-function docPreamble(tid,question){
+const DOC_BUDGET=200000;   // characters of document text per request (~50k tokens)
+let lastDocSeen=null;      // set by docPreamble: which pages the request it just built includes, when not all
+const DOC_FIRST=3;         // with the document tools: pages always given up front when a document is too long to send whole
+const pageText=(i)=>{const t=docState.pages[i],pdf=docState.kind==='pdf';return t.trim()?t:`(no text on this ${pdf?'page':'part'}: it may be a scan, an image or a figure${pdf?'; view_page shows it':''})`};
+const docTooLong=()=>!!(docState&&docState.loaded&&docState.pages.reduce((n,p)=>n+p.length,0)>DOC_BUDGET);
+function docPreamble(tid,question,tools){
+  lastDocSeen=null;
   if(!conv.doc)return '';
   if(!docState||!docState.loaded)return `[The learner is reading a document titled "${conv.doc.name}", but its text couldn't be loaded right now.]`;
   const P=docState.pages,pdf=docState.kind==='pdf',label=i=>pdf?`p. ${i+1}`:`part ${i+1}`;
-  const total=P.reduce((n,p)=>n+p.length,0),BUDGET=80000,pick=new Set();
+  const cite=pdf?'When you refer to specific places, cite them in square brackets like [p. 4] so the learner can click to jump there.':'When you refer to specific places, name the section heading.';
+  if(tools){
+    // With the document tools the model reads what it needs itself. What it starts with is fixed for the
+    // whole conversation (the same text every question, so every thread shares one prompt cache): all of
+    // it when it fits; otherwise the table of contents and the first pages. Branches about a passage add
+    // the pages around it to their own first message (branchParts), where they stay for the whole branch.
+    const head=`The learner is reading a document titled "${docState.name}" (${P.length} ${pdf?'pages':'parts'}).`;
+    const look=pdf?` Only text was extracted, so figures, charts, images and layout are missing and equations or tables may be garbled: when one matters, look at the page with view_page instead of guessing what it shows.`
+      :conv.doc.article?` It is a web article${conv.doc.source?` (from ${conv.doc.source})`:''}, kept as Markdown. Its pictures are marked [Image: description](link): you can't see them in the text, so when one matters, call view_page with that part's number to see the pictures in it, instead of guessing what they show. The parts are the [part N] labels below.`:'';
+    if(!docTooLong())return `${head} Its full extracted text is below, so you don't need search or read_pages.${look} ${cite}
+<document>
+${P.map((_,i)=>`[${label(i)}]
+${pageText(i)}`).join('\n\n')}
+</document>`;
+    const ol=docState.outline,n=Math.min(DOC_FIRST,P.length);
+    let toc='';if(ol&&ol.length){for(const x of ol){const l='  '.repeat(Math.min(x.depth,6))+x.title+(x.page?` … ${label(x.page-1)}`:'');if(toc.length+l.length>16000){toc+='  … (the contents go on)\n';break}toc+=l+'\n'}}
+    lastDocSeen={of:P.length,tools:true,pages:`${toc?'the contents and ':''}${n>1?`pp. 1–${n}`:'p. 1'}`};
+    return `${head} It is too long to include whole. Below are ${toc?'its table of contents and ':''}its first ${n} ${pdf?'pages':'parts'}; a side question about a passage also comes with the text around it. You can read the rest yourself with your tools: search finds where something is, read_pages reads it${pdf?', view_page shows a page as an image':''}. Use them whenever the answer depends on something you haven't read: a section, figure, table, definition or result the question or the text refers to. Look first, then answer. If you can't find something, say so plainly; never guess what an unread part says.${look} ${cite}
+${toc?`<contents>
+${toc}</contents>
+`:''}<document>
+${P.slice(0,n).map((_,i)=>`[${label(i)}]
+${pageText(i)}`).join('\n\n')}
+[the rest (${n<P.length-1?`${pdf?'pp.':'parts'} ${n+1}–${P.length}`:label(P.length-1)}) is available through the tools]
+</document>`;
+  }
+  // The whole document goes in whenever it fits (most papers, reports, model cards): the model then never
+  // misses a page, and the instructions stay identical for every question in the conversation, so all its
+  // threads share one prompt cache. Only bigger documents are cut down, with every gap marked.
+  const total=P.reduce((n,p)=>n+p.length,0),BUDGET=DOC_BUDGET,pick=new Set();
   if(total<=BUDGET)P.forEach((_,i)=>pick.add(i));
   else{
     let used=0;const add=i=>{if(i<0||i>=P.length||pick.has(i)||used+P[i].length>BUDGET)return;pick.add(i);used+=P[i].length};
@@ -2357,9 +2811,97 @@ function docPreamble(tid,question){
     if(words.length)P.map((p,i)=>{const lp=p.toLowerCase();return [words.reduce((s,w)=>s+(lp.split(w).length-1),0),i]}).sort((a,b)=>b[0]-a[0]).forEach(([s,i])=>{if(s>0)add(i)});
     for(let i=0;i<P.length;i++)add(i);
   }
-  const partial=pick.size<P.length;
-  const body=[...pick].sort((a,b)=>a-b).map(i=>`[${label(i)}]\n${P[i]}`).join('\n\n');
-  return `The learner is reading a document titled "${docState.name}" (${P.length} ${pdf?'pages':'parts'}). Its extracted text is below${partial?`, but only some ${pdf?'pages':'parts'} fit; say so if the answer depends on ones that aren't included`:''}. ${pdf?'When you refer to specific places, cite them in square brackets like [p. 4] so the learner can click to jump there.':'When you refer to specific places, name the section heading.'} Extraction can garble equations, tables or columns; work around that.\n<document>\n${body}\n</document>`;
+  const partial=pick.size<P.length,sorted=[...pick].sort((a,b)=>a-b),ranges=(ix)=>{const r=[];for(const i of ix){const l=r[r.length-1];if(l&&l[1]===i-1)l[1]=i;else r.push([i,i])}return r};
+  const span=([a,b])=>a===b?label(a):pdf?`pp. ${a+1}–${b+1}`:`parts ${a+1}–${b+1}`;
+  const missing=ranges(P.map((_,i)=>i).filter(i=>!pick.has(i)));
+  const out=[];let prev=-1;
+  for(const i of sorted){
+    if(i>prev+1)out.push(`[${span([prev+1,i-1])} not included]`);
+    out.push(`[${label(i)}]\n${P[i].trim()?P[i]:`(no text on this ${pdf?'page':'part'}: it may be a scan, an image or a figure)`}`);prev=i;
+  }
+  if(prev<P.length-1)out.push(`[${span([prev+1,P.length-1])} not included]`);
+  lastDocSeen=partial?{n:pick.size,of:P.length,pages:ranges(sorted).map(span).join(', ')}:null;
+  const cut=partial?` The document is too long to include whole: only ${pick.size} of its ${P.length} ${pdf?'pages':'parts'} are below, and each gap is marked. Missing: ${missing.map(span).join(', ')}. If the answer could depend on a part that isn't included (a section, figure or table it refers to), say so plainly and name the ${pdf?'page':'part'} the learner should send you; never guess what it says.`:'';
+  return `The learner is reading a document titled "${docState.name}" (${P.length} ${pdf?'pages':'parts'}). Its extracted text is below.${cut} ${pdf?'When you refer to specific places, cite them in square brackets like [p. 4] so the learner can click to jump there.':'When you refer to specific places, name the section heading.'} Only the text was extracted: you can't see figures, charts, images or the layout, and extraction can garble equations, tables or columns. If a question depends on something visual you can't see, say so and suggest the learner snip it (they can send you a picture of any area of a page); don't describe what it probably shows.\n<document>\n${out.join('\n\n')}\n</document>`;
+}
+/* ---------- document tools: what runs here when the model calls one ----------
+   The definitions the model sees, the rules and the loop are on the server (server/doctools.mjs); the server
+   passes each call here, because this page has the document open. Each returns {parts:[text|image]} or
+   {error} (which the model gets as an error), and adds an entry to `trail`, shown under the reply. */
+const READ_MAX=8,READ_CHARS=60000;
+const toolsWanted=(o)=>!!(conv&&conv.doc&&io.llm&&io.llm.supportsTools&&!(o&&o.tools===false));
+async function runDocTool(name,input,trail){
+  const st=docState;
+  if(!st||!st.loaded)return {error:'The document isn’t loaded in the reader’s browser right now, so it can’t be read. Tell the reader.'};
+  const P=st.pages,N=P.length,pdf=st.kind==='pdf',one=pdf?'p.':'part',many=pdf?'pages':'parts';
+  const num=(v)=>typeof v==='number'?v:typeof v==='string'&&/^\s*\d+\s*$/.test(v)?+v:NaN;
+  if(name==='search'){
+    const q=String(input.query==null?'':input.query).replace(/\s+/g,' ').trim();
+    if(!q)return {error:'search needs a "query": the words to find.'};
+    const nq=q.toLowerCase(),hits=[],pages=[];let total=0;
+    P.forEach((p,i)=>{const t=p.replace(/\s+/g,' '),lt=t.toLowerCase();let k=lt.indexOf(nq);
+      while(k>=0){total++;if(!pages.includes(i+1))pages.push(i+1);if(hits.length<25)hits.push(`[${one} ${i+1}] …${t.slice(Math.max(0,k-120),k+nq.length+120)}…`);k=lt.indexOf(nq,k+nq.length)}});
+    trail.push({t:'search',q,n:total,pages:pages.slice(0,40)});
+    if(!total)return {parts:[{type:'text',text:`No matches for "${q}" in the ${N} ${many}. The search matches exact text (not case-sensitive), so try fewer or different words.${pdf?' Text inside figures or scanned pages isn’t searchable; view_page shows those.':''}`}]};
+    return {parts:[{type:'text',text:`${total} match${total>1?'es':''} for "${q}", on ${many} ${pages.length>40?pages.slice(0,40).join(', ')+', …':pages.join(', ')}${total>hits.length?`. The first ${hits.length}`:''}:\n\n${hits.join('\n\n')}`}]};
+  }
+  if(name==='read_pages'){
+    const a=num(input.from);let b=input.to==null||input.to===''?a:num(input.to);
+    if(!Number.isInteger(a)||a<1)return {error:`read_pages needs "from": a ${pdf?'page':'part'} number from 1 to ${N}.`};
+    if(!Number.isInteger(b)||b<a)return {error:`"to" must be a number no smaller than "from" (${a}).`};
+    if(a>N)return {error:`There is no ${one} ${a}: the document has ${N} ${many}.`};
+    let note='';
+    if(b>N){note+=` The document has ${N} ${many}, so this stops at ${one} ${N}.`;b=N}
+    if(b-a+1>READ_MAX){note+=` At most ${READ_MAX} per call, so this stops at ${one} ${a+READ_MAX-1}; ask again for the rest.`;b=a+READ_MAX-1}
+    const out=[];let used=0;
+    for(let i=a;i<=b;i++){if(i>a&&used+P[i-1].length>READ_CHARS){note+=` These are long, so this stops at ${one} ${i-1}; ask again from ${one} ${i}.`;b=i-1;break}used+=P[i-1].length;out.push(`[${one} ${i}]\n${pageText(i-1)}`)}
+    trail.push({t:'read',a,b});
+    return {parts:[{type:'text',text:(note?`(Note:${note})\n\n`:'')+out.join('\n\n')}]};
+  }
+  if(name==='view_page'&&!pdf){
+    // a web article: the pictures in that part, downloaded now if the reader hasn't loaded them (only the
+    // article's own image links, through the server's checks; the model can't name any other address)
+    const n=num(input.page);
+    if(!Number.isInteger(n)||n<1||n>N)return {error:`There is no part ${input.page}: the document has ${N} parts.`};
+    const re=new RegExp(`\\[Image: ([^\\]]*)\\]\\((\\S+) "${IMG_MARK}"\\)`,'g'),found=[...P[n-1].matchAll(re)];
+    if(!found.length)return {error:`Part ${n} has no pictures${conv.doc.article?'':' (this is a text document)'}; read_pages has its text.`};
+    const parts=[{type:'text',text:`Part ${n} has ${found.length} picture${found.length>1?'s':''}${found.length>4?'; here are the first 4':''}:`}];
+    for(const [,desc,url] of found.slice(0,4)){
+      parts.push({type:'text',text:`[Image: ${desc}]`});
+      try{const rec=await loadArticleImage(url,{quiet:true});const bl=await imageBlob(rec);parts.push({type:'image',mediaType:bl.type,data:await blobB64(bl)})}
+      catch(e){parts.push({type:'text',text:`(couldn’t be loaded${e&&e.warnings?': it needs the reader’s OK first (an unencrypted or unusual address); ask them to load it in the document':e&&e.message?': '+e.message:''})`})}
+    }
+    trail.push({t:'view',p:n,part:true});
+    return {parts};
+  }
+  if(name==='view_page'){
+    const n=num(input.page);
+    if(!Number.isInteger(n)||n<1||n>N)return {error:`There is no page ${input.page}: the document has ${N} pages.`};
+    let bl;try{bl=await imageBlob({region:{page:n,x:0,y:0,w:1,h:1}})}catch(e){return {error:`Page ${n} couldn’t be drawn: ${(e&&e.message)||e}`}}
+    trail.push({t:'view',p:n});
+    return {parts:[{type:'text',text:`Page ${n}:`},{type:'image',mediaType:bl.type,data:await blobB64(bl)}]};
+  }
+  return {error:`There’s no tool called ${name}.`};
+}
+const trailText=(x)=>{const pd=!(docState&&docState.kind!=='pdf');
+  return x.t==='search'?`searched “${x.q}”`:x.t==='read'?(x.a===x.b?`read ${pd?'p.':'part'} ${x.a}`:`read ${pd?'pp.':'parts'} ${x.a}–${x.b}`):pd?`looked at p. ${x.p}`:`looked at the pictures in part ${x.p}`};
+// under a reply: what it read of the document beyond what it started with (kept outside .body, so anchors never count it)
+function docReads(m){
+  const r=m.reads||[],seen=m.docSeen&&m.docSeen.tools?m.docSeen:null;
+  if(!r.length&&!seen)return null;
+  const d=document.createElement('details');d.className='wsrc dreads';
+  const nS=r.filter(x=>x.t==='search').length,nR=r.filter(x=>x.t==='read').length,nV=r.filter(x=>x.t==='view').length;
+  const sum=[nS&&`searched${nS>1?` ${nS}×`:''}`,nR&&`read ${r.filter(x=>x.t==='read').reduce((n,x)=>n+x.b-x.a+1,0)} page${r.filter(x=>x.t==='read').reduce((n,x)=>n+x.b-x.a+1,0)>1?'s':''}`,nV&&`looked at ${nV} page${nV>1?'s':''}`].filter(Boolean).join(' · ');
+  d.innerHTML=`<summary>${ic('doc')}<span></span></summary>`;
+  d.querySelector('summary span').textContent=(sum?'Document: '+sum:'Used no document tools')+(seen?` · started from ${seen.pages} of ${seen.of}`:'');
+  d.title=seen?`The document was too long to send whole. This reply started from ${seen.pages} and read the rest with its tools.`:'';
+  const ol=document.createElement('ol');
+  for(const x of r){const li=document.createElement('li');
+    const pg=x.t==='read'?x.a:x.t==='view'?x.p:null;li.textContent=trailText(x)+(x.t==='search'?` → ${x.n?`${x.n} match${x.n>1?'es':''}${x.pages.length?` (p. ${x.pages.slice(0,8).join(', ')}${x.pages.length>8?', …':''})`:''}`:'no matches'}`:'');
+    if(pg&&docState&&docState.kind==='pdf'){const a=document.createElement('a');a.className='pref';a.dataset.page=pg;a.textContent='show';a.title=`Show page ${pg} in the document`;li.append(' ',a)}
+    ol.appendChild(li)}
+  if(r.length)d.appendChild(ol);
+  return d;
 }
 async function storeDocFile(c,kind,blob,text){
   await io.ready;
@@ -2385,10 +2927,105 @@ function openDocModal(){
   hideTip();$('#docModal').classList.add('show');
 }
 function closeDocModal(){$('#docModal').classList.remove('show')}
+/* ---------- web articles: a page from a link, kept as a Markdown document (reader view) ----------
+   The server downloads the page (server/fetchdoc.mjs) and hands it over as text. Here it is parsed inertly
+   (DOMParser: no scripts run, nothing loads), Readability (Firefox's reader view) keeps the article, and
+   Turndown turns it into Markdown, so from then on it is an ordinary text document. Images aren't loaded:
+   each becomes a placeholder, [Image: description](url "digress-image"), which the reader can load (the
+   server downloads it with the same checks and a copy is kept with the conversation, in conv.doc.images)
+   and which the model sees as text and can ask to look at with view_page. */
+const IMG_MARK='digress-image';
+let articleLibs=null;
+function loadArticleLibs(){
+  if(!articleLibs)articleLibs=Promise.all([loadScript('https://cdn.jsdelivr.net/npm/@mozilla/readability@0.6.0/Readability.js'),loadScript('https://cdn.jsdelivr.net/npm/turndown@7.2.0/dist/turndown.js')])
+    .then(()=>loadScript('https://cdn.jsdelivr.net/npm/turndown-plugin-gfm@1.0.2/dist/turndown-plugin-gfm.js')).catch(e=>{articleLibs=null;throw e});
+  return articleLibs;
+}
+async function articleToMarkdown(html,url){
+  await loadArticleLibs();
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  const base=doc.createElement('base');base.href=url;doc.head.prepend(base);   // so relative links and images resolve against the page
+  const a=new Readability(doc,{charThreshold:300}).parse();
+  if(!a||!a.content||(a.textContent||'').trim().length<200)throw {message:'Couldn’t find an article on that page. If it needs a login or is an app rather than an article, copy the text and paste it instead.'};
+  const abs=(u)=>{try{return new URL(u,url).href}catch(e){return ''}},safe=(u)=>u.replace(/[()\s<>]/g,c=>encodeURIComponent(c));
+  const td=new TurndownService({headingStyle:'atx',codeBlockStyle:'fenced',bulletListMarker:'-',emDelimiter:'*'});
+  td.use(turndownPluginGfm.gfm);
+  td.remove(['script','style','iframe','video','audio','object','embed','form','button','noscript','canvas','svg']);
+  td.addRule('image',{filter:'img',replacement:(_,n)=>{
+    const src=abs(n.getAttribute('src')||n.getAttribute('data-src')||(n.getAttribute('srcset')||'').trim().split(/\s+/)[0]||'');
+    if(!/^https?:/i.test(src))return '';
+    const fig=n.closest('figure'),cap=fig&&fig.querySelector('figcaption');
+    const desc=(n.getAttribute('alt')||n.getAttribute('title')||'').replace(/\s+/g,' ').replace(/[\[\]]/g,'').trim();
+    return `\n\n[Image: ${desc||(cap?'see the caption below':'no description')}](${safe(src)} "${IMG_MARK}")\n\n`;
+  }});
+  td.addRule('figcaption',{filter:'figcaption',replacement:(c)=>c.trim()?`\n\n*${c.trim()}*\n\n`:''});
+  td.addRule('link',{filter:(n)=>n.nodeName==='A'&&!!n.getAttribute('href'),replacement:(c,n)=>{
+    if(c.includes(IMG_MARK))return c;   // an image wrapped in a link: keep the image
+    const h=abs(n.getAttribute('href'));return /^(https?|mailto):/i.test(h)&&c.trim()?`[${c}](${safe(h)})`:c;
+  }});
+  let title=(a.title||'').replace(/\s+/g,' ').trim();
+  const site=(a.siteName||'').replace(/\s+/g,' ').trim();   // "Post title | Site" → "Post title"
+  if(site&&title.length>site.length+3){for(const sep of [' | ',' - ',' – ',' — ',' · ',' :: '])if(title.endsWith(sep+site)){title=title.slice(0,-(sep+site).length).trim();break}}
+  let date='';try{if(a.publishedTime){const d=new Date(a.publishedTime);if(!isNaN(d))date=d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'})}}catch(e){}
+  const meta=[a.byline,a.siteName,date].map(x=>String(x||'').replace(/\s+/g,' ').trim()).filter(Boolean).filter((x,i,l)=>l.indexOf(x)===i);
+  let body=td.turndown(a.content).replace(/\n{3,}/g,'\n\n').trim();
+  if(title&&body.startsWith('# '+title))body=body.slice(title.length+2).trim();
+  return {md:`${title?`# ${title}\n\n`:''}${meta.length?`*${meta.join(' · ')}*\n\n`:''}${body}\n`,title};
+}
+// placeholders → figures. The caption's text node is moved, not copied, and the buttons hold only icons,
+// so the document's text (which highlights are counted in) is exactly the same as before
+function articleFigures(root){
+  root.querySelectorAll(`a[title="${IMG_MARK}"]`).forEach(a=>{
+    const f=document.createElement('span');f.className='aimg';f.dataset.url=a.getAttribute('href');
+    const cap=document.createElement('span');cap.className='acap';while(a.firstChild)cap.appendChild(a.firstChild);
+    f.appendChild(cap);a.replaceWith(f);paintFigure(f);
+  });
+}
+function paintFigure(f){
+  f.querySelectorAll('.abtns,.aview').forEach(x=>x.remove());
+  const url=f.dataset.url,rec=conv.doc&&conv.doc.images&&conv.doc.images[url];
+  f.classList.toggle('loaded',!!rec);
+  if(rec){const b=document.createElement('button');b.className='aview';b.dataset.zoomref='1';b.__ref=rec;b.title='Show larger';const im=document.createElement('img');im.alt='';b.appendChild(im);f.prepend(b);imageURL(rec).then(u=>{im.src=u}).catch(()=>b.remove());return}
+  const bt=document.createElement('span');bt.className='abtns';
+  bt.innerHTML=`<button class="ib" data-aload title="Load this image. Digress downloads it (like the article itself) and keeps a copy with this conversation.">${ic('dl')}</button><a class="ib" target="_blank" rel="noopener noreferrer" title="Open the original image in a new tab">${ic('ext')}</a>`;
+  bt.querySelector('a').href=url;f.appendChild(bt);
+}
+function articleBar(wrap,body){
+  const n=body.querySelectorAll('.aimg').length;if(!n)return;
+  const left=body.querySelectorAll('.aimg:not(.loaded)').length,bar=document.createElement('div');bar.className='abar';
+  bar.innerHTML=`${ic('img')}<span></span>${left?`<button class="mbtn" data-aall>Load ${left===n?'all':'the other'} ${left}</button>`:''}`;
+  bar.querySelector('span').textContent=`${n} image${n>1?'s':''} in this article${left?`, ${left===n?'not loaded':`${left} not loaded`}`:', all loaded'}. Images aren’t downloaded until you load them.`;
+  wrap.prepend(bar);
+}
+const imgOk=new Map();   // url -> warning codes the reader has OK'd (http, bare IP, odd port)
+async function loadArticleImage(url,o={}){
+  const c=conv;c.doc.images=c.doc.images||{};if(c.doc.images[url])return c.doc.images[url];
+  let blob;
+  try{blob=await io.files.fetchImage(url,imgOk.get(url)||[])}
+  catch(e){
+    if(e&&e.warnings&&e.warnings.length&&!o.quiet){imgOk.set(url,e.warnings.map(w=>w.code));throw {message:`${e.message} ${e.warnings.map(w=>w.text).join('; ')}. Click again to load it anyway.`}}
+    throw e;
+  }
+  const [rec]=await storeImages([await fileToImage(blob)]);
+  c.doc.images[url]=rec;
+  if(c===conv){save();const el=paneEls.get('doc');if(el){el.querySelectorAll('.aimg').forEach(f=>{if(f.dataset.url===url)paintFigure(f)});refreshArticleBar()}}
+  return rec;
+}
+function refreshArticleBar(){const el=paneEls.get('doc');const w=el&&el.querySelector('.docwrap'),b=w&&w.querySelector('.docbody');if(!b)return;w.querySelectorAll('.abar').forEach(x=>x.remove());articleBar(w,b)}
+document.addEventListener('click',async e=>{
+  const one=e.target.closest&&e.target.closest('.aimg [data-aload]');
+  if(one){e.preventDefault();e.stopPropagation();const f=one.closest('.aimg');one.disabled=true;f.classList.add('busy');
+    try{await loadArticleImage(f.dataset.url)}catch(err){toast((err&&err.message)||'That image couldn’t be loaded.')}finally{one.disabled=false;f.classList.remove('busy')}return}
+  const all=e.target.closest&&e.target.closest('[data-aall]');
+  if(all){e.preventDefault();all.disabled=true;let bad=0;
+    const urls=[...new Set([...paneEls.get('doc').querySelectorAll('.aimg:not(.loaded)')].map(f=>f.dataset.url))];
+    for(const u of urls){try{await loadArticleImage(u,{quiet:true})}catch(err){bad++}}
+    refreshArticleBar();if(bad)toast(`${bad} image${bad>1?'s':''} couldn’t be loaded (not a PNG, JPEG, WebP or GIF, unreachable, or needs your OK: load it on its own).`)}
+},true);
 async function startFromDoc(){
   const f=$('#docFile').files[0],pasted=$('#docPaste').value.trim(),msg=(s)=>$('#docMsg').textContent=s;
   if(!f&&!pasted){msg('Choose a file or paste some text.');return}
-  let kind,name,blob=null,text=null,source=null;
+  let kind,name,blob=null,text=null,source=null,article=null;const typed=$('#docName').value.trim();
   const link=!f&&/^https?:\/\/\S+$/i.test(pasted)?pasted:null;
   if(link){
     if(!io.files.fromLink){msg('Opening a link needs the Digress server. Download the file and choose it above.');return}
@@ -2398,9 +3035,13 @@ async function startFromDoc(){
       kind=d.kind;source=d.url||link;
       if(d.blob.size>20*1024*1024){msg('That file is over 20 MB, the most this page can store.');$('#docGo').disabled=false;return}
       name=$('#docName').value.trim()||d.name||new URL(source).hostname;
-      if(kind==='pdf')blob=d.blob;else text=await d.blob.text();
+      if(kind==='html'){   // a web page: keep just the article, as Markdown (reader view)
+        msg('Reading the article…');
+        const a=await articleToMarkdown(await d.blob.text(),source);
+        kind='text';text=a.md;article=a;if(!typed&&a.title)name=a.title;
+      }else if(kind==='pdf')blob=d.blob;else text=await d.blob.text();
     }catch(e){
-      $('#docGo').disabled=false;
+      $('#docGo').disabled=false;$('#docGo').textContent='Start';
       if(e&&e.warnings&&e.warnings.length){
         // ask before fetching anything risky; the server stops before connecting to it
         const prev=docLinkOk&&docLinkOk.link===link?docLinkOk.codes:[];
@@ -2419,7 +3060,10 @@ async function startFromDoc(){
   }else{kind='text';text=pasted;name=$('#docName').value.trim()||trunc(pasted.split('\n').find(l=>l.trim())||'Pasted text',60).replace(/^#+\s*/,'')}
   $('#docGo').disabled=true;msg('Saving the document…');
   await flushNow();
-  const c=newConv();c.title=name;c.doc={kind,name};if(source)c.doc.source=source;c.ui.open=['doc','main'];
+  const c=newConv();c.title=name;c.doc={kind,name};
+  // a typed title stays; otherwise a PDF may swap in its own title once pdf.js reads it (startDoc)
+  if(typed||(article&&article.title))c.titleKept=true;else if(kind==='pdf')c.autoTitle=name;if(source)c.doc.source=source;c.ui.open=['doc','main'];
+  if(article){c.doc.article=true;c.doc.images={}}
   const stored=await storeDocFile(c,kind,blob,text);
   docBlobCache.set(c.id,kind==='pdf'?await blob.arrayBuffer():text);
   closeDocModal();setConv(c);dirty=true;save();
@@ -2788,7 +3432,7 @@ function setConv(c){
   for(const m of Object.values(conv.msgs)){m.ver=m.ver||0;if(m.pending){delete m.pending;if(!m.content)m.error='Interrupted.'}}
   msgCache.clear();for(const el of paneEls.values())el.remove();paneEls.clear();for(const g of gutEls.values())g.remove();gutEls.clear();
   camFitted=false;
-  layout();renderTitle();renderMap();renderConvList();hidePop();
+  layout();renderTitle();renderMap();renderConvList();hidePop();syncCardsUI();
   $('#stage').classList.toggle('canvas',ui.view==='canvas');if(ui.view==='canvas')renderCanvas();
   syncViewSeg();
 }
@@ -2927,6 +3571,8 @@ document.addEventListener('click',e=>{
       case 'zedit':editZoom(act,paneZoom(tid),z=>setPaneZoom(tid,Math.abs(z-1)<.005?1:z));break;
       case 'zfit':setPaneZoom(tid,1);break;
       case 'snip':setSnip(!pane.classList.contains('snipping'));break;
+      case 'cards':openCards('conv');break;
+      case 'mkcards':makeCardsFor(tid);break;
       case 'take':{const tk=pane.querySelector('.tk');tk.classList.toggle('show');if(tk.classList.contains('show'))tk.querySelector('input').focus();break}
       case 'wbranch':createBranch(mid,'',null);break;
       case 'copy':navigator.clipboard.writeText(conv.msgs[mid].content).then(()=>toast('Copied'),()=>toast('Copy isn\'t allowed here'));break;
@@ -3050,7 +3696,7 @@ $('#viewSeg').addEventListener('click',e=>{const b=e.target.closest('[data-v]');
 $('#newConv').addEventListener('click',async()=>{await flushNow();setConv(newConv());setTimeout(()=>paneEls.get('main').querySelector('textarea').focus(),30)});
 const ct=$('#cTitle');
 ct.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();ct.blur()}});
-ct.addEventListener('blur',()=>{const v=ct.textContent.trim();if(v&&v!==conv.title){conv.title=v;updateHeader('main');save()}else renderTitle()});
+ct.addEventListener('blur',()=>{const v=ct.textContent.trim();if(v&&v!==conv.title){conv.title=v;conv.titleKept=true;delete conv.autoTitle;updateHeader('main');save()}else renderTitle()});
 addEventListener('resize',wiresSoon);
 $('#panes').addEventListener('scroll',wiresSoon,{passive:true});
 new ResizeObserver(()=>{wiresSoon();if(conv&&conv.ui.view==='canvas'){placeDocked();drawEdgesSoon()}}).observe($('#stage'));
@@ -3066,8 +3712,9 @@ setConv(newConv());
 if(window.MathJax&&MathJax.tex2svg)window.__mathReady();
 setTimeout(()=>{const ta=paneEls.get('main')&&paneEls.get('main').querySelector('textarea');ta&&ta.focus()},50);
 
+if('serviceWorker' in navigator&&window.isSecureContext&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(e=>console.warn('offline support unavailable',e));
 io.ready=initConnectors().catch(e=>{console.warn('connector setup failed',e);noServer()});
-io.ready.then(async()=>{fillModelPicker();await loadList();await maybeOpenLatest()});
+io.ready.then(async()=>{fillModelPicker();await loadList();await maybeOpenLatest();loadCards()});
 async function maybeOpenLatest(){
   if(conv.order.main.length||!convList.length)return;
   await openConv(convList[0].id);

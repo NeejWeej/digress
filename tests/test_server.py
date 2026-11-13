@@ -18,6 +18,9 @@ CDN = {
     'minisearch@7.1.0/dist/umd/index.js': ROOT + 'minisearch/dist/umd/index.js',
     'pdf.js/3.11.174/pdf.min.js': ROOT + 'pdfjs-dist/build/pdf.min.js',
     'pdf.js/3.11.174/pdf.worker.min.js': ROOT + 'pdfjs-dist/build/pdf.worker.min.js',
+    'readability@0.6.0/Readability.js': ROOT + '@mozilla/readability/Readability.js',
+    'turndown@7.2.0/dist/turndown.js': ROOT + 'turndown/dist/turndown.js',
+    'turndown-plugin-gfm@1.0.2/dist/turndown-plugin-gfm.js': ROOT + 'turndown-plugin-gfm/dist/turndown-plugin-gfm.js',
 }
 passed = 0
 
@@ -150,8 +153,8 @@ async def browser_checks(base, data_dir):
         await pg2.screenshot(path=OUT + '/server_doc_link.png')
         await pg2.locator('#newDoc').click(); await pg2.wait_for_timeout(200)
         await pg2.locator('#docPaste').fill(f'http://{site}/page.html')
-        await pg2.locator('#docGo').click(); await pg2.wait_for_timeout(600); await pg2.locator('#docGo').click(); await pg2.wait_for_timeout(800)
-        check('web page' in await pg2.locator('#docMsg').text_content(), 'a link to a web page explains what to do instead')
+        await pg2.locator('#docGo').click(); await pg2.wait_for_timeout(600); await pg2.locator('#docGo').click(); await pg2.wait_for_timeout(1500)
+        check('find an article' in await pg2.locator('#docMsg').text_content(), 'a web page with no article in it explains what to do instead')
         await pg2.locator('#docCancel').click()
 
         # stop button ends the model run
@@ -210,10 +213,12 @@ def doc_link_checks(base, site):
           and urllib.parse.unquote(r.headers['x-doc-url']) == f'http://{site}/paper.pdf', 'after your OK: a PDF downloads, following a same-site redirect, with its name and final address')
     st, body = fetch(f'http://{site}/sneaky', ok)
     check(st == 200 and body == pdf, 'a PDF is recognised by its contents, not the label the site gives it')
+    r = urllib.request.urlopen(urllib.request.Request(base + '/api/fetch-doc', data=json.dumps({'url': f'http://{site}/page.html', 'confirm': ok}).encode(), headers={'content-type': 'application/json'}))
+    check(r.status == 200 and r.headers['x-doc-kind'] == 'html' and r.headers['content-type'].startswith('text/plain') and r.read().startswith(b'<!doctype html>'),
+          'a web page comes back as plain text (never served as a page) for the browser to pull the article out of')
     st, body = fetch(f'http://{site}/notes.md', ok)
     check(st == 200 and body.startswith(b'# Notes'), 'a Markdown file downloads as text')
     for path, code, words, what in [
-        ('/page.html', 415, 'web page', 'a web page is refused (link the PDF itself)'),
         ('/app.exe', 415, 'PDF, Markdown and text', 'other file types are refused'),
         ('/big.pdf', 413, 'over 1 MB', 'files over the upload limit are refused'),
         ('/to-private', 400, 'private or local address', 'a redirect to another local port is refused'),

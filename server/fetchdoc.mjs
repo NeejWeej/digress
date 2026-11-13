@@ -16,8 +16,12 @@
 //  - Fetched only after you confirm: plain http (unencrypted, so the file could be swapped on the
 //    way), a raw IP address instead of a name, or an unusual port. A redirect that leads to one of
 //    these stops and asks too, before connecting to it. A redirect from https to http is refused.
-//  - Kept: only real PDFs (checked by their first bytes, not by what the site claims) and UTF-8
-//    Markdown/plain text, up to the upload size limit. Web pages and everything else are refused.
+//  - Kept: only real PDFs (checked by their first bytes, not by what the site claims), UTF-8
+//    Markdown/plain text, and web pages (articles), up to the upload size limit. A web page is handed to
+//    Digress's page as plain text: it is never served or shown as a page, nothing in it runs, and the
+//    browser pulls the article out of it (Readability) and turns it into Markdown.
+//  - Images (want:'image', for an article's pictures, only when you load them): only real PNG, JPEG,
+//    WebP or GIF files, checked by their bytes. SVG and everything else are refused.
 //  - Sent: a plain GET with no cookies, no referrer and no credentials. The site sees this server's
 //    IP address, as it would see yours if you downloaded the file.
 import http from 'node:http';
@@ -25,6 +29,7 @@ import https from 'node:https';
 import dns from 'node:dns';
 import net from 'node:net';
 import path from 'node:path';
+import { isImage, IMAGE_TYPES } from './content.mjs';
 
 // Two separate lists on purpose: a BlockList checks IPv4 addresses against its IPv6 rules too (as
 // ::ffff:a.b.c.d), so one list holding the IPv4-mapped range would block every IPv4 address.
@@ -73,12 +78,12 @@ function safeLookup(hostname, opts, cb) {
   });
 }
 
-function get(u, signal) {
+function get(u, signal, accept) {
   return new Promise((resolve, reject) => {
     const mod = u.protocol === 'https:' ? https : http;
     const req = mod.request(u, {
       method: 'GET', lookup: safeLookup, signal, agent: false, // fresh connection: never reuse one opened for another host
-      headers: { 'user-agent': 'Digress (document import)', accept: 'application/pdf, text/markdown, text/plain;q=0.9, */*;q=0.1', 'accept-encoding': 'identity' },
+      headers: { 'user-agent': 'Digress (document import)', accept, 'accept-encoding': 'identity' },
     }, resolve);
     req.setTimeout(20000, () => req.destroy(new LinkError('The site took too long to answer.', 504)));
     req.on('error', reject);
@@ -86,8 +91,9 @@ function get(u, signal) {
   });
 }
 
-// -> {kind:'pdf'|'text', type, body:Buffer, name, url}  or throws LinkError (with .warnings to confirm)
-export async function fetchDocument(link, { confirmed = [], maxBytes, signal, testAllow = '' }) {
+// -> {kind:'pdf'|'text'|'html'|'image', type, body:Buffer, name, url}  or throws LinkError (with .warnings to confirm)
+export async function fetchDocument(link, { confirmed = [], maxBytes, signal, testAllow = '', want = 'doc' }) {
+  const accept = want === 'image' ? 'image/png, image/jpeg, image/webp, image/gif;q=0.9' : 'application/pdf, text/markdown, text/html;q=0.9, text/plain;q=0.9, */*;q=0.1';
   let u;
   try { u = new URL(String(link).trim()); } catch { throw new LinkError('That doesn’t look like a link.'); }
   const ok = new Set(confirmed);
@@ -95,7 +101,7 @@ export async function fetchDocument(link, { confirmed = [], maxBytes, signal, te
     const warn = inspect(u, testAllow).filter((w) => !ok.has(w));
     if (warn.length) throw Object.assign(new LinkError(hop ? 'The link redirects somewhere that needs your OK first.' : 'This link needs your OK first.', 409), { warnings: warn, url: u.href });
     let res;
-    try { res = await get(u, signal); } catch (e) {
+    try { res = await get(u, signal, accept); } catch (e) {
       if (e instanceof LinkError) throw e;
       if (e.code === 'EBLOCKED') throw new LinkError('That link points to a private or local address, which Digress won’t fetch.');
       if (e.name === 'AbortError') throw e;
@@ -122,9 +128,19 @@ export async function fetchDocument(link, { confirmed = [], maxBytes, signal, te
     const body = Buffer.concat(chunks);
     const ctype = String(res.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
     const name = fileName(res.headers['content-disposition'], u);
+    if (want === 'image') {
+      const type = [...IMAGE_TYPES].find((t) => isImage(t, body));
+      if (!type) throw new LinkError(`That isn’t an image Digress shows (PNG, JPEG, WebP or GIF)${ctype ? `; the site says ${ctype}` : ''}.`, 415);
+      return { kind: 'image', type, body, name, url: u.href };
+    }
     if (body.subarray(0, 1024).includes('%PDF-')) return { kind: 'pdf', type: 'application/pdf', body, name, url: u.href };
-    if (/^text\/html|xhtml/.test(ctype) || /^\s*<(!doctype html|html)/i.test(body.subarray(0, 512).toString('latin1'))) {
-      throw new LinkError('That link is a web page, not a document. Link to the PDF itself, or copy the text and paste it.', 415);
+    if (/^text\/html|xhtml/.test(ctype) || /^\s*(<!--[\s\S]*?-->\s*)*<(!doctype html|html)/i.test(body.subarray(0, 2048).toString('latin1'))) {
+      // a web page: decode it with the charset it declares (header, then <meta>), and hand it over as text
+      const head = body.subarray(0, 4096).toString('latin1');
+      const cs = (/charset=["']?([\w-]+)/i.exec(String(res.headers['content-type'] || '')) || /<meta[^>]+charset=["']?([\w-]+)/i.exec(head) || [])[1] || 'utf-8';
+      let html;
+      try { html = new TextDecoder(cs.toLowerCase()).decode(body); } catch { html = new TextDecoder('utf-8').decode(body); }
+      return { kind: 'html', type: 'text/plain; charset=utf-8', body: Buffer.from(html), name, url: u.href };
     }
     const textual = /^text\/(plain|markdown|x-markdown)$/.test(ctype) || (!ctype || ctype === 'application/octet-stream') && /\.(md|markdown|txt)$/i.test(u.pathname);
     if (!textual) throw new LinkError(`That link is a ${ctype || 'file'} file; Digress opens PDF, Markdown and text.`, 415);
