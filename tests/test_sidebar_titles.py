@@ -4,7 +4,7 @@ name the branch and its passage, and the sidebar can be dragged wider (remembere
 Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import ROOT, PAGE, OUT, launch_args
+from common import ROOT, PAGE, OUT, launch_args, goto_app
 
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
@@ -15,7 +15,7 @@ MAP = {
     'minisearch@7.1.0/dist/umd/index.js': ROOT + 'minisearch/dist/umd/index.js',
 }
 FAKE = r"""
-window.claude={use:async(n)=>{
+window.fakeLLM={use:async(n)=>{
   if(n==='sample')return async(input,opts)=>{const out='A short answer.';opts.onText&&opts.onText({text:out});return {text:out,truncated:false};};
   return null;}};
 """
@@ -41,7 +41,7 @@ async def main():
             await r.continue_()
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
-        await pg.goto('file://' + PAGE); await pg.wait_for_timeout(1500)
+        await goto_app(pg); await pg.wait_for_timeout(1500)
         for q in (LONG1, LONG2):
             await pg.locator('#newConv').click(); await pg.wait_for_timeout(300)
             ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill(q); await ta.press('Enter'); await pg.wait_for_timeout(900)

@@ -1,126 +1,100 @@
 # Digress
 
-A branching chat for learning. Ask Claude about something, highlight any passage in the answer, and dig into it in a side thread without losing your place. Branches sit side by side (columns, rows or a free canvas), each one knows exactly where it came from, and you can carry a takeaway back to the parent.
+**A branching chat for learning.** Highlight any words in an answer, ask about them, and the reply opens in its own thread beside the one it came from. Follow a tangent as far as you like, then come back to exactly where you were.
 
-- Highlight → branch, with numbered markers in the parent and "show in source" jumps back to the exact words
-- Columns, rows, a canvas with cards you can snap or stick to the screen, and a tree view
-- Start from a PDF or Markdown file: one thread about the whole document, branches for any passage
-- Markdown, code highlighting, LaTeX (MathJax) and Mermaid diagrams
-- Pins, archive, ⌘K search across everything (BM25, typo tolerant)
+![Digress in Columns view: the main thread on the left, two branches beside it, and a takeaway carried back into the main thread](docs/media/columns.png)
 
-The whole app is one file, `web/index.html`. A small server with no dependencies (`server/server.mjs`) serves it, keeps your data in `data/`, and talks to Claude.
+## Why branch?
+
+Learning something hard is not a straight line. A good explanation raises three new questions, and in a normal chat each one pushes the original thread further up the screen until you lose it. You either stop asking, or you end up with one long scroll where the main idea and every side question are tangled together.
+
+Digress keeps them apart. Every question you ask about a passage becomes a **branch** that remembers the exact words it came from. The main thread stays readable, each side question gets a full, focused answer, and the shape of the conversation shows you how the ideas connect.
+
+## Highlight → branch
+
+![Selecting a phrase in an answer, typing a question, and a new branch opening beside it](docs/media/branching.gif)
+
+Select any text in a reply and type a question (or pick a quick one: *Explain simpler*, *Example*, *Why?*, *Go deeper*). The answer opens in a new pane next to its parent.
+
+- The model sees the whole conversation up to that point, plus the passage you picked, so the answer is about *that* sentence in *that* context.
+- A numbered marker in the parent shows where each branch starts. Click it to open the branch; **Show in source** in the branch jumps back to the exact words and flashes them.
+- Branches can branch again, as deep as you need. The sidebar shows the whole tree.
+
+## Takeaways: carry it back
+
+When a branch has answered your question, press **Takeaway**. Digress writes two to four bullets of what you learned and adds them to the end of the parent thread, optionally focused on what you ask for. The main thread then builds on them, so your understanding accumulates instead of staying scattered across tangents.
+
+## Read with a document
+
+![A PDF of lecture notes on the left, a summary with page links in the middle, and a branch about one highlighted sentence on the right](docs/media/document.png)
+
+Start from a **PDF, Markdown or text file**: upload one, paste text, or paste a link to a PDF and the server downloads it. The document opens beside a main thread about the whole thing, and the model has its text, with page numbers.
+
+- Highlight any passage in the PDF to branch about just that part. Markers sit in the margin of the page.
+- Page references in answers, like [p. 2], are links that scroll the document there.
+- Ask about a whole page, or snip a figure, table or equation, and the model gets a sharp image of it, rendered from the PDF.
+
+You can also paste or drop screenshots into any message box: a plot from your notebook, a slide, a whiteboard photo.
+
+## Three ways to see it
+
+Switch views from the top bar at any time; the conversation is the same.
+
+- **Columns:** threads side by side, each pane next to the one it branched from, with a line connecting each branch to its source.
+- **Rows:** the same panes stacked top to bottom, each at full width.
+- **Canvas:** the whole tree as cards on an infinite canvas. Pan, zoom, move cards, snap them to an edge or keep one stuck to the screen while you move around. Works with touch, too.
+
+<img src="docs/media/canvas.png" alt="The same conversation as cards on a canvas, connected by lines from each highlight to its branch" width="700">
+
+Answers render Markdown, code with syntax highlighting, LaTeX math and Mermaid diagrams. Panes collapse to thin strips, **Focus** hides everything else, and each pane keeps its own zoom.
+
+## Search everything
+
+<kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd> searches every conversation at once: questions, answers, highlights, takeaways and documents. It is a full-text index (BM25) that tolerates typos and takes you straight to the message. Pin the conversations and branches you keep coming back to, and archive the rest.
+
+## Models: Claude and ChatGPT, on the plans you already pay for
+
+Digress needs no API key if you already have a subscription.
+
+- **ChatGPT, with your ChatGPT plan (Plus or Pro).** Run `npm run chatgpt -- login` once and sign in with your ChatGPT account. Digress uses OpenAI's *Sign in with ChatGPT* for open-source apps: it registers as its own app, calls the Responses API with `store: false`, and usage counts against your plan. Your plan's models appear in the model picker.
+- **Claude, with your Claude subscription (Pro or Max).** If the [Claude Code](https://docs.claude.com/en/docs/claude-code) CLI is installed and signed in, Digress runs it for each reply with all tools turned off, so it answers on your plan.
+- **Claude, with an Anthropic API key.** Put `ANTHROPIC_API_KEY` in `.env` and Digress calls the API directly, with prompt caching for long documents.
+
+Claude and ChatGPT can be connected at the same time. Pick a model per message from the top bar (each reply shows which model wrote it), along with how much effort it should put in.
+
+## Web search, only when you ask
+
+Models answer from what they know unless you turn on **Web** in the top bar. Then they may search the web, and the reply lists its sources. It is search only: the search runs on Anthropic's or OpenAI's side, and the model gets no tool that fetches pages or runs anything on your machine.
+
+## Your data stays on your machine
+
+Digress is one HTML file (`web/index.html`) and a small Node server with no dependencies (`server/server.mjs`). Conversations and documents are plain JSON and files in `data/`; the only thing that leaves your machine is what you send to the model you picked. The server listens on `127.0.0.1`, has no accounts, and refuses requests from other websites.
 
 ## Quick start
 
-Needs Node 18 or newer.
+Needs Node 18 or newer, plus at least one model connection from above.
 
 ```sh
-git clone <your repo> digress && cd digress
-npm start              # → http://127.0.0.1:8787
+git clone https://github.com/NeejWeej/digress && cd digress
+
+# connect a model (any or all):
+npm run chatgpt -- login         # ChatGPT, with your ChatGPT plan
+claude                           # Claude Code, signed in with your Claude plan (then /exit)
+echo 'ANTHROPIC_API_KEY=sk-ant-...' >> .env   # or an Anthropic API key
+
+npm start                        # → http://127.0.0.1:8787
 ```
 
-### Connecting Claude
+Open <http://127.0.0.1:8787>, click **New conversation** or **New from a document**, and ask something.
 
-**With your Claude subscription (Pro or Max):** Digress runs the [Claude Code](https://docs.claude.com/en/docs/claude-code) CLI in non-interactive mode (`claude -p`), signed in with your Claude account, so you don't need an API key.
+## More
 
-```sh
-npm install -g @anthropic-ai/claude-code   # or: curl -fsSL https://claude.ai/install.sh | bash
-claude                                      # once, to sign in; then /exit
-npm start
-```
-
-On a headless server, `claude setup-token` prints a long-lived token instead. Put it in `.env` as `CLAUDE_CODE_OAUTH_TOKEN=...`.
-
-Things to know:
-- Usage counts against your plan's limits, like Claude Code does.
-- This is for **your own use**. Anthropic's terms don't allow routing other people's requests through your subscription, so don't share a subscription-backed Digress with anyone else on your tailnet. Use an API key for that.
-- Each reply starts a fresh `claude -p` run with tools turned off. Earlier turns are sent as part of the prompt, so the first reply can take a second or two longer than over the API.
-
-**With an API key:** put `ANTHROPIC_API_KEY=...` in `.env` (copy `.env.example`). When a key is set it is used unless `LLM_PROVIDER=claude-code`. The API path streams directly, caches the system prompt (handy for long PDFs) and lists every model your key can use.
-
-**ChatGPT models, with your ChatGPT plan (Plus or Pro):** sign in once and they appear in the model picker next to Claude's:
-
-```sh
-npm run chatgpt -- login       # opens the browser; --no-browser just prints the link
-npm run chatgpt -- status      # npm run chatgpt -- logout revokes it
-```
-
-This uses OpenAI's [Sign in with ChatGPT](https://developers.openai.com/siwc/token-sharing-open-source) for open-source apps: Digress registers as its own app (no API key, no Codex) and calls the public Responses API with `store: false`. The model gets no tools, or only OpenAI's hosted web search when you turn **Web** on. Usage counts against your plan; you can cap Digress at [chatgpt.com/settings/usage](https://chatgpt.com/settings/usage). The sign-in lives in `~/.config/digress/chatgpt.json` (owner-only). The server logs each reply's cached input tokens, so you can see the prompt cache working.
-
-## Hosting on your tailnet
-
-The server listens on `127.0.0.1` only. Put [Tailscale Serve](https://tailscale.com/kb/1312/serve) in front of it to get a private HTTPS address that only devices on your tailnet can open:
-
-```sh
-npm start                       # or run it as a service, below
-tailscale serve --bg 8787       # → https://<machine>.<tailnet>.ts.net
-tailscale serve status          # see the URL; `tailscale serve --https=443 off` to stop
-```
-
-Digress has no login of its own. It does refuse requests from other websites and requests addressed to names it doesn't expect (localhost, loopback addresses, the `HOST` address and, by default, `*.ts.net`; change the list with `ALLOWED_HOSTS` in `.env`), so a page open in your browser can't read or change your conversations. Tailscale is the lock, so don't use `tailscale funnel` (public internet) or `HOST=0.0.0.0` unless you add authentication in front.
-
-### Keep it running (systemd)
-
-```ini
-# /etc/systemd/system/digress.service
-[Unit]
-Description=Digress
-After=network-online.target
-
-[Service]
-User=you
-WorkingDirectory=/home/you/digress
-ExecStart=/usr/bin/node server/server.mjs
-Restart=on-failure
-# Make sure the service can find `claude` (check with: which claude)
-Environment=PATH=/home/you/.local/bin:/usr/local/bin:/usr/bin:/bin
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```sh
-sudo systemctl enable --now digress
-```
-
-Run the service as the same user you signed in to Claude Code with, because the sign-in lives in that user's home folder. Or use `CLAUDE_CODE_OAUTH_TOKEN` in `.env`.
-
-## Your data
-
-Everything lives in `data/` (or `DATA_DIR`):
-
-```
-data/convs/<id>.json      one file per conversation
-data/index/<id>.json      search index entries
-data/files/<id>           uploaded documents (+ .meta.json)
-```
-
-Back it up by copying the folder. It's git-ignored.
-
-## Configuration
-
-See `.env.example`. The main settings: `LLM_PROVIDER`, `DEFAULT_MODEL` (default `claude-opus-5-5`), `PORT` (8787), `HOST` (127.0.0.1), `DATA_DIR`, `CLAUDE_BIN`. Web search: the **Web** button in the top bar lets new replies search the web (off by default, and only search: nothing is fetched from your machine). `MAX_SEARCHES` (5) caps searches per reply on the API path; `WEB_SEARCH=off` removes the option.
-
-## Other ways to run it
-
-`web/index.html` also works without the server:
-- **As a claude.ai artifact**: it uses claude.ai's built-in model, storage and file features.
-- **Opened as a file**: it stores conversations in the browser's local storage, but has no model.
-
-## Development
-
-```sh
-npm install                              # local copies of the CDN libraries, for the tests
-pip install -r tests/requirements.txt && python -m playwright install chromium
-npm test                                 # or: python3 tests/run_all.py canvas
-```
-
-`tests/test_server.py` runs the server against fake stand-ins for Claude Code and the Anthropic API, so it needs neither. The other tests drive the UI from the file directly. Screenshots and logs land in `tests/.artifacts/`. Set `CHROME_PATH` to use your own Chrome.
-
-`npm run dev` runs the server with live reload: editing `web/` reloads open pages, and editing the server restarts it (and then reloads the pages). A page waits while a reply is streaming or you have a draft typed, and shows an "Updated · reload" button instead.
-
-See [AGENTS.md](AGENTS.md) for how the code is organized.
+- [Setup and configuration](docs/setup.md): each model connection in detail, `.env` options, documents from links, where data lives.
+- [Using it from other devices](docs/remote-access.md): Tailscale, running it as a service, using it on your phone.
+- [Development](docs/development.md): tests, live reload, regenerating these screenshots. [AGENTS.md](AGENTS.md) explains how the code fits together.
 
 ## License
 
 MIT
+
+Developed with Claude Opus 5.5.

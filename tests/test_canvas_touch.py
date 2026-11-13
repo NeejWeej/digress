@@ -3,7 +3,7 @@ and scrolling inside a card without moving the canvas. Touches go through CDP so
 real gesture handling (touch-action, pointercancel) applies. Asserts and exits non-zero."""
 import asyncio, re, sys
 from playwright.async_api import async_playwright
-from common import ROOT, PAGE, OUT, launch_args
+from common import ROOT, PAGE, OUT, launch_args, goto_app
 
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
@@ -14,7 +14,7 @@ MAP = {
     'minisearch@7.1.0/dist/umd/index.js': ROOT + 'minisearch/dist/umd/index.js',
 }
 FAKE = r"""
-window.claude={use:async(n)=>{
+window.fakeLLM={use:async(n)=>{
   if(n==='sample')return async(input,opts)=>{
     const out=Array.from({length:40},(_,i)=>'Paragraph '+i+' about attention and how the scores are scaled.').join('\n\n');
     opts.onText&&opts.onText({text:out});return {text:out,truncated:false};};
@@ -40,7 +40,7 @@ async def main():
             await r.continue_()
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
-        await pg.goto('file://' + PAGE); await pg.wait_for_timeout(1500)
+        await goto_app(pg); await pg.wait_for_timeout(1500)
         ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Explain attention'); await ta.press('Enter'); await pg.wait_for_timeout(1200)
         await pg.locator('[data-v=canvas]').click(); await pg.wait_for_timeout(800)
         cdp = await ctx.new_cdp_session(pg)

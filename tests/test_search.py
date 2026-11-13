@@ -1,6 +1,6 @@
 import asyncio, json
 from playwright.async_api import async_playwright
-from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args
+from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -13,7 +13,7 @@ MAP = {
 }
 FAKE = r"""
 window.__calls=[];
-window.claude={use:async(n)=>{
+window.fakeLLM={use:async(n)=>{
   if(n==='sample')return async(input,opts)=>{window.__calls.push(input);
     const REPLY=(input[input.length-1].content.includes('Second')?'A reply about distributed consensus and leader election.':'## Overview\n\nThe paper frames attention as a soft dictionary lookup [p. 1]. The key trick is scaling scores [p. 2], which helps training [p. 3].');
     let out='';for(const ch of REPLY.match(/[\s\S]{1,30}/g)){out+=ch;opts.onText&&opts.onText({text:out});await new Promise(r=>setTimeout(r,5))}
@@ -38,8 +38,8 @@ async def main():
         await pg.add_init_script(FAKE)
         old = json.loads(open(FIX + '/conv.json').read()); old['id']='cOLD'; old['title']='Fourier notes'; old['updated']=5
         old['msgs']['a1']['content'] += '\n\nThis is the Fourier transform view of signals.'
-        await pg.add_init_script("localStorage.setItem('sq:cOLD',"+json.dumps(json.dumps(old))+")")
-        await pg.goto('file://' + PAGE); await pg.wait_for_timeout(1500)
+        await pg.add_init_script("localStorage.setItem('fakesrv:convs/cOLD',"+json.dumps(json.dumps(old))+")")
+        await goto_app(pg); await pg.wait_for_timeout(1500)
         await pg.locator('#newConv').click(); await pg.wait_for_timeout(200)
         ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Explain attention'); await ta.press('Enter'); await pg.wait_for_timeout(1800)
         await pg.evaluate("""() => { const b=document.querySelector('.pane[data-tid=main] .msg.assistant .body'); const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT); let n;
@@ -48,11 +48,11 @@ async def main():
         await pg.wait_for_timeout(150); await pg.locator('#popIn').fill('Why a lookup?'); await pg.locator('#popIn').press('Enter'); await pg.wait_for_timeout(2000)
         await pg.locator('#newConv').click(); await pg.wait_for_timeout(200)
         ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Second topic: Raft'); await ta.press('Enter'); await pg.wait_for_timeout(2600)
-        print('index entries written:', await pg.evaluate("Object.keys(localStorage).filter(k=>k.startsWith('sqi:')).length"))
+        print('index entries written:', await pg.evaluate("Object.keys(localStorage).filter(k=>k.startsWith('fakesrv:index/')).length"))
         await pg.keyboard.press('Control+k'); await pg.wait_for_timeout(600)
         print('palette open:', await pg.locator('#pal.show').count(), '| recent:', await pg.evaluate("[...document.querySelectorAll('#palRes .pr .ps')].map(e=>e.textContent)"))
         await pg.wait_for_timeout(800)
-        print('index after backfill:', await pg.evaluate("Object.keys(localStorage).filter(k=>k.startsWith('sqi:')).length"))
+        print('index after backfill:', await pg.evaluate("Object.keys(localStorage).filter(k=>k.startsWith('fakesrv:index/')).length"))
         await pg.locator('#palIn').fill('dictonary'); await pg.wait_for_timeout(600)
         res = await pg.evaluate("[...document.querySelectorAll('#palRes .pgrp, #palRes .pr')].map(e=>e.classList.contains('pgrp')?'## '+e.textContent:(e.querySelector('.pk').textContent+': '+e.querySelector('.ps').innerHTML.slice(0,80)))")
         print('results for typo "dictonary":'); [print('   ',r) for r in res]

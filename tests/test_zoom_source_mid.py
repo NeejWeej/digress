@@ -1,6 +1,6 @@
 import asyncio, json
 from playwright.async_api import async_playwright
-from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args
+from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -13,7 +13,7 @@ MAP = {
 }
 FAKE = r"""
 window.__calls=[];
-window.claude={use:async(n)=>{
+window.fakeLLM={use:async(n)=>{
   if(n==='sample')return async(input,opts)=>{window.__calls.push(input);
     const REPLY=(input[input.length-1].content.includes('Second')?'A reply about distributed consensus and leader election.':'## Overview\n\nThe paper frames attention as a soft dictionary lookup [p. 1]. The key trick is scaling scores [p. 2], which helps training [p. 3].');
     let out='';for(const ch of REPLY.match(/[\s\S]{1,30}/g)){out+=ch;opts.onText&&opts.onText({text:out});await new Promise(r=>setTimeout(r,5))}
@@ -36,7 +36,7 @@ async def main():
             await r.continue_()
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
-        await pg.goto('file://' + PAGE); await pg.wait_for_timeout(1500)
+        await goto_app(pg); await pg.wait_for_timeout(1500)
         ta = pg.locator('.pane[data-tid=main] textarea')
         # a long main thread, so the branch's source passage sits far down inside the parent card
         for q in ['Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10']:
@@ -53,7 +53,7 @@ async def main():
             await pg.locator('#zTidy').click(); await pg.wait_for_timeout(300)
             await pg.evaluate("(z)=>{const n=document.querySelector('.cnode.main');n.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));}", zoom)
             # set the parent's own zoom with Alt+scroll-equivalent controls, starting from 100%
-            await pg.locator('.cnode.main .zl').evaluate('e=>e.click()'); await pg.wait_for_timeout(100)
+            await pg.locator('.cnode.main .zl').evaluate('e=>e.click()'); await pg.locator('.cnode.main .zin').evaluate("e=>{e.value='100';e.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))}"); await pg.wait_for_timeout(100)
             steps = {1.0:0, 1.5:3, 0.66:-3}[zoom]
             for _ in range(abs(steps)): await pg.locator('.cnode.main [data-cact=%s]' % ('zin' if steps>0 else 'zout')).evaluate('e=>e.click()')
             for _ in range(canvas_zoom_clicks): await pg.locator('#zOut').click()

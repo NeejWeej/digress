@@ -20,6 +20,8 @@ import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import os from 'node:os';
 import * as chatgpt from './chatgpt.mjs';
+import { fetchDocument, WARNINGS } from './fetchdoc.mjs';
+import { normalizeMessages, toAnthropic, toClaudeCodeBlocks, IMAGE_TYPES, isImage } from './content.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -45,9 +47,10 @@ const DEFAULT_MODEL = process.env.DEFAULT_MODEL || 'claude-opus-5-5';
 const MAX_TOKENS = Number(process.env.MAX_TOKENS || 16000);
 const MAX_UPLOAD = Number(process.env.MAX_UPLOAD_MB || 50) * 1024 * 1024;
 const MAX_JSON = 8 * 1024 * 1024;
+const MAX_CHAT_JSON = 64 * 1024 * 1024; // a conversation can carry images (snips, pages, screenshots), each up to 5 MB
 const WEB = path.join(ROOT, 'web', 'index.html');
 const COLLECTIONS = new Set(['convs', 'index']);
-const FILE_TYPES = new Set(['application/pdf', 'text/markdown', 'text/plain']);
+const FILE_TYPES = new Set(['application/pdf', 'text/markdown', 'text/plain', ...IMAGE_TYPES]); // images: pasted screenshots (no SVG: it can carry scripts)
 
 // ---- helpers --------------------------------------------------------------
 const validId = (id) => typeof id === 'string' && /^[A-Za-z0-9_.:@+-]{1,200}$/.test(id) && id !== '.' && id !== '..';
@@ -67,8 +70,8 @@ function readBody(req, limit) {
     req.on('error', reject);
   });
 }
-async function readJson(req) {
-  const buf = await readBody(req, MAX_JSON);
+async function readJson(req, limit = MAX_JSON) {
+  const buf = await readBody(req, limit);
   try { return JSON.parse(buf.toString('utf8') || 'null'); } catch { throw Object.assign(new Error('Invalid JSON'), { status: 400 }); }
 }
 
@@ -195,8 +198,10 @@ const EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
 
 async function handleChat(req, res) {
   if (!enabled().length) return fail(res, 503, llmWhy());
-  const payload = await readJson(req);
-  if (!payload || !Array.isArray(payload.messages) || !payload.messages.length) return fail(res, 400, 'messages are required');
+  const payload = await readJson(req, MAX_CHAT_JSON);
+  if (!payload) return fail(res, 400, 'messages are required');
+  // checked here, once, for every provider: anything not understood is refused, never silently dropped
+  try { payload.messages = normalizeMessages(payload.messages); } catch (e) { return fail(res, e.status || 400, e.message); }
   payload.model = !payload.model || payload.model === 'auto' ? await defaultModel() : String(payload.model);
   const k = await providerFor(payload.model);
   payload.web = payload.web === true && webOk(k); // the one place web access gets switched on, for every provider
@@ -254,12 +259,6 @@ function relayEvent(ev, out, st) {
 const textOf = (c) => (typeof c === 'string' ? c : Array.isArray(c) ? c.map((b) => (b && b.type === 'text' ? b.text : '')).join('') : '');
 
 // ---- provider: Claude Code CLI (your subscription) ----
-function transcriptPrompt(messages) {
-  const last = messages[messages.length - 1];
-  if (messages.length === 1) return textOf(last.content);
-  const turns = messages.slice(0, -1).map((m) => `<${m.role}>\n${textOf(m.content)}\n</${m.role}>`).join('\n\n');
-  return `Our conversation so far:\n\n${turns}\n\nNow reply to my latest message:\n\n${textOf(last.content)}`;
-}
 async function chatViaClaudeCode(payload, res) {
   const work = await fs.mkdtemp(path.join(os.tmpdir(), 'digress-'));
   const sysFile = path.join(work, 'system.txt');
@@ -269,7 +268,7 @@ async function chatViaClaudeCode(payload, res) {
   // on Anthropic's side. Never WebFetch: it fetches from this machine, so a page could steer it at
   // this server (127.0.0.1, no login) or the local network.
   const tools = payload.web ? ['--tools', 'WebSearch', '--allowedTools', 'WebSearch'] : ['--tools', ''];
-  const args = ['-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
+  const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
     // and none of your own Claude Code setup: no MCP servers, hooks, CLAUDE.md, skills or custom agents
     ...tools, '--strict-mcp-config', '--safe-mode', '--disable-slash-commands', '--no-session-persistence',
     '--system-prompt-file', sysFile, '--model', pickModel(payload.model)];
@@ -280,10 +279,13 @@ async function chatViaClaudeCode(payload, res) {
   const child = spawn(CLAUDE_BIN, args, { cwd: work, env, stdio: ['pipe', 'pipe', 'pipe'] });
   const cleanup = () => fs.rm(work, { recursive: true, force: true }).catch(() => {});
   res.on('close', () => { if (!res.writableFinished && child.exitCode === null) child.kill('SIGTERM'); });
-  child.stdin.end(transcriptPrompt(payload.messages));
+  // the conversation goes in as one stream-json user message: a transcript with any images in place (server/content.mjs)
+  child.stdin.end(JSON.stringify({ type: 'user', message: { role: 'user', content: toClaudeCodeBlocks(payload.messages) } }) + '\n');
 
   const out = startStream(res), st = { model: null, truncated: false, any: false, failed: false };
   let stderr = '', buf = '', resultErr = null;
+  // decode as UTF-8 across chunk boundaries: a character split between two chunks would otherwise turn into �
+  child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8');
   child.stderr.on('data', (c) => { stderr = (stderr + c).slice(-4000); });
   child.stdout.on('data', (c) => {
     buf += c; let i;
@@ -334,6 +336,7 @@ function anthropicRequest({ system, messages, model, effort, web }, withEffort, 
   });
 }
 async function chatViaApi(payload, res) {
+  payload = { ...payload, messages: toAnthropic(payload.messages) };
   const ctrl = new AbortController();
   res.on('close', () => { if (!res.writableFinished) ctrl.abort(); }); // the reader pressed Stop or left
   let upstream = await anthropicRequest(payload, true, ctrl.signal), withEffort = true;
@@ -420,6 +423,28 @@ const DEV_CLIENT = `<script>(()=>{
 })();</script>
 `;
 
+// ---- open a document from a link (see server/fetchdoc.mjs for what is and isn't fetched) -------------
+// POST {url, confirm:[warning codes the reader accepted]} -> the file's bytes, with x-doc-kind, x-doc-name
+// and x-doc-url (final address, after redirects) headers; or {error} / 409 {error, warnings:[{code,text}], url}.
+// Nothing is stored here: the page stores it the same way as an uploaded file.
+async function handleFetchDoc(req, res) {
+  const p = await readJson(req);
+  if (!p || typeof p.url !== 'string' || p.url.length > 4000) return fail(res, 400, 'A link is required.');
+  const ctrl = new AbortController();
+  req.on('close', () => { if (!res.writableFinished) ctrl.abort(); });
+  try {
+    const d = await fetchDocument(p.url, { confirmed: Array.isArray(p.confirm) ? p.confirm.map(String) : [], maxBytes: MAX_UPLOAD, signal: ctrl.signal, testAllow: process.env.DOC_FETCH_TEST_ALLOW || '' });
+    res.writeHead(200, { 'content-type': d.type, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-disposition': 'attachment',
+      'x-doc-kind': d.kind, 'x-doc-name': encodeURIComponent(d.name), 'x-doc-url': encodeURIComponent(d.url) });
+    res.end(d.body);
+  } catch (e) {
+    if (ctrl.signal.aborted) return res.destroy();
+    if (!e.status) { console.error('fetch-doc:', e); return fail(res, 502, 'Could not download that link.'); }
+    if (e.warnings) return send(res, 409, { error: e.message, url: e.url, warnings: e.warnings.map((code) => ({ code, text: WARNINGS[code] })) });
+    return fail(res, e.status, e.message);
+  }
+}
+
 // ---- who may talk to this server ----------------------------------------------
 // The server has no login: anything that can reach it can read and change every conversation.
 // Listening on 127.0.0.1 keeps other machines out, but not web pages open in your own browser.
@@ -487,6 +512,7 @@ async function route(req, res) {
     return send(res, 200, { models, defaultLabel: d ? d[1] : def });
   }
   if (parts[1] === 'chat' && req.method === 'POST') return handleChat(req, res);
+  if (parts[1] === 'fetch-doc' && req.method === 'POST' && parts.length === 2) return handleFetchDoc(req, res);
 
   if (parts[1] === 'store') {
     const [, , coll, id] = parts;
@@ -514,9 +540,10 @@ async function route(req, res) {
     await fs.mkdir(dir, { recursive: true });
     if (req.method === 'POST' && parts.length === 2) {
       const type = url.searchParams.get('type') || '';
-      if (!FILE_TYPES.has(type)) return fail(res, 415, 'Only PDF, Markdown and text files are accepted');
+      if (!FILE_TYPES.has(type)) return fail(res, 415, 'Only PDF, Markdown, text and image files are accepted');
       const buf = await readBody(req, MAX_UPLOAD);
       if (!buf.length) return fail(res, 400, 'Empty file');
+      if (IMAGE_TYPES.has(type) && !isImage(type, buf)) return fail(res, 415, 'That isn’t a ' + type + ' image');
       const id = crypto.randomBytes(16).toString('hex');
       await fs.writeFile(path.join(dir, id), buf);
       await fs.writeFile(path.join(dir, id + '.meta.json'), JSON.stringify({ type, size: buf.length, created: Date.now() }));
@@ -527,7 +554,7 @@ async function route(req, res) {
     const file = path.join(dir, id);
     if (req.method === 'GET') {
       let meta; try { meta = JSON.parse(await fs.readFile(file + '.meta.json', 'utf8')); } catch { return fail(res, 404, 'Not found'); }
-      res.writeHead(200, { 'content-type': meta.type, 'content-length': meta.size, 'cache-control': 'private, max-age=31536000, immutable' });
+      res.writeHead(200, { 'content-type': meta.type, 'content-length': meta.size, 'cache-control': 'private, max-age=31536000, immutable', 'x-content-type-options': 'nosniff', 'content-security-policy': 'sandbox' });
       return createReadStream(file).pipe(res);
     }
     if (req.method === 'DELETE') { await fs.rm(file, { force: true }); await fs.rm(file + '.meta.json', { force: true }); return send(res, 200, { ok: true }); }

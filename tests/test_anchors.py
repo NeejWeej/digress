@@ -1,7 +1,7 @@
 import asyncio, sys, os
 from playwright.async_api import async_playwright
 
-from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args
+from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -36,7 +36,7 @@ That is why attention is described as soft dictionary lookup.
 
 The end.`;
 window.__calls = [];
-window.claude = { use: async (n) => {
+window.fakeLLM = { use: async (n) => {
   if (n === 'sample') return async (input, opts) => {
     window.__calls.push(input); window.__opts=opts;
     let out = '';
@@ -64,7 +64,7 @@ async def main():
             await r.continue_()
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
-        await pg.goto('file://' + PAGE)
+        await goto_app(pg)
         await pg.wait_for_timeout(1200)
         ta = pg.locator('.pane[data-tid="main"] textarea')
         await ta.fill('Explain'); await ta.press('Enter')

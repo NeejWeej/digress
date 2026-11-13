@@ -1,6 +1,6 @@
 import asyncio, json
 from playwright.async_api import async_playwright
-from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args
+from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -13,7 +13,7 @@ MAP = {
 }
 FAKE = r"""
 window.__calls=[];
-window.claude={use:async(n)=>{
+window.fakeLLM={use:async(n)=>{
   if(n==='sample')return async(input,opts)=>{window.__calls.push(input);
     const REPLY=(input[input.length-1].content.includes('Second')?'A reply about distributed consensus and leader election.':'## Overview\n\nThe paper frames attention as a soft dictionary lookup [p. 1]. The key trick is scaling scores [p. 2], which helps training [p. 3].');
     let out='';for(const ch of REPLY.match(/[\s\S]{1,30}/g)){out+=ch;opts.onText&&opts.onText({text:out});await new Promise(r=>setTimeout(r,5))}
@@ -37,7 +37,7 @@ async def main():
             await r.continue_()
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
-        await pg.goto('file://' + PAGE); await pg.wait_for_timeout(1500)
+        await goto_app(pg); await pg.wait_for_timeout(1500)
         ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Explain attention'); await ta.press('Enter'); await pg.wait_for_timeout(1800)
         await pg.screenshot(path=OUT + '/m1.png')
         # touch-style selection: no mouseup, only selectionchange

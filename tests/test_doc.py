@@ -1,6 +1,6 @@
 import asyncio, json
 from playwright.async_api import async_playwright
-from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args
+from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -12,7 +12,7 @@ MAP = {
 }
 FAKE = r"""
 window.__calls=[];
-window.claude={use:async(n)=>{
+window.fakeLLM={use:async(n)=>{
   if(n==='sample')return async(input,opts)=>{window.__calls.push(input);
     const REPLY='## Overview\n\nThe paper frames attention as a lookup [p. 1]. The key trick is scaling scores [p. 2], which helps training [p. 3].';
     let out='';for(const ch of REPLY.match(/[\s\S]{1,30}/g)){out+=ch;opts.onText&&opts.onText({text:out});await new Promise(r=>setTimeout(r,5))}
@@ -35,7 +35,7 @@ async def main():
             await r.continue_()
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
-        await pg.goto('file://' + PAGE); await pg.wait_for_timeout(1200)
+        await goto_app(pg); await pg.wait_for_timeout(1200)
         # 1. start from a PDF
         await pg.locator('#newDoc').click(); await pg.wait_for_timeout(200)
         await pg.set_input_files('#docFile', FIX + '/paper.pdf')
@@ -75,6 +75,18 @@ async def main():
         print('tree:', await pg.evaluate("[...document.querySelectorAll('#tree .mnode')].map(n=>n.textContent.trim().slice(0,30))"))
         await pg.locator('[data-v=canvas]').click(); await pg.wait_for_timeout(700)
         print('canvas cards:', await pg.evaluate("[...document.querySelectorAll('.cnode')].map(n=>n.dataset.ctid.slice(0,4))"), 'edges:', await pg.locator('#edges path').count())
+        await pg.wait_for_selector('.cnode.docnode .cthumb img', timeout=5000)
+        th = await pg.locator('.cnode.docnode .cthumb img').evaluate("i=>[i.complete, i.naturalWidth, i.src.slice(0,5), i.closest('.cthumb').offsetHeight]")
+        print('pdf preview on the document card (loaded, width, src, box height):', th)
+        assert th[0] and th[1] >= 600 and th[2] == 'blob:' and th[3] == 170, f'PDF card shows a first-page preview {th}'
+        h0 = await pg.locator('.cnode.docnode').evaluate('e=>e.offsetHeight')
+        await pg.locator('[data-v=cols]').click(); await pg.wait_for_timeout(300); await pg.locator('[data-v=canvas]').click(); await pg.wait_for_timeout(500)
+        same = await pg.evaluate("(()=>{const i=document.querySelector('.cnode.docnode .cthumb img');return !!i})()")
+        h1 = await pg.locator('.cnode.docnode').evaluate('e=>e.offsetHeight')
+        assert same and h0 == h1, f'preview reused when the canvas is drawn again, card height stable {h0} {h1}'
+        await pg.locator('.cnode.docnode .cthumb').click(); await pg.wait_for_timeout(500)
+        print('clicking the preview opens the document pane:', await pg.locator('.pane[data-tid=doc]').count())
+        await pg.locator('[data-v=canvas]').click(); await pg.wait_for_timeout(500)
         await pg.screenshot(path=OUT + '/d2.png')
         await pg.locator('[data-v=cols]').click(); await pg.wait_for_timeout(500)
         # 6. resolve + delete the doc branch

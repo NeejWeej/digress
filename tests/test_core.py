@@ -1,7 +1,7 @@
 import asyncio, sys, os
 from playwright.async_api import async_playwright
 
-from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args
+from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -31,7 +31,7 @@ def attn(q, k, v):
 
 That is why attention is described as soft dictionary lookup.`;
 window.__calls = [];
-window.claude = { use: async (n) => {
+window.fakeLLM = { use: async (n) => {
   if (n === 'sample') return async (input, opts) => {
     window.__calls.push(input); window.__opts=opts;
     let out = '';
@@ -59,7 +59,7 @@ async def main():
             await r.continue_()
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
-        await pg.goto('file://' + PAGE)
+        await goto_app(pg)
         await pg.wait_for_timeout(1200)
         await pg.select_option('#mSel','claude-opus-5-5')
         ta = pg.locator('.pane[data-tid="main"] textarea')
@@ -74,7 +74,7 @@ async def main():
         await pg.locator('#popIn').fill('Why lookup?'); await pg.locator('#popIn').press('Enter'); await pg.wait_for_timeout(2500)
         await pg.evaluate(SEL, [0,'query']); await pg.wait_for_timeout(150)
         await pg.locator('#popChips .chip').nth(1).click(); await pg.wait_for_timeout(2500)
-        print('opts', await pg.evaluate('JSON.stringify({m:window.__opts.model,t:window.__opts.modelTier})'))
+        print('opts', await pg.evaluate('JSON.stringify({m:window.__opts.model,e:window.__opts.effort})'))
         print('panes', await pg.evaluate("[...document.querySelectorAll('.pane')].map(p=>p.querySelector('.ph-title').textContent)"))
         print('markers', await pg.evaluate("[...document.querySelectorAll('.pane[data-tid=main] sup.fn')].map(s=>s.textContent)"), 'chips', await pg.locator('.pane[data-tid=main] .bchip').count())
         print('model label', await pg.locator('.pane[data-tid=main] .model').first.text_content())

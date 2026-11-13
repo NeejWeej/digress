@@ -25,6 +25,7 @@ const revoked = [];
 
 http.createServer((req, res) => {
   let body = '';
+  req.setEncoding('utf8'); // whole characters even when one is split between chunks
   req.on('data', (c) => (body += c));
   req.on('end', () => {
     const u = new URL(req.url, BASE);

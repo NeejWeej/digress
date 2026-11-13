@@ -2,18 +2,39 @@
 // Stands in for the Claude Code CLI in tests: prints the same stream-json lines `claude -p` does.
 // It echoes what it received, so tests can check the server passed things through correctly.
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 const args = process.argv.slice(2);
 if (args.includes('--version')) { console.log('9.9.9 (Claude Code fake)'); process.exit(0); }
 const arg = (n) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined; };
 const log = (s) => process.env.FAKE_LOG && fs.appendFileSync(process.env.FAKE_LOG, s + '\n');
 let prompt = '';
+process.stdin.setEncoding('utf8');
 process.stdin.on('data', (c) => (prompt += c));
 process.stdin.on('end', async () => {
+  // with --input-format stream-json the conversation is one user message of content blocks (like the real CLI):
+  // `prompt` is its text, `blocks` lists every block in order (images as their type and the sha256 of their bytes)
+  let blocks = null;
+  if (arg('--input-format') === 'stream-json') {
+    const msg = JSON.parse(prompt.trim().split('\n')[0]);
+    if (msg.type !== 'user' || msg.message.role !== 'user') { process.stdout.write(JSON.stringify({ type: 'result', is_error: true, result: 'bad stream-json input' }) + '\n'); process.exit(1); }
+    blocks = msg.message.content.map((b) => b.type === 'text' ? { text: b.text } : { image: b.source.media_type, sha256: crypto.createHash('sha256').update(Buffer.from(b.source.data, 'base64')).digest('hex') });
+    prompt = blocks.filter((b) => 'text' in b).map((b) => b.text).join('');
+  }
   const system = fs.readFileSync(arg('--system-prompt-file'), 'utf8');
   const model = arg('--model'), effort = arg('--effort') || 'none';
   const emit = (o) => process.stdout.write(JSON.stringify(o) + '\n');
-  log(JSON.stringify({ model, effort, tools: arg('--tools'), allowed: arg('--allowedTools') || null, isolated: ['--strict-mcp-config', '--safe-mode', '--disable-slash-commands'].every((f) => args.includes(f)), apiKeyVisible: !!process.env.ANTHROPIC_API_KEY, systemChars: system.length, prompt }));
+  log(JSON.stringify({ model, effort, tools: arg('--tools'), allowed: arg('--allowedTools') || null, isolated: ['--strict-mcp-config', '--safe-mode', '--disable-slash-commands'].every((f) => args.includes(f)), apiKeyVisible: !!process.env.ANTHROPIC_API_KEY, systemChars: system.length, system, prompt, blocks }));
   process.on('SIGTERM', () => { log('KILLED'); process.exit(143); });
+  if (prompt.includes('UNICODE')) {
+    // a reply full of multi-byte characters, written a few bytes at a time so characters split between chunks
+    const text = '∑ 日本語 é 🙂 '.repeat(60);
+    const bytes = Buffer.from([{ type: 'stream_event', event: { type: 'message_start', message: { model } } },
+      { type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } } },
+      { type: 'stream_event', event: { type: 'message_delta', delta: { stop_reason: 'end_turn' } } },
+      { type: 'result', subtype: 'success', is_error: false, result: text }].map((o) => JSON.stringify(o) + '\n').join(''));
+    for (let i = 0; i < bytes.length; i += 5) { process.stdout.write(bytes.subarray(i, i + 5)); await new Promise((r) => setTimeout(r, 1)); }
+    return;
+  }
   if (prompt.includes('FAILAUTH')) {
     emit({ type: 'result', subtype: 'success', is_error: true, result: 'Invalid API key · Please run /login' });
     process.exit(1);

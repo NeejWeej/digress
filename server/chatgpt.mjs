@@ -21,6 +21,7 @@ import path from 'node:path';
 import { promises as fs, readFileSync, lstatSync, existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { toOpenAI } from './content.mjs';
 
 // The *_BASE overrides exist for the tests' fake OpenAI; leave them unset.
 const AUTH = (process.env.CHATGPT_AUTH_BASE || 'https://auth.openai.com').replace(/\/$/, '');
@@ -138,7 +139,6 @@ export async function listModels() {
 }
 
 // ---- one reply ----------------------------------------------------------------------------
-const textOf = (c) => (typeof c === 'string' ? c : Array.isArray(c) ? c.map((b) => (b && b.type === 'text' ? b.text : '')).join('') : '');
 // Built so OpenAI's prompt cache can reuse as much as possible between follow-ups (it matches the
 // longest unchanged prefix, ending at a message boundary):
 //  - the system prompt (with any document) goes first, as a developer message, and never changes
@@ -151,7 +151,7 @@ const textOf = (c) => (typeof c === 'string' ? c : Array.isArray(c) ? c.map((b) 
 export function requestBody({ system, messages, model, effort, web }, withEffort) {
   const input = [];
   if (system) input.push({ role: 'developer', content: system });
-  for (const m of messages) input.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: textOf(m.content) });
+  input.push(...toOpenAI(messages)); // messages arrive checked by server/content.mjs; images become input_image parts
   const body = { model, input, store: false, stream: true, prompt_cache_key: 'digress-' + crypto.createHash('sha256').update(system || '').digest('hex').slice(0, 32) };
   if (withEffort && effort) body.reasoning = { effort };
   if (web) { body.tools = [{ type: 'web_search' }]; body.include = ['web_search_call.action.sources']; }

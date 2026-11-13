@@ -3,7 +3,7 @@
 Starts server/server.mjs twice (once per model provider), checks the HTTP API directly,
 then drives the real app in a browser against it. Exits non-zero on the first failure.
 """
-import asyncio, json, os, shutil, socket, subprocess, sys, tempfile, time, urllib.request, urllib.error, http.client
+import asyncio, json, os, urllib.parse, shutil, socket, subprocess, sys, tempfile, threading, time, urllib.request, urllib.error, http.client, http.server
 from playwright.async_api import async_playwright
 from common import ROOT, REPO, FIX, OUT, launch_args
 
@@ -136,6 +136,24 @@ async def browser_checks(base, data_dir):
         check(await pg2.locator('.dpage').count() == 3, 'PDF reloads from the server')
         await pg2.screenshot(path=OUT + '/server_doc.png')
 
+        # a document from a link: risky links ask first, then it opens and shows where it came from
+        site = os.environ['FAKE_SITE']
+        await pg2.locator('#newDoc').click(); await pg2.wait_for_timeout(200)
+        await pg2.locator('#docPaste').fill(f'http://{site}/paper.pdf')
+        await pg2.locator('#docGo').click(); await pg2.wait_for_timeout(800)
+        m = await pg2.locator('#docMsg').text_content()
+        check('isn’t encrypted' in m and 'bare IP' in m and await pg2.locator('#docGo').text_content() == 'Open anyway', f'a risky link asks before downloading {m!r}')
+        await pg2.locator('#docGo').click(); await pg2.wait_for_timeout(3500)
+        check(await pg2.locator('.dpage').count() == 3, 'after Open anyway, the PDF from the link opens')
+        src = await pg2.locator('.pane[data-tid="doc"] .docsrc').evaluate("a=>[a.textContent,a.href,a.rel,a.target]")
+        check(src == ['127.0.0.1', f'http://{site}/paper.pdf', 'noopener noreferrer', '_blank'], f'the document shows where it came from {src}')
+        await pg2.screenshot(path=OUT + '/server_doc_link.png')
+        await pg2.locator('#newDoc').click(); await pg2.wait_for_timeout(200)
+        await pg2.locator('#docPaste').fill(f'http://{site}/page.html')
+        await pg2.locator('#docGo').click(); await pg2.wait_for_timeout(600); await pg2.locator('#docGo').click(); await pg2.wait_for_timeout(800)
+        check('web page' in await pg2.locator('#docMsg').text_content(), 'a link to a web page explains what to do instead')
+        await pg2.locator('#docCancel').click()
+
         # stop button ends the model run
         ta2 = pg2.locator('.pane[data-tid="main"] textarea')
         await ta2.fill('SLOW please'); await ta2.press('Enter'); await pg2.wait_for_timeout(1200)
@@ -145,6 +163,88 @@ async def browser_checks(base, data_dir):
 
         check(not errs, 'no page errors ' + '; '.join(errs[:5]))
         await b.close()
+
+
+def fake_site():
+    """A tiny website for "open a document from a link": a PDF, Markdown, a web page, redirects and a big file."""
+    pdf = open(os.path.join(FIX, 'paper.pdf'), 'rb').read()
+    class H(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *a): pass
+        def do_GET(self):
+            port = self.server.server_address[1]
+            routes = {
+                '/paper.pdf': (200, 'application/pdf', pdf), '/sneaky': (200, 'text/html', pdf),   # a PDF however it's labelled
+                '/notes.md': (200, 'text/markdown; charset=utf-8', '# Notes\n\nSoftmax turns scores into weights.'.encode()),
+                '/page.html': (200, 'text/html', b'<!doctype html><html><body>hi</body></html>'),
+                '/app.exe': (200, 'application/octet-stream', b'MZ\x00\x01'),
+                '/big.pdf': (200, 'application/pdf', b'%PDF-1.4\n' + b'0' * (2 * 1024 * 1024)),
+                '/to-pdf': (302, f'/paper.pdf', b''),
+                '/to-private': (302, f'http://127.0.0.1:{port + 1}/x', b''),
+                '/to-localname': (302, f'http://localhost:{port}/paper.pdf', b''),
+                '/to-file': (302, 'file:///etc/passwd', b''),
+            }
+            st, ct, body = routes.get(self.path, (404, 'text/plain', b'nope'))
+            self.send_response(st)
+            if st == 302: self.send_header('location', ct)
+            else: self.send_header('content-type', ct); self.send_header('content-length', str(len(body)))
+            self.end_headers()
+            try: self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError): pass   # the server hung up on a too-big file: expected
+    srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv, f'127.0.0.1:{srv.server_address[1]}'
+
+
+def doc_link_checks(base, site):
+    """Opening a document from a link: only public addresses, risky links need an OK, only documents kept."""
+    def fetch(url, confirm=None, headers=None):
+        st, body = req(base, 'POST', '/api/fetch-doc', {'url': url, 'confirm': confirm or []}, headers=headers)
+        return st, body
+    ok = ['http', 'ip', 'port']   # the fake site is plain http on a bare IP and an odd port, so it always needs this OK
+    st, body = fetch(f'http://{site}/paper.pdf')
+    j = json.loads(body)
+    check(st == 409 and sorted(w['code'] for w in j['warnings']) == ['http', 'ip', 'port'] and all(w['text'] for w in j['warnings']), f'an http link to a bare IP and odd port needs your OK first {j}')
+    pdf = open(os.path.join(FIX, 'paper.pdf'), 'rb').read()
+    r = urllib.request.urlopen(urllib.request.Request(base + '/api/fetch-doc', data=json.dumps({'url': f'http://{site}/to-pdf', 'confirm': ok}).encode(), headers={'content-type': 'application/json'}))
+    check(r.status == 200 and r.read() == pdf and r.headers['x-doc-kind'] == 'pdf' and r.headers['x-doc-name'] == 'paper'
+          and urllib.parse.unquote(r.headers['x-doc-url']) == f'http://{site}/paper.pdf', 'after your OK: a PDF downloads, following a same-site redirect, with its name and final address')
+    st, body = fetch(f'http://{site}/sneaky', ok)
+    check(st == 200 and body == pdf, 'a PDF is recognised by its contents, not the label the site gives it')
+    st, body = fetch(f'http://{site}/notes.md', ok)
+    check(st == 200 and body.startswith(b'# Notes'), 'a Markdown file downloads as text')
+    for path, code, words, what in [
+        ('/page.html', 415, 'web page', 'a web page is refused (link the PDF itself)'),
+        ('/app.exe', 415, 'PDF, Markdown and text', 'other file types are refused'),
+        ('/big.pdf', 413, 'over 1 MB', 'files over the upload limit are refused'),
+        ('/to-private', 400, 'private or local address', 'a redirect to another local port is refused'),
+        ('/to-localname', 400, 'local network name', 'a redirect to localhost is refused'),
+        ('/to-file', 400, 'http and https', 'a redirect to a file:// address is refused')]:
+        st, body = fetch(f'http://{site}{path}', ok)
+        check(st == code and words in json.loads(body)['error'], f'{what} ({st} {json.loads(body)["error"]!r})')
+    for url, words in [('http://127.0.0.1:9/x.pdf', 'private'), ('http://10.1.2.3/x.pdf', 'private'), ('http://192.168.1.1/', 'private'),
+                       ('http://169.254.169.254/latest/meta-data/', 'private'), ('http://100.100.100.100/', 'private'), ('http://[::1]/', 'private'),
+                       ('http://[::ffff:127.0.0.1]/', 'private'), ('http://[fd00::1]/', 'private'), ('http://2130706433/', 'private'), ('http://0x7f.1/', 'private'),
+                       ('http://localhost/x.pdf', 'local network name'), ('https://printer.local/', 'local network name'), ('https://nas/', 'local network name'),
+                       ('https://box.tail1234.ts.net/', 'local network name'), ('file:///etc/passwd', 'http and https'), ('ftp://example.com/a.pdf', 'http and https'),
+                       ('https://user:pw@example.com/a.pdf', 'username or password'), ('not a link', 'look like a link')]:
+        st, body = fetch(url, ['http', 'ip', 'port'])
+        check(st == 400 and words in json.loads(body)['error'], f'never fetched, even with every OK given: {url}')
+    st, body = fetch('https://example.com:8443/a.pdf')
+    check(st == 409 and [w['code'] for w in json.loads(body)['warnings']] == ['port'], 'an unusual port needs your OK first')
+    st, _ = fetch(f'http://{site}/paper.pdf', ok, headers={'origin': 'https://evil.example'})
+    check(st == 403, 'another website cannot make the server download things')
+    # DNS rebinding: a public-looking name that resolves to this machine is caught at connect time
+    script = ("import dns from 'node:dns'; dns.lookup = (h, o, cb) => cb(null, [{address: '127.0.0.1', family: 4}]);"
+              "const { fetchDocument } = await import(process.argv[1]);"
+              "try { await fetchDocument('https://rebind.example/a.pdf', {maxBytes: 1e6}); console.log('FETCHED') } catch (e) { console.log(e.status, e.message) }")
+    out = subprocess.run(['node', '--input-type=module', '-e', script, os.path.join(REPO, 'server', 'fetchdoc.mjs')], capture_output=True, text=True).stdout
+    check(out.startswith('400') and 'private or local' in out, f'a name that resolves to a private address is refused (DNS rebinding) {out!r}')
+    # and the opposite: ordinary internet addresses must get through (a blocklist that blocks everything is a bug too)
+    script = ("const { publicAddress: p } = await import(process.argv[1]);"
+              "console.log(JSON.stringify([['8.8.8.8','144.92.158.111','1.1.1.1','2606:4700:4700::1111','2a00:1450:4001:80b::200e'].map(p),"
+              "['127.0.0.1','10.0.0.1','172.16.5.4','192.168.0.1','100.64.0.1','169.254.169.254','0.0.0.0','224.0.0.1','::1','::ffff:127.0.0.1','::ffff:8.8.8.8','fe80::1','fd12::1','64:ff9b::a00:1','2002:a00:1::1'].map(p)]))")
+    out = json.loads(subprocess.run(['node', '--input-type=module', '-e', script, os.path.join(REPO, 'server', 'fetchdoc.mjs')], capture_output=True, text=True).stdout)
+    check(all(out[0]) and not any(out[1]), f'public IPv4 and IPv6 addresses are allowed, private and special ones are not {out}')
 
 
 def chatgpt_checks(tmp, fake_claude, log, procs):
@@ -233,7 +333,9 @@ def main():
     try:
         # ---- provider: Claude Code CLI ----
         data = os.path.join(tmp, 'data')
-        proc, base = start({'LLM_PROVIDER': 'claude-code', 'CLAUDE_BIN': fake_claude, 'DATA_DIR': data,
+        site_srv, site = fake_site()
+        os.environ['FAKE_SITE'] = site
+        proc, base = start({'LLM_PROVIDER': 'claude-code', 'CLAUDE_BIN': fake_claude, 'DATA_DIR': data, 'DOC_FETCH_TEST_ALLOW': site, 'MAX_UPLOAD_MB': '1',
                             'ANTHROPIC_API_KEY': 'should-not-reach-the-cli', 'FAKE_LOG': log})
         procs.append(proc)
         # only requests addressed to this server, from its own page, get through (DNS rebinding, cross-site POSTs)
@@ -301,6 +403,7 @@ def main():
         req(base, 'DELETE', '/api/files/' + fid)
         check(req(base, 'GET', '/api/files/' + fid)[0] == 404, 'files: delete')
 
+        doc_link_checks(base, site)
         asyncio.run(browser_checks(base, data))
 
         # ---- provider: Anthropic API ----
@@ -336,4 +439,5 @@ def main():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-main()
+if __name__ == "__main__":
+    main()

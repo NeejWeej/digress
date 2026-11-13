@@ -1,6 +1,6 @@
 import asyncio, json
 from playwright.async_api import async_playwright
-from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args
+from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -13,7 +13,7 @@ MAP = {
 }
 FAKE = r"""
 window.__calls=[];
-window.claude={use:async(n)=>{
+window.fakeLLM={use:async(n)=>{
   if(n==='sample')return async(input,opts)=>{window.__calls.push(input);
     const REPLY=(input[input.length-1].content.includes('Second')?'A reply about distributed consensus and leader election.':'## Overview\n\nThe paper frames attention as a soft dictionary lookup [p. 1]. The key trick is scaling scores [p. 2], which helps training [p. 3].');
     let out='';for(const ch of REPLY.match(/[\s\S]{1,30}/g)){out+=ch;opts.onText&&opts.onText({text:out});await new Promise(r=>setTimeout(r,5))}
@@ -36,7 +36,7 @@ async def main():
             await r.continue_()
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
-        await pg.goto('file://' + PAGE); await pg.wait_for_timeout(1500)
+        await goto_app(pg); await pg.wait_for_timeout(1500)
         ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Explain attention'); await ta.press('Enter'); await pg.wait_for_timeout(1800)
         await pg.evaluate("""() => { const b=document.querySelector('.pane[data-tid=main] .msg.assistant .body'); const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT); let n;
           while((n=w.nextNode())){const i=n.nodeValue.indexOf('soft dictionary'); if(i>=0){const r=document.createRange(); r.setStart(n,i); r.setEnd(n,i+15); const s=getSelection(); s.removeAllRanges(); s.addRange(r); break}}
@@ -65,7 +65,7 @@ async def main():
         w0 = await main.evaluate('e=>e.offsetWidth')
         await pg.mouse.move(mb['x']+40, mb['y']+60); await pg.keyboard.down('Alt'); await pg.mouse.wheel(0,-300); await pg.keyboard.up('Alt'); await pg.wait_for_timeout(200)
         print('alt+scroll card zoom:', await main.locator('.zl').text_content(), '| width', w0, '->', await main.evaluate('e=>e.offsetWidth'))
-        await main.locator('.zl').evaluate('e=>e.click()'); await pg.wait_for_timeout(150)
+        await main.locator('.zl').evaluate('e=>e.click()'); await main.locator('.zin').evaluate("e=>{e.value='100';e.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))}"); await pg.wait_for_timeout(150)
         print('reset:', await main.locator('.zl').text_content(), await main.evaluate('e=>e.offsetWidth')==w0)
         await main.locator('[data-cact=zin]').evaluate('e=>e.click()'); await pg.wait_for_timeout(150)
         print('header +:', await main.locator('.zl').text_content())

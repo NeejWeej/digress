@@ -2,14 +2,19 @@
 // A pretend Anthropic API for tests: /v1/models and a streaming /v1/messages.
 // Models whose name contains "noeffort" reject output_config, like a model without effort support.
 import http from 'node:http';
+import fs from 'node:fs';
+// FAKE_API_LOG: each request's system + messages, one JSON line each (tests/test_context.py reads it)
+const log = (o) => process.env.FAKE_API_LOG && fs.appendFileSync(process.env.FAKE_API_LOG, JSON.stringify(o) + '\n');
 const port = Number(process.argv[2] || 8799);
 http.createServer((req, res) => {
   let body = '';
+  req.setEncoding('utf8'); // whole characters even when one is split between chunks
   req.on('data', (c) => (body += c));
   req.on('end', async () => {
     if (req.headers['x-api-key'] !== 'test-key') { res.writeHead(401, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: { message: 'invalid x-api-key' } })); }
     if (req.url.startsWith('/v1/models')) { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ data: [{ id: 'claude-test-1', display_name: 'Test One' }, { id: 'claude-noeffort', display_name: 'No Effort' }] })); }
     const j = JSON.parse(body);
+    log({ api: true, system: j.system, messages: j.messages });
     if (j.output_config && j.model.includes('noeffort')) { res.writeHead(400, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: { message: 'output_config.effort: not supported for this model' } })); }
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const ev = (o) => res.write(`event: ${o.type}\ndata: ${JSON.stringify(o)}\n\n`);

@@ -110,6 +110,10 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .ph-origin{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 .ph-origin q{font-family:var(--serif);font-style:italic;quotes:"\201C" "\201D";cursor:pointer}
 .ph-origin .crumb{cursor:pointer}
+.cnode .cthumb{height:170px;overflow:hidden;border-bottom:1px solid var(--line);background:#fff;cursor:pointer;position:relative}
+.cnode .cthumb img{width:100%;display:block}
+.cnode .cthumb::after{content:"";position:absolute;inset:auto 0 0 0;height:28px;background:linear-gradient(transparent,var(--panel))}
+.ph-origin .docsrc{color:inherit;text-decoration:underline;text-underline-offset:2px}
 .ph-origin .crumb:hover,.ph-origin q:hover{text-decoration:underline;color:var(--ink)}
 .ph-act{display:flex;gap:0}
 .pane{container-type:inline-size}
@@ -126,11 +130,13 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .pane.rail:hover{border-color:var(--c)}
 .pane.rail:hover .rail-label{color:var(--ink)}
 
-.gut{flex:0 0 10px;cursor:col-resize;position:relative}
+.gut{flex:0 0 10px;cursor:col-resize;position:relative;touch-action:none}   /* touch-action: a finger drag resizes instead of scrolling the page */
 .gut::after{content:"";position:absolute;top:30%;bottom:30%;left:4px;width:2px;border-radius:2px;background:transparent;transition:background .15s}
 .gut:hover::after,.gut.drag::after{background:var(--line2)}
 .panes.rows .gut{cursor:row-resize}
 .panes.rows .gut::after{left:40%;right:40%;top:4px;bottom:auto;height:2px;width:auto}
+.pane.sized{min-width:0}.panes.rows .pane.sized{min-height:0}   /* a size you dragged to wins over the default minimum (which is wide on phones) */
+@media (pointer:coarse){.gut::before{content:"";position:absolute;inset:0 -10px;z-index:3}.panes.rows .gut::before{inset:-10px 0}.gut::after{background:var(--line2)}}   /* a finger-sized grip, always shown */
 
 .origin{margin:14px 0 6px;padding:10px 14px;border-left:3px solid var(--c);background:color-mix(in srgb,var(--c) 8%,transparent);border-radius:0 10px 10px 0}
 .origin .ol{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);margin-bottom:4px}
@@ -145,6 +151,11 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 
 .msg{margin:4px 0}
 .msg.user{display:flex;justify-content:flex-end;margin-top:20px}
+.msg.user.hasimg{flex-direction:column;align-items:flex-end}
+.msg.user .body:empty{display:none}
+.uimgs{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-bottom:6px;max-width:88%}
+.uimg{border:0;padding:0;background:none;cursor:zoom-in}.uimg img{display:block;max-height:160px;max-width:min(100%,280px);border-radius:10px;border:1px solid var(--line);background:#fff}
+.uimg .gone{display:inline-block;padding:8px 10px;border:1px dashed var(--line2);border-radius:10px;font-size:12px;color:var(--muted)}
 .msg.user .body{background:var(--user-bg);border-radius:14px;padding:9px 14px;max-width:88%;white-space:pre-wrap;line-height:1.5;font-size:14.5px}
 .msg.assistant .body{font-family:var(--serif);font-size:16.5px;line-height:1.68;padding:6px 0 2px;overflow-wrap:break-word}
 .msg.assistant .body>*:first-child{margin-top:6px}
@@ -213,6 +224,22 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .tk .go{font-size:12.5px;font-weight:500;background:var(--ink);color:var(--panel);border-radius:8px;padding:6px 10px;white-space:nowrap}
 
 .jumpw{position:relative;height:0;z-index:6}
+.pzw{position:relative;height:0;z-index:7}
+.pzoom{position:absolute;right:16px;top:6px;display:flex;align-items:center;gap:1px;padding:2px;border:1px solid var(--line);border-radius:9px;background:var(--panel);box-shadow:0 1px 4px rgba(0,0,0,.08);opacity:0;pointer-events:none;transition:opacity .15s}
+.pane:hover .pzoom,.pane.zoomed .pzoom,.pzoom:focus-within{opacity:1;pointer-events:auto}
+.pane.zoomed:not(:hover) .pzoom{opacity:.55}
+.pzoom .ib{width:26px;height:24px}
+.pzoom .pzl{min-width:44px;height:24px;border:0;background:none;color:var(--muted);font:12px var(--sans);border-radius:6px;cursor:pointer}
+.pzoom .pzl:hover{background:var(--panel-2);color:var(--ink)}
+.zin{width:46px;height:22px;border:1px solid var(--line2);border-radius:6px;background:var(--panel);color:var(--ink);font:12px var(--sans);text-align:center;padding:0 2px;outline:none}
+.zin:focus{border-color:var(--faint)}
+.czoom .zin{width:38px;height:20px;font-size:11px}
+.pzoom .pzf:disabled{opacity:.35;cursor:default}
+.pane .msgs,.pane .docwrap{zoom:var(--pz,1)}
+.pane.rail .pzw{display:none}
+/* the document pane keeps them in its header instead, so they never cover the page */
+.ph .pzoom{position:static;border:0;box-shadow:none;background:none;padding:0;margin-right:2px}
+.pane.rail .ph .pzoom{display:none}
 .jump{position:absolute;right:16px;bottom:8px;display:flex;flex-direction:column;gap:4px;opacity:0;pointer-events:none;transform:translateY(4px);transition:opacity .15s,transform .15s}
 .pane.away .jump,.pane.hasprev .jump{opacity:.9;pointer-events:auto;transform:none}
 .jump .ib{width:30px;height:30px;border-radius:50%;background:var(--panel);border:1px solid var(--line2);box-shadow:0 2px 8px rgba(0,0,0,.08);color:var(--muted)}
@@ -221,6 +248,13 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .pane.hasprev .jump .jp{display:inline-flex}
 .pane:not(.away) .jump .jl,.pane:not(.away) .jump .je{display:none}
 .composer{padding:8px 14px 14px}
+.cimgs{max-width:760px;margin:0 auto 8px;display:flex;gap:8px;flex-wrap:wrap}
+.cnode .cimgs{margin:0;padding:8px 12px 0;border-top:1px solid var(--line)}
+.cimg{position:relative}.cimg img{display:block;height:56px;max-width:120px;object-fit:cover;border-radius:8px;border:1px solid var(--line2);background:#fff}
+.cimg .cix{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;border:1px solid var(--line2);background:var(--panel);color:var(--muted);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+.cimg .cix svg{width:11px;height:11px}
+.lightbox{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out}
+.lightbox img{max-width:100%;max-height:100%;background:#fff;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,.4)}
 .cbox{max-width:760px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;border:1px solid var(--line2);border-radius:14px;background:var(--panel);padding:6px 6px 6px 14px;transition:border-color .15s,box-shadow .15s}
 .cbox:focus-within{border-color:var(--faint);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 14%,transparent)}
 .cbox textarea{flex:1;border:0;outline:none;resize:none;background:none;color:var(--ink);font:14.5px/1.5 var(--sans);padding:6px 0;max-height:200px;min-height:24px}
@@ -426,13 +460,26 @@ sup.fn.res{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px va
 .bchip.res .n{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px var(--c)}
 .bchip.res .bt{color:var(--faint)}
 /* document mode */
-.docpane .pb{background:var(--panel-2);padding:14px 30px 14px 14px}
+.docpane .pb{background:var(--panel-2);padding:14px 30px 14px 14px;scrollbar-gutter:stable}  /* right padding: room for the branch badges beside each page */
 .docico{display:inline-flex;color:var(--muted)}
 .docico svg.i{width:16px;height:16px}
-.docwrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding-bottom:20px}
+.docwrap{display:flex;flex-direction:column;align-items:safe center;gap:14px;padding-bottom:20px}
 .dpage{position:relative;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.04);border-radius:2px;flex:none}
 .dpage canvas{position:absolute;inset:0;border-radius:2px}
 .dpage .pnum{position:absolute;left:-2px;bottom:-16px;font-size:10.5px;color:var(--faint)}
+.dpage .pask{position:absolute;right:-2px;bottom:-19px;border:0;background:none;padding:1px 3px;font:11px var(--sans);color:var(--faint);cursor:pointer;opacity:0;transition:opacity .15s;z-index:3}
+.dpage:hover .pask,.dpage .pask:focus-visible{opacity:1}.dpage .pask:hover{color:var(--ink)}
+@media (hover:none){.dpage .pask{opacity:1}}
+.docpane.snipping .dpage{cursor:crosshair;touch-action:none}
+.docpane.snipping .textLayer,.docpane.snipping .dpage sup.fn{pointer-events:none}
+.snipbox{position:absolute;z-index:4;pointer-events:none;border:2px solid var(--accent,#3f8fd2);background:color-mix(in srgb,var(--accent,#3f8fd2) 12%,transparent);border-radius:3px}
+.dregion{position:absolute;z-index:1;pointer-events:none;border:2px solid var(--c);border-radius:3px;background:color-mix(in srgb,var(--c) 6%,transparent)}
+.dregion.res{border-style:dashed;opacity:.6}
+.dregion.flash{animation:pgflash 1.1s ease 2}
+.ph [data-act=snip].on{background:var(--panel-2);color:var(--accent,var(--ink))}
+.pop .pimg{display:block;max-width:100%;max-height:200px;margin:0 auto;border-radius:6px;border:1px solid var(--line);background:#fff}
+.pop .pimgcap{margin-top:6px;font-size:12px;color:var(--muted)}
+.oimg{display:block;margin-top:6px;border:0;padding:0;background:none;cursor:zoom-in;max-width:100%}.oimg img{display:block;max-width:100%;max-height:220px;border-radius:6px;border:1px solid var(--line);background:#fff}
 .dpage>sup.fn{position:absolute;right:-24px;margin:0;vertical-align:baseline;z-index:3}
 @keyframes pgflash{0%,100%{box-shadow:0 1px 3px rgba(0,0,0,.12)}30%{box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 45%,transparent)}}
 .dpage.flash{animation:pgflash 1.1s ease 2}
@@ -442,6 +489,9 @@ sup.fn.res{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px va
 .textLayer .anchor{color:transparent}
 .textLayer ::selection{background:color-mix(in srgb,#3f8fd2 30%,transparent)}
 .textLayer br::selection{background:transparent}
+.textLayer>:not(.markedContent),.textLayer .markedContent span:not(.markedContent){z-index:1}   /* words above the gap filler */
+.textLayer .endOfContent{display:block;position:absolute;inset:100% 0 0;z-index:0;cursor:default;user-select:none;-webkit-user-select:none}
+.textLayer.selecting .endOfContent{top:0}
 .docbody{max-width:760px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 28px 18px;font-family:var(--serif);font-size:16px;line-height:1.66;width:100%}
 .docload,.docerr{color:var(--muted);padding:40px 10px;text-align:center;line-height:1.6}
 .docerr input{margin-top:10px}
@@ -480,7 +530,7 @@ a.pref:hover{border-bottom-style:solid}
   .panes{padding:8px}.pb{padding:6px 14px 8px}.composer{padding:6px 8px 10px}.ph{padding:10px 6px 8px 10px}
   .pop{width:auto;left:8px !important;right:8px}.pal{padding-top:8vh}.cvhint{display:none}}
 /* touch screens have no hover: show the controls that otherwise appear on hover */
-@media (hover:none){.citem .acts{position:static;transform:none;background:none;padding:0;pointer-events:auto}.citem .acts,.mnode .mp,.mnode .mx,.bchip .bx,.del,.mfoot .ib,.mfoot .tb,.cnode .ch .ib{opacity:1 !important}.tipbox{display:none !important}}
+@media (hover:none){.pzoom{opacity:1 !important;pointer-events:auto !important}.citem .acts{position:static;transform:none;background:none;padding:0;pointer-events:auto}.citem .acts,.mnode .mp,.mnode .mx,.bchip .bx,.del,.mfoot .ib,.mfoot .tb,.cnode .ch .ib{opacity:1 !important}.tipbox{display:none !important}}
 </style>
 </head>
 <body>
@@ -491,7 +541,7 @@ a.pref:hover{border-bottom-style:solid}
     <div class="ctitle" id="cTitle" contenteditable="true" spellcheck="false" title="Click to rename this conversation"></div>
     <div class="sp"></div>
     <span class="status" id="status"></span>
-    <label class="sel" title="Which Claude model answers new messages. Auto lets claude.ai choose. Each reply shows the model that answered."><span>Model</span><select id="mSel"></select></label>
+    <label class="sel" title="Which model answers new messages. Each reply shows the model that answered."><span>Model</span><select id="mSel"></select></label>
     <label class="sel" title="How much the model thinks before answering. Higher is slower but more careful."><span>Effort</span><select id="eSel"></select></label>
     <button class="webt" id="webT" aria-pressed="false" style="display:none" title="Web search: let new replies look things up online. Only search queries leave; your chats and documents stay on this server. You can switch this any time."><span class="wi"></span><span class="lbl">Web</span></button>
     <div class="seg" id="viewSeg">
@@ -537,12 +587,12 @@ a.pref:hover{border-bottom-style:solid}
   <div class="pq" id="popQ"></div>
   <div class="prow"><textarea id="popIn" rows="1" placeholder="Ask about this…"></textarea><button class="sendb" id="popGo" title="Ask this in a new branch (Enter). Shift+Enter adds a new line."></button></div>
   <div class="chips" id="popChips"></div>
-  <div class="hint">Opens a side branch. Claude sees the whole conversation so far, with this passage marked as your focus.</div>
+  <div class="hint" id="popHint"></div>
 </div>
 <div class="toast" id="toast"></div>
 <div class="tipbox" id="tipbox"></div>
 <div class="pal" id="pal"><div class="pbox" role="dialog" aria-modal="true" aria-label="Search"><div class="pin"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="palIn" placeholder="Search conversations, highlights, takeaways, documents…" autocomplete="off" spellcheck="false"></div><div class="pres" id="palRes"></div><div class="pfoot"><span id="palFoot"></span><span class="sp"></span><span><kbd class="k">↑</kbd> <kbd class="k">↓</kbd> move</span><span><kbd class="k">Enter</kbd> open</span><span><kbd class="k"><span class="kmod">⌘</span>Enter</kbd> open, keep searching</span><span><kbd class="k">Esc</kbd> close</span></div></div></div>
-<div class="modal" id="docModal"><div class="mbox wide" role="dialog" aria-modal="true"><div class="mt">Start from a document</div><div class="mb">The document opens next to a main thread for questions about the whole thing. Highlight any passage in it to open a branch about that part.</div><label class="drop" id="docDrop"><input type="file" id="docFile" accept=".pdf,.md,.markdown,.txt,application/pdf,text/markdown,text/plain"><span id="docFileLbl"></span></label><textarea id="docPaste" placeholder="…or paste text or Markdown here"></textarea><input id="docName" placeholder="Title (optional)" autocomplete="off"><div class="ma"><span class="dmsg" id="docMsg"></span><button class="mbtn" id="docCancel">Cancel</button><button class="mbtn primary" id="docGo">Start</button></div></div></div>
+<div class="modal" id="docModal"><div class="mbox wide" role="dialog" aria-modal="true"><div class="mt">Start from a document</div><div class="mb">The document opens next to a main thread for questions about the whole thing. Highlight any passage in it to open a branch about that part.</div><label class="drop" id="docDrop"><input type="file" id="docFile" accept=".pdf,.md,.markdown,.txt,application/pdf,text/markdown,text/plain"><span id="docFileLbl"></span></label><textarea id="docPaste" placeholder="…or paste text, Markdown, or a link to a PDF"></textarea><input id="docName" placeholder="Title (optional)" autocomplete="off"><div class="ma"><span class="dmsg" id="docMsg"></span><button class="mbtn" id="docCancel">Cancel</button><button class="mbtn primary" id="docGo">Start</button></div></div></div>
 <div class="modal" id="modal"><div class="mbox" role="dialog" aria-modal="true"><div class="mt" id="mTitle"></div><div class="mb" id="mBody"></div><div class="ma"><button class="mbtn" id="mCancel">Cancel</button><button class="mbtn danger" id="mOk">Delete</button></div></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
@@ -568,8 +618,8 @@ const QUICK=[
   ['Go deeper','Go deeper on this. What\'s really going on under the hood?'],
 ];
 const STARTERS=['How does self-attention in transformers work?','Explain the Raft consensus algorithm','What is a Fourier transform, intuitively?','How does a B-tree index speed up queries?'];
+// shown until the server's own model list (/api/models) arrives
 const MODELS=[['auto','Auto'],['claude-opus-5-5','Opus 5.5'],['claude-sonnet-5-5','Sonnet 5.5'],['claude-haiku-5-5','Haiku 5.5'],['claude-fable-5-2','Fable 5.2']];
-const TIER={'claude-opus-5-5':'complex','claude-fable-5-2':'complex','claude-sonnet-5-5':'default','claude-haiku-5-5':'quick'};
 const EFFORTS=[['auto','Auto'],['low','Low'],['medium','Medium'],['high','High']];
 const I={
  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
@@ -589,6 +639,7 @@ const I={
  copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
  plus:'<path d="M12 5v14M5 12h14"/>',
  minus:'<path d="M5 12h14"/>',
+ snip:'<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>',
  fit:'<path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/>',
  doc:'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>',
  pin:'<path d="M9 3h6l-1 7 3.5 3.5h-11L10 10zM12 13.5V21"/>',
@@ -642,8 +693,7 @@ const isCollapsed=(tid)=>conv.ui.collapsed.includes(tid);
    io.store  conversations: list() -> [{id, data}], get(id), put(id, data), update(id, patch), remove(id)
    io.index  search index entries, same shape as io.store
    io.files  upload(blob, type) -> {id}, fetch(id, 'text'|'arrayBuffer'), remove(id), canUpload
-   Each part is picked on its own at startup. A self-hosted build adds new implementations here;
-   nothing else in the app should talk to claude.ai, localStorage-for-data, or a server directly. */
+   They come from the Digress server (server/server.mjs); nothing else in the app should call the server directly. */
 const io={llm:null,store:null,index:null,files:null,ready:null};
 function memoryStore(label){
   const m=new Map();
@@ -654,54 +704,7 @@ function memoryStore(label){
     update:async(id,p)=>{if(m.has(id))Object.assign(m.get(id),structuredClone(p))},
     remove:async(id)=>{m.delete(id)}};
 }
-function localStore(prefix,label,keep){
-  const ok=(id)=>!keep||keep(id);
-  return {kind:'local',label:label||'',
-    list:async()=>{const out=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith(prefix)&&ok(k.slice(prefix.length))){try{out.push({id:k.slice(prefix.length),data:JSON.parse(localStorage.getItem(k))})}catch(e){}}}return out},
-    get:async(id)=>{const v=localStorage.getItem(prefix+id);return v?JSON.parse(v):null},
-    put:async(id,d)=>{localStorage.setItem(prefix+id,JSON.stringify(d))},
-    update:async(id,p)=>{const v=JSON.parse(localStorage.getItem(prefix+id)||'null');if(v){Object.assign(v,p);localStorage.setItem(prefix+id,JSON.stringify(v))}},
-    remove:async(id)=>{localStorage.removeItem(prefix+id)}};
-}
-function claudeAiStore(coll,label,opts){
-  opts=opts||{};
-  return {kind:'claude.ai',label:label||'',
-    list:async()=>{let q=coll();if(opts.ordered)q=q.orderBy('updated','desc');const sn=await q.limit(opts.limit||500).get();return sn.docs.filter(d=>d.exists).map(d=>({id:d.id,data:structuredClone(d.data())}))},
-    get:async(id)=>{const s=await coll().doc(id).get();return s.exists?structuredClone(s.data()):null},
-    put:(id,d)=>coll().doc(id).set(d),
-    update:(id,p)=>coll().doc(id).update(p),
-    remove:(id)=>coll().doc(id).delete()};
-}
-function claudeAiLlm(cl){
-  let s=null,p=null;
-  const llm={kind:'claude.ai',supportsEffort:true,supportsWeb:false,
-    why:'claude.ai didn\'t give this view access to Claude. Open the artifact on its own page (not the preview) and try again.',
-    models:()=>MODELS,
-    ready(){
-      if(s)return Promise.resolve(true);
-      if(!p)p=cl.use('sample').then(x=>{s=x;return !!x}).catch(()=>false).finally(()=>{if(!s)p=null});
-      return p;
-    },
-    async complete({system,messages,model,effort,signal,onText}){
-      if(!await llm.ready())throw {message:llm.why};
-      // claude.ai's interface has no separate system slot, so the system prompt rides in the first message
-      const msgs=messages.map(m=>({role:m.role,content:m.content}));
-      if(system&&msgs.length)msgs[0]={role:'user',content:system+'\n\n---\n\n'+msgs[0].content};
-      const o={cache:false,signal,onText:({text})=>onText&&onText(text==='Thinking...'?'':text)};
-      if(model&&model!=='auto'){o.model=model;o.modelTier=TIER[model]||'default'}
-      if(effort&&effort!=='auto')o.effort=effort;
-      const r=await s(msgs,o);
-      return {text:r.text,truncated:!!r.truncated,model:r.modelApplied||(model&&model!=='auto'?model:null)};
-    }};
-  return llm;
-}
 function noLlm(why){return {kind:'none',supportsEffort:false,supportsWeb:false,why,models:()=>[['auto','Auto']],ready:async()=>false,complete:async()=>{throw {message:why}}}}
-function claudeAiFiles(assets){
-  return {kind:'claude.ai',canUpload:!!assets,
-    upload:async(blob,type)=>{if(!assets)throw {code:'unavailable'};const r=await assets.upload(blob,{type});return {id:r.id}},
-    fetch:async(id,as)=>{const r=await fetch('/_blob/'+id);if(!r.ok)throw new Error('The document file couldn\'t be loaded ('+r.status+').');return as==='text'?r.text():r.arrayBuffer()},
-    remove:async(id)=>{if(assets)await assets.delete(id)}};
-}
 const noFiles={kind:'none',canUpload:false,upload:async()=>{throw {code:'unavailable'}},fetch:async()=>{throw new Error('This document\'s file isn\'t available here.')},remove:async()=>{}};
 /* Self-hosted: the Digress server (server/server.mjs) serves this page and offers the same four parts over HTTP. */
 async function findServer(){
@@ -720,13 +723,22 @@ function serverStore(coll,label){
 }
 function serverFiles(){
   return {kind:'server',canUpload:true,
+    // the server downloads a document from a link (server/fetchdoc.mjs). A link that needs the reader's OK
+    // (http, a bare IP, an odd port) throws {warnings:[{code,text}], url}; send their codes back in `confirm`.
+    fromLink:async(url,confirm)=>{
+      const r=await fetch('api/fetch-doc',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url,confirm:confirm||[]})});
+      if(r.status===409){const j=await r.json();throw {message:j.error,warnings:j.warnings||[],url:j.url}}
+      await okOrThrow(r);
+      const dec=(h)=>{try{return decodeURIComponent(r.headers.get(h)||'')}catch(e){return ''}};
+      return {blob:await r.blob(),kind:r.headers.get('x-doc-kind')==='pdf'?'pdf':'text',name:dec('x-doc-name'),url:dec('x-doc-url')};
+    },
     upload:async(blob,type)=>{const r=await fetch('api/files?type='+encodeURIComponent(type),{method:'POST',body:blob});if(r.status===413)throw {code:'too_large'};return (await okOrThrow(r)).json()},
     fetch:async(id,as)=>{const r=await okOrThrow(await fetch('api/files/'+encodeURIComponent(id)));return as==='text'?r.text():r.arrayBuffer()},
     remove:async(id)=>{await fetch('api/files/'+encodeURIComponent(id),{method:'DELETE'})}};
 }
 function serverLlm(info){
   let models=[['auto','Default']];
-  const llm={kind:'server',supportsEffort:true,supportsWeb:!!(info.llm&&info.web),
+  const llm={kind:'server',supportsEffort:true,supportsWeb:!!(info.llm&&info.web),supportsImages:true,
     why:info.why||'The server has no model configured yet. See the README to connect one.',
     models:()=>models,
     ready:async()=>!!info.llm,
@@ -756,11 +768,6 @@ function serverLlm(info){
     }};
   return llm;
 }
-function localOK(){try{localStorage.setItem('sq:t','1');localStorage.removeItem('sq:t');return true}catch(e){return false}}
-function browserStores(){
-  if(localOK()){io.store=localStore('sq:','Saved in this browser',id=>id.startsWith('c'));io.index=localStore('sqi:')}
-  else{io.store=memoryStore();io.index=memoryStore()}
-}
 async function initConnectors(){
   const srv=await findServer();
   if(srv){
@@ -769,21 +776,153 @@ async function initConnectors(){
     if(!srv.llm)showBanner(true,io.llm.why);
     return;
   }
-  const cl=await waitRuntime();
-  if(!cl){
-    io.llm=noLlm('This page isn\'t running inside claude.ai, so it can\'t reach a model yet.');showBanner(true);
-    browserStores();io.files=noFiles;return;
-  }
-  io.llm=claudeAiLlm(cl);io.llm.ready().then(ok=>showBanner(!ok));
-  const [d,u,a]=await Promise.all([cl.use('db').catch(()=>null),cl.use('user').catch(()=>null),cl.use('assets').catch(()=>null)]);
-  let uid=null;if(d&&u){try{uid=await u.id()}catch(e){}}
-  if(d&&uid){
-    io.store=claudeAiStore(()=>d.collection('data/users/'+uid),'Saved',{ordered:true,limit:500});
-    io.index=claudeAiStore(()=>d.doc('data/users/'+uid+'/meta').collection('search'),'',{limit:1000});
-  }else browserStores();
-  io.files=claudeAiFiles(a);
+  noServer();
 }
+// opened without its server (e.g. the HTML file on its own): nothing is saved and there's no model
+function noServer(){io.llm=noLlm(NO_SERVER);io.store=io.store||memoryStore();io.index=io.index||memoryStore();io.files=noFiles;showBanner(true,NO_SERVER)}
+const NO_SERVER='Digress needs its server: run `npm start` in the digress folder and open the address it prints.';
 const connected=()=>!!(io.store&&io.index&&io.files&&io.llm);
+
+/* ---------- images: snips of a PDF page, whole pages, pasted screenshots ----------
+   A snip or a page is saved only as where it is in the PDF (t.anchorRegion, as fractions of the page),
+   and its image is drawn again from the PDF when needed, so nothing is stored twice. A pasted
+   screenshot is stored as a file through io.files (inline in the message where there's nowhere to put
+   files): m.images = [{asset|data, type, w, h}]. Images are capped at IMG_MAX px on the long side,
+   about what the models look at anyway. */
+const IMG_MAX=1568;
+const isWholePage=(r)=>!!r&&r.x<=0.001&&r.y<=0.001&&r.w>=0.999&&r.h>=0.999;
+const regionRef=(t)=>({region:{page:t.anchorPage+1,x:t.anchorRegion.x,y:t.anchorRegion.y,w:t.anchorRegion.w,h:t.anchorRegion.h}});
+const imgMemo=new Map(),urlMemo=new Map();
+const canvasBlob=(cv,type,q)=>new Promise(r=>cv.toBlob(r,type,q));
+async function encodeCanvas(cv){let b=await canvasBlob(cv,'image/png');if(b&&b.size>3.5e6)b=await canvasBlob(cv,'image/jpeg',0.9);if(!b)throw new Error('The image couldn’t be encoded.');return b}
+async function renderRegion(pageNo,r){   // that part of the page, drawn sharp from the PDF itself
+  if(!docState||!docState.pdf)throw new Error('The document isn’t loaded.');
+  const page=await docState.pdf.getPage(pageNo),v1=page.getViewport({scale:1});
+  const rw=r.w*v1.width,rh=r.h*v1.height,k=Math.min(4,IMG_MAX/Math.max(rw,rh));
+  const vp=page.getViewport({scale:k}),cv=document.createElement('canvas');
+  cv.width=Math.max(1,Math.round(rw*k));cv.height=Math.max(1,Math.round(rh*k));
+  const ctx=cv.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,cv.width,cv.height);
+  await page.render({canvasContext:ctx,viewport:vp,transform:[1,0,0,1,-r.x*vp.width,-r.y*vp.height]}).promise;
+  return cv;
+}
+function imageBlob(ref){   // ref: {region:{page,x,y,w,h}} | {asset,type} | {data:'data:…'}
+  const k=ref.region?['r',docState&&docState.key,ref.region.page,ref.region.x,ref.region.y,ref.region.w,ref.region.h].join('|'):ref.asset?'a|'+ref.asset:'d|'+ref.data.length+'|'+ref.data.slice(-64);
+  if(!imgMemo.has(k))imgMemo.set(k,(async()=>{
+    if(ref.region)return encodeCanvas(await renderRegion(ref.region.page,ref.region));
+    if(ref.asset){await io.ready;if(!io.files)throw new Error('No file storage here.');return new Blob([await io.files.fetch(ref.asset,'arrayBuffer')],{type:ref.type})}
+    return (await fetch(ref.data)).blob();
+  })().catch(e=>{imgMemo.delete(k);throw e}));
+  return imgMemo.get(k);
+}
+async function imageURL(ref){const b=await imageBlob(ref);if(!urlMemo.has(b))urlMemo.set(b,URL.createObjectURL(b));return urlMemo.get(b)}
+const blobB64=(b)=>new Promise((ok,no)=>{const fr=new FileReader();fr.onload=()=>ok(String(fr.result).split(',')[1]);fr.onerror=()=>no(fr.error);fr.readAsDataURL(b)});
+async function fileToImage(file){   // a pasted or dropped image, scaled down to IMG_MAX
+  const bm=await createImageBitmap(file);const k=Math.min(1,IMG_MAX/Math.max(bm.width,bm.height));
+  const cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(bm.width*k));cv.height=Math.max(1,Math.round(bm.height*k));
+  cv.getContext('2d').drawImage(bm,0,0,cv.width,cv.height);if(bm.close)bm.close();
+  const blob=await encodeCanvas(cv);return {blob,type:blob.type,w:cv.width,h:cv.height};
+}
+async function storeImages(list){
+  const out=[];
+  for(const im of list){
+    const rec={type:im.type,w:im.w,h:im.h};
+    if(io.files&&io.files.canUpload){try{rec.asset=(await io.files.upload(im.blob,im.type)).id;imgMemo.set('a|'+rec.asset,Promise.resolve(im.blob))}catch(e){console.warn('image upload failed; keeping it in the message',e)}}
+    if(!rec.asset)rec.data='data:'+im.type+';base64,'+await blobB64(im.blob);
+    out.push(rec);
+  }
+  return out;
+}
+// images waiting in a thread's message box (pane and canvas card share them)
+const pendingImgs=new Map();
+async function addPending(tid,files){
+  for(const f of files){
+    try{const im=await fileToImage(f);im.url=URL.createObjectURL(im.blob);if(!pendingImgs.has(tid))pendingImgs.set(tid,[]);pendingImgs.get(tid).push(im)}
+    catch(e){toast('That image couldn’t be read.')}
+  }
+  renderPending(tid);
+}
+function takePending(tid){const l=pendingImgs.get(tid)||[];pendingImgs.delete(tid);renderPending(tid);return l}
+function renderPending(tid){
+  const list=pendingImgs.get(tid)||[],hosts=[];
+  const pe=paneEls.get(tid);if(pe&&pe.querySelector('.composer'))hosts.push([pe.querySelector('.composer'),pe.querySelector('.cbox')]);
+  const ck=document.querySelector(`#cv .cnode[data-ctid="${tid}"] .cask`);if(ck)hosts.push([ck.parentElement,ck]);
+  for(const [host,before] of hosts){
+    let st=host.querySelector(':scope > .cimgs');
+    if(!list.length){if(st)st.remove();continue}
+    if(!st){st=document.createElement('div');st.className='cimgs';host.insertBefore(st,before)}
+    st.innerHTML=list.map((im,i)=>`<span class="cimg"><img src="${im.url}" alt="Pasted image ${i+1}"><button type="button" class="cix" data-unpaste="${i}" data-utid="${tid}" title="Remove this image">${ic('x')}</button></span>`).join('');
+  }
+  updateComposer(tid);
+}
+const composerTid=(el)=>{if(!el||!el.closest)return null;const f=el.closest('.pane .composer');if(f)return f.closest('.pane').dataset.tid;const c=el.closest('.cask');return c?c.closest('.cnode').dataset.ctid:null};
+const imageFiles=(list)=>[...(list||[])].filter(f=>/^image\/(png|jpeg|webp|gif)$/.test(f.type));
+document.addEventListener('paste',e=>{
+  const tid=composerTid(e.target);if(!tid||!e.clipboardData)return;
+  const files=imageFiles(e.clipboardData.files);if(!files.length)return;
+  if(!(e.clipboardData.getData('text/plain')||'').trim())e.preventDefault();
+  addPending(tid,files);
+});
+document.addEventListener('dragover',e=>{if(composerTid(e.target)&&e.dataTransfer&&[...e.dataTransfer.types].includes('Files'))e.preventDefault()});
+document.addEventListener('drop',e=>{const tid=composerTid(e.target);if(!tid||!e.dataTransfer)return;const files=imageFiles(e.dataTransfer.files);if(!files.length)return;e.preventDefault();addPending(tid,files)});
+function userMsgBody(el,m){
+  const imgs=m.images||[];el.classList.toggle('hasimg',imgs.length>0);
+  el.innerHTML=(imgs.length?'<div class="uimgs"></div>':'')+'<div class="body"></div>';
+  el.querySelector('.body').textContent=m.content||'';
+  if(!imgs.length)return;
+  const box=el.querySelector('.uimgs');
+  imgs.forEach((ref,i)=>{
+    const b=document.createElement('button');b.className='uimg';b.title='Show larger';b.__ref=ref;b.dataset.zoomref='1';
+    const im=document.createElement('img');im.alt=`Image ${i+1}`;if(ref.w&&ref.h){im.width=ref.w;im.height=ref.h}b.appendChild(im);box.appendChild(b);
+    imageURL(ref).then(u=>{im.src=u;im.removeAttribute('width');im.removeAttribute('height')}).catch(()=>{b.innerHTML='<span class="gone">Image unavailable</span>'});
+  });
+}
+function lightbox(ref){
+  const d=document.createElement('div');d.className='lightbox';d.innerHTML='<img alt="">';document.body.appendChild(d);
+  imageURL(ref).then(u=>{d.firstChild.src=u}).catch(()=>d.remove());
+  const close=()=>{d.remove();removeEventListener('keydown',esc_,true)};const esc_=(e)=>{if(e.key==='Escape'){e.stopPropagation();close()}};
+  d.addEventListener('click',close);addEventListener('keydown',esc_,true);
+}
+document.addEventListener('click',e=>{
+  const u=e.target.closest&&e.target.closest('[data-unpaste]');
+  if(u){const l=pendingImgs.get(u.dataset.utid)||[];const [im]=l.splice(+u.dataset.unpaste,1);if(im)URL.revokeObjectURL(im.url);if(!l.length)pendingImgs.delete(u.dataset.utid);renderPending(u.dataset.utid);return}
+  const z=e.target.closest&&e.target.closest('[data-zoomref]');if(z&&z.__ref){e.stopPropagation();lightbox(z.__ref)}
+},true);
+// snipping: drag a box over a PDF page
+function setSnip(on){
+  const el=paneEls.get('doc');if(!el)return;el.classList.toggle('snipping',on);
+  const b=el.querySelector('[data-act=snip]');if(b){b.classList.toggle('on',on);b.setAttribute('aria-pressed',on?'true':'false')}
+  if(on){hidePop();getSelection().removeAllRanges();toast('Drag a box over the part of the page you want to ask about. Esc cancels.')}
+}
+function regionText(pageNo,r){   // the PDF's own words that fall inside the box, in reading order
+  const pg=paneEls.get('doc')&&paneEls.get('doc').querySelector(`.dpage[data-page="${pageNo}"]`);const tl=pg&&pg.querySelector('.textLayer');if(!tl)return '';
+  const b=pg.getBoundingClientRect(),L=b.left+r.x*b.width,T_=b.top+r.y*b.height,R=L+r.w*b.width,B=T_+r.h*b.height;
+  const out=[];
+  for(const sp of tl.querySelectorAll('span')){
+    if(sp.querySelector('span'))continue;const q=sp.getBoundingClientRect();if(!q.width)continue;
+    const cx=q.left+q.width/2,cy=q.top+q.height/2;if(cx>=L&&cx<=R&&cy>=T_&&cy<=B)out.push(sp.textContent);
+  }
+  return out.join(' ').replace(/\s+/g,' ').trim().slice(0,600);
+}
+function startSnip(e,el){
+  const pg=e.target.closest('.dpage');if(!pg)return;
+  e.preventDefault();e.stopPropagation();
+  document.querySelectorAll('.snipbox').forEach(b=>b.remove());
+  const box=document.createElement('div');box.className='snipbox';pg.appendChild(box);
+  const b0=pg.getBoundingClientRect(),x0=e.clientX-b0.left,y0=e.clientY-b0.top;let rect=null;
+  try{pg.setPointerCapture(e.pointerId)}catch(_){}
+  const move=ev=>{const b=pg.getBoundingClientRect(),x1=Math.min(Math.max(ev.clientX-b.left,0),b.width),y1=Math.min(Math.max(ev.clientY-b.top,0),b.height);
+    rect={x:Math.min(x0,x1),y:Math.min(y0,y1),w:Math.abs(x1-x0),h:Math.abs(y1-y0),W:b.width,H:b.height};
+    Object.assign(box.style,{left:rect.x+'px',top:rect.y+'px',width:rect.w+'px',height:rect.h+'px'})};
+  const up=()=>{pg.removeEventListener('pointermove',move);pg.removeEventListener('pointerup',up);pg.removeEventListener('pointercancel',up);
+    if(!rect||rect.w<12||rect.h<12){box.remove();return}
+    setSnip(false);
+    openImagePop(+pg.dataset.page,{x:rect.x/rect.W,y:rect.y/rect.H,w:rect.w/rect.W,h:rect.h/rect.H},box);
+  };
+  pg.addEventListener('pointermove',move);pg.addEventListener('pointerup',up);pg.addEventListener('pointercancel',up);
+}
+document.addEventListener('pointerdown',e=>{const el=e.target.closest&&e.target.closest('.docpane.snipping');if(el&&!e.target.closest('.ph'))startSnip(e,el)},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.querySelector('.docpane.snipping'))setSnip(false)});
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-pask]');if(!b)return;e.stopPropagation();openImagePop(+b.dataset.pask,{x:0,y:0,w:1,h:1},b.closest('.dpage'))},true);
 
 /* ---------- context for Claude ---------- */
 function branchPrefix(t){
@@ -792,9 +931,28 @@ function branchPrefix(t){
     ? `[Side question about your reply above. The learner highlighted this part of it:]\n> ${t.anchorText.replace(/\n+/g,'\n> ')}\n\n`
     : `[Side question about your reply above:]\n\n`;
 }
+/* Messages are built as lists of parts: {type:'text',text} and {type:'image',ref,label}, where ref says
+   where the image comes from (a snip or page of the PDF: {region}, a pasted file: {asset} or {data}).
+   A message that is all text becomes a plain string, exactly as before images existed.
+   resolveContext (below) turns each ref into the image's bytes just before sending. */
+function branchParts(t){
+  if(isDocBranch(t)&&t.anchorRegion){
+    const r=t.anchorRegion,p=t.anchorPage+1,whole=isWholePage(r);
+    const head=whole?`[Side question about page ${p} of the document, shown in this image of the page:]\n`
+      :`[Side question about this area of the document (p. ${p}), shown in this image${t.regionText?`. Text found inside it: "${t.regionText}"`:''}:]\n`;
+    return [{type:'text',text:head},{type:'image',ref:{region:{page:p,x:r.x,y:r.y,w:r.w,h:r.h}},label:whole?`page ${p}`:`the snip from p. ${p}`},{type:'text',text:'\n\n'}];
+  }
+  return [{type:'text',text:branchPrefix(t)}];
+}
+const partsText=(parts)=>parts.filter(p=>p.type==='text').map(p=>p.text).join('');
+function joinParts(parts){   // neighbouring text parts become one; all-text becomes a string
+  const out=[];for(const p of parts){const l=out[out.length-1];if(p.type==='text'&&l&&l.type==='text')l.text+=p.text;else out.push({...p})}
+  return out.every(p=>p.type==='text')?partsText(out):out.filter(p=>p.type!=='text'||p.text);
+}
+function appendText(msg,s){if(typeof msg.content==='string')msg.content+=s;else msg.content=[...msg.content,{type:'text',text:s}]}
 function buildContext(tid,excludeMid){
   const path=ancestors(tid),out=[];
-  const push=(role,c)=>{const last=out[out.length-1];if(last&&last.role===role)last.content+='\n\n'+c;else out.push({role,content:c})};
+  const push=(role,c)=>{const parts=typeof c==='string'?[{type:'text',text:c}]:c;const last=out[out.length-1];if(last&&last.role===role)last.parts.push({type:'text',text:'\n\n'},...parts);else out.push({role,parts:[...parts]})};
   path.forEach((id,i)=>{
     const t=T(id);let mids=conv.order[id];
     if(i<path.length-1){const ch=T(path[i+1]);const k=mids.indexOf(ch.anchorMsg);mids=mids.slice(0,k+1)}
@@ -804,19 +962,41 @@ function buildContext(tid,excludeMid){
       const m=conv.msgs[mid];if(!m)continue;let c=m.content||'';
       if(m.role==='note'){if(c&&!m.pending)push('user',`[Takeaway carried back from the side branch "${T(m.fromThread)?T(m.fromThread).title:'(deleted)'}":]\n${c}`);continue}
       if(m.role==='assistant'&&(!c||m.pending))continue;
-      if(m.role==='user'&&firstUser&&t.parent)c=branchPrefix(t)+c;
-      if(m.role==='user')firstUser=false;
-      push(m.role,c);
+      let parts=[{type:'text',text:c}];
+      if(m.role==='user'){
+        if(m.images&&m.images.length)parts=[...m.images.map((ref,k)=>({type:'image',ref,label:`image ${k+1} attached to “${trunc(c||'a message',40)}”`})),...(c?parts:[])];
+        if(firstUser&&t.parent)parts=[...branchParts(t),...parts];
+        firstUser=false;
+      }
+      push(m.role,parts);
     }
   });
   while(out.length&&out[0].role!=='user')out.shift();
+  let system=SYS;
   if(out.length&&conv.doc){
-    const lastQ=out[out.length-1].role==='user'?out[out.length-1].content:'';
-    const pre=docPreamble(tid,lastQ);
-    if(tid==='main'&&docState&&docState.kind==='pdf'&&conv.ui.open.includes('doc')&&!isCollapsed('doc')&&out[out.length-1].role==='user')out[out.length-1]={role:'user',content:out[out.length-1].content+`\n\n(The learner is currently looking at p. ${docView.current} of the document.)`};
-    return {system:SYS+'\n\n'+pre,messages:out};
+    const last=out[out.length-1];
+    system=SYS+'\n\n'+docPreamble(tid,last.role==='user'?partsText(last.parts):'');
+    if(tid==='main'&&docState&&docState.kind==='pdf'&&conv.ui.open.includes('doc')&&!isCollapsed('doc')&&last.role==='user')last.parts.push({type:'text',text:`\n\n(The learner is currently looking at p. ${docView.current} of the document.)`});
   }
-  return {system:SYS,messages:out};
+  return {system,messages:out.map(o=>({role:o.role,content:joinParts(o.parts)}))};
+}
+// Turns image refs into what the connector sends: {type:'image',mediaType,data(base64)}. If an image
+// can't be loaded the whole request fails with a clear error: nothing is sent with a piece missing.
+// Connectors that can't take images get a note in its place saying so (and the reader a toast).
+async function resolveContext(ctx,canImages){
+  let skipped=0;const messages=[];
+  for(const m of ctx.messages){
+    if(typeof m.content==='string'){messages.push(m);continue}
+    const parts=[];
+    for(const p of m.content){
+      if(p.type!=='image'){parts.push(p);continue}
+      if(!canImages){skipped++;parts.push({type:'text',text:`[An image was here (${p.label||'an image'}), but this connection can't send images.]`});continue}
+      let b;try{b=await imageBlob(p.ref)}catch(e){throw {message:`An image in this conversation (${p.label||'an image'}) couldn’t be loaded, so nothing was sent. ${(e&&e.message)||''}`}}
+      parts.push({type:'image',mediaType:b.type,data:await blobB64(b)});
+    }
+    messages.push({role:m.role,content:joinParts(parts)});
+  }
+  return {...ctx,messages,skipped};
 }
 
 /* ---------- generation ---------- */
@@ -824,13 +1004,15 @@ function addMsg(tid,role,content,extra){
   const m={id:'m'+rid(),thread:tid,role,content,ts:Date.now(),ver:0,...(extra||{})};
   conv.msgs[m.id]=m;conv.order[tid].push(m.id);return m;
 }
-async function send(tid,text){
-  text=(text||'').trim();if(!text)return;
+async function send(tid,text,imgs){
+  text=(text||'').trim();imgs=imgs||[];if(!text&&!imgs.length)return;
   if(streaming.has(tid)){toast('Wait for the current reply to finish');return}
   const t=T(tid);
-  if(tid==='main'&&!conv.order.main.some(id=>conv.msgs[id].role==='user')){conv.title=trunc(text,120);renderTitle()}
-  if(t.autoTitle&&!conv.order[tid].length){t.title=trunc(text,48);delete t.autoTitle;refreshAnchorsFor(tid)}
-  addMsg(tid,'user',text);
+  let extra;
+  if(imgs.length){streaming.set(tid,{mid:null,ctrl:new AbortController()});try{extra={images:await storeImages(imgs)}}finally{streaming.delete(tid)}}
+  if(tid==='main'&&!conv.order.main.some(id=>conv.msgs[id].role==='user')){conv.title=trunc(text||'Question about an image',120);renderTitle()}
+  if(t.autoTitle&&!conv.order[tid].length){t.title=trunc(text||'About an image',48);delete t.autoTitle;refreshAnchorsFor(tid)}
+  addMsg(tid,'user',text,extra);
   const am=addMsg(tid,'assistant','');am.pending=true;
   renderPane(tid,true);renderMap();save();
   if(conv.ui.view==='canvas'){renderCanvas();const f=document.querySelector(`#cv .cnode[data-ctid="${tid}"] .cfull`);if(f)f.scrollTop=f.scrollHeight}
@@ -843,7 +1025,9 @@ async function generate(m,ctx,lockTid){
     if(!io.llm)await io.ready;
     const web=!!(settings.web&&io.llm.supportsWeb);if(web)m.web=true;else delete m.web;delete m.searches;delete m.sources;
     const keepSearch=(x)=>{if(x.searches&&x.searches.length)m.searches=[...x.searches];if(x.sources&&x.sources.length)m.sources=x.sources.slice(0,30)};
-    const r=await io.llm.complete({system:ctx.system,messages:ctx.messages,model:settings.model,effort:settings.effort,web,signal:ctrl.signal,
+    const rc=await resolveContext(ctx,!!io.llm.supportsImages);
+    if(rc.skipped)toast('This connection can’t send images, so Claude only gets a note where each image was.');
+    const r=await io.llm.complete({system:rc.system,messages:rc.messages,model:settings.model,effort:settings.effort,web,signal:ctrl.signal,
       onText:(text)=>{m.content=text;queueStream(m.id)},onSearch:(x)=>{keepSearch(x);queueStream(m.id)}});
     m.content=r.text;if(r.model)m.model=r.model;keepSearch(r);
     if(r.truncated)m.error='Reply was cut off (length limit).';
@@ -869,7 +1053,7 @@ async function bringBack(tid,focus){
   await docReady();
   const ctx=buildContext(tid);
   const ask=`Write a short takeaway from this side branch that I can carry back into the parent discussion: 2 to 4 brief bullet points with the key insights, conclusions or corrections worth remembering${focus?`, focusing on: ${focus}`:''}. No preamble or heading.`;
-  const msgs=ctx.messages,last=msgs[msgs.length-1];if(last&&last.role==='user')last.content+='\n\n'+ask;else msgs.push({role:'user',content:ask});
+  const msgs=ctx.messages,last=msgs[msgs.length-1];if(last&&last.role==='user')appendText(last,'\n\n'+ask);else msgs.push({role:'user',content:ask});
   const note=addMsg(parent,'note','',{fromThread:tid,focus});note.pending=true;
   if(!conv.ui.open.includes(parent))openThread(parent);
   conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==parent);layout();
@@ -878,11 +1062,12 @@ async function bringBack(tid,focus){
 }
 
 /* ---------- branching ---------- */
-function createBranch(mid,anchorText,question,title,range,page){
+function createBranch(mid,anchorText,question,title,range,page,img){
   const isDoc=mid==='DOC';const m=isDoc?null:conv.msgs[mid];const parent=isDoc?'main':m.thread;
   const t={id:'t'+rid(),parent,anchorMsg:mid,anchorText:anchorText||'',created:Date.now(),colorIdx:conv.nextColor++};
   if(anchorText&&range)t.anchorRange=range;
   if(isDoc)t.anchorPage=page||0;
+  if(isDoc&&img){const r4=(v)=>Math.round(v*1e4)/1e4,g=img.region;t.anchorRegion={x:r4(g.x),y:r4(g.y),w:r4(g.w),h:r4(g.h)};if(img.regionText)t.regionText=img.regionText}
   if(title)t.title=title;else if(question)t.title=trunc(question,48);else{t.title=anchorText?trunc(anchorText,40):'Side question';t.autoTitle=!anchorText}
   conv.threads[t.id]=t;conv.order[t.id]=[];
   if(isDoc)refreshDocAnchors(t.anchorPage);else{m.ver++;renderPane(parent)}
@@ -1098,7 +1283,7 @@ function msgEl(m){
   const key=`${m.ver}|${m.pending?1:0}|${mathReady?1:0}|${m.role!=='user'?anchorsKey(m):''}|${m.role==='note'&&T(m.fromThread)?T(m.fromThread).title:''}`;
   const c=msgCache.get(m.id);if(c&&c.key===key)return c.el;
   const el=document.createElement('div');el.className='msg '+m.role;el.dataset.mid=m.id;
-  if(m.role==='user'){el.innerHTML='<div class="body"></div>';el.firstChild.textContent=m.content}
+  if(m.role==='user')userMsgBody(el,m);
   else if(m.role==='note'){
     const src=T(m.fromThread);el.style.setProperty('--c',src?color(src):'var(--faint)');
     el.innerHTML=`<div class="nh"><span class="d"></span>Takeaway from ${src?`<button class="nl" data-open="${src.id}" title="Open the branch this came from"></button>`:'<i>deleted branch</i>'}<span style="flex:1"></span>${m.error?`<button class="ib" data-act="retry" title="Retry">${ic('retry')}</button>`:''}<button class="ib" data-act="delnote" title="Remove takeaway">${ic('x')}</button></div><div class="body"></div>`;
@@ -1178,6 +1363,7 @@ function paneEl(tid){
   el.innerHTML=`<div class="ph">${isMain?'<span class="dot"></span>':`<span class="sdot" data-resolve="${tid}"></span>`}<div class="ph-main"><div class="ph-title" spellcheck="false"></div><div class="ph-origin"></div></div>
     <div class="ph-act">${isMain?'':`<button class="tb" data-act="back" title="Go back to where this branched from">${ic('back')}<span class="tl">Back</span></button><button class="tb" data-act="take" title="Add a short takeaway from this branch to its parent">${ic('take')}<span class="tl">Takeaway</span></button>`}
     <button class="ib" data-act="pin"></button><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it.">${ic('collapse')}</button><button class="ib" data-act="focus"></button>${isMain?'':`<button class="ib dz" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button><button class="ib" data-act="close" title="Close this pane and jump back to where it branched from. The branch stays saved.">${ic('x')}</button>`}</div></div>
+    <div class="pzw"><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button></div></div>
     <div class="pb"><div class="msgs"></div></div>
     ${isMain?'':`<div class="tk"><div class="tkb"><span class="tkl">Takeaway to parent</span><input placeholder="Optional: what to focus on" autocomplete="off"><button class="go" title="Generate 2–4 takeaway bullets and add them to the end of the parent thread">Add</button><button class="ib" data-act="take" title="Cancel">${ic('x')}</button></div></div>`}
     <div class="jumpw"><div class="jump"><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button><button class="ib jl" data-act="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib je" data-act="jend" title="Jump to the very bottom">${ic('jend')}</button></div></div>
@@ -1208,10 +1394,10 @@ function rememberSpot(pe){
   setTimeout(()=>{pe.__jumping=false},900);
 }
 function autosize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,200)+'px'}
-function submit(tid){const el=paneEls.get(tid);const ta=el.querySelector('textarea');const v=ta.value.trim();if(!v)return;ta.value='';autosize(ta);send(tid,v)}
+function submit(tid){if(streaming.has(tid))return;const el=paneEls.get(tid);const ta=el.querySelector('textarea');const v=ta.value.trim();if(!v&&!(pendingImgs.get(tid)||[]).length)return;const imgs=takePending(tid);ta.value='';autosize(ta);send(tid,v,imgs)}
 function updateComposer(tid){
   const el=paneEls.get(tid);if(!el)return;const b=el.querySelector('.sendb');const s=streaming.has(tid);
-  b.innerHTML=s?ic('stop'):ic('send');b.title=s?'Stop':'Send';b.disabled=!s&&!el.querySelector('textarea').value.trim();
+  b.innerHTML=s?ic('stop'):ic('send');b.title=s?'Stop':'Send';b.disabled=!s&&!el.querySelector('textarea').value.trim()&&!(pendingImgs.get(tid)||[]).length;
 }
 function updateHeader(tid){
   if(tid==='doc'){updateDocHeader();return}
@@ -1233,6 +1419,7 @@ function updateHeader(tid){
 }
 function originCard(t){
   const d=document.createElement('div');d.className='origin';d.style.setProperty('--c',color(t));
+  if(isDocBranch(t)&&t.anchorRegion){d.innerHTML=`<div class="ol"><span>Branched from ${isWholePage(t.anchorRegion)?'':'a snip of '}page ${t.anchorPage+1} of the document</span><button data-back="1" title="Scroll the document to this ${isWholePage(t.anchorRegion)?'page':'snip'}">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(regionRef(t)).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The document isn’t loaded, so the snip can’t be shown.'}))});d.querySelector('.oimg').__ref=regionRef(t);return d}
   if(isDocBranch(t)){d.innerHTML=`<div class="ol"><span>Branched from the document${conv.doc&&conv.doc.kind==='pdf'?`, page ${t.anchorPage+1}`:''}</span><button data-back="1" title="Scroll the document to the exact passage this branch came from">Show in source</button></div><div class="oq"></div>`;const oq0=d.querySelector('.oq');oq0.textContent=t.anchorText;oq0.dataset.back='1';oq0.title='Jump to this passage in the document';return d}
   const p=T(t.parent);
   d.innerHTML=`<div class="ol"><span>Branched from ${esc(p.parent?p.title:'the main thread')}${t.anchorText?'':' (the whole reply)'}</span><button data-back="1" title="Scroll the parent to the exact passage this branch came from">Show in source</button></div>${t.anchorText?'<div class="oq"></div>':''}`;
@@ -1253,7 +1440,53 @@ function emptyState(t){
   }
   return d;
 }
+/* ---- zoom inside a pane (Columns / Rows views). conv.ui.pz[tid] = factor.
+   Chat and text panes scale their content with CSS zoom (text reflows to the pane). The PDF is re-rendered
+   at the new size instead, so it stays sharp: its 100% is "fit the width", and the fit button returns to it.
+   (Fitting a whole page was tried and dropped: in a side pane a portrait page ends up small, with wide gray margins.) */
+const PZ=[0.5,0.67,0.75,0.8,0.9,1,1.1,1.25,1.5,1.75,2,2.5,3];
+function paneZoom(tid){const v=conv.ui.pz&&conv.ui.pz[tid];return typeof v==='number'&&v>=PZ[0]&&v<=PZ[PZ.length-1]?v:1}
+const isPdfPane=(tid)=>tid==='doc'&&conv.doc&&conv.doc.kind==='pdf';
+function applyPaneZoom(tid){
+  const el=paneEls.get(tid);if(!el)return;const v=paneZoom(tid),pdf=isPdfPane(tid);
+  if(pdf||v===1)el.style.removeProperty('--pz');else el.style.setProperty('--pz',v);
+  const l=el.querySelector('.pzl');if(l){l.textContent=Math.round(v*100)+'%';l.title=pdf?'Click to type a zoom level (100% fits the page to the width)':'Click to type a zoom level'}
+  el.classList.toggle('zoomed',v!==1);
+  const sn=el.querySelector('[data-act=snip]');if(sn)sn.style.display=pdf?'':'none';
+  const f=el.querySelector('.pzf');if(f){f.style.display=pdf?'':'none';f.disabled=v===1;f.title='Fit the width'}
+}
+// Click a zoom percentage to type one instead of stepping with − / +: Enter or clicking away applies it
+// (kept within 50–300%), Esc cancels.
+function editZoom(label,current,apply){
+  if(label.nextElementSibling&&label.nextElementSibling.classList.contains('zin'))return;
+  const inp=document.createElement('input');inp.className='zin';inp.type='text';inp.inputMode='numeric';inp.autocomplete='off';
+  inp.value=Math.round(current*100);inp.setAttribute('aria-label','Zoom level, in percent');
+  label.style.display='none';label.after(inp);inp.focus();inp.select();
+  let done=false;
+  const finish=(ok)=>{if(done)return;done=true;const n=parseFloat(inp.value.replace(/[^\d.]/g,''));inp.remove();label.style.display='';
+    if(ok&&n>0&&Math.round(n)!==Math.round(current*100))apply(Math.min(300,Math.max(50,n))/100)};
+  inp.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();finish(true)}else if(e.key==='Escape'){e.preventDefault();finish(false)}});
+  inp.addEventListener('blur',()=>finish(true));
+  ['click','pointerdown','mousedown','dblclick'].forEach(t=>inp.addEventListener(t,e=>e.stopPropagation()));
+}
+function setPaneZoom(tid,v){
+  if(typeof v==='number')v=Math.round(v*100)/100;
+  const pz=conv.ui.pz||(conv.ui.pz={});if(v===1)delete pz[tid];else pz[tid]=v;
+  applyPaneZoom(tid);save();
+  if(isPdfPane(tid)){if(docState&&docState.loaded&&docState.pdf)rebuildPdf()}
+  else wiresSoon();
+}
+function stepPaneZoom(tid,dir){
+  const cur=paneZoom(tid);
+  const next=dir>0?PZ.find(z=>z>cur+1e-3):[...PZ].reverse().find(z=>z<cur-1e-3);
+  if(next!=null)setPaneZoom(tid,next);
+}
+async function rebuildPdf(){
+  const el=paneEls.get('doc');if(!el||!docState||!docState.pdf)return;
+  const cur=docView.current;await buildPdfPages(el,el.querySelector('.docwrap'));scrollDocToPage(cur,false);
+}
 function renderPane(tid,toBottom){
+  applyPaneZoom(tid);
   if(tid==='doc'){renderDocPane();return}
   const el=paneEls.get(tid);if(!el||!T(tid))return;
   const t=T(tid),list=el.querySelector('.msgs'),nodes=[];
@@ -1284,7 +1517,7 @@ function layout(){
     const isNew=!paneEls.has(tid);const el=paneEl(tid);
     const rail=isCollapsed(tid);el.classList.toggle('rail',rail);
     el.title=rail?'Click to expand':'';
-    const sz=ui.sizes[tid];el.style.flex=(sz&&!rail)?`0 0 ${sz}px`:'';
+    const sz=ui.sizes[tid];el.style.flex=(sz&&!rail)?`0 0 ${sz}px`:'';el.classList.toggle('sized',!!(sz&&!rail));
     seq.push(el);if(isNew)fresh.push(tid);else updateHeader(tid);
     if(i<ui.open.length-1)seq.push(gutEl(tid));
   });
@@ -1300,8 +1533,9 @@ function startDrag(e,g){
   const tid=g.dataset.left,el=paneEls.get(tid);if(!el||el.classList.contains('rail'))return;
   const cols=conv.ui.layout==='cols';const r=el.getBoundingClientRect();
   drag={tid,el,cols,start:cols?e.clientX:e.clientY,size:cols?r.width:r.height,g};g.classList.add('drag');(()=>{try{g.setPointerCapture(e.pointerId)}catch(_){}})();
-  g.onpointermove=ev=>{const d=(drag.cols?ev.clientX:ev.clientY)-drag.start;const s=Math.max(drag.cols?360:200,drag.size+d);drag.el.style.flex=`0 0 ${s}px`;conv.ui.sizes[drag.tid]=Math.round(s);wiresSoon()};
-  g.onpointerup=()=>{g.classList.remove('drag');g.onpointermove=g.onpointerup=null;drag=null;save()};
+  drag.el.classList.add('sized');const min=drag.cols?(innerWidth<=760?220:360):200;   // phones: narrow enough for two side by side
+  g.onpointermove=ev=>{const d=(drag.cols?ev.clientX:ev.clientY)-drag.start;const s=Math.max(min,drag.size+d);drag.el.style.flex=`0 0 ${s}px`;conv.ui.sizes[drag.tid]=Math.round(s);wiresSoon()};
+  g.onpointerup=g.onpointercancel=()=>{g.classList.remove('drag');g.onpointermove=g.onpointerup=g.onpointercancel=null;drag=null;save()};
 }
 
 /* ---------- connector wires (pane view) ---------- */
@@ -1355,7 +1589,7 @@ function descendants(tid){const out=[];const go=id=>kidsOf(id).forEach(k=>{out.p
 function applyCam(){$('#world').style.transform=`translate(${cam.x}px,${cam.y}px) scale(${cam.k})`;if($('#dock').children.length)drawEdgesSoon()}
 function canvasMsgEl(m){
   const el=document.createElement('div');el.className='msg '+m.role;el.dataset.mid=m.id;
-  if(m.role==='user'){el.innerHTML='<div class="body"></div>';el.firstChild.textContent=m.content;return el}
+  if(m.role==='user'){userMsgBody(el,m);return el}
   if(m.role==='note'){
     const src=T(m.fromThread);el.style.setProperty('--c',src?color(src):'var(--faint)');
     el.innerHTML=`<div class="nh"><span class="d"></span>Takeaway from ${src?'<b></b>':'<i>deleted branch</i>'}</div><div class="body"></div>`;
@@ -1384,7 +1618,7 @@ function renderCanvas(){
     const n=document.createElement('div');n.className='cnode'+(t.parent?'':' main')+(exp?' exp':'')+(docked?' docked':'')+(t.resolved?' res':'');n.dataset.ctid=t.id;n.style.setProperty('--c',color(t));
     n.innerHTML=`<div class="ch" title="Drag to move. Shift-drag moves its sub-branches too. Double-click to open in panes.">${statusDot(t)}<span class="ct"></span>`+
       (kids.length?`<button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} the ${descendants(t.id).length} branch${descendants(t.id).length===1?'':'es'} below this card">${folded?'+'+descendants(t.id).length:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+kids.length}</button>`:'')+
-      `<span class="czoom"><button class="ib" data-cact="zout" title="Make just this card smaller (or Alt+scroll over it)">−</button><span class="zl" data-cact="zreset" title="This card's own zoom. Click to reset to 100%.">100%</span><button class="ib" data-cact="zin" title="Make just this card bigger (or Alt+scroll over it)">+</button></span>`+
+      `<span class="czoom"><button class="ib" data-cact="zout" title="Make just this card smaller (or Alt+scroll over it)">−</button><span class="zl" data-cact="zedit" title="This card's own zoom. Click to type a zoom level.">100%</span><button class="ib" data-cact="zin" title="Make just this card bigger (or Alt+scroll over it)">+</button></span>`+
       `<button class="ib${docked?' stuck':''}" data-cact="stick" title="${docked?'Stuck to the screen: it stays put while you pan and zoom. Click to drop it onto the canvas where it is.':'Stick to the screen: keep this card in view at reading size while you pan and zoom around it.'}">${ic('pin')}</button>`+
       (docked?`<button class="ib" data-cact="restore" title="Put it back where it was on the canvas (↓ or Esc)">${ic('unfocus')}</button>`:`<button class="ib" data-cact="exp" title="${exp?'Shrink back to a summary':'Expand to read the full thread here'}">${ic(exp?'unfocus':'focus')}</button>`)+
       `<button class="ib" data-cact="panes" title="Open this thread in the pane view">${ic('cols')}</button>`+
@@ -1403,7 +1637,7 @@ function renderCanvas(){
       n.appendChild(cj);
       const ask=document.createElement('div');ask.className='cask';
       ask.innerHTML=`<textarea rows="1" placeholder="${t.parent?'Ask a follow-up in this branch…':'Ask anything…'}"></textarea><button class="sendb" data-cact="ask" title="Send (Enter). Shift+Enter adds a new line.">${ic('send')}</button>`;
-      n.appendChild(ask);
+      n.appendChild(ask);if((pendingImgs.get(t.id)||[]).length)queueMicrotask(()=>renderPending(t.id));
       const cta=ask.querySelector('textarea');cta.addEventListener('input',()=>{autosizeCask(cta)});
       const k=keep[t.id];if(k&&k.v){cta.value=k.v;requestAnimationFrame(()=>autosizeCask(cta))}
       const upd=()=>n.classList.toggle('away',full.scrollHeight-full.scrollTop-full.clientHeight>100);
@@ -1427,9 +1661,14 @@ function renderCanvas(){
   if(conv.doc){
     const n=document.createElement('div');n.className='cnode main docnode';n.dataset.ctid='doc';n.style.setProperty('--c','var(--faint)');
     const nb=docBranches(),folded=S.fold.includes('doc'),nd=descendants('doc').length;
+    const hasThumb=docState&&docState.loaded&&docState.kind==='pdf'&&docState.pdf;
     n.innerHTML=`<div class="ch" title="Drag to move. Double-click to open the document."><span class="docico">${ic('doc')}</span><span class="ct"></span><button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} everything below the document">${folded?'+'+nd:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+(nb.length+1)}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="crs"></div>`;
     n.querySelector('.ct').textContent=conv.doc.name;
     const rows=n.querySelector('.crs');
+    if(hasThumb){   // first page preview; fixed height, so the layout doesn't shift when the image arrives
+      const th=document.createElement('div');th.className='cthumb';th.dataset.cact='panes';th.title='Open the document';rows.before(th);
+      docThumbUrl().then(u=>{if(!th.isConnected)return;if(!u){th.remove();return}const img=new Image();img.alt='First page of '+conv.doc.name;img.src=u;th.appendChild(img)});
+    }
     const info=document.createElement('div');info.className='cr a';info.textContent=docState&&docState.loaded?(docState.kind==='pdf'?`${docState.n} pages`:'Text document'):'Loading…';rows.appendChild(info);
     for(const b of nb){const r=document.createElement('div');r.className='cr';r.dataset.cdocrow=b.id;r.title='Go to this branch';
       const f=document.createElement('span');f.className='fns';const sp=document.createElement('sup');sp.className='fn'+(b.resolved?' res':'');sp.dataset.tid=b.id;sp.style.setProperty('--c',color(b));sp.textContent=branchNum(b);f.appendChild(sp);r.appendChild(f);
@@ -1665,8 +1904,8 @@ function canvasAction(act,tid,btn){
   else if(act==='restore'){restoreCard(tid)}
   else if(act==='zin'){setCardZoom(tid,cardZoom(tid)*1.15)}
   else if(act==='zout'){setCardZoom(tid,cardZoom(tid)/1.15)}
-  else if(act==='zreset'){setCardZoom(tid,1)}
-  else if(act==='ask'){const i=btn.closest('.cnode').querySelector('.cask textarea');const v=i.value.trim();if(!v)return;i.value='';autosizeCask(i);send(tid,v)}
+  else if(act==='zedit'){editZoom(btn,cardZoom(tid),z=>setCardZoom(tid,z))}
+  else if(act==='ask'){if(streaming.has(tid))return;const i=btn.closest('.cnode').querySelector('.cask textarea');const v=i.value.trim();if(!v&&!(pendingImgs.get(tid)||[]).length)return;const imgs=takePending(tid);i.value='';autosizeCask(i);send(tid,v,imgs)}
 }
 (()=>{
   const cv=$('#cv');let pan=null,cd=null;
@@ -1856,6 +2095,25 @@ function chunkText(text){
   for(const p of paras){if(cur&&cur.length+p.length>4000){out.push(cur);cur=''}cur+=(cur?'\n\n':'')+p}
   if(cur||!out.length)out.push(cur);return out;
 }
+/* the PDF's first page as a small image for its canvas card. Drawn once from the PDF that's already open
+   (docState.pdf): nothing is downloaded or stored again, and the image lives only in memory. */
+const docThumb={key:null,url:null,p:null};
+function docThumbUrl(){
+  if(!docState||!docState.pdf)return Promise.resolve(null);
+  if(docThumb.key===docState.key&&docThumb.p)return docThumb.p;
+  if(docThumb.url)URL.revokeObjectURL(docThumb.url);
+  const st=docState;docThumb.key=st.key;docThumb.url=null;
+  docThumb.p=(async()=>{
+    const page=await st.pdf.getPage(1),w1=page.getViewport({scale:1}).width;
+    const vp=page.getViewport({scale:CW*2*Math.min(2,devicePixelRatio||1)/w1});   // sharp up to 200% card zoom
+    const c=document.createElement('canvas');c.width=Math.round(vp.width);c.height=Math.round(vp.height);
+    await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+    const blob=await new Promise(r=>c.toBlob(r,'image/png'));if(!blob)return null;
+    if(docThumb.key!==st.key)return null;
+    return docThumb.url=URL.createObjectURL(blob);
+  })().catch(e=>{console.warn('preview failed',e);return null});
+  return docThumb.p;
+}
 function startDoc(){
   const d=conv.doc,key=conv.id;
   if(docState&&docState.key===key)return docState.ready;
@@ -1893,7 +2151,7 @@ async function docReady(){if(conv&&conv.doc&&docState)await docState.ready}
 function docPaneEl(){
   const el=document.createElement('section');el.className='pane docpane';el.dataset.tid='doc';
   el.innerHTML=`<div class="ph"><span class="docico">${ic('doc')}</span><div class="ph-main"><div class="ph-title"></div><div class="ph-origin"></div></div>
-    <div class="ph-act"><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it.">${ic('collapse')}</button><button class="ib" data-act="focus"></button></div></div>
+    <div class="ph-act"><button class="ib" data-act="snip" title="Snip: drag a box over part of a page (a figure, a table, an equation) to ask about it. Esc cancels.">${ic('snip')}</button><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button><button class="ib pzf" data-act="zfit">${ic('fit')}</button></div><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it.">${ic('collapse')}</button><button class="ib" data-act="focus"></button></div></div>
     <div class="pb"><div class="docwrap"></div></div>
     <div class="jumpw"><div class="jump"><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button></div></div>
     <div class="rail-label"><span class="docico">${ic('doc')}</span><span class="rl"></span></div>`;
@@ -1923,6 +2181,8 @@ function updateDocHeader(){
   if(!docState||(!docState.loaded&&!docState.error))o.textContent=docState&&docState.progress?`Reading ${docState.progress} of ${docState.n} pages…`:'Loading…';
   else if(docState.error)o.textContent='Couldn\'t load the document';
   else o.textContent=docState.kind==='pdf'?`Page ${docView.current} of ${docState.n} · ${bl}`:bl;
+  // opened from a link: show where it came from
+  const src=conv.doc.source;if(src&&/^https?:\/\//i.test(src)&&docState&&docState.loaded){try{const a=document.createElement('a');a.href=src;a.target='_blank';a.rel='noopener noreferrer';a.className='docsrc';a.textContent=new URL(src).hostname;a.title=src;o.append(' · ',a)}catch(e){}}
   const f=el.querySelector('[data-act="focus"]');const on=isFocused('doc');f.innerHTML=ic(on?'unfocus':'focus');f.title=on?'Show all panes (Esc)':'Focus: collapse every other pane';f.classList.toggle('on',on);
   el.querySelector('.rl').textContent=conv.doc.name;
 }
@@ -1948,22 +2208,52 @@ function renderDocPane(force){
 async function buildPdfPages(el,wrap){
   const pdf=docState.pdf,pb=el.querySelector('.pb');
   const v1=(await pdf.getPage(1)).getViewport({scale:1});
-  const W=Math.max(260,pb.clientWidth-44-30);docView.scale=W/v1.width;docView.width=pb.clientWidth;
+  const W=Math.max(260,pb.clientWidth-44-2);   // the padding, and nothing else: the scrollbar's space is already reserved (scrollbar-gutter)
+  docView.scale=W/v1.width*paneZoom('doc');docView.width=pb.clientWidth;
   if(docView.obs)docView.obs.disconnect();
   docView.rendered=new Map();wrap.innerHTML='';
   docView.obs=new IntersectionObserver(ents=>{for(const en of ents)if(en.isIntersecting)renderPdfPage(+en.target.dataset.page)},{root:pb,rootMargin:'900px 0px'});
   for(let i=1;i<=pdf.numPages;i++){
     const pg=document.createElement('div');pg.className='dpage';pg.dataset.page=i;
     pg.style.width=Math.round(v1.width*docView.scale)+'px';pg.style.height=Math.round(v1.height*docView.scale)+'px';
-    pg.innerHTML=`<div class="pnum">${i}</div>`;wrap.appendChild(pg);docView.obs.observe(pg);
+    pg.innerHTML=`<div class="pnum">${i}</div><button class="pask" data-pask="${i}" title="Open a side branch about this whole page; Claude gets an image of it">Ask about this page</button>`;wrap.appendChild(pg);docView.obs.observe(pg);
   }
 }
 async function makeTextLayer(page,vp){
   const tl=document.createElement('div');tl.className='textLayer';tl.style.setProperty('--scale-factor',vp.scale);
   const tc=await page.getTextContent();
   await window.pdfjsLib.renderTextLayer({textContentSource:tc,container:tl,viewport:vp}).promise;
+  const end=document.createElement('div');end.className='endOfContent';tl.append(end);   // see pdfSelection below
   return tl;
 }
+/* Smooth text selection in PDFs, especially with a finger or the phone's selection handles (the approach
+   pdf.js 4 takes). The text layer is transparent words placed over the page image, with gaps between
+   them. When a finger or the mouse passes over a gap, the browser picks the nearest point in the page's
+   text, often its start or end, so the selection jumps to cover half the page. Each text layer holds an
+   empty, unselectable block (.endOfContent) that fills the page while you select. It's moved in the
+   page's text order to just past the edge you're dragging, so a gap lands on it and the selection stays put. */
+(function pdfSelection(){
+  if(/firefox/i.test(navigator.userAgent))return;   // Firefox handles gaps fine by itself
+  let prev=null;
+  const reset=(tl)=>{const end=tl.querySelector('.endOfContent');if(end&&end!==tl.lastElementChild)tl.append(end);tl.classList.remove('selecting')};
+  const layers=()=>document.querySelectorAll('.docpane .textLayer');
+  document.addEventListener('pointerdown',e=>{const tl=e.target.closest&&e.target.closest('.docpane .textLayer');if(tl)tl.classList.add('selecting')},true);
+  document.addEventListener('pointerup',()=>{prev=null;layers().forEach(reset)});
+  document.addEventListener('selectionchange',()=>{
+    const sel=getSelection();
+    if(!sel.rangeCount||sel.isCollapsed){prev=null;layers().forEach(reset);return}
+    const r=sel.getRangeAt(0);
+    for(const tl of layers()){if(r.intersectsNode(tl))tl.classList.add('selecting');else reset(tl)}
+    // which edge moved since last time? put the block just past it (before the start, or after the end)
+    const atStart=prev&&(r.compareBoundaryPoints(Range.END_TO_END,prev)===0||r.compareBoundaryPoints(Range.START_TO_END,prev)===0);
+    prev=r.cloneRange();
+    let a=atStart?r.startContainer:r.endContainer;if(a.nodeType===3)a=a.parentNode;
+    const tl=a.closest&&a.closest('.docpane .textLayer');if(!tl||a===tl)return;
+    // climb out of branch highlights (.anchor) to a word span, so the block is positioned against the page
+    while(a.parentElement!==tl&&!a.parentElement.classList.contains('markedContent'))a=a.parentElement;
+    const end=tl.querySelector('.endOfContent');if(end&&end!==a)a.parentElement.insertBefore(end,atStart?a:a.nextSibling);
+  });
+})();
 function renderPdfPage(i,force){
   const el=paneEls.get('doc');if(!el||!docState||!docState.pdf)return Promise.resolve();
   const pg=el.querySelector(`.dpage[data-page="${i}"]`);if(!pg)return Promise.resolve();
@@ -1977,7 +2267,7 @@ function renderPdfPage(i,force){
     const tl=await makeTextLayer(page,vp);
     if(docState!==st||docView.scale!==scale)return;
     pg.style.width=vp.width+'px';pg.style.height=vp.height+'px';
-    pg.querySelectorAll('canvas,.textLayer,sup.fn').forEach(n=>n.remove());
+    pg.querySelectorAll('canvas,.textLayer,sup.fn,.dregion').forEach(n=>n.remove());
     pg.appendChild(cv);pg.appendChild(tl);applyDocAnchorsPdf(pg,tl,i-1);wiresSoon();
   })().catch(e=>console.warn('page render failed',e));
   docView.rendered.set(i,job);return job;
@@ -1986,8 +2276,11 @@ function docMarker(t){const s=document.createElement('sup');s.className='fn'+(t.
 function applyDocAnchorsPdf(pg,tl,pageIdx){
   const used=[];
   for(const t of docBranches().filter(t=>t.anchorPage===pageIdx)){
-    const first=wrapText(tl,t.anchorText,t,{noMarker:true});
-    let y=first?first.getBoundingClientRect().top-pg.getBoundingClientRect().top:6;
+    let y=6;
+    if(t.anchorRegion){
+      const r=t.anchorRegion;
+      if(!isWholePage(r)){const d=document.createElement('div');d.className='dregion'+(t.resolved?' res':'');d.dataset.tid=t.id;d.style.cssText=`--c:${color(t)};left:${r.x*100}%;top:${r.y*100}%;width:${r.w*100}%;height:${r.h*100}%`;pg.appendChild(d);y=r.y*pg.offsetHeight}
+    }else{const first=wrapText(tl,t.anchorText,t,{noMarker:true});if(first)y=first.getBoundingClientRect().top-pg.getBoundingClientRect().top}
     while(used.some(u=>Math.abs(u-y)<18))y+=18;used.push(y);
     const m=docMarker(t);m.style.top=Math.max(0,y)+'px';pg.appendChild(m);
   }
@@ -2002,7 +2295,7 @@ async function refreshDocAnchors(page){
     const pg=el.querySelector(`.dpage[data-page="${i}"]`);if(!pg||!pg.querySelector('.textLayer'))continue;
     const page_=await docState.pdf.getPage(i);const vp=page_.getViewport({scale:docView.scale});
     const tl=await makeTextLayer(page_,vp);
-    pg.querySelectorAll('.textLayer,sup.fn').forEach(n=>n.remove());pg.appendChild(tl);applyDocAnchorsPdf(pg,tl,i-1);
+    pg.querySelectorAll('.textLayer,sup.fn,.dregion').forEach(n=>n.remove());pg.appendChild(tl);applyDocAnchorsPdf(pg,tl,i-1);
   }
   wiresSoon();
 }
@@ -2032,10 +2325,10 @@ async function revealDocAnchor(t){
   rememberSpot(el);
   if(docState.kind==='pdf'){await scrollDocToPage(t.anchorPage+1,false);await renderPdfPage(t.anchorPage+1)}
   requestAnimationFrame(()=>{
-    const a=el.querySelector(`.anchor[data-tid="${t.id}"]`)||el.querySelector(`.dpage[data-page="${t.anchorPage+1}"]`);if(!a)return;
+    const a=el.querySelector(`.anchor[data-tid="${t.id}"]`)||el.querySelector(`.dregion[data-tid="${t.id}"]`)||el.querySelector(`.dpage[data-page="${t.anchorPage+1}"]`);if(!a)return;
     pb.scrollBy({top:a.getBoundingClientRect().top-pb.getBoundingClientRect().top-pb.clientHeight/3,behavior:'smooth'});
     revealPane('doc');
-    el.querySelectorAll(`.anchor[data-tid="${t.id}"]`).forEach(s=>{s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash')});
+    el.querySelectorAll(`.anchor[data-tid="${t.id}"],.dregion[data-tid="${t.id}"]`).forEach(s=>{s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash')});
     setTimeout(wires,450);
   });
 }
@@ -2085,7 +2378,9 @@ async function reattachDoc(file){
   docState=null;startDoc();renderDocPane(true);save();
 }
 /* new-from-document dialog */
+let docLinkOk=null; // {link, codes}: warnings the reader accepted for this link
 function openDocModal(){
+  docLinkOk=null;$('#docGo').textContent='Start';
   $('#docFile').value='';$('#docPaste').value='';$('#docName').value='';$('#docFileLbl').textContent='Choose a PDF, Markdown or text file, or drop it here';$('#docMsg').textContent='';$('#docGo').disabled=false;
   hideTip();$('#docModal').classList.add('show');
 }
@@ -2093,8 +2388,30 @@ function closeDocModal(){$('#docModal').classList.remove('show')}
 async function startFromDoc(){
   const f=$('#docFile').files[0],pasted=$('#docPaste').value.trim(),msg=(s)=>$('#docMsg').textContent=s;
   if(!f&&!pasted){msg('Choose a file or paste some text.');return}
-  let kind,name,blob=null,text=null;
-  if(f){
+  let kind,name,blob=null,text=null,source=null;
+  const link=!f&&/^https?:\/\/\S+$/i.test(pasted)?pasted:null;
+  if(link){
+    if(!io.files.fromLink){msg('Opening a link needs the Digress server. Download the file and choose it above.');return}
+    $('#docGo').disabled=true;msg('Downloading…');
+    try{
+      const d=await io.files.fromLink(link,docLinkOk&&docLinkOk.link===link?docLinkOk.codes:[]);
+      kind=d.kind;source=d.url||link;
+      if(d.blob.size>20*1024*1024){msg('That file is over 20 MB, the most this page can store.');$('#docGo').disabled=false;return}
+      name=$('#docName').value.trim()||d.name||new URL(source).hostname;
+      if(kind==='pdf')blob=d.blob;else text=await d.blob.text();
+    }catch(e){
+      $('#docGo').disabled=false;
+      if(e&&e.warnings&&e.warnings.length){
+        // ask before fetching anything risky; the server stops before connecting to it
+        const prev=docLinkOk&&docLinkOk.link===link?docLinkOk.codes:[];
+        docLinkOk={link,codes:[...prev,...e.warnings.map(w=>w.code)]};
+        let host='';try{host=new URL(e.url).host}catch(_){}
+        msg(`${e.message} ${host?host+': ':''}${e.warnings.map(w=>w.text).join('; ')}. Only continue if you trust it.`);
+        $('#docGo').textContent='Open anyway';return;
+      }
+      msg((e&&e.message)||'Could not download that link.');return;
+    }
+  }else if(f){
     const isPdf=/pdf$/i.test(f.type)||/\.pdf$/i.test(f.name);kind=isPdf?'pdf':'text';
     if(f.size>20*1024*1024){msg('That file is over 20 MB, the most this page can store.');return}
     name=$('#docName').value.trim()||f.name.replace(/\.[^.]+$/,'');
@@ -2102,7 +2419,7 @@ async function startFromDoc(){
   }else{kind='text';text=pasted;name=$('#docName').value.trim()||trunc(pasted.split('\n').find(l=>l.trim())||'Pasted text',60).replace(/^#+\s*/,'')}
   $('#docGo').disabled=true;msg('Saving the document…');
   await flushNow();
-  const c=newConv();c.title=name;c.doc={kind,name};c.ui.open=['doc','main'];
+  const c=newConv();c.title=name;c.doc={kind,name};if(source)c.doc.source=source;c.ui.open=['doc','main'];
   const stored=await storeDocFile(c,kind,blob,text);
   docBlobCache.set(c.id,kind==='pdf'?await blob.arrayBuffer():text);
   closeDocModal();setConv(c);dirty=true;save();
@@ -2111,6 +2428,7 @@ async function startFromDoc(){
 (()=>{
   const drop=$('#docDrop'),fi=$('#docFile');
   fi.onchange=()=>{if(fi.files[0])$('#docFileLbl').textContent=fi.files[0].name};
+  $('#docPaste').addEventListener('input',()=>{if(docLinkOk){docLinkOk=null;$('#docGo').textContent='Start';$('#docMsg').textContent=''}});
   drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over')});
   drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
   drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');if(e.dataTransfer.files[0]){fi.files=e.dataTransfer.files;fi.onchange()}});
@@ -2501,19 +2819,36 @@ function checkSelection(){
     const s=charPos(b1,rng.startContainer,rng.startOffset),e2=charPos(b1,rng.endContainer,rng.endOffset);
     popState={mid,text:txt.slice(0,1500),range:s>=0&&e2>s?{s,e:e2}:null};
   }
-  $('#popQ').textContent=raw.slice(0,1500);popIn.value='';popIn.style.height='';
+  $('#popQ').textContent=raw.slice(0,1500);$('#popHint').textContent='Opens a side branch. Claude sees the whole conversation so far, with this passage marked as your focus.';popIn.value='';popIn.style.height='';
   pop.style.setProperty('--c',PALETTE[conv.nextColor%PALETTE.length]);
   const r=sel.getRangeAt(0).getBoundingClientRect();
+  showPopAt(r);
+}
+function showPopAt(r){
   pop.classList.add('show');$('#popQ').scrollTop=0;
   const pw=pop.offsetWidth,ph=pop.offsetHeight;
   let left=Math.min(Math.max(8,r.left+r.width/2-pw/2),innerWidth-pw-8);
   let top=r.bottom+10;if(top+ph>innerHeight-8)top=Math.max(8,r.top-ph-10);
-  pop.style.left=left+'px';pop.style.top=top+'px';
+  pop.style.left=left+'px';pop.style.top=Math.max(8,top)+'px';
 }
-function hidePop(){pop.classList.remove('show');popState=null}
+// the same popover, for a snip or a whole page: shows the image Claude will get
+function openImagePop(pageNo,reg,anchorEl){
+  const whole=isWholePage(reg),txt=whole?'':regionText(pageNo,reg);
+  const label=whole?`Page ${pageNo}`:`Snip from p. ${pageNo}`+(txt?`: ${trunc(txt,60)}`:'');
+  popState={doc:true,page:pageNo-1,region:reg,regionText:txt,text:label};
+  const q=$('#popQ');q.innerHTML='<img class="pimg" alt=""><div class="pimgcap"></div>';q.querySelector('.pimgcap').textContent=whole?`The whole of page ${pageNo}`:`From page ${pageNo}`+(txt?` · “${trunc(txt,80)}”`:'');
+  const im=q.querySelector('img');im.alt=label;
+  $('#popHint').textContent='Opens a side branch. Claude gets this image along with the conversation so far.';
+  popIn.value='';popIn.style.height='';
+  pop.style.setProperty('--c',PALETTE[conv.nextColor%PALETTE.length]);
+  imageURL({region:{page:pageNo,...reg}}).then(u=>{im.src=u;if(pop.classList.contains('show'))requestAnimationFrame(()=>showPopAt(anchorEl.getBoundingClientRect()))}).catch(e=>{q.querySelector('.pimgcap').textContent='The image couldn’t be drawn: '+((e&&e.message)||e)});
+  showPopAt(anchorEl.getBoundingClientRect());
+  if(!matchMedia('(hover:none)').matches)popIn.focus();
+}
+function hidePop(){pop.classList.remove('show');popState=null;document.querySelectorAll('.snipbox').forEach(b=>b.remove())}
 function popSubmit(q,chip){
-  if(!popState)return;const {mid,text,range,doc,page}=popState;hidePop();window.getSelection().removeAllRanges();
-  createBranch(doc?'DOC':mid,text,q||'',q&&chip?trunc(text,40):null,range,page);
+  if(!popState)return;const {mid,text,range,doc,page,region,regionText:rt}=popState;hidePop();window.getSelection().removeAllRanges();
+  createBranch(doc?'DOC':mid,text,q||'',q&&chip?trunc(text,40):null,range,page,region?{region,regionText:rt}:null);
 }
 popIn.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();popSubmit(popIn.value.trim())}else if(e.key==='Escape'){hidePop()}});
 popIn.addEventListener('input',()=>{
@@ -2587,6 +2922,11 @@ document.addEventListener('click',e=>{
       case 'jend':{const pb=pane.querySelector('.pb');pb.scrollTo({top:pb.scrollHeight,behavior:'smooth'});break}
       case 'jlast':{const pb=pane.querySelector('.pb');const ms=pane.querySelectorAll('.msgs>.msg');let m=ms[ms.length-1];if(m&&m.classList.contains('assistant')&&ms.length>1&&ms[ms.length-2].classList.contains('user'))m=ms[ms.length-2];if(m)pb.scrollTo({top:pb.scrollTop+m.getBoundingClientRect().top-pb.getBoundingClientRect().top-12,behavior:'smooth'});break}
       case 'jprev':{const pb=pane.querySelector('.pb');if(pane.__prev!=null)pb.scrollTo({top:pane.__prev,behavior:'smooth'});pane.__prev=null;pane.classList.remove('hasprev');break}
+      case 'zin':stepPaneZoom(tid,1);break;
+      case 'zout':stepPaneZoom(tid,-1);break;
+      case 'zedit':editZoom(act,paneZoom(tid),z=>setPaneZoom(tid,Math.abs(z-1)<.005?1:z));break;
+      case 'zfit':setPaneZoom(tid,1);break;
+      case 'snip':setSnip(!pane.classList.contains('snipping'));break;
       case 'take':{const tk=pane.querySelector('.tk');tk.classList.toggle('show');if(tk.classList.contains('show'))tk.querySelector('input').focus();break}
       case 'wbranch':createBranch(mid,'',null);break;
       case 'copy':navigator.clipboard.writeText(conv.msgs[mid].content).then(()=>toast('Copied'),()=>toast('Copy isn\'t allowed here'));break;
@@ -2726,20 +3066,13 @@ setConv(newConv());
 if(window.MathJax&&MathJax.tex2svg)window.__mathReady();
 setTimeout(()=>{const ta=paneEls.get('main')&&paneEls.get('main').querySelector('textarea');ta&&ta.focus()},50);
 
-function waitRuntime(){
-  if(!waitRuntime.p)waitRuntime.p=(async()=>{
-    for(let i=0;i<50&&!(window.claude&&window.claude.use);i++)await new Promise(r=>setTimeout(r,100));
-    return window.claude&&window.claude.use?window.claude:null;
-  })();
-  return waitRuntime.p;
-}
-io.ready=initConnectors().catch(e=>{console.warn('connector setup failed',e);io.llm=io.llm||noLlm('Couldn\'t connect to a model.');if(!io.store)browserStores();io.files=io.files||noFiles});
+io.ready=initConnectors().catch(e=>{console.warn('connector setup failed',e);noServer()});
 io.ready.then(async()=>{fillModelPicker();await loadList();await maybeOpenLatest()});
 async function maybeOpenLatest(){
   if(conv.order.main.length||!convList.length)return;
   await openConv(convList[0].id);
 }
-function showBanner(on,msg){const b=$('#banner');b.textContent=msg||'Claude isn\'t connected in this view. Open this page on claude.ai while signed in to chat.';b.style.display=on?'block':'none'}
+function showBanner(on,msg){const b=$('#banner');b.textContent=msg||NO_SERVER;b.style.display=on?'block':'none'}
 })();
 </script>
 </body>
