@@ -46,7 +46,7 @@ You can also paste or drop screenshots into any message box: a plot from your no
 
 ## Remember it: flashcards (optional)
 
-Turn on flashcards for a conversation and the model drafts cards from what you dug into: each highlight you branched from, each snip, each takeaway. They wait in an inbox until you keep, edit or delete them; **Make cards** drafts more from whatever changed since last time, and each branch has its own **Cards** button. Kept cards come back for review on a spaced-repetition schedule (FSRS), and each card links back to where it came from: the branch opens at the reply the card was made from, with the passage you highlighted flashing, and **Back to review** returns you to the same card (press **O** while reviewing). Reviewing works offline too: the page and your cards stay available in the browser, and reviews sync when the server is reachable again. Conversations where you don't turn it on look exactly as before.
+Turn on flashcards for a conversation and the model drafts cards from what you dug into: each highlight you branched from, each snip, each takeaway. They wait in an inbox until you keep, edit or delete them; **Make cards** drafts more from whatever changed since last time, and each branch has its own **Cards** button. Kept cards come back for review on a spaced-repetition schedule (FSRS), and each card links back to where it came from: the branch opens at the reply the card was made from, with the passage you highlighted flashing, and **Back to review** returns you to the same card (press **O** while reviewing). Reviewing works offline too: the page and your cards stay available in the browser, and reviews sync when the server is reachable again. Conversations where you don't turn it on look exactly as before. How it all works: [docs/flashcards.md](docs/flashcards.md).
 
 ## Three ways to see it
 
@@ -109,6 +109,7 @@ Open <http://127.0.0.1:8787>, click **New conversation** or **New from a documen
 - [Using it from other devices](docs/remote-access.md): Tailscale, running it as a service, using it on your phone.
 - [Development](docs/development.md): tests, live reload, regenerating these screenshots. [AGENTS.md](AGENTS.md) explains how the code fits together.
 - [Future directions](docs/future.md): ideas for later, like sub-agents that explore and codebases as a source.
+- [Flashcards](docs/flashcards.md): turning them on, where cards come from, the inbox, reviewing, offline.
 - [Done](docs/done.md): ideas from that list that have been built.
 
 ## License

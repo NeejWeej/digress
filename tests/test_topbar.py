@@ -1,5 +1,5 @@
 """The top bar keeps what fits; the rest goes into the "more" (⋯) menu, so every setting (model, effort,
-web, view, theme) can be reached at any width, on a phone too. Asserts and exits non-zero."""
+web, view, theme) can be reached at any width, on a phone too. Also Ctrl/⌘+B for the sidebar. Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
 from common import ROOT, OUT, launch_args, goto_app
@@ -48,6 +48,12 @@ async def main():
                 await pg.screenshot(path=f'{OUT}/topbar-{w}.png')
                 await pg.keyboard.press('Escape'); await pg.keyboard.press('Escape'); await pg.mouse.click(5, 700); await pg.wait_for_timeout(150)
                 check(f'{w}px: it closes', await pg.locator('.tmore.open').count() == 0)
+            if w == 1500:
+                side = "document.getElementById('app').classList.contains('noside')"
+                await pg.keyboard.press('Control+b'); await pg.wait_for_timeout(150)
+                hidden = await pg.evaluate(side)
+                await pg.locator('.pane[data-tid=main] textarea').click(); await pg.keyboard.press('Control+b'); await pg.wait_for_timeout(150)
+                check('Ctrl+B hides the sidebar, and again (even while typing) brings it back', hidden and not await pg.evaluate(side))
             check(f'{w}px: no page errors', not errs, errs[:3])
             await ctx.close()
         await b.close()

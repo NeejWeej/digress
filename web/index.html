@@ -681,7 +681,7 @@ a.pref:hover{border-bottom-style:solid}
 <body>
 <div class="app" id="app">
   <div class="top">
-    <button class="ib" id="tSide" title="Show or hide the sidebar"></button>
+    <button class="ib" id="tSide" title="Show or hide the sidebar (⌘B / Ctrl+B)"></button>
     <div class="brand"><span id="logo"></span>Digress</div>
     <div class="ctitle" id="cTitle" contenteditable="true" spellcheck="false" title="Click to rename this conversation"></div>
     <div class="sp"></div>
@@ -716,6 +716,7 @@ a.pref:hover{border-bottom-style:solid}
         <li>Highlight any text in a reply and ask about it. The answer opens in a new pane next to the one it came from.</li>
         <li>Numbered markers in the text show where each branch starts. Click one to open it.</li>
         <li>In a branch, <b>Back</b> returns you to the exact spot it came from, and <b>Takeaway</b> adds a short summary to the parent.</li>
+        <li><b><span class="kmod">⌘</span>B</b> shows or hides this sidebar.</li>
         <li><b><span class="kmod">⌘</span>K</b> searches everything: questions, answers, highlights, takeaways and documents. Typos are fine.</li>
         <li>Collapse any pane to a thin strip and click the strip to expand it again. <b>Focus</b> collapses everything else.</li>
       </ul>
@@ -3499,6 +3500,8 @@ async function openResult(r,keep){
   $('#pal').addEventListener('mousedown',e=>{if(e.target.id==='pal')closePalette()});
   const sb=$('#sboxIn');
   sb.addEventListener('focus',()=>{const v=sb.value;sb.value='';sb.blur();openPalette(v)});
+  // ⌘B / Ctrl+B: show or hide the sidebar (as in VS Code), from anywhere, even while typing
+  document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='b'){e.preventDefault();$('#tSide').click()}});
   document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='k'){e.preventDefault();if($('#pal').classList.contains('show'))closePalette();else openPalette('')}},true);
   const mac=/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent);
   document.querySelectorAll('.kmod').forEach(k=>k.textContent=mac?'⌘':'Ctrl+');
