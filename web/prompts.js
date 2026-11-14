@@ -55,6 +55,14 @@ The interface lets the learner open side branches off any reply. A side branch a
 
   // Added to a question in the main thread while the PDF is open beside it.
   // Continue on a reply that was cut off: sent after the partial reply, which the new text is joined onto.
+  // "Describe it instead" in the search box. Separate one-off calls: never part of a conversation, never saved.
+  // Step 1 sends only what the reader typed and the titles in the search's scope (no message text).
+  find: {
+    system: `You help someone find something in their own study notes, which they only half remember. Answer only in the format asked for, with no preamble.`,
+    expand: ({ desc, titles }) => `They are looking for this, in their own words:\n"${desc}"\n\n${titles.length ? `The topics they have notes on (titles of their conversations and side questions):\n${titles.map(t => '- ' + t).join('\n')}\n\n` : ''}List up to 8 short search phrases (2 to 4 words each) that the passage they want probably contains: the standard technical terms for what they describe, and other likely wordings. Use the topics above to tell which subject they mean. One phrase per line, nothing else.`,
+    // Step 2, only when they ask: short snippets of the passages search found, numbered.
+    pick: ({ desc, items }) => `They are looking for this, in their own words:\n"${desc}"\n\nCandidate passages from their notes:\n${items.map((x, i) => `[${i + 1}] (${x.where}) ${x.text}`).join('\n')}\n\nWhich of these are what they're looking for? Reply with a JSON array, best first, at most 5: [{"n": <number>, "why": "<what it says that matches, in under 15 words>"}]. If none match, reply [].`,
+  },
   continueCut: `Your reply above was cut off before it finished. Continue it from exactly where it stops, mid-sentence if need be. Don't repeat anything already written and don't add a preamble.`,
 
   lookingAt: (page) => `\n\n(The learner is currently looking at p. ${page} of the document.)`,

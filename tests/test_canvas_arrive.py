@@ -61,9 +61,17 @@ async def main():
         await view('canvas'); await frames(pg); cam0 = await camxf(); await pg.wait_for_timeout(500)   # deliberate: longer than the camera's 280 ms glide, so a move would show
         check('the card for the pane you were in flashes (and only it)', await flashed() == [b1], await flashed())
         check('it was on screen, so the camera didn’t move', await camxf() == cam0, [cam0, await camxf()])
+        await pg.wait_for_timeout(2600)   # (deliberate: past the flash, to see what stays)
+        here = await pg.evaluate("[[...document.querySelectorAll('#cv .cnode.here')].map(n=>n.dataset.ctid),(document.getElementById('cvHereTag')||{}).textContent||'']")
+        check('after the flash, the card stays quietly marked “You were here”', here == [[b1], 'You were here'], here)
         await pg.screenshot(path=OUT + '/canvas_arrive.png')
         await view('cols'); await calm(pg)
         check('round trip: the layout is exactly as it was', await state() == s0)
+        await view('canvas'); await calm(pg)
+        cvb = await pg.locator('#cv').bounding_box()
+        await pg.mouse.move(cvb['x'] + 30, cvb['y'] + cvb['height'] - 60); await pg.mouse.wheel(0, 40); await pg.wait_for_timeout(200)
+        check('the mark goes as soon as you touch the canvas (here: a scroll)', await pg.locator('#cv .cnode.here').count() == 0 and await pg.locator('#cvHereTag').count() == 0)
+        await view('cols'); await calm(pg)
         check('…and so is every pane’s scroll', await scrolls() == sc0, [sc0, await scrolls()])
 
         # off screen: pan the canvas far away, then come back from b2

@@ -520,6 +520,8 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .cnode.main.picked{--c:var(--faint)}
 @keyframes cflash{0%,100%{box-shadow:0 1px 3px rgba(0,0,0,.05)}30%{box-shadow:0 0 0 5px color-mix(in srgb,var(--c) 40%,transparent)}}
 .cnode.flash{animation:cflash 1.1s ease 2}
+.cnode.here{border-color:color-mix(in srgb,var(--c) 55%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,transparent),0 1px 3px rgba(0,0,0,.05)}
+#cvHereTag{position:absolute;font:500 11px var(--sans);opacity:.85;white-space:nowrap;pointer-events:none;transform:translateY(-100%);padding-bottom:6px}
 .cnode .ch{display:flex;align-items:center;gap:6px;padding:7px 6px 6px 12px;font-weight:500;cursor:grab;user-select:none}
 .cnode .ch:active{cursor:grabbing}
 .cnode .ch .ct{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -631,6 +633,10 @@ kbd.k{font:11px var(--mono);border:1px solid var(--line2);border-bottom-width:2p
 .pin input{flex:1;border:0;outline:none;background:none;font:16px var(--sans);color:var(--ink)}
 .pin input::placeholder{color:var(--faint)}
 .pres{overflow-y:auto;padding:6px 8px 8px}
+.pr.pai .pk{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,var(--line2));display:inline-flex;align-items:center;justify-content:center}
+.pr.pai .pk .i{width:13px;height:13px}
+.pr.pai .ps{color:var(--ink);font-weight:500}
+.pr.pai.busy .ps{animation:shim 1.6s linear infinite;background:linear-gradient(90deg,var(--muted) 30%,var(--ink) 50%,var(--muted) 70%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent}
 .pscope{display:flex;gap:4px;flex-wrap:wrap;padding:0 12px 8px;border-bottom:1px solid var(--line)}
 .pscope:empty{display:none}
 .pscope button{font:500 12px var(--sans);color:var(--muted);padding:3px 10px;border-radius:999px;border:1px solid var(--line2);max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -857,6 +863,7 @@ const I={
  check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
  chev:'<path d="M6 9.5l6 6 6-6"/>',
  search:'<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
+ sparkle:'<path d="M12 4l1.8 4.7L18.5 10.5 13.8 12.3 12 17l-1.8-4.7L5.5 10.5l4.7-1.8z"/><path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/>',
  dots:'<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>',
  edit:'<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
  eye:'<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
@@ -2549,6 +2556,7 @@ function renderCanvas(){
   applyStack();
   drawEdges();
   if(!camFitted){fitCanvas();camFitted=true}else applyCam();
+  markHere();
 }
 let edgeRAF=0;
 function drawEdgesSoon(){if(!edgeRAF)edgeRAF=requestAnimationFrame(()=>{edgeRAF=0;drawEdges()})}
@@ -2615,10 +2623,25 @@ function focusedPane(){
     const a=Math.max(0,Math.min(r.right,pr.right)-Math.max(r.left,pr.left))*Math.max(0,Math.min(r.bottom,pr.bottom)-Math.max(r.top,pr.top));if(a>=area&&a>0){area=a;best=tid}}
   return best;
 }
+/* …and it stays marked (a quiet ring and "You were here") until you touch the canvas: click, drag, scroll
+   or zoom. Per page, never saved; survives the canvas redrawing (renderCanvas → markHere). */
+let cvHere=null;
+function markHere(){
+  document.querySelectorAll('#cv .cnode.here').forEach(n=>n.classList.remove('here'));
+  const n=cvHere&&$('#cv').querySelector(`.cnode[data-ctid="${cvHere}"]`);let tag=$('#cvHereTag');
+  if(n)n.classList.add('here');
+  if(!n||n.classList.contains('docked')){tag&&tag.remove();return}   // a card stuck to the screen gets the ring only
+  if(!tag){tag=document.createElement('div');tag.id='cvHereTag';tag.textContent='You were here'}
+  if(tag.parentNode!==$('#world'))$('#world').appendChild(tag);
+  tag.style.left=(n.offsetLeft+10)+'px';tag.style.top=n.offsetTop+'px';tag.style.color=getComputedStyle(n).getPropertyValue('--c');
+}
+function clearHere(){if(cvHere){cvHere=null;markHere()}}
+for(const t of ['pointerdown','wheel'])$('#cv').addEventListener(t,clearHere,{capture:true,passive:true});
 function cvArrive(tid){
   const box=$('#cv');let n=null;
   for(let id=tid;id&&!(n=box.querySelector(`.cnode[data-ctid="${id}"]`));id=visParentId(id));
   if(!n)return;
+  cvHere=n.dataset.ctid;markHere();
   const cv=box.getBoundingClientRect(),h=(n.querySelector('.ch')||n).getBoundingClientRect();
   const seen=n.classList.contains('docked')||(h.left>=cv.left&&h.right<=cv.right&&h.top>=cv.top&&h.bottom<=cv.bottom);
   if(!seen)animateCam(cv.width/2-(n.offsetLeft+n.offsetWidth/2)*cam.k,Math.min(cv.height/2-(n.offsetTop+Math.min(n.offsetHeight,500)/2)*cam.k,60-n.offsetTop*cam.k+40));
@@ -2973,6 +2996,7 @@ function openFromCanvas(tid,mid){
   if(mid)revealMsg(tid,mid);
 }
 function setView(v){
+  if(v!=='canvas')cvHere=null;
   if(v==='canvas'){const from=conv.ui.view!=='canvas'?focusedPane():null;conv.ui.view='canvas';$('#stage').classList.add('canvas');hidePop();renderCanvas();if(from)requestAnimationFrame(()=>cvArrive(from))}
   else{
     const was=conv.ui.view;conv.ui.view='panes';$('#stage').classList.remove('canvas');
@@ -3792,8 +3816,10 @@ function closePalette(){$('#pal').classList.remove('show')}
    Typo matches ("machine" for "matching") count only when a typed word isn't there as such. */
 const reEsc=t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),WB='(?<![\\p{L}\\p{N}])';
 const qWords=q=>(q||'').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w=>w.length>1);
+// words too common to point anywhere: never highlighted or landed on (a phrase containing them still counts)
+const STOP=new Set('a an and are as at be but by can do does for from had has have how i if in into is it its me my no not of on or our so than that the their them then there these they this those to too two up us was we were what when where which while who why will with you your'.split(' '));
 function matchTerms(r,q){
-  const qw=qWords(q),low=(r.x||'').toLowerCase(),missing=qw.some(w=>!new RegExp(WB+reEsc(w),'u').test(low));
+  const qw=qWords(q).filter(w=>!STOP.has(w)),low=(r.x||'').toLowerCase(),missing=qw.some(w=>!new RegExp(WB+reEsc(w),'u').test(low));
   return [...new Set([...qw,...(missing?(r.terms||[]):[])])];
 }
 function bestSpot(low,terms,q){
@@ -3806,9 +3832,9 @@ function bestSpot(low,terms,q){
   let best=0,bestN=-1;for(let i=0;i<out.hits.length;i++){const seen=new Set();for(let j=i;j<out.hits.length&&out.hits[j][0]<out.hits[i][0]+200;j++)seen.add(out.hits[j][2]);if(seen.size>bestN){bestN=seen.size;best=i}}
   out.from=out.hits[best][0];out.to=out.from+200;return out;
 }
-function snippet(x,terms){
+function snippet(x,terms,q=PAL.q){
   const re=terms.length?new RegExp('('+terms.map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).sort((a,b)=>b.length-a.length).join('|')+')','gi'):null;
-  let start=0;if(re){const sp=bestSpot(x.toLowerCase(),terms,PAL.q);if(sp.hits.length)start=Math.max(0,sp.from-70)}
+  let start=0;if(re){const sp=bestSpot(x.toLowerCase(),terms,q);if(sp.hits.length)start=Math.max(0,sp.from-70)}
   let s=x.slice(start,start+260);if(start>0)s='…'+s.replace(/^\S*\s/,'');if(start+260<x.length)s+='…';
   return re?esc(s).replace(new RegExp('('+terms.map(t=>esc(t).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','gi'),'<mark>$1</mark>'):esc(s);
 }
@@ -3817,7 +3843,9 @@ function threadTitle(cid,tid){
   if(conv&&conv.id===cid){const t=T(tid);return t?(t.parent?t.title:'Main thread'):''}
   const p=(IDX.map.get(cid)||{e:[]}).e.find(e=>e.k==='bt'&&e.tid===tid);return p?p.x:(tid==='main'?'Main thread':'')
 }
-function runSearch(){PAL.running=searchNow();return PAL.running}
+function runSearch(){AIQ.seq++;PAL.ai=null;PAL.running=searchNow();return PAL.running}
+function scopeFilter(res){if(PAL.scope==='all'||!conv)return res;const id=conv.id,st=PAL.stid;return res.filter(r=>r.cid===id&&(PAL.scope==='conv'||(st==='doc'?r.k==='d':r.k!=='d'&&r.tid===st)))}
+const resultKey=r=>r.cid+'|'+(r.mid||'')+'|'+r.k+'|'+(r.k==='d'?r.p:r.k==='bt'||r.k==='h'?r.tid:'');
 async function searchNow(){
   const q=$('#palIn').value.trim();PAL.q=q;const box=$('#palRes');
   if(!q&&PAL.scope!=='all'){PAL.results=[];box.innerHTML=`<div class="pempty">Type to search ${PAL.scope==='thread'?(PAL.stid==='doc'?'the document':'this thread'):'this conversation'}.</div>`;return}
@@ -3835,19 +3863,20 @@ async function searchNow(){
   {const qw=qWords(q),ph=qw.length>1&&new RegExp(WB+qw.map(reEsc).join('[^\\p{L}\\p{N}]+'),'u'),wr=qw.map(w=>new RegExp(WB+reEsc(w),'u'));
    for(const r of res){const low=(r.x||'').toLowerCase();r.phrase=ph&&ph.test(low)?1:0;r.exact=wr.filter(x=>x.test(low)).length}
    res.sort((a,b)=>(b.phrase-a.phrase)||(b.exact-a.exact)||(b.score-a.score))}
-  if(PAL.scope!=='all'&&conv){const id=conv.id,st=PAL.stid;res=res.filter(r=>r.cid===id&&(PAL.scope==='conv'||(st==='doc'?r.k==='d':r.k!=='d'&&r.tid===st)))}
-  {const seen=new Set();res=res.filter(r=>{const k=r.cid+'|'+(r.mid||'')+'|'+r.k+'|'+(r.k==='d'?r.p:r.k==='bt'||r.k==='h'?r.tid:'');if(seen.has(k))return false;seen.add(k);return true})}   // one row per message: its best passage
+  res=scopeFilter(res);
+  {const seen=new Set();res=res.filter(r=>{const k=resultKey(r);if(seen.has(k))return false;seen.add(k);return true})}   // one row per message: its best passage
   // keep the best few hits per conversation, conversations ordered by their best hit
   const cap=PAL.scope==='all'?4:40;   // one conversation: show its matches, not just the best few
   const by=new Map();for(const r of res){const a=by.get(r.cid)||[];if(a.length<cap)a.push(r);by.set(r.cid,a)}
   const groups=[...by.entries()].slice(0,12);
   PAL.results=[];PAL.sel=0;box.replaceChildren();
-  if(!groups.length){box.innerHTML=`<div class="pempty">No matches for “${esc(q)}”${PAL.scope==='thread'?(PAL.stid==='doc'?' in the document':' in this thread'):PAL.scope==='conv'?' in this conversation':''}.</div>`;return}
+  if(!groups.length){box.innerHTML=`<div class="pempty">No matches for “${esc(q)}”${PAL.scope==='thread'?(PAL.stid==='doc'?' in the document':' in this thread'):PAL.scope==='conv'?' in this conversation':''}.</div>`;aiExpandRow(box,true);markSel();return}
   for(const [cid,rs] of groups){
     const m=convMeta(cid);const g=document.createElement('div');g.className='pgrp';
     g.innerHTML=`${m.doc?ic('doc').replace('class="i"','class="i" style="width:12px;height:12px"'):''}<span></span>${m.archived?'<span class="arc">archived</span>':''}`;g.querySelector('span').textContent=m.title||'Conversation';box.appendChild(g);
     for(const r of rs){const i=PAL.results.length;PAL.results.push(r);box.appendChild(resultRow(r,i,matchTerms(r,q)))}
   }
+  aiExpandRow(box,false);
   markSel();
 }
 function resultRow(r,i,terms){
@@ -3855,14 +3884,80 @@ function resultRow(r,i,terms){
   const [label]=KIND[r.k]||['Match'];
   let c='var(--faint)';if(conv&&conv.id===r.cid&&r.tid&&T(r.tid)&&T(r.tid).parent)c=color(T(r.tid));
   d.style.setProperty('--c',c);
-  const where=r.jump?(r.pinned?'Pinned':''):r.k==='d'?`Page ${r.p}`:r.k==='ct'?'':threadTitle(r.cid,r.tid);
-  d.innerHTML=`<span class="pk">${r.jump?'Open':label+(r.k==='d'&&r.p?' p. '+r.p:'')}</span><div class="pm">${where?`<div class="pt"></div>`:''}<div class="ps">${r.jump?esc(r.x):snippet(r.x||'',terms)}</div></div>`;
+  if(r.ai){d.classList.add('pai');d.innerHTML=`<span class="pk">${ic('sparkle')}</span><div class="pm"><div class="ps"></div><div class="pt"></div></div>`;
+    d.querySelector('.ps').textContent=r.label;d.querySelector('.pt').textContent=r.sub||'';d.title=r.tip||'';return d}
+  const where0=r.jump?(r.pinned?'Pinned':''):r.k==='d'?`Page ${r.p}`:r.k==='ct'?'':threadTitle(r.cid,r.tid);
+  const where=r.why?where0+(where0?' · ':'')+r.why:r.q&&r.q!==PAL.q?where0+(where0?' · ':'')+'found with “'+r.q+'”':where0;
+  d.innerHTML=`<span class="pk">${r.jump?'Open':label+(r.k==='d'&&r.p?' p. '+r.p:'')}</span><div class="pm">${where?`<div class="pt"></div>`:''}<div class="ps">${r.jump?esc(r.x):snippet(r.x||'',terms,r.q||PAL.q)}</div></div>`;
   if(where)d.querySelector('.pt').textContent=where;
   return d;
+}
+/* ---------- "Describe it instead": find something you half remember ----------
+   Step 1 (findExpand): one quick model call with only what you typed and the titles in the search's scope;
+   it returns likely search phrases, each searched as usual, results merged (found by more phrases = higher).
+   Step 2 (findPick, only when asked): short snippets of the best candidates go to the model, which picks
+   the ones that match, with a reason. Both are one-off calls: nothing is added to any conversation or saved. */
+const canAskModel=()=>io.llm&&io.llm.kind!=='none'&&!io.offline;
+function fastModel(){const ids=io.llm.models().map(x=>x[0]);return ids.find(x=>/haiku/i.test(x))||ids.find(x=>/mini/i.test(x))||settings.model}
+function scopeTitles(){
+  if(PAL.scope==='thread'&&conv){if(PAL.stid==='doc')return [conv.doc?conv.doc.name:'The document'];return [conv.title,...ancestors(PAL.stid).filter(id=>id!=='main').map(id=>T(id).title)].filter(Boolean)}   // its path: the conversation, then each thread down to this one
+  if(PAL.scope==='conv'&&conv)return [conv.title,...Object.values(conv.threads).filter(t=>t.parent).map(t=>t.title),...(conv.doc?[conv.doc.name]:[])].filter(Boolean);
+  const items=convList.map(c=>conv&&c.id===conv.id?metaOf(conv):c);if(conv&&!items.find(c=>c.id===conv.id))items.unshift(metaOf(conv));
+  return [...items.filter(c=>c.pinned),...items.filter(c=>!c.pinned).sort((a,b)=>(b.updated||0)-(a.updated||0))].slice(0,150).map(c=>c.title).filter(Boolean);
+}
+const AIQ={seq:0};
+async function askFind(text){
+  const r=await io.llm.complete({system:PROMPTS.find.system,messages:[{role:'user',content:text}],model:fastModel(),effort:'low',web:false});
+  return r.text||'';
+}
+function aiRows(box,rows){for(const r of rows){const i=PAL.results.length;PAL.results.push(r);box.appendChild(resultRow(r,i,[]))}}
+function aiExpandRow(box,none){
+  if(!canAskModel()||PAL.q.length<3)return;
+  aiRows(box,[{ai:'expand',label:none?'Nothing matched. Describe it instead: find it with AI':'Describe it instead: find it with AI',
+    sub:'Sends what you typed and your '+(PAL.scope==='thread'?'thread’s':PAL.scope==='conv'?'conversation’s':'conversations’')+' titles, nothing else',tip:'The model suggests the words you probably used; Digress searches for them. Your conversations’ text isn’t sent.'}]);
+}
+async function findExpand(){
+  const desc=PAL.q,seq=++AIQ.seq,box=$('#palRes'),row=box.querySelector('.pr.pai');
+  if(row){row.querySelector('.ps').textContent='Thinking of the words you might have used…';row.classList.add('busy')}
+  let phrases;
+  try{phrases=(await askFind(PROMPTS.find.expand({desc,titles:scopeTitles()}))).split('\n').map(x=>x.replace(/^[\s\-*•\d.)]+/,'').replace(/["“”]/g,'').trim()).filter(x=>x&&x.length<60).slice(0,8)}
+  catch(e){if(seq===AIQ.seq&&row){row.classList.remove('busy');row.querySelector('.ps').textContent='Couldn’t ask the model: '+((e&&e.message)||'error')}return}
+  if(seq!==AIQ.seq||desc!==PAL.q)return;
+  const ms=await idxEngine(),found=new Map();
+  for(const ph of [...phrases,desc]){   // the model's phrases first: a passage they find lands on their words, not on yours
+    let rs=ms.search(ph,{combineWith:'AND'});if(!rs.length)rs=ms.search(ph);
+    rs=scopeFilter(rs);
+    rs.slice(0,30).forEach((r,i)=>{const k=resultKey(r),f=found.get(k);if(f){f.score2+=1/(i+2)}else found.set(k,{...r,q:ph,score2:1/(i+2)})});
+  }
+  const list=[...found.values()].sort((a,b)=>b.score2-a.score2);
+  PAL.ai={desc,phrases,list};
+  showAiResults(list.slice(0,12),`Found with AI · ${phrases.slice(0,4).map(p=>'“'+p+'”').join(' ')}`);
+  if(list.length)aiRows(box,[{ai:'pick',label:'Still not it? Let the model pick from these',sub:'Sends short snippets of '+(list.length===1?'the top match':'the top '+Math.min(25,list.length)+' matches'),tip:'The model reads ~300-character snippets of these passages and picks the ones that fit your description.'}]);
+  else box.insertAdjacentHTML('beforeend','<div class="pempty">The model’s words didn’t match anything either.</div>');
+  markSel();
+}
+async function findPick(){
+  const ai=PAL.ai;if(!ai)return;const seq=++AIQ.seq,box=$('#palRes'),row=[...box.querySelectorAll('.pr.pai')].pop();
+  if(row){row.querySelector('.ps').textContent='Reading the snippets…';row.classList.add('busy')}
+  const cand=ai.list.slice(0,25),items=cand.map(r=>{const low=(r.x||'').toLowerCase(),sp=bestSpot(low,matchTerms(r,r.q),r.q),a=Math.max(0,(sp.hits.length?sp.from:0)-120);
+    return {where:(convMeta(r.cid).title||'')+(r.k==='d'?' · p. '+r.p:''),text:(a?'…':'')+r.x.slice(a,a+300).replace(/\s+/g,' ')+'…'}});
+  let picks=[];
+  try{const t=await askFind(PROMPTS.find.pick({desc:ai.desc,items}));const a=t.indexOf('['),b=t.lastIndexOf(']');picks=JSON.parse(t.slice(a,b+1))}
+  catch(e){if(seq===AIQ.seq&&row){row.classList.remove('busy');row.querySelector('.ps').textContent='Couldn’t ask the model: '+((e&&e.message)||'its reply wasn’t a list')}return}
+  if(seq!==AIQ.seq||PAL.ai!==ai)return;
+  const chosen=(Array.isArray(picks)?picks:[]).map(p=>p&&cand[(p.n|0)-1]&&{...cand[(p.n|0)-1],why:String(p.why||'').slice(0,120)}).filter(Boolean).slice(0,5);
+  if(!chosen.length){if(row){row.classList.remove('busy');row.querySelector('.ps').textContent='The model didn’t find it among these.'}return}
+  showAiResults(chosen,'Picked by AI');markSel();
+}
+function showAiResults(list,head){
+  const box=$('#palRes');PAL.results=[];PAL.sel=0;box.replaceChildren();
+  const g=document.createElement('div');g.className='pgrp';g.textContent=head;box.appendChild(g);
+  for(const r of list){const i=PAL.results.length;PAL.results.push(r);box.appendChild(resultRow(r,i,matchTerms(r,r.q)))}
 }
 function markSel(){document.querySelectorAll('#palRes .pr').forEach(el=>el.classList.toggle('sel',+el.dataset.i===PAL.sel));const s=document.querySelector('#palRes .pr.sel');s&&s.scrollIntoView({block:'nearest'})}
 async function openResult(r,keep){
   if(!r)return;
+  if(r.ai){if(r.ai==='expand')findExpand();else findPick();$('#palIn').focus();return}
   if(!keep)closePalette();
   if(!PAL.marked){PAL.marked=true;markBack()}   // one Back per search, however many results it opens
   if(!conv||conv.id!==r.cid)await openConv(r.cid);
@@ -3882,7 +3977,7 @@ async function openResult(r,keep){
 /* ---------- landing on the words a search found ----------
    The matched words are painted with the CSS Highlight API (no DOM changes, so anchors are untouched) and
    the pane scrolls to the place where most of them sit close together. Without the API it still scrolls. */
-function hitTerms(r){return matchTerms(r,PAL.q)}
+function hitTerms(r){return matchTerms(r,r.q||PAL.q)}
 let hitTimer=0;
 function clearHit(){clearTimeout(hitTimer);try{CSS.highlights.delete('digress-hit')}catch(e){}}
 // where a passage (plain text from the index) sits in the rendered text: find a run of its words
