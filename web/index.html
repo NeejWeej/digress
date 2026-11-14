@@ -405,7 +405,8 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 @container (max-width:340px){.ph .pzoom .ib{display:none}}   /* narrow panes: just the percentage (click it to type a level) */
 .pane.rail .ph .pzoom{display:none}
 .jump{position:absolute;right:16px;bottom:8px;display:flex;flex-direction:column;gap:4px;opacity:0;pointer-events:none;transform:translateY(4px);transition:opacity .15s,transform .15s}
-.pane.away .jump,.pane.hasprev .jump{opacity:.9;pointer-events:auto;transform:none}
+.pane.away .jump,.pane.hasprev .jump,.pane:hover .jump{opacity:.9;pointer-events:auto;transform:none}
+@media (hover:none){.pane .jump{opacity:.9;pointer-events:auto;transform:none}}
 .jump .ib{width:30px;height:30px;border-radius:50%;background:var(--panel);border:1px solid var(--line2);box-shadow:0 2px 8px rgba(0,0,0,.08);color:var(--muted)}
 .jump .ib:hover{color:var(--ink);border-color:var(--faint);background:var(--panel)}
 .jump .jp{display:none;color:var(--c);border-color:color-mix(in srgb,var(--c) 50%,var(--line2))}
@@ -630,6 +631,11 @@ kbd.k{font:11px var(--mono);border:1px solid var(--line2);border-bottom-width:2p
 .pin input{flex:1;border:0;outline:none;background:none;font:16px var(--sans);color:var(--ink)}
 .pin input::placeholder{color:var(--faint)}
 .pres{overflow-y:auto;padding:6px 8px 8px}
+.pscope{display:flex;gap:4px;flex-wrap:wrap;padding:0 12px 8px;border-bottom:1px solid var(--line)}
+.pscope:empty{display:none}
+.pscope button{font:500 12px var(--sans);color:var(--muted);padding:3px 10px;border-radius:999px;border:1px solid var(--line2);max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pscope button:hover{color:var(--ink)}
+.pscope button.on{background:var(--ink);border-color:var(--ink);color:var(--panel)}
 .pgrp{display:flex;align-items:center;gap:6px;padding:10px 8px 4px;font-size:11.5px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.05em}
 .pgrp .arc{font-weight:500;text-transform:none;letter-spacing:0;border:1px solid var(--line2);border-radius:999px;padding:0 6px}
 .pr{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:10px;cursor:pointer}
@@ -822,7 +828,7 @@ a.pref:hover{border-bottom-style:solid}
 </div>
 <div class="toast" id="toast"></div>
 <div class="tipbox" id="tipbox"></div>
-<div class="pal" id="pal"><div class="pbox" role="dialog" aria-modal="true" aria-label="Search"><div class="pin"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="palIn" placeholder="Search conversations, highlights, takeaways, documents…" autocomplete="off" spellcheck="false"></div><div class="pres" id="palRes"></div><div class="pfoot"><span id="palFoot"></span><span class="sp"></span><span><kbd class="k">↑</kbd> <kbd class="k">↓</kbd> move</span><span><kbd class="k">Enter</kbd> open</span><span><kbd class="k"><span class="kmod">⌘</span>Enter</kbd> open, keep searching</span><span><kbd class="k">Esc</kbd> close</span></div></div></div>
+<div class="pal" id="pal"><div class="pbox" role="dialog" aria-modal="true" aria-label="Search"><div class="pin"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="palIn" placeholder="Search conversations, highlights, takeaways, documents…" autocomplete="off" spellcheck="false"></div><div class="pscope" id="palScope"></div><div class="pres" id="palRes"></div><div class="pfoot"><span id="palFoot"></span><span class="sp"></span><span><kbd class="k">↑</kbd> <kbd class="k">↓</kbd> move</span><span><kbd class="k">Tab</kbd> where</span><span><kbd class="k">Enter</kbd> open</span><span><kbd class="k"><span class="kmod">⌘</span>Enter</kbd> open, keep searching</span><span><kbd class="k">Esc</kbd> close</span></div></div></div>
 <div class="modal" id="docModal"><div class="mbox wide" role="dialog" aria-modal="true"><div class="mt">Start from a document</div><div class="mb">The document opens next to a main thread for questions about the whole thing. Highlight any passage in it to open a branch about that part.</div><label class="drop" id="docDrop"><input type="file" id="docFile" accept=".pdf,.md,.markdown,.txt,application/pdf,text/markdown,text/plain"><span id="docFileLbl"></span></label><textarea id="docPaste" placeholder="…or paste text, Markdown, or a link to a PDF"></textarea><input id="docName" placeholder="Title (optional)" autocomplete="off"><div class="ma"><span class="dmsg" id="docMsg"></span><button class="mbtn" id="docCancel">Cancel</button><button class="mbtn primary" id="docGo">Start</button></div></div></div>
 <div class="modal" id="cardsModal"><div class="kbox" role="dialog" aria-modal="true" aria-label="Flashcards"></div></div>
 <div class="modal" id="modal"><div class="mbox" role="dialog" aria-modal="true"><div class="mt" id="mTitle"></div><div class="mb" id="mBody"></div><div class="ma"><button class="mbtn" id="mCancel">Cancel</button><button class="mbtn danger" id="mOk">Delete</button></div></div></div>
@@ -850,6 +856,7 @@ const effortLabel=(e)=>e==='auto'?'auto effort':((EFFORTS.find(x=>x[0]===e)||[0,
 const I={
  check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
  chev:'<path d="M6 9.5l6 6 6-6"/>',
+ search:'<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
  dots:'<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>',
  edit:'<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
  eye:'<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
@@ -2142,7 +2149,7 @@ function paneEl(tid){
     <button class="ib" data-act="pin"></button><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it.">${ic('collapse')}</button><button class="ib" data-act="focus"></button>${isMain?'':`<button class="ib dz" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button><button class="ib" data-act="close" title="Close this pane and jump back to where it branched from. The branch stays saved.">${ic('x')}</button>`}</div></div>
     <div class="pb"><div class="msgs"></div></div>
     ${isMain?'':`<div class="tk"><div class="tkb"><span class="tkl">Takeaway to parent</span><input placeholder="Optional: what to focus on" autocomplete="off"><button class="go" title="Generate 2–4 takeaway bullets and add them to the end of the parent thread">Add</button><button class="ib" data-act="take" title="Cancel">${ic('x')}</button></div></div>`}
-    <div class="jumpw"><div class="jump"><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button><button class="ib jl" data-act="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib je" data-act="jend" title="Jump to the very bottom">${ic('jend')}</button></div></div>
+    <div class="jumpw"><div class="jump"><button class="ib js" data-act="jsearch" title="Search this thread">${ic('search')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button><button class="ib jl" data-act="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib je" data-act="jend" title="Jump to the very bottom">${ic('jend')}</button></div></div>
     <form class="composer"><div class="cbox"><textarea rows="1"></textarea><button class="sendb" type="submit"></button></div></form>
     <div class="rail-label"><span class="dot"></span><span class="rl"></span></div>`;
   const ta=el.querySelector('textarea');
@@ -3111,7 +3118,7 @@ function docPaneEl(){
   el.innerHTML=`<div class="ph"><span class="pgrip" title="Drag to reorder panes"></span><span class="docico">${ic('doc')}</span><div class="ph-main"><div class="ph-title"></div><div class="ph-orow"><div class="ph-origin"></div><button class="pox" data-act="oexp" title="Show the whole line"></button></div></div>
     <div class="ph-act"><button class="ib" data-act="snip" title="Snip: drag a box over part of a page (a figure, a table, an equation) to ask about it. Esc cancels.">${ic('snip')}</button><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button><button class="ib pzf" data-act="zfit">${ic('fit')}</button></div><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it.">${ic('collapse')}</button><button class="ib" data-act="focus"></button></div></div>
     <div class="pb"><div class="docwrap"></div></div>
-    <div class="jumpw"><div class="jump"><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button></div></div>
+    <div class="jumpw"><div class="jump"><button class="ib js" data-act="jsearch" title="Search this document">${ic('search')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button></div></div>
     <div class="rail-label"><span class="docico">${ic('doc')}</span><span class="rl"></span></div>`;
   const pb=el.querySelector('.pb');
   pb.addEventListener('scroll',()=>{wiresSoon();updateJump(el);trackDocPage()},{passive:true});
@@ -3754,9 +3761,22 @@ async function idxEngine(){
   ms.addAll(docs);IDX.ms=ms;IDX.dirty=false;return ms;
 }
 /* ---------- search palette ---------- */
-const PAL={results:[],sel:0,timer:0,q:''};
-function openPalette(initial){
+const PAL={results:[],sel:0,timer:0,q:'',scope:'all',stid:null};
+/* Where a search looks: everywhere, this conversation, or one thread (the pane you were last in, or the one
+   whose magnifier opened it; 'doc' = the document). Tab moves between them. */
+const scopeTid=()=>{const ok=t=>t&&conv&&(t==='doc'?!!conv.doc:!!T(t));return lastPane&&conv&&lastPane.cid===conv.id&&ok(lastPane.tid)?lastPane.tid:'main'};
+function threadName(tid){return tid==='doc'?'The document':tid==='main'?'Main thread':'Thread “'+trunc(T(tid).title,32)+'”'}
+function renderScope(){
+  const box=$('#palScope');if(!conv){box.innerHTML='';PAL.scope='all';return}
+  const opts=[['all','Everywhere'],['conv','This conversation'],['thread',threadName(PAL.stid)]];
+  box.innerHTML=opts.map(([v,l])=>`<button type="button" data-pscope="${v}" class="${PAL.scope===v?'on':''}"></button>`).join('');
+  [...box.children].forEach((b,i)=>{b.textContent=opts[i][1];b.title=i===2?'Search only this thread':i===1?'Search only this conversation':'Search every conversation'});
+  $('#palIn').placeholder=PAL.scope==='thread'?(PAL.stid==='doc'?'Search the document…':'Search this thread…'):PAL.scope==='conv'?'Search this conversation…':'Search conversations, highlights, takeaways, documents…';
+}
+function setScope(v){PAL.scope=v;renderScope();runSearch();$('#palIn').focus()}
+function openPalette(initial,scope,tid){
   hidePop();hideTip();PAL.marked=false;
+  PAL.stid=tid||scopeTid();PAL.scope=conv&&scope?scope:'all';renderScope();
   const p=$('#pal');p.classList.add('show');const inp=$('#palIn');inp.value=initial||'';inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);
   $('#palFoot').textContent='';
   runSearch();
@@ -3800,6 +3820,7 @@ function threadTitle(cid,tid){
 function runSearch(){PAL.running=searchNow();return PAL.running}
 async function searchNow(){
   const q=$('#palIn').value.trim();PAL.q=q;const box=$('#palRes');
+  if(!q&&PAL.scope!=='all'){PAL.results=[];box.innerHTML=`<div class="pempty">Type to search ${PAL.scope==='thread'?(PAL.stid==='doc'?'the document':'this thread'):'this conversation'}.</div>`;return}
   if(!q){
     const items=[...convList.map(c=>conv&&c.id===conv.id?metaOf(conv):c)];if(conv&&!items.find(c=>c.id===conv.id))items.unshift(metaOf(conv));
     const act=items.filter(c=>!c.archived);const list=[...act.filter(c=>c.pinned),...act.filter(c=>!c.pinned).sort((a,b)=>(b.updated||0)-(a.updated||0))].slice(0,8);
@@ -3814,12 +3835,14 @@ async function searchNow(){
   {const qw=qWords(q),ph=qw.length>1&&new RegExp(WB+qw.map(reEsc).join('[^\\p{L}\\p{N}]+'),'u'),wr=qw.map(w=>new RegExp(WB+reEsc(w),'u'));
    for(const r of res){const low=(r.x||'').toLowerCase();r.phrase=ph&&ph.test(low)?1:0;r.exact=wr.filter(x=>x.test(low)).length}
    res.sort((a,b)=>(b.phrase-a.phrase)||(b.exact-a.exact)||(b.score-a.score))}
+  if(PAL.scope!=='all'&&conv){const id=conv.id,st=PAL.stid;res=res.filter(r=>r.cid===id&&(PAL.scope==='conv'||(st==='doc'?r.k==='d':r.k!=='d'&&r.tid===st)))}
   {const seen=new Set();res=res.filter(r=>{const k=r.cid+'|'+(r.mid||'')+'|'+r.k+'|'+(r.k==='d'?r.p:r.k==='bt'||r.k==='h'?r.tid:'');if(seen.has(k))return false;seen.add(k);return true})}   // one row per message: its best passage
   // keep the best few hits per conversation, conversations ordered by their best hit
-  const by=new Map();for(const r of res){const a=by.get(r.cid)||[];if(a.length<4)a.push(r);by.set(r.cid,a)}
+  const cap=PAL.scope==='all'?4:40;   // one conversation: show its matches, not just the best few
+  const by=new Map();for(const r of res){const a=by.get(r.cid)||[];if(a.length<cap)a.push(r);by.set(r.cid,a)}
   const groups=[...by.entries()].slice(0,12);
   PAL.results=[];PAL.sel=0;box.replaceChildren();
-  if(!groups.length){box.innerHTML=`<div class="pempty">No matches for “${esc(q)}”.</div>`;return}
+  if(!groups.length){box.innerHTML=`<div class="pempty">No matches for “${esc(q)}”${PAL.scope==='thread'?(PAL.stid==='doc'?' in the document':' in this thread'):PAL.scope==='conv'?' in this conversation':''}.</div>`;return}
   for(const [cid,rs] of groups){
     const m=convMeta(cid);const g=document.createElement('div');g.className='pgrp';
     g.innerHTML=`${m.doc?ic('doc').replace('class="i"','class="i" style="width:12px;height:12px"'):''}<span></span>${m.archived?'<span class="arc">archived</span>':''}`;g.querySelector('span').textContent=m.title||'Conversation';box.appendChild(g);
@@ -3928,6 +3951,7 @@ async function goBack(){
   const inp=$('#palIn');
   inp.addEventListener('input',()=>{clearTimeout(PAL.timer);PAL.timer=setTimeout(()=>{PAL.timer=0;runSearch()},90)});
   inp.addEventListener('keydown',e=>{
+    if(e.key==='Tab'&&conv){e.preventDefault();const o=['all','conv','thread'],i=o.indexOf(PAL.scope);setScope(o[(i+(e.shiftKey?2:1))%3]);return}
     if(e.key==='ArrowDown'){e.preventDefault();PAL.sel=Math.min(PAL.results.length-1,PAL.sel+1);markSel()}
     else if(e.key==='ArrowUp'){e.preventDefault();PAL.sel=Math.max(0,PAL.sel-1);markSel()}
     else if(e.key==='Enter'){e.preventDefault();const keep=e.metaKey||e.ctrlKey;
@@ -3936,6 +3960,8 @@ async function goBack(){
         openResult(PAL.results[PAL.sel],keep);if(keep)inp.focus()})()}
     else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closePalette()}
   });
+  $('#palScope').addEventListener('mousedown',e=>e.preventDefault());   // keep the caret in the box
+  $('#palScope').addEventListener('click',e=>{const b=e.target.closest('[data-pscope]');if(b)setScope(b.dataset.pscope)});
   $('#palRes').addEventListener('mousemove',e=>{const r=e.target.closest('.pr');if(r&&+r.dataset.i!==PAL.sel){PAL.sel=+r.dataset.i;markSel()}});
   $('#palRes').addEventListener('click',e=>{const r=e.target.closest('.pr');if(r){const keep=e.metaKey||e.ctrlKey;openResult(PAL.results[+r.dataset.i],keep);if(keep)inp.focus()}});
   $('#pal').addEventListener('mousedown',e=>{if(e.target.id==='pal')closePalette()});
@@ -4446,6 +4472,7 @@ document.addEventListener('click',e=>{
       case 'close':closeThread(tid);break;
       case 'back':revealAnchor(tid);break;
       case 'jend':{const pb=pane.querySelector('.pb');pb.scrollTo({top:pb.scrollHeight,behavior:'smooth'});break}
+      case 'jsearch':openPalette('','thread',tid);break;
       case 'jlast':{const pb=pane.querySelector('.pb');const ms=pane.querySelectorAll('.msgs>.msg');let m=ms[ms.length-1];if(m&&m.classList.contains('assistant')&&ms.length>1&&ms[ms.length-2].classList.contains('user'))m=ms[ms.length-2];if(m)pb.scrollTo({top:pb.scrollTop+m.getBoundingClientRect().top-pb.getBoundingClientRect().top-12,behavior:'smooth'});break}
       case 'jprev':{const pb=pane.querySelector('.pb');if(pane.__prev!=null)pb.scrollTo({top:pane.__prev,behavior:'smooth'});pane.__prev=null;pane.classList.remove('hasprev');break}
       case 'zin':stepPaneZoom(tid,1);break;
