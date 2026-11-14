@@ -29,3 +29,16 @@ randomized test that no message's context ever changes. Branches can be hidden f
 Every instruction the page sends the model lives in `web/prompts.js`, so it can be read and changed without
 digging through the client. The palette button in the top bar switches between themes (light, dark, match
 the device, and several more); each theme is just a set of CSS variables.
+
+## Several devices, and replies that survive a locked phone
+
+A conversation carries a version number; a save says which version it started from, and if another device
+saved in between, the page merges the two (`ThreadOps.merge` in `web/threads.js`): what only one side changed
+is taken, deletions win, and when both went on from the same point the later one becomes another version. The
+result must pass `check()` and every message must see exactly what it saw before, or this device's version is
+kept as a copy instead. A randomized test runs thousands of two-device cases. Layout is per device, and canvas
+views are how you share one on purpose. Tabs catch up when they come back to the foreground.
+
+Replies are runs on the server (`server/runs.mjs`): a dropped connection only detaches the page, which
+reconnects and replays from the line it had; a reply that finishes with nobody watching is written into its
+conversation; one nobody comes back to within 10 minutes is stopped and saved as cut off, with Continue.

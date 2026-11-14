@@ -490,6 +490,21 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .cnode.res .ch .ct{color:var(--muted)}
 .cvtools{position:absolute;right:14px;bottom:14px;display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px;z-index:3}
 .cvtools .tb{height:28px}
+.cvtools #zViews{max-width:180px}.cvtools #zViews .vn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cvviews{min-width:260px;max-width:min(340px,calc(100vw - 24px))}
+.cvviews .vrow{display:flex;align-items:center;gap:2px}
+.cvviews .vrow>button:first-child{flex:1;min-width:0;justify-content:flex-start;text-align:left}
+.cvviews .vrow>button:first-child span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cvviews .vrow .ib{width:26px;height:26px;padding:0;justify-content:center;flex:none;color:var(--muted)}
+.cvviews .vrow .ib:hover{color:var(--ink)}
+.cvviews .vrow .ib svg.i{width:14px;height:14px}
+.cvviews .vck{width:14px;flex:none;display:inline-flex;color:var(--accent)}
+.cvviews .vck svg.i{width:14px;height:14px}
+.cvviews small{color:var(--faint);margin-left:auto;font-size:11.5px;white-space:nowrap}
+.cvviews form{display:flex;gap:6px;padding:6px 4px 2px;border-top:1px solid var(--line);margin-top:4px}
+.cvviews input{flex:1;min-width:0;font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--ink)}
+.cvviews form .tb{flex:none;width:auto;padding:5px 10px;justify-content:center;background:var(--user-bg)}
+.cvviews .vrow .ib{width:26px}
 .cvhint{position:absolute;left:14px;bottom:14px;font-size:12px;color:var(--faint);z-index:3;pointer-events:none}
 /* pins and archive */
 .ib.pinned{color:var(--accent)}
@@ -727,7 +742,7 @@ a.pref:hover{border-bottom-style:solid}
     <svg id="wires"></svg>
     <div class="cv" id="cv"><div id="world"><svg id="edges" width="1" height="1"></svg></div><div id="dock"></div><div id="snapPrev"></div>
       <div class="cvhint">Drag the background to pan, scroll to zoom. Drag a card by its title to move it, or to an edge to snap it there. Alt+scroll zooms one card. Space reads the selected card full screen.</div>
-      <div class="cvtools"><button class="tb" id="zTidy" title="Forget the positions you set and lay the tree out automatically"></button><button class="ib" id="zOut" title="Zoom out"></button><button class="ib" id="zFit" title="Fit the whole tree in view"></button><button class="ib" id="zIn" title="Zoom in"></button></div>
+      <div class="cvtools"><button class="tb" id="zViews" title="Canvas views: saved arrangements of this canvas, shared with your other devices"></button><button class="tb" id="zTidy" title="Forget the positions you set and lay the tree out automatically"></button><button class="ib" id="zOut" title="Zoom out"></button><button class="ib" id="zFit" title="Fit the whole tree in view"></button><button class="ib" id="zIn" title="Zoom in"></button></div>
     </div>
     <div class="banner" id="banner"></div>
   </main>
@@ -805,6 +820,7 @@ const I={
  trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
  dl:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
  ext:'<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+ views:'<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
  img:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
 };
 const ic=(n)=>`<svg class="i" viewBox="0 0 24 24">${I[n]}</svg>`;
@@ -824,6 +840,7 @@ const modelLabel=(v)=>{if(!v)return '';if(typeof v==='object')v=v.model||v.id||'
 let conv=null,convList=[];
 const msgCache=new Map(),paneEls=new Map(),gutEls=new Map(),streaming=new Map();
 window.__digressBusy=()=>streaming.size>0; // read by the server's dev live-reload, so it never reloads mid-reply
+window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id)};   // for tests and the console
 let mathReady=false,mermaidReady=null,mermaidOk=false;
 let popState=null;
 
@@ -855,17 +872,18 @@ const isCollapsed=(tid)=>conv.ui.collapsed.includes(tid);
    io.index  search index entries, same shape as io.store
    io.files  upload(blob, type) -> {id}, fetch(id, 'text'|'arrayBuffer'), remove(id), canUpload
    They come from the Digress server (server/server.mjs); nothing else in the app should call the server directly. */
-const io={llm:null,store:null,index:null,files:null,cards:null,ready:null};
+const io={llm:null,store:null,layout:null,index:null,files:null,cards:null,ready:null};
 function memoryStore(label){
   const m=new Map();
   return {kind:'memory',label:label||'',
     list:async()=>[...m.entries()].map(([id,data])=>({id,data:structuredClone(data)})),
     get:async(id)=>m.has(id)?structuredClone(m.get(id)):null,
     put:async(id,d)=>{m.set(id,structuredClone(d))},
+    save:async(id,d)=>{const rev=((m.get(id)||{}).rev||0)+1;m.set(id,{...structuredClone(d),rev});return {rev}},
     update:async(id,p)=>{if(m.has(id))Object.assign(m.get(id),structuredClone(p))},
     remove:async(id)=>{m.delete(id)}};
 }
-function noLlm(why){return {kind:'none',supportsEffort:false,supportsWeb:false,why,models:()=>[['auto','Auto']],ready:async()=>false,complete:async()=>{throw {message:why}}}}
+function noLlm(why){return {kind:'none',supportsEffort:false,supportsWeb:false,why,models:()=>[['auto','Auto']],ready:async()=>false,complete:async()=>{throw {message:why}},stop:async()=>{}}}
 const noFiles={kind:'none',canUpload:false,upload:async()=>{throw {code:'unavailable'}},fetch:async()=>{throw new Error('This document\'s file isn\'t available here.')},remove:async()=>{}};
 /* Self-hosted: the Digress server (server/server.mjs) serves this page and offers the same four parts over HTTP. */
 async function findServer(){
@@ -913,8 +931,23 @@ function serverStore(coll,label){
     list:async()=>(await okOrThrow(await fetch(base))).json(),
     get:async(id)=>{const r=await fetch(u(id));if(r.status===404)return null;return (await okOrThrow(r)).json()},
     put:async(id,d)=>{await okOrThrow(await fetch(u(id),{method:'PUT',headers:json,body:JSON.stringify(d)}))},
+    // conversations: save from version `base` (null: new) -> {rev} | {current} (changed elsewhere) | {deleted}
+    save:async(id,d,base)=>{
+      const r=await fetch(u(id),{method:'PUT',headers:{...json,...(base!=null?{'x-base-rev':String(base)}:{})},body:JSON.stringify(d)});
+      if(r.status===409){const j=await r.json();if(j.current)return {current:j.current}}
+      if(r.status===410)return {deleted:true};
+      return {rev:(await (await okOrThrow(r)).json()).rev||1};
+    },
+    rev:async(id)=>{const r=await fetch(u(id)+'?rev=1',{cache:'no-store'});if(r.status===404)return null;return (await (await okOrThrow(r)).json()).rev||0},
     update:async(id,p)=>{await okOrThrow(await fetch(u(id),{method:'PATCH',headers:json,body:JSON.stringify(p)}))},
     remove:async(id)=>{await okOrThrow(await fetch(u(id),{method:'DELETE'}))}};
+}
+// per-device layout of each conversation (server: api/layout)
+const DEVICE=(()=>{try{let d=localStorage.getItem('digress:device');if(!d){d='d'+rid()+rid();localStorage.setItem('digress:device',d)}return d}catch(e){return 'd'+rid()+rid()}})();
+function serverLayout(){
+  const u=(id)=>'api/layout/'+encodeURIComponent(id);
+  return {get:async(id)=>(await okOrThrow(await fetch(u(id),{cache:'no-store'}))).json(),
+    put:async(id,ui)=>{await okOrThrow(await fetch(u(id)+'?device='+DEVICE,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(ui)}))}};
 }
 function serverFiles(){
   return {kind:'server',canUpload:true,
@@ -938,6 +971,8 @@ function serverFiles(){
     fetch:async(id,as)=>{const r=await okOrThrow(await fetch('api/files/'+encodeURIComponent(id)));return as==='text'?r.text():r.arrayBuffer()},
     remove:async(id)=>{await fetch('api/files/'+encodeURIComponent(id),{method:'DELETE'})}};
 }
+const LLM_RECONNECT_MS=11*60e3,LLM_SILENT_MS=40e3;   // keep trying a reply this long (the server keeps it 10 min); a stream silent this long is dead
+const runId=()=>[...crypto.getRandomValues(new Uint8Array(16))].map(b=>b.toString(16).padStart(2,'0')).join('');
 function serverLlm(info){
   let models=[['auto','Default']];
   const llm={kind:'server',supportsEffort:true,supportsWeb:!!(info.llm&&info.web),supportsImages:true,supportsTools:!!(info.llm&&info.tools),
@@ -950,37 +985,74 @@ function serverLlm(info){
     // tools: {run(name,input) → {parts}|{error}} lets the model use the document tools (server/doctools.mjs):
     // the server sends each call down this stream as {tool:{id,name,input}}, we run it here (this page has the
     // document open) and post the result back to api/chat/tool, where the server's loop is waiting for it.
-    async complete({system,messages,model,effort,web,signal,onText,onSearch,tools}){
+    // The reply runs on the server whether or not this page is connected (server/runs.mjs): if the connection
+    // drops (a phone locked, the network changed) this reconnects with GET api/chat/run/<id>?from=<lines it
+    // has> and carries on. Stopping it is stop(run), not dropping the connection. resume:true only reconnects
+    // (a reply this page, or another device, started earlier). save:{conv,msg}: where the server writes the
+    // reply if it finishes with no page connected.
+    async complete({system,messages,model,effort,web,signal,onText,onSearch,onTool,tools,run,save,resume}){
       if(!info.llm)throw {message:llm.why};
-      const useTools=!!(tools&&llm.supportsTools),chat=useTools?[...crypto.getRandomValues(new Uint8Array(16))].map(b=>b.toString(16).padStart(2,'0')).join(''):undefined;
-      const r=await okOrThrow(await fetch('api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({system,messages,model,effort,web:!!(web&&llm.supportsWeb),...(useTools?{tools:true,chat}:{})}),signal}));
+      const useTools=!!(tools&&llm.supportsTools),chat=run||runId();
+      const st={text:'',model:null,truncated:false,searches:[],sources:[],n:0,end:false,error:null};
       const answer=async(call)=>{let res;try{res=await tools.run(call.name,call.input||{})}catch(e){res={error:'The tool failed: '+((e&&e.message)||e)}}
         try{await fetch('api/chat/tool',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({chat,id:call.id,...res})})}catch(e){console.warn('tool result not delivered',e)}};
-      // the server streams one JSON object per line: {d:"text"} deltas, {search:"query"}, {sources:[{title,url}]},
-      // {tool:{id,name,input}}, then {done:true,model,truncated} or {error}
-      const rd=r.body.getReader(),dec=new TextDecoder();let buf='',text='',model_=null,truncated=false;const searches=[],sources=[];
-      for(;;){
-        const {value,done}=await rd.read();if(done)break;
-        buf+=dec.decode(value,{stream:true});let i;
-        while((i=buf.indexOf('\n'))>=0){
-          const line=buf.slice(0,i);buf=buf.slice(i+1);if(!line.trim())continue;
-          const ev=JSON.parse(line);
-          if(ev.d){text+=ev.d;onText&&onText(text)}
-          else if(ev.search){searches.push(String(ev.search));onSearch&&onSearch({searches,sources})}
-          else if(ev.sources){for(const x of ev.sources)if(x&&/^https?:\/\//i.test(x.url)&&!sources.some(y=>y.url===x.url))sources.push({title:String(x.title||x.url),url:String(x.url)});onSearch&&onSearch({searches,sources})}
-          else if(ev.tool&&useTools)answer(ev.tool);   // not awaited: keep reading the stream meanwhile
-          else if(ev.error)throw {message:ev.error,text,searches,sources};
-          else if(ev.done){model_=ev.model||null;truncated=!!ev.truncated}
-        }
+      // one JSON object per line: {d:"text"} deltas, {search:"query"}, {sources:[{title,url}]}, {tool:{id,name,input}}
+      // ({toolDone} when replayed after it was answered), {hb} heartbeats, then {done:true,model,truncated} or {error}
+      const handle=(ev)=>{
+        if(ev.hb)return;
+        st.n++;
+        if(ev.d){st.text+=ev.d;onText&&onText(st.text)}
+        else if(ev.search){st.searches.push(String(ev.search));onSearch&&onSearch({searches:st.searches,sources:st.sources})}
+        else if(ev.sources){for(const x of ev.sources)if(x&&/^https?:\/\//i.test(x.url)&&!st.sources.some(y=>y.url===x.url))st.sources.push({title:String(x.title||x.url),url:String(x.url)});onSearch&&onSearch({searches:st.searches,sources:st.sources})}
+        else if(ev.tool){if(useTools||resume){onTool&&onTool(ev.tool,false);if(tools)answer(ev.tool)}}   // not awaited: keep reading the stream meanwhile
+        else if(ev.toolDone){onTool&&onTool(ev.toolDone,true)}
+        else if(ev.error){st.error=String(ev.error);st.end=true}
+        else if(ev.done){st.model=ev.model||null;st.truncated=!!ev.truncated;st.end=true}
+      };
+      // read one connection until the reply ends ('end') or the connection goes ('lost'). A connection that's
+      // silent past the heartbeats is taken as dead (phones can leave one hanging after they wake up).
+      const read=async(r)=>{
+        const rd=r.body.getReader(),dec=new TextDecoder();let buf='',last=Date.now();
+        const kick=()=>{if(Date.now()-last>LLM_SILENT_MS)rd.cancel().catch(()=>{})};
+        const dog=setInterval(kick,3000),vis=()=>{if(document.visibilityState==='visible'&&Date.now()-last>20000)rd.cancel().catch(()=>{})};
+        document.addEventListener('visibilitychange',vis);
+        try{
+          for(;;){
+            const {value,done}=await rd.read();if(done)break;
+            last=Date.now();buf+=dec.decode(value,{stream:true});let i;
+            while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+1);if(line.trim())handle(JSON.parse(line));if(st.end)return 'end'}
+          }
+        }catch(e){if(signal&&signal.aborted)throw e}
+        finally{clearInterval(dog);document.removeEventListener('visibilitychange',vis)}
+        return st.end?'end':'lost';
+      };
+      const fail=(o)=>Object.assign({text:st.text,searches:st.searches,sources:st.sources},o);
+      let state='lost';
+      if(!resume){
+        let r=null;
+        try{r=await fetch('api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({system,messages,model,effort,web:!!(web&&llm.supportsWeb),chat,...(useTools?{tools:true}:{}),...(save?{save}:{})}),signal})}
+        catch(e){if(signal&&signal.aborted)throw e}
+        if(r){await okOrThrow(r);state=await read(r)}
       }
-      return {text,truncated,model:model_,searches,sources};
-    }};
+      for(let wait=400,until=Date.now()+LLM_RECONNECT_MS;state==='lost';wait=Math.min(wait*2,4000)){
+        if(signal&&signal.aborted)throw new DOMException('Aborted','AbortError');
+        if(Date.now()>until)throw fail({message:'Lost the connection to the server before the reply finished.',cut:true});
+        if(st.n||resume||wait>400)await new Promise(ok=>setTimeout(ok,wait));
+        let g;try{g=await fetch('api/chat/run/'+chat+'?from='+st.n,{signal,cache:'no-store'})}catch(e){if(signal&&signal.aborted)throw e;continue}
+        if(g.status===404)throw fail(st.n||resume?{message:'The server no longer has this reply, so it stops here.',cut:true}:{message:'Couldn’t reach the server.'});
+        if(!g.ok){if(g.status>=500&&g.status!==500)continue;await okOrThrow(g)}
+        state=await read(g);
+      }
+      if(st.error)throw fail({message:st.error});
+      return {text:st.text,truncated:st.truncated,model:st.model,searches:st.searches,sources:st.sources};
+    },
+    stop:(run)=>fetch('api/chat/stop',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({chat:run})}).catch(()=>{})};
   return llm;
 }
 async function initConnectors(){
   const srv=await findServer();
   if(srv){
-    io.llm=serverLlm(srv);io.store=serverStore('convs','Saved');io.index=serverStore('index');io.cards=offlineCards(serverStore('cards'));io.files=serverFiles();
+    io.llm=serverLlm(srv);io.store=serverStore('convs','Saved');io.layout=serverLayout();io.index=serverStore('index');io.cards=offlineCards(serverStore('cards'));io.files=serverFiles();
     await io.llm.loadModels();
     if(!srv.llm)showBanner(true,io.llm.why);
     return;
@@ -1200,6 +1272,11 @@ function makeNewCards(){const l=newForCards();if(!l.length){toast('Nothing new s
 function queueDraft(tid,o){drafting++;syncCardsUI();const c0=conv;draftChain=draftChain.then(()=>draftCards(c0,tid,o)).catch(e=>{console.warn('card drafting failed',e);toast('Couldn’t draft cards: '+((e&&e.message)||e))}).finally(()=>{drafting--;syncCardsUI()});return draftChain}
 async function draftCards(c0,tid,o){
   if(conv!==c0)return;   // the conversation was switched before this branch's turn came
+  if(!o.takeaway){   // another device may have drafted this thread already: catch up first, so the same cards aren't made twice
+    const had=c0.cards&&c0.cards.done&&c0.cards.done[tid];await catchUp(true);
+    if(conv!==c0)return;const now=c0.cards&&c0.cards.done&&c0.cards.done[tid];
+    if(now&&now!==had&&now===lastReply(tid)){if(!o.quiet)toast('Cards for this were already drafted on another device.');return}
+  }
   const t=T(tid);if(!t)return;
   await docReady();
   const ctx=buildContext(tid),seen=lastReply(tid);   // the same context and document tools as the conversation, so it can check the document and shares its prompt cache
@@ -1445,35 +1522,78 @@ async function send(tid,text,imgs){
   await docReady();
   await generate(am,buildContext(tid,am.id),tid);
 }
-async function generate(m,ctx,lockTid){
-  const ctrl=new AbortController();streaming.set(lockTid,{mid:m.id,ctrl});updateComposer(lockTid);let tick=0;
+// Writes reply m. The reply runs on the server as run m.run (server/runs.mjs), saved with the message while
+// it's being written, so it survives this page losing its connection, switching conversation or reloading
+// (resumeRuns picks it up again), and the server writes it in itself if nobody comes back.
+// o.resume: reconnect to m.run instead of asking. o.prefix: text it carries on from (Continue).
+async function generate(m,ctx,lockTid,o={}){
+  const ctrl=new AbortController(),run=o.resume?m.run:runId(),st={mid:m.id,ctrl,run,conv};
+  streaming.set(lockTid,st);updateComposer(lockTid);let tick=0;
+  const prefix=o.prefix||'';
   try{
     if(!io.llm)await io.ready;
-    const web=!!(settings.web&&io.llm.supportsWeb);if(web)m.web=true;else delete m.web;delete m.searches;delete m.sources;delete m.reads;delete m.toolNow;
-    if(io.llm.supportsEffort)m.effort=settings.effort;else delete m.effort;
+    let web=!!m.web;
+    if(!o.resume){
+      web=!!(settings.web&&io.llm.supportsWeb);if(web)m.web=true;else delete m.web;delete m.searches;delete m.sources;delete m.reads;delete m.toolNow;delete m.cut;
+      if(io.llm.supportsEffort)m.effort=settings.effort;else delete m.effort;
+      if(ctx.docSeen)m.docSeen=ctx.docSeen;else delete m.docSeen;
+      m.run=run;save();await flushNow();   // saved with its run first, so the server can finish it into this message
+    }
     // m.live: what it has done so far, shown while it works (not saved: generate drops it when done)
-    m.live=[];m.t0=Date.now();tick=setInterval(()=>queueStream(m.id),1000);
+    m.live=[];m.t0=m.t0||Date.now();tick=setInterval(()=>queueStream(m.id),1000);
     const step=(icon,text,done)=>{const l=m.live[m.live.length-1];if(l)l.done=true;m.live.push({icon,text,done});queueStream(m.id)};
-    const trail=[],tools=ctx.tools?{run:async(name,input)=>{   // the model reading the document: run the call here, show what it's doing
-      step('doc',trailText(name==='search'?{t:'search',q:String(input.query||'')}:name==='read_pages'?{t:'read',a:input.from,b:input.to||input.from}:{t:'view',p:input.page}),false);
-      try{return await runDocTool(name,input,trail)}finally{m.reads=[...trail];const l=m.live[m.live.length-1];if(l)l.done=true;queueStream(m.id)}}}:undefined;
+    const toolText=(name,input)=>trailText(name==='search'?{t:'search',q:String(input.query||'')}:name==='read_pages'?{t:'read',a:input.from,b:input.to||input.from}:{t:'view',p:input.page});
+    const trail=[...(o.resume&&m.reads||[])],tools=ctx.tools?{run:async(name,input)=>{   // the model reading the document: run the call here, show what it's doing
+      try{await docReady();return await runDocTool(name,input,trail)}finally{m.reads=[...trail];const l=m.live[m.live.length-1];if(l)l.done=true;queueStream(m.id)}}}:undefined;
     let nq=0;
     const keepSearch=(x)=>{if(x.searches&&x.searches.length){m.searches=[...x.searches];for(;nq<x.searches.length;nq++)step('globe',`searched the web for “${x.searches[nq]}”`,false)}if(x.sources&&x.sources.length)m.sources=x.sources.slice(0,30)};
-    const rc=await resolveContext(ctx,!!io.llm.supportsImages);
-    if(rc.skipped)toast('This connection can’t send images, so Claude only gets a note where each image was.');
-    const r=await io.llm.complete({system:rc.system,messages:rc.messages,model:settings.model,effort:settings.effort,web,signal:ctrl.signal,
-      onText:(text)=>{m.content=text;const l=m.live[m.live.length-1];if(l)l.done=true;queueStream(m.id)},onSearch:(x)=>{keepSearch(x);queueStream(m.id)},tools});
-    m.content=r.text;if(r.model)m.model=r.model;keepSearch(r);if(ctx.docSeen)m.docSeen=ctx.docSeen;else delete m.docSeen;
+    const onTool=(call,done)=>step('doc',toolText(call.name,call.input||{}),done);
+    const onText=(text)=>{m.content=prefix+text;const l=m.live[m.live.length-1];if(l)l.done=true;queueStream(m.id)};
+    let r;
+    if(o.resume)r=await io.llm.complete({resume:true,run,signal:ctrl.signal,onText,onSearch:(x)=>{keepSearch(x);queueStream(m.id)},onTool,tools});
+    else{
+      const rc=await resolveContext(ctx,!!io.llm.supportsImages);
+      if(rc.skipped)toast('This connection can’t send images, so Claude only gets a note where each image was.');
+      r=await io.llm.complete({system:rc.system,messages:rc.messages,model:settings.model,effort:settings.effort,web,signal:ctrl.signal,run,save:{conv:conv.id,msg:m.id},
+        onText,onSearch:(x)=>{keepSearch(x);queueStream(m.id)},onTool,tools});
+    }
+    m.content=prefix+r.text;if(r.model)m.model=r.model;keepSearch(r);
     if(r.truncated)m.error='Reply was cut off (length limit).';
   }catch(e){
-    if(e&&e.text)m.content=e.text;
+    if(st.detached){clearInterval(tick);return}   // the page moved to another conversation: the reply carries on without it
+    if(e&&e.text!==undefined)m.content=prefix+e.text;
     if(e&&e.searches&&e.searches.length)m.searches=[...e.searches];if(e&&e.sources&&e.sources.length)m.sources=e.sources.slice(0,30);
-    m.error=ctrl.signal.aborted?'Stopped.':(e&&e.code==='rate_limited'?'Rate limited. Wait a moment and retry.':(e&&e.message)||'Something went wrong.');
+    if(e&&e.cut&&!st.stopped){m.cut=true;m.error='Cut off before it finished: '+e.message}
+    else m.error=st.stopped||ctrl.signal.aborted?'Stopped.':(e&&e.code==='rate_limited'?'Rate limited. Wait a moment and retry.':(e&&e.message)||'Something went wrong.');
   }
-  clearInterval(tick);delete m.pending;delete m.toolNow;delete m.live;delete m.t0;if(m.reads&&!m.reads.length)delete m.reads;m.ver++;streaming.delete(lockTid);
+  clearInterval(tick);
+  if(conv!==st.conv)return;
+  delete m.pending;delete m.run;delete m.runFrom;delete m.toolNow;delete m.live;delete m.t0;if(m.reads&&!m.reads.length)delete m.reads;m.ver++;streaming.delete(lockTid);
   cardsAfterReply(m);
   renderPane(m.thread);updateComposer(lockTid);renderMap();save();
   if(conv.ui.view==='canvas')renderCanvas();
+}
+// Stop: tell the server to stop the model, and stop reading
+function stopReply(s){if(!s)return;s.stopped=true;if(s.run&&io.llm&&io.llm.stop)io.llm.stop(s.run);s.ctrl.abort()}
+// replies saved as still being written (m.run): from this page before a reload, or from another device.
+// Reconnect to each; the server replays it from the start and goes on with it.
+function resumeRuns(){
+  for(const m of Object.values(conv.msgs)){
+    if(!m.run||m.role!=='assistant'||[...streaming.values()].some(s=>s.mid===m.id))continue;
+    if(streaming.has(m.thread))continue;
+    const prefix=(m.content||'').slice(0,m.runFrom||0);m.content=prefix;m.pending=true;m.ver++;
+    const ctx=conv.doc?{tools:!!(io.llm&&io.llm.supportsTools)}:{};
+    generate(m,ctx,m.thread,{resume:true,prefix});
+  }
+}
+// a reply that was cut off: ask the model to carry on from where it stopped
+async function continueReply(mid){
+  const m=conv.msgs[mid];if(!m||m.role!=='assistant'||streaming.has(m.thread))return;
+  const before=m.content||'';delete m.cut;delete m.error;m.pending=true;m.runFrom=before.length;m.ver++;renderPane(m.thread);
+  await docReady();
+  const ctx=buildContext(m.thread,m.id);
+  ctx.messages.push({role:'assistant',content:before},{role:'user',content:PROMPTS.continueCut});
+  await generate(m,ctx,m.thread,{prefix:before});
 }
 function retry(mid){
   const m=conv.msgs[mid];if(!m||streaming.has(m.thread))return;
@@ -1624,7 +1744,7 @@ function createBranch(mid,anchorText,question,title,range,page,img){
 function deleteBranch(tid){
   const t=T(tid);if(!t||!t.parent)return;
   const kill=[tid,...Object.keys(conv.threads).filter(x=>isDesc(x,tid))];
-  for(const k of kill){const s=streaming.get(k);if(s)s.ctrl.abort()}
+  for(const k of kill)stopReply(streaming.get(k));
   for(const k of kill){for(const mid of conv.order[k]||[]){delete conv.msgs[mid];msgCache.delete(mid)}delete conv.order[k];delete conv.threads[k]}
   const keep=x=>conv.threads[x]||(x==='doc'&&conv.doc);
   conv.ui.open=conv.ui.open.filter(keep);conv.ui.collapsed=conv.ui.collapsed.filter(keep);
@@ -1858,7 +1978,7 @@ function msgEl(m){
   msgCache.set(m.id,{key,el});return el;
 }
 function buildFoot(f,m){
-  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(m.error?`<button class="ib" data-act="retry" title="Retry">${ic('retry')}</button>`:m.role==='assistant'&&redoBlock(m.id)!=='busy'&&questionOf(m.id)?`<button class="ib" data-act="redo" title="${redoBlock(m.id)?'Redo as another version: asks again with the model and effort selected now, next to this one. Nothing here changes.':'Redo: ask again with the model and effort selected now (replaces this reply)'}">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}${m.effort?` · ${esc(effortLabel(m.effort))}`:''}</span>`:'');
+  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(m.cut?`<button class="tb" data-act="continue" title="Ask the model to carry on from where it stopped">${ic('send')}Continue</button>`:'')+(m.error?`<button class="ib" data-act="retry" title="${m.cut?'Ask again from the start':'Retry'}">${ic('retry')}</button>`:m.role==='assistant'&&redoBlock(m.id)!=='busy'&&questionOf(m.id)?`<button class="ib" data-act="redo" title="${redoBlock(m.id)?'Redo as another version: asks again with the model and effort selected now, next to this one. Nothing here changes.':'Redo: ask again with the model and effort selected now (replaces this reply)'}">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}${m.effort?` · ${esc(effortLabel(m.effort))}`:''}</span>`:'');
   const bs=shownOn(m.id);
   if(bs.length){
     const wrap=document.createElement('div');wrap.className='bchips';
@@ -1936,7 +2056,7 @@ function paneEl(tid){
   ta.placeholder=isMain?'Ask anything…':'Ask a follow-up in this branch…';
   ta.addEventListener('input',()=>{autosize(ta);updateComposer(tid)});
   ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();submit(tid)}});
-  el.querySelector('form').addEventListener('submit',e=>{e.preventDefault();const s=streaming.get(tid);if(s){s.ctrl.abort();return}submit(tid)});
+  el.querySelector('form').addEventListener('submit',e=>{e.preventDefault();const s=streaming.get(tid);if(s){stopReply(s);return}submit(tid)});
   const tk=el.querySelector('.tk');
   if(tk){const inp=tk.querySelector('input');const go=()=>{tk.classList.remove('show');const f=inp.value.trim();inp.value='';bringBack(tid,f)};
     tk.querySelector('.go').addEventListener('click',go);inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();go()}else if(e.key==='Escape')tk.classList.remove('show')})}
@@ -2651,6 +2771,66 @@ function canvasAction(act,tid,btn){
   $('#zTidy').innerHTML=ic('canvas')+'Tidy';
   $('#zIn').onclick=()=>zoomAt(1.2);$('#zOut').onclick=()=>zoomAt(1/1.2);$('#zFit').onclick=fitCanvas;
   $('#zTidy').onclick=()=>{cvState().pos={};renderCanvas();fitCanvas();save()};
+  $('#zViews').onclick=(e)=>{e.stopPropagation();$('#cvViews').classList.contains('open')?closeViews():openViews()};
+})();
+/* ---------- canvas views ----------
+   A view is a saved arrangement of the canvas (card positions and sizes, which cards are open, folded or
+   docked, their zoom, where the camera is), kept in the conversation (conv.views), so all your devices have
+   it. The canvas itself is per device (it's in the layout). Loading a view copies it onto this device's
+   canvas: moving cards afterwards changes only this device until you choose Update. "This device" goes back
+   to the arrangement this device had before it loaded a view (ui.cvOwn). Nothing changes unless you use them. */
+const cvSnap=()=>({cv:JSON.parse(JSON.stringify(cvState())),cam:{x:cam.x,y:cam.y,k:cam.k}});
+function cvLoad(snap){conv.ui.cv=JSON.parse(JSON.stringify(snap.cv||{}));if(snap.cam){Object.assign(cam,snap.cam);camFitted=true}renderCanvas();applyCam();save()}
+function useView(vid){
+  const ui=conv.ui;
+  if(!vid){if(ui.cvOwn)cvLoad(ui.cvOwn);delete ui.cvOwn;delete ui.cvView}
+  else{const v=(conv.views||{})[vid];if(!v)return;if(!ui.cvView)ui.cvOwn=cvSnap();ui.cvView=vid;cvLoad(v)}
+  syncViewsUI();save();
+}
+function saveView(name){
+  name=(name||'').trim().slice(0,60);if(!name)return;
+  const id='v'+rid();conv.views=conv.views||{};conv.views[id]={name,...cvSnap(),at:Date.now()};
+  conv.ui.cvView=id;syncViewsUI();save();setStatus(`Saved “${name}”`);
+}
+function updateView(vid){const v=(conv.views||{})[vid];if(!v)return;Object.assign(v,cvSnap(),{at:Date.now()});syncViewsUI();save();setStatus(`Updated “${v.name}”`)}
+function deleteView(vid){const v=(conv.views||{})[vid];if(!v)return;delete conv.views[vid];if(!Object.keys(conv.views).length)delete conv.views;if(conv.ui.cvView===vid)delete conv.ui.cvView;syncViewsUI();save()}
+function syncViewsUI(){
+  const b=$('#zViews');if(!b||!conv)return;
+  const v=conv.ui.cvView&&(conv.views||{})[conv.ui.cvView];if(conv.ui.cvView&&!v)delete conv.ui.cvView;
+  b.innerHTML=ic('views')+`<span class="vn">${esc(v?v.name:'Views')}</span>`;
+  const m=$('#cvViews');if(m&&m.classList.contains('open'))renderViewsMenu();
+}
+function renderViewsMenu(edit){
+  const m=$('#cvViews'),cur=conv.ui.cvView,vs=Object.entries(conv.views||{}).sort((a,b)=>a[1].name.localeCompare(b[1].name));
+  const ck=(on)=>`<span class="vck">${on?ic('check'):''}</span>`;
+  m.innerHTML=`<div class="thh">Canvas views, shared with your other devices</div>`+
+    `<div class="vrow"><button data-vuse="">${ck(!cur)}<span>This device</span><small>its own arrangement</small></button></div>`+
+    vs.map(([id,v])=>edit===id?`<form data-vren="${id}"><input value="${esc(v.name)}" maxlength="60" aria-label="New name"><button class="tb">Rename</button></form>`:
+      `<div class="vrow"><button data-vuse="${id}" title="Lay this canvas out like this view (on this device; the view itself only changes with Update)">${ck(cur===id)}<span>${esc(v.name)}</span></button>`+
+      (cur===id?`<button class="ib" data-vupd="${id}" title="Update: save this canvas as it is now into “${esc(v.name)}”">${ic('retry')}</button>`:'')+
+      `<button class="ib" data-vedit="${id}" title="Rename">${ic('edit')}</button><button class="ib" data-vdel="${id}" title="Delete this view">${ic('trash')}</button></div>`).join('')+
+    `<form data-vnew><input placeholder="Name this arrangement…" maxlength="60" aria-label="Name for a new view"><button class="tb">Save view</button></form>`;
+  const r=$('#zViews').getBoundingClientRect();
+  m.style.right=Math.max(8,innerWidth-r.right)+'px';m.style.bottom=Math.max(8,innerHeight-r.top+6)+'px';m.style.left='auto';m.style.top='auto';
+  if(edit){const i=m.querySelector(`form[data-vren="${edit}"] input`);i.focus();i.select()}
+}
+function openViews(){$('#cvViews').classList.add('open');renderViewsMenu()}
+function closeViews(){const m=$('#cvViews');if(m)m.classList.remove('open')}
+(()=>{
+  const m=document.createElement('div');m.className='thmenu cvviews';m.id='cvViews';m.setAttribute('role','menu');document.body.appendChild(m);
+  m.addEventListener('click',e=>{
+    const u=e.target.closest('[data-vuse]');if(u){useView(u.dataset.vuse||null);closeViews();return}
+    const up=e.target.closest('[data-vupd]');if(up){updateView(up.dataset.vupd);return}
+    const ed=e.target.closest('[data-vedit]');if(ed){renderViewsMenu(ed.dataset.vedit);return}
+    const d=e.target.closest('[data-vdel]');if(d){const v=conv.views[d.dataset.vdel];closeViews();askConfirm('Delete this view?',`<b>${esc(v.name)}</b> will be removed from all your devices. The canvas stays as it is.`,()=>deleteView(d.dataset.vdel))}
+  });
+  m.addEventListener('submit',e=>{
+    e.preventDefault();const f=e.target,name=f.querySelector('input').value;
+    if(f.dataset.vren){const v=conv.views[f.dataset.vren];if(v&&name.trim()){v.name=name.trim().slice(0,60);save()}syncViewsUI();renderViewsMenu();return}
+    saveView(name);closeViews();
+  });
+  m.addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();closeViews();$('#zViews').focus()}});
+  document.addEventListener('pointerdown',e=>{if(m.classList.contains('open')&&!m.contains(e.target)&&!e.target.closest('#zViews'))closeViews()});
 })();
 function openFromCanvas(tid,mid){
   setView(conv.ui.layout);
@@ -3643,33 +3823,151 @@ async function openPinnedBranch(cid,tid){
   openThread(tid);conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==tid);layout();revealPane(tid);
 }
 
-/* ---------- persistence ---------- */
+/* ---------- persistence, and the same conversation on several devices ----------
+   Only a conversation's content is saved with it; its layout (open panes, sizes, view, zoom, canvas) is per
+   device (saveLayout: api/layout). Each save says which version (rev) it started from. If another device saved
+   in between, the server refuses and sends its copy, and this page merges the two (ThreadOps.merge in
+   threads.js: nothing either side added is lost, and every message keeps what it saw) and saves that. If they
+   can't be combined, this page's version is kept as a separate conversation. Coming back to the tab (catchUp)
+   fetches whatever changed elsewhere, so switching devices finds everything where it was left. */
 let saveTimer=0,saving=false,dirty=false;
-function save(){if(!conv)return;conv.updated=Date.now();dirty=true;if(typeof IDX!=='undefined')IDX.dirty=true;clearTimeout(saveTimer);saveTimer=setTimeout(flush,700)}
-function serialize(c){
-  const msgs={};for(const [k,m] of Object.entries(c.msgs)){const {pending,...rest}=m;msgs[k]=rest}
-  return {...c,msgs};
-}
+const sync={id:null,rev:0,base:null,sent:'',ui:''};   // for the open conversation: its version, content as last saved/loaded, what that was
+function save(){if(!conv)return;dirty=true;if(typeof IDX!=='undefined')IDX.dirty=true;clearTimeout(saveTimer);saveTimer=setTimeout(flush,700)}
+const LOCAL_MSG=['pending','ver','live','t0','toolNow'];   // per page, never saved
+const plainMsg=(m)=>{const x={...m};for(const f of LOCAL_MSG)delete x[f];return x};
+function serialize(c){const msgs={};for(const [k,m] of Object.entries(c.msgs))msgs[k]=plainMsg(m);return {...c,msgs}}
+function contentOf(c){const {ui,rev,...rest}=serialize(c);return JSON.parse(JSON.stringify(rest))}
+const contentKey=(x)=>JSON.stringify({...x,updated:0});
+function syncReset(c){sync.id=c.id;sync.rev=c.rev||0;sync.base=contentOf(c);sync.sent=c.rev?contentKey(sync.base):'';sync.ui=JSON.stringify(c.ui||{})}
 async function flush(){
   if(!dirty||!conv)return;
   if(saving){clearTimeout(saveTimer);saveTimer=setTimeout(flush,500);return}
   if(!conv.doc&&!conv.order.main.length&&Object.keys(conv.threads).length===1){dirty=false;return}
   if(!io.store){clearTimeout(saveTimer);saveTimer=setTimeout(flush,400);return}
-  dirty=false;saving=true;const data=serialize(conv);
+  dirty=false;saving=true;const c=conv;
   try{
-    await io.store.put(conv.id,data);if(io.store.label)setStatus(io.store.label);
-    await idxWrite(conv,docState&&docState.key===conv.id&&docState.loaded?docState.pages:null);
+    const content=contentOf(c);
+    if(contentKey(content)!==sync.sent||sync.id!==c.id){
+      c.updated=content.updated=Date.now();
+      if(await saveContent(c,content)&&io.store.label)setStatus(io.store.label);
+    }
+    await saveLayout(c);
+    await idxWrite(c,docState&&docState.key===c.id&&docState.loaded?docState.pages:null);
   }catch(e){
     console.warn('save failed',e);
     if(e&&e.code==='quota_exceeded')toast('Storage is full. Delete an old conversation.');
-    else if(e&&e.code==='invalid_argument'&&JSON.stringify(data).length>250000)toast('This conversation is too large to save (256 KB limit).');
+    else if(e&&e.code==='invalid_argument'&&JSON.stringify(contentOf(c)).length>250000)toast('This conversation is too large to save (256 KB limit).');
     else setStatus('Not saved');
   }
   saving=false;
-  const i=convList.findIndex(c=>c.id===conv.id);const meta=metaOf(conv);
-  if(i>=0)convList[i]=meta;else convList.unshift(meta);
+  if(!convList.length&&c!==conv)return;
+  const i=convList.findIndex(x=>x.id===c.id);const meta=metaOf(c);
+  if(i>=0)convList[i]=meta;else if(c===conv)convList.unshift(meta);
   convList.sort((a,b)=>b.updated-a.updated);renderConvList();
 }
+// -> true once saved. Merges and tries again when another device saved first.
+async function saveContent(c,content){
+  for(let tries=0;tries<4;tries++){
+    const mine=sync.id===c.id;
+    const r=await io.store.save(c.id,content,mine?(sync.rev||null):(c.rev||null));
+    if(r.rev){c.rev=r.rev;if(mine&&c===conv){sync.rev=r.rev;sync.base=content;sync.sent=contentKey(content)}return true}
+    if(r.deleted){deletedElsewhere(c,content);return false}
+    if(!r.current)throw new Error('unexpected answer from the store');
+    const next=mergeRemote(c,r.current,content);
+    if(!next){dirty=true;return false}   // a reply here is still being written: saved once it's done
+    if(contentKey(next)===sync.sent)return true;   // nothing of ours left to add
+    content=next;c.updated=content.updated=Math.max(Date.now(),content.updated||0);
+  }
+  throw new Error('This conversation kept changing on another device.');
+}
+// Merge `theirs` (the server's copy) into conversation c, whose content is `mine`. Returns c's content after,
+// or null when it has to wait (see ThreadOps.merge: later). The page shows the result.
+function mergeRemote(c,theirs,mine){
+  const t={...theirs};delete t.ui;
+  const base=sync.id===c.id?sync.base:null;let res=null;
+  if(base){
+    try{res=ThreadOps.merge(base,mine,t,{newId:(k)=>(k==='t'?'b':'m')+rid()+rid().slice(0,3),keep:[...streaming.values()].filter(s=>s.conv===c).map(s=>s.mid)})}
+    catch(e){if(e&&e.later)return null;if(!(e&&e.conflict))console.warn('merge failed',e);else console.info('not merged:',e.message)}
+  }
+  if(!res){keepCopy(c,mine);res={conv:JSON.parse(JSON.stringify(t))}}
+  applyContent(c,res.conv);
+  if(c===conv){sync.rev=theirs.rev||0;sync.base=JSON.parse(JSON.stringify(t));delete sync.base.rev;sync.sent=contentKey(sync.base);refreshAfterSync()}
+  return contentOf(c);
+}
+// put merged content into the live conversation, keeping the objects of replies being written here
+function applyContent(c,next){
+  const live=new Set([...streaming.values()].filter(s=>s.conv===c).map(s=>s.mid)),msgs={};
+  for(const [id,x] of Object.entries(next.msgs||{})){
+    const old=c.msgs[id];
+    if(old&&live.has(id)){old.thread=x.thread;msgs[id]=old;continue}
+    if(old&&JSON.stringify(plainMsg(old))===JSON.stringify(x)){msgs[id]=old;continue}
+    msgs[id]={...x,ver:((old&&old.ver)||0)+1};msgCache.delete(id);
+  }
+  for(const id of Object.keys(c.msgs))if(!msgs[id]){for(const s of streaming.values())if(s.mid===id&&s.conv===c)stopReply(s);msgCache.delete(id)}
+  for(const k of Object.keys(c))if(!['id','ui','msgs','rev'].includes(k)&&!(k in next))delete c[k];
+  for(const [k,v] of Object.entries(next))if(k!=='msgs'&&k!=='ui'&&k!=='rev')c[k]=v;
+  c.msgs=msgs;
+  // flashcards drafted from messages that now sit in another thread follow them
+  for(const card of CARDS.values()){
+    if(card.conv!==c.id||!card.at)continue;const m=msgs[card.at.msg];
+    if(m&&card.at.thread!==m.thread){if(card.thread===card.at.thread)card.thread=m.thread;card.at.thread=m.thread;putCard(card)}
+  }
+}
+// redraw the open conversation after it changed underneath (layout stays as it is on this device)
+function refreshAfterSync(){
+  const ui=conv.ui,keep=x=>conv.threads[x]||(x==='doc'&&conv.doc);
+  ui.open=ui.open.filter(keep);if(!ui.open.includes('main'))ui.open.unshift('main');ui.collapsed=(ui.collapsed||[]).filter(keep);
+  for(const [tid,el] of paneEls)if(!ui.open.includes(tid)){el.remove();paneEls.delete(tid)}
+  layout();for(const id of ui.open)if(id!=='doc'&&T(id))renderPane(id);
+  renderTitle();renderMap();renderConvList();syncCardsUI();syncViewsUI();if(ui.view==='canvas')renderCanvas();
+  resumeRuns();
+}
+// this page's version, as its own conversation (when it couldn't be combined with another device's)
+function keepCopy(c,mine,why){
+  const id='c'+Date.now().toString(36)+rid().slice(0,4),copy={...JSON.parse(JSON.stringify(mine)),id,title:(mine.title||'Conversation')+' (from this device)',titleKept:true,updated:Date.now(),ui:JSON.parse(JSON.stringify(c.ui||{}))};
+  for(const m of Object.values(copy.msgs))delete m.run;
+  io.store.put(id,copy).then(()=>{convList.unshift(metaOf(copy));renderConvList()}).catch(e=>console.warn('copy not saved',e));
+  if(why!=='deleted')toast(`This conversation changed on another device in a way that couldn’t be combined with yours, so yours was kept as “${copy.title}”.`);
+  return copy;
+}
+function deletedElsewhere(c,content){
+  const base=sync.id===c.id?sync.base:null,added=!base||Object.keys(content.msgs).some(id=>!base.msgs[id]);
+  convList=convList.filter(x=>x.id!==c.id);
+  const copy=added?keepCopy(c,content,'deleted'):null;
+  if(c===conv){dirty=false;setConv(copy?JSON.parse(JSON.stringify(copy)):newConv())}
+  renderConvList();
+  toast(copy?'This conversation was deleted on another device. What you added here was kept as a copy.':'This conversation was deleted on another device.');
+}
+async function saveLayout(c){
+  if(!io.layout||c!==conv||!c.rev)return;
+  const k=JSON.stringify(c.ui);if(k===sync.ui)return;
+  sync.ui=k;try{await io.layout.put(c.id,c.ui)}catch(e){sync.ui='';console.warn('layout not saved',e)}
+}
+// Back to this tab (or online again): whatever changed on other devices
+let catching=null,lastCatch=0;
+function catchUp(force){
+  if(!conv||!io.store||!io.store.rev||document.visibilityState==='hidden')return Promise.resolve();
+  if(catching)return catching;
+  if(!force&&Date.now()-lastCatch<1500)return Promise.resolve();
+  lastCatch=Date.now();
+  catching=(async()=>{
+    try{
+      loadList();
+      const c=conv;if(sync.id!==c.id||!sync.rev)return;
+      const rev=await io.store.rev(c.id);
+      if(c!==conv)return;
+      if(rev===null){deletedElsewhere(c,contentOf(c));return}
+      if(rev===sync.rev)return;
+      if(dirty||saving){await flushNow();return}   // saving finds the newer version and merges
+      const cur=await io.store.get(c.id);if(!cur||c!==conv)return;
+      const next=mergeRemote(c,cur,contentOf(c));
+      if(next&&contentKey(next)!==sync.sent)save();
+    }catch(e){console.warn('catching up failed',e)}
+  })().finally(()=>{catching=null});
+  return catching;
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')catchUp()});
+addEventListener('focus',()=>catchUp());addEventListener('online',()=>catchUp(true));addEventListener('pageshow',e=>{if(e.persisted)catchUp(true)});
 async function loadList(){
   await io.ready;
   try{
@@ -3687,12 +3985,16 @@ async function openConv(id){
     data=await io.store.get(id);
   }catch(e){console.warn(e)}
   if(!data){toast('Couldn\'t open that conversation.');return}
+  // this device's layout for it; the first time here, the one last used on another device
+  if(io.layout){try{const d=(await io.layout.get(id)).devices||{},pick=d[DEVICE]||Object.values(d).sort((a,b)=>(b.at||0)-(a.at||0))[0];if(pick&&pick.ui)data.ui=pick.ui}catch(e){console.warn('layout not loaded',e)}}
+  if(conv&&conv.id===id)return;
   setConv(data);
 }
-async function flushNow(){clearTimeout(saveTimer);if(dirty)await flush()}
+async function flushNow(){clearTimeout(saveTimer);for(let i=0;saving&&i<200;i++)await new Promise(ok=>setTimeout(ok,25));if(dirty)await flush()}
 async function deleteConv(id){
   await io.ready;
   let assetId=null;try{if(conv&&conv.id===id)assetId=conv.doc&&conv.doc.assetId;else{const d=await io.store.get(id);assetId=d&&d.doc&&d.doc.assetId}}catch(e){}
+  if(conv&&conv.id===id)for(const s of [...streaming.values()])stopReply(s);
   try{await io.store.remove(id)}catch(e){toast('Couldn\'t delete it.');return}
   if(assetId){try{await io.files.remove(assetId)}catch(e){console.warn(e)}}
   idxDelete(id);
@@ -3700,7 +4002,7 @@ async function deleteConv(id){
   if(conv&&conv.id===id){dirty=false;setConv(newConv())}else renderConvList();
 }
 function setConv(c){
-  for(const s of streaming.values())s.ctrl.abort();streaming.clear();
+  for(const s of streaming.values()){s.detached=true;s.ctrl.abort()}streaming.clear();   // replies carry on on the server; back here, resumeRuns picks them up
   conv=c;const ui=conv.ui=conv.ui||{};
   ui.open=(ui.open||['main']).filter(id=>conv.threads[id]||(id==='doc'&&conv.doc));if(!ui.open.includes('main'))ui.open.unshift('main');
   if(conv.doc&&!ui.open.includes('doc'))ui.open.unshift('doc');
@@ -3714,6 +4016,8 @@ function setConv(c){
   layout();renderTitle();renderMap();renderConvList();hidePop();syncCardsUI();
   $('#stage').classList.toggle('canvas',ui.view==='canvas');if(ui.view==='canvas')renderCanvas();
   syncViewSeg();
+  syncReset(conv);dirty=false;closeViews();syncViewsUI();
+  resumeRuns();
 }
 function setStatus(s){const el=$('#status');el.textContent=s;clearTimeout(setStatus.t);setStatus.t=setTimeout(()=>el.textContent='',2500)}
 function toast(s){const el=$('#toast');el.textContent=s;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),3000)}
@@ -3856,9 +4160,10 @@ document.addEventListener('click',e=>{
       case 'wbranch':createBranch(mid,'',null);break;
       case 'copy':navigator.clipboard.writeText(conv.msgs[mid].content).then(()=>toast('Copied'),()=>toast('Copy isn\'t allowed here'));break;
       case 'retry':retry(mid);break;
+      case 'continue':continueReply(mid);break;
       case 'redo':redo(mid);break;
       case 'edit':startEdit(act.closest('.msg'),mid);break;
-      case 'delnote':{const m=conv.msgs[mid];if(!m)break;const s=streaming.get(m.thread);if(s&&s.mid===mid)s.ctrl.abort();conv.order[m.thread]=conv.order[m.thread].filter(x=>x!==mid);delete conv.msgs[mid];msgCache.delete(mid);renderPane(m.thread);save();break}
+      case 'delnote':{const m=conv.msgs[mid];if(!m)break;const s=streaming.get(m.thread);if(s&&s.mid===mid)stopReply(s);try{ThreadOps.removeNote(conv,mid)}catch(e){toast('This takeaway can’t be deleted: '+e.message+'.');break}msgCache.delete(mid);renderPane(m.thread);renderMap();save();break}
     }
     return;
   }

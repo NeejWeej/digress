@@ -60,3 +60,9 @@ Open the `ts.net` address in your phone's browser. The layout adapts to a narrow
 - **Columns / Rows:** drag the gap between two panes with a finger to resize them.
 - **Canvas:** drag the background to pan, pinch to zoom, drag a card by its title to move it, and scroll inside a card without moving the canvas.
 - Select text the usual way (long-press and drag the handles) and the branch box appears; no mouse needed.
+
+## Using it from more than one device
+
+Conversations, flashcards and canvas views are shared; the layout (open panes, sizes, view, zoom, canvas) is kept per device. A tab that comes back to the foreground fetches what changed elsewhere. If two devices changed the same conversation, the page combines them: anything only one side added is kept, and when both asked from the same point, the later question becomes another version. In the rare case they can't be combined (both moved the same messages between threads), this device's version is kept as a separate conversation named "… (from this device)".
+
+Replies run on the server, not in the page. Locking the phone, switching apps or conversations, or reloading doesn't stop one: the page reconnects and gets the rest, and a reply that finishes while no page is watching is saved into the conversation. If no page comes back for 10 minutes (`RUN_DETACH_MS`), the server stops it, keeps what it wrote, and the reply offers **Continue**. **Stop** still stops it right away.

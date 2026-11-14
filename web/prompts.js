@@ -54,6 +54,9 @@ The interface lets the learner open side branches off any reply. A side branch a
   },
 
   // Added to a question in the main thread while the PDF is open beside it.
+  // Continue on a reply that was cut off: sent after the partial reply, which the new text is joined onto.
+  continueCut: `Your reply above was cut off before it finished. Continue it from exactly where it stops, mid-sentence if need be. Don't repeat anything already written and don't add a preamble.`,
+
   lookingAt: (page) => `\n\n(The learner is currently looking at p. ${page} of the document.)`,
 
   // In place of an image, for a connection that can't send images.

@@ -13,6 +13,7 @@
 // Conversations, the search index and files are kept in localStorage, so they survive a reload.
 (() => {
   const realFetch = window.fetch.bind(window);
+  const runs = new Map();   // chat id -> AbortController, for Stop
   const KEY = 'fakesrv:';
   const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
   const keys = (prefix) => { const out = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith(prefix)) out.push(k); } return out; };
@@ -58,12 +59,32 @@
     const p = url.pathname.split('/').filter(Boolean).map(decodeURIComponent); // ['api', ...]
     if (p[1] === 'health') { const ok = !!(await waitForModel()); return json({ app: 'digress', llm: ok, provider: 'fake', providers: ok ? ['fake'] : [], web: true, why: 'No fake model in this test.' }); }
     if (p[1] === 'models') return json({ models: [['claude-opus-5-5', 'Opus 5.5'], ['claude-sonnet-5-5', 'Sonnet 5.5'], ['claude-haiku-5-5', 'Haiku 5.5']], defaultLabel: 'Opus 5.5' });
-    if (p[1] === 'chat' && method === 'POST') return chat(JSON.parse(init.body), init.signal);
+    if (p[1] === 'chat' && p[2] === 'stop' && method === 'POST') { const c = runs.get(JSON.parse(init.body).chat); if (c) c.abort(); return json({ ok: true }); }
+    if (p[1] === 'chat' && p[2] === 'run') return json({ error: 'Not found' }, 404);   // reconnecting isn't faked (test_runs.py covers the real server)
+    if (p[1] === 'chat' && method === 'POST') {
+      const body = JSON.parse(init.body), ctrl = new AbortController();
+      if (body.chat) runs.set(body.chat, ctrl);
+      if (init.signal) init.signal.addEventListener('abort', () => ctrl.abort());
+      return chat(body, ctrl.signal);
+    }
+    if (p[1] === 'layout') {
+      const k = KEY + 'layout/' + p[2], d = JSON.parse(localStorage.getItem(k) || '{"devices":{}}');
+      if (method === 'GET') return json(d);
+      d.devices[url.searchParams.get('device')] = { ui: JSON.parse(init.body), at: Date.now() }; localStorage.setItem(k, JSON.stringify(d)); return json({ ok: true });
+    }
     if (p[1] === 'store') {
       const coll = p[2], id = p[3], k = KEY + coll + '/';
       if (!id && method === 'GET') return json(keys(k).map((key) => ({ id: key.slice(k.length), data: JSON.parse(localStorage.getItem(key)) })));
+      if (method === 'GET' && url.searchParams.has('rev')) { const v = localStorage.getItem(k + id); return v ? json({ rev: JSON.parse(v).rev || 0 }) : json({ error: 'Not found' }, 404); }
       if (method === 'GET') { const v = localStorage.getItem(k + id); return v ? json(JSON.parse(v)) : json({ error: 'Not found' }, 404); }
-      if (method === 'PUT') { localStorage.setItem(k + id, init.body); return json({ ok: true }); }
+      if (method === 'PUT') {   // conversations: versions, as the real server (x-base-rev -> 409 / 410)
+        if (coll !== 'convs') { localStorage.setItem(k + id, init.body); return json({ ok: true }); }
+        const cur = JSON.parse(localStorage.getItem(k + id) || 'null'), h = new Headers(init.headers || {}), base = h.get('x-base-rev');
+        if (base !== null && !cur && Number(base) > 0) return json({ error: 'deleted' }, 410);
+        if (base !== null && cur && (cur.rev || 0) !== Number(base)) return json({ error: 'Changed elsewhere', current: cur }, 409);
+        const d = JSON.parse(init.body); d.rev = (cur ? cur.rev || 0 : 0) + 1; localStorage.setItem(k + id, JSON.stringify(d));
+        return json({ ok: true, rev: d.rev });
+      }
       if (method === 'PATCH') { const v = localStorage.getItem(k + id); if (!v) return json({ error: 'Not found' }, 404); localStorage.setItem(k + id, JSON.stringify({ ...JSON.parse(v), ...JSON.parse(init.body) })); return json({ ok: true }); }
       if (method === 'DELETE') { localStorage.removeItem(k + id); return json({ ok: true }); }
     }

@@ -385,14 +385,16 @@ def main():
         st, text, lines = chat(base, {'messages': [{'role': 'user', 'content': 'FAILAUTH'}]})
         check('error' in lines[-1] and 'sign in' in lines[-1]['error'], f'Claude Code: sign-in problems explained: {lines[-1]}')
 
-        # abort mid-stream kills the CLI
-        c = http.client.HTTPConnection(base.split('//')[1]); c.request('POST', '/api/chat', json.dumps({'messages': [{'role': 'user', 'content': 'SLOW'}]}), {'content-type': 'application/json'})
+        # Stop kills the CLI; a dropped connection doesn't (the reply carries on: test_runs.py)
+        c = http.client.HTTPConnection(base.split('//')[1]); c.request('POST', '/api/chat', json.dumps({'chat': 'a' * 32, 'messages': [{'role': 'user', 'content': 'SLOW'}]}), {'content-type': 'application/json'})
         r = c.getresponse(); r.readline(); c.close(); time.sleep(1)
-        check(open(log).read().count('KILLED') == 1, 'closing the request stops the Claude Code process')
+        check(open(log).read().count('KILLED') == 0, 'closing the request leaves the Claude Code process running')
+        req(base, 'POST', '/api/chat/stop', {'chat': 'a' * 32}); time.sleep(1)
+        check(open(log).read().count('KILLED') == 1, 'Stop ends the Claude Code process')
 
         # storage
         check(req(base, 'PUT', '/api/store/convs/c1', {'title': 'A', 'n': 1})[0] == 200, 'store: put')
-        check(json.loads(req(base, 'GET', '/api/store/convs/c1')[1]) == {'title': 'A', 'n': 1}, 'store: get')
+        check(json.loads(req(base, 'GET', '/api/store/convs/c1')[1]) == {'title': 'A', 'n': 1, 'rev': 1}, 'store: get (a conversation gets a version)')
         req(base, 'PATCH', '/api/store/convs/c1', {'n': 2})
         check(json.loads(req(base, 'GET', '/api/store/convs/c1')[1])['n'] == 2, 'store: patch')
         check(any(d['id'] == 'c1' for d in json.loads(req(base, 'GET', '/api/store/convs')[1])), 'store: list')

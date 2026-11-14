@@ -8,7 +8,9 @@
 //   POST /api/chat                     {system, messages, model, effort, web} -> streamed lines: {d}, {search}, {sources},
 //                                      then {done,model,truncated} or {error}  (see PROVIDERS)
 //   GET  /api/store/:coll              [{id, data}]          (coll: convs | index)
-//   GET|PUT|PATCH|DELETE /api/store/:coll/:id
+//   GET|PUT|PATCH|DELETE /api/store/:coll/:id   (convs: PUT with x-base-rev -> 409 {current} / 410; GET ?rev -> {rev})
+//   GET /api/chat/run/:id?from=N       reattach to a reply (runs.mjs);  POST /api/chat/stop {chat}
+//   GET|PUT /api/layout/:conv[?device=]  per-device layout
 //   POST /api/files?type=...           raw body -> {id}
 //   GET|DELETE /api/files/:id
 
@@ -22,6 +24,7 @@ import os from 'node:os';
 import * as chatgpt from './chatgpt.mjs';
 import { fetchDocument, WARNINGS } from './fetchdoc.mjs';
 import { normalizeMessages, toAnthropic, toClaudeCodeBlocks, IMAGE_TYPES, isImage } from './content.mjs';
+import { createRun, getRun, DETACH_MS } from './runs.mjs';
 import { openSession, deliverResult, handleMcp, toolsForAnthropic, resultForAnthropic, CLAUDE_CODE_TOOL_NAMES, MAX_TOOL_ROUNDS } from './doctools.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -106,6 +109,45 @@ async function listDocs(coll) {
 }
 async function readDoc(coll, id) {
   try { return JSON.parse(await fs.readFile(docPath(coll, id), 'utf8')); } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
+}
+
+// change a stored conversation in place, as one more version (rev), the way a page's save would
+async function updateConv(id, fn) {
+  const file = docPath('convs', id);
+  return withLock(file, async () => {
+    const d = await readDoc('convs', id);
+    if (!d || !fn(d)) return false;
+    d.rev = (d.rev || 0) + 1; d.updated = Date.now();
+    await writeAtomic(file, JSON.stringify(d));
+    return true;
+  });
+}
+const LAYOUT_DAYS = Number(process.env.LAYOUT_DAYS || 90);
+const layoutPath = (conv) => path.join(DATA, 'layouts', conv + '.json');
+
+// Uploaded files (documents, pasted images, article images, card snips) are referenced from conversations and
+// cards as "asset" / "assetId". Delete the ones nothing references any more. Files younger than minAgeMs are
+// left alone (a page uploads before it saves the conversation that points at it). If any conversation or card
+// can't be read, nothing is deleted: better a leftover file than a missing one.
+async function sweepFiles(minAgeMs = 24 * 3600e3) {
+  const dir = path.join(DATA, 'files');
+  let names; try { names = await fs.readdir(dir); } catch { return 0; }
+  const used = new Set();
+  for (const coll of ['convs', 'cards']) {
+    let files = []; try { files = (await fs.readdir(path.join(DATA, coll))).filter((n) => n.endsWith('.json')); } catch { continue; }
+    for (const n of files) {
+      let txt; try { txt = await fs.readFile(path.join(DATA, coll, n), 'utf8'); JSON.parse(txt); } catch { return 0; }
+      for (const m of txt.matchAll(/"asset(?:Id)?":"([a-f0-9]{32})"/g)) used.add(m[1]);
+    }
+  }
+  let gone = 0;
+  for (const n of names) {
+    const m = n.match(/^([a-f0-9]{32})$/); if (!m || used.has(m[1])) continue;
+    let created = 0; try { created = JSON.parse(await fs.readFile(path.join(dir, n + '.meta.json'), 'utf8')).created || 0; } catch { /* no meta: old */ }
+    if (Date.now() - created < minAgeMs) continue;
+    await fs.rm(path.join(dir, n), { force: true }); await fs.rm(path.join(dir, n + '.meta.json'), { force: true }); gone++;
+  }
+  return gone;
 }
 
 // ---- model providers ----------------------------------------------------------
@@ -213,10 +255,38 @@ async function handleChat(req, res) {
   const k = await providerFor(payload.model);
   payload.web = payload.web === true && webOk(k); // the one place web access gets switched on, for every provider
   // document tools: only when the page asked for them (a conversation with a document open) and the provider can
-  payload.session = payload.tools === true && PROVIDERS[k].tools ? openSession(payload.chat) : null;
-  delete payload.tools; delete payload.chat;
-  if (payload.session) res.on('close', payload.session.close); // finished, stopped or the page went away: no more calls
-  return PROVIDERS[k].chat(payload, res);
+  // The reply is a run (runs.mjs): the provider writes into it, and this request is only the first page
+  // watching it. If the connection drops, the model keeps going and the page can reattach.
+  const id = typeof payload.chat === 'string' && /^[a-f0-9]{32}$/.test(payload.chat) ? payload.chat : crypto.randomBytes(16).toString('hex');
+  if (getRun(id)) return fail(res, 409, 'That reply is already running.');
+  payload.session = payload.tools === true && PROVIDERS[k].tools ? openSession(id) : null;
+  const target = payload.save && validId(payload.save.conv) && validId(payload.save.msg) ? { conv: payload.save.conv, msg: payload.save.msg } : null;
+  delete payload.tools; delete payload.chat; delete payload.save;
+  const run = createRun(id, { session: payload.session, onOrphan: target ? (r) => saveOrphan(target, id, r) : null });
+  run.attach(res, 0);
+  Promise.resolve().then(() => PROVIDERS[k].chat(payload, run)).catch((e) => {
+    console.error('chat:', e);
+    if (run.ended) return;
+    if (!run.headersSent) fail(run, 500, 'Server error'); else { run.write(JSON.stringify({ error: 'The server failed while writing this reply.' }) + '\n'); run.end(); }
+  });
+}
+// A reply that finished (or was given up on) while no page was watching: write it into its conversation, the
+// way the page would have, so it's there when you come back. Only if that message is still waiting for this
+// run: if it was deleted or asked again meanwhile, the result is dropped.
+async function saveOrphan({ conv, msg }, runId, r) {
+  await updateConv(conv, (d) => {
+    const m = d.msgs && d.msgs[msg];
+    if (!m || m.run !== runId) return false;
+    m.content = r.text;
+    if (r.model) m.model = r.model;
+    if (r.searches.length) m.searches = r.searches;
+    if (r.sources.length) m.sources = r.sources.slice(0, 30);
+    if (r.error) m.error = r.error;
+    else if (r.cut) { m.cut = true; m.error = 'Cut off before it finished: no page came back to it within ' + Math.round(DETACH_MS / 60000) + ' minutes.'; }
+    else if (r.truncated) m.error = 'Reply was cut off (length limit).';
+    delete m.run;
+    return true;
+  });
 }
 function startStream(res) {
   res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store', 'x-accel-buffering': 'no' });
@@ -555,6 +625,15 @@ async function route(req, res) {
     return send(res, 200, { models, defaultLabel: d ? d[1] : def });
   }
   if (parts[1] === 'chat' && req.method === 'POST' && parts.length === 2) return handleChat(req, res);
+  // a page coming back to a reply: the lines from `from` on, then the rest as it comes (runs.mjs)
+  if (parts[1] === 'chat' && parts[2] === 'run' && req.method === 'GET' && parts.length === 4) {
+    const run = getRun(parts[3]); if (!run) return fail(res, 404, 'That reply isn’t running here (it finished long ago, or the server restarted).');
+    return run.attach(res, Number(url.searchParams.get('from')) || 0);
+  }
+  if (parts[1] === 'chat' && parts[2] === 'stop' && req.method === 'POST' && parts.length === 3) {   // the Stop button
+    const p = await readJson(req), run = p && getRun(p.chat); if (run) run.cancel();
+    return send(res, 200, { ok: true });
+  }
   if (parts[1] === 'chat' && parts[2] === 'tool' && req.method === 'POST' && parts.length === 3) {   // the page returns a document tool's result
     const r = deliverResult(await readJson(req, MAX_CHAT_JSON));
     return r.status === 200 ? send(res, 200, { ok: true }) : fail(res, r.status, r.error);
@@ -569,17 +648,65 @@ async function route(req, res) {
     if (!validId(id) || parts.length > 4) return fail(res, 400, 'Bad id');
     await fs.mkdir(path.join(DATA, coll), { recursive: true });
     const file = docPath(coll, id);
+    if (req.method === 'GET' && url.searchParams.has('rev')) { const d = await readDoc(coll, id); return d === null ? fail(res, 404, 'Not found') : send(res, 200, { rev: d.rev || 0 }); }
     if (req.method === 'GET') { const d = await readDoc(coll, id); return d === null ? fail(res, 404, 'Not found') : send(res, 200, d); }
-    if (req.method === 'PUT') { const d = await readJson(req); if (!d || typeof d !== 'object' || Array.isArray(d)) return fail(res, 400, 'Body must be an object'); await withLock(file, () => writeAtomic(file, JSON.stringify(d))); return send(res, 200, { ok: true }); }
+    if (req.method === 'PUT') {
+      const d = await readJson(req); if (!d || typeof d !== 'object' || Array.isArray(d)) return fail(res, 400, 'Body must be an object');
+      if (coll !== 'convs') { await withLock(file, () => writeAtomic(file, JSON.stringify(d))); return send(res, 200, { ok: true }); }
+      // Conversations carry a version (rev). A page says which one its changes started from (x-base-rev);
+      // if another device saved since, it gets 409 with the current copy and merges (web/threads.js: merge).
+      // A conversation that's gone was deleted elsewhere: 410, so a stale tab can't bring it back.
+      // No x-base-rev (an older page, or a new conversation): saved as before.
+      const base = req.headers['x-base-rev'];
+      return withLock(file, async () => {
+        const cur = await readDoc(coll, id);
+        if (base !== undefined) {
+          if (cur === null && Number(base) > 0) return fail(res, 410, 'This conversation was deleted.');
+          if (cur !== null && (cur.rev || 0) !== Number(base)) return send(res, 409, { error: 'Changed elsewhere', current: cur });
+        }
+        d.rev = (cur ? cur.rev || 0 : 0) + 1;
+        await writeAtomic(file, JSON.stringify(d));
+        send(res, 200, { ok: true, rev: d.rev });
+      });
+    }
     if (req.method === 'PATCH') {
       const p = await readJson(req);
       return withLock(file, async () => {
         const d = await readDoc(coll, id);
         if (d === null) return fail(res, 404, 'Not found');
-        Object.assign(d, p); await writeAtomic(file, JSON.stringify(d)); send(res, 200, { ok: true });
+        Object.assign(d, p); if (coll === 'convs') d.rev = (d.rev || 0) + 1;
+        await writeAtomic(file, JSON.stringify(d)); send(res, 200, { ok: true });
       });
     }
-    if (req.method === 'DELETE') { await withLock(file, () => fs.rm(file, { force: true })); return send(res, 200, { ok: true }); }
+    if (req.method === 'DELETE') {
+      await withLock(file, () => fs.rm(file, { force: true }));
+      if (coll === 'convs') { await fs.rm(layoutPath(id), { force: true }); await sweepFiles(10 * 60e3); } // its layouts, and files nothing uses now
+      return send(res, 200, { ok: true });
+    }
+    return fail(res, 405, 'Method not allowed');
+  }
+
+  // Layout (open panes, sizes, view, zoom, canvas) is per device: GET /api/layout/:conv -> {devices:{id:{ui,at}}},
+  // PUT /api/layout/:conv?device=ID with the ui. One small file per conversation, removed with it; a device
+  // that hasn't opened it for LAYOUT_DAYS drops out the next time the file is written.
+  if (parts[1] === 'layout' && parts.length === 3) {
+    const conv = parts[2]; if (!validId(conv)) return fail(res, 400, 'Bad id');
+    const file = layoutPath(conv);
+    if (req.method === 'GET') { let d = null; try { d = JSON.parse(await fs.readFile(file, 'utf8')); } catch { /* none yet */ } return send(res, 200, d && d.devices ? d : { devices: {} }); }
+    if (req.method === 'PUT') {
+      const device = url.searchParams.get('device') || '', ui = await readJson(req);
+      if (!validId(device) || !ui || typeof ui !== 'object' || Array.isArray(ui)) return fail(res, 400, 'Bad layout');
+      if (!existsSync(docPath('convs', conv))) return send(res, 200, { ok: false }); // not saved yet, or deleted: nothing to lay out
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      return withLock(file, async () => {
+        let d = { devices: {} }; try { d = JSON.parse(await fs.readFile(file, 'utf8')); } catch { /* new */ }
+        const now = Date.now(), devices = {};
+        for (const [k, v] of Object.entries(d.devices || {})) if (v && now - (v.at || 0) < LAYOUT_DAYS * 864e5) devices[k] = v;
+        devices[device] = { ui, at: now };
+        await writeAtomic(file, JSON.stringify({ devices }));
+        send(res, 200, { ok: true });
+      });
+    }
     return fail(res, 405, 'Method not allowed');
   }
 
@@ -620,6 +747,7 @@ const server = http.createServer((req, res) => {
   });
 });
 server.listen(PORT, HOST, () => {
+  sweepFiles().then((n) => { if (n) console.log(`Removed ${n} uploaded file${n > 1 ? 's' : ''} no conversation or card uses any more.`); }).catch((e) => console.warn('file cleanup:', e.message));
   console.log(`Digress is running at http://${HOST}:${PORT}`);
   console.log(`Data folder: ${DATA}`);
   const on = enabled();

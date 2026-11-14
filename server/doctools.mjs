@@ -66,15 +66,20 @@ export function openSession(chatId) {
     const id = crypto.randomBytes(8).toString('hex');
     s.out({ tool: { id, name, input: input && typeof input === 'object' && !Array.isArray(input) ? input : {} } });
     return new Promise((resolve) => {
-      const timer = setTimeout(() => { s.pending.delete(id); resolve(failed('The reader’s browser did not return this result in time, so it is missing. Don’t guess what it would have said.')); }, WAIT_MS);
-      s.pending.set(id, (r) => {
-        clearTimeout(timer); s.pending.delete(id);
+      const done = (r) => {
+        clearTimeout(done.timer); s.pending.delete(id);
         const left = MAX_TOOL_CALLS - s.calls;   // running low: say so in the result, so the model can plan its last reads
         if (left <= 3) r = { ...r, parts: [...r.parts, { type: 'text', text: left ? `(${left} document tool call${left > 1 ? 's' : ''} left for this answer.)` : '(That was the last document tool call for this answer: answer now with what you have, and say what you didn’t get to read.)' }] };
         resolve(r);
-      });
+      };
+      s.pending.set(id, done); arm(done);
     });
   };
+  // The call waits for the page, which runs it. While no page is attached (a phone locked mid-reply) there's
+  // no timer: the run stops the whole reply if nobody comes back (runs.mjs). Once one is, it gets WAIT_MS.
+  const arm = (done) => { clearTimeout(done.timer); done.timer = s.attached ? setTimeout(() => done(failed('The reader’s browser did not return this result in time, so it is missing. Don’t guess what it would have said.')), WAIT_MS) : null; };
+  s.attached = true;
+  s.setAttached = (on) => { s.attached = on; for (const done of s.pending.values()) arm(done); };
   s.close = () => {
     if (s.closed) return;
     s.closed = true;

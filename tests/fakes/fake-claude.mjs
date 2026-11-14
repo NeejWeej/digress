@@ -112,8 +112,9 @@ process.stdin.on('end', async () => {
   const reply = `Fake reply. model=${model} effort=${effort} system=${system.length} turns=${(prompt.match(/<user>/g) || []).length + 1}\n\nThe gradient of $x^2$ is $2x$.`;
   emit({ type: 'system', subtype: 'init', model });
   emit({ type: 'stream_event', event: { type: 'message_start', message: { model } } });
-  const slow = prompt.includes('SLOW');
-  const parts = slow ? Array(200).fill('tick ') : reply.match(/[\s\S]{1,12}/g);
+  // SLOW in the latest question: 200 ticks, 100 ms apart (SLOWISH: 30, SLOWMID: 80)
+  const latest = prompt.slice(prompt.lastIndexOf('</user>') + 1), slow = latest.includes('SLOW');
+  const parts = slow ? Array(latest.includes('SLOWISH') ? 30 : latest.includes('SLOWMID') ? 80 : 200).fill('tick ') : reply.match(/[\s\S]{1,12}/g);
   for (const p of parts) {
     emit({ type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: p } } });
     await new Promise((r) => setTimeout(r, slow ? 100 : 5));

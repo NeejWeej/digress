@@ -17,6 +17,8 @@ Ideas that aren't built yet, written down so they aren't lost. What's already bu
 - **Split and join in the UI:** `ThreadOps.split` ("make the rest of this thread a branch") and `join`
   exist and are tested, but only "Use this version" uses them. Joining a side question into its parent
   would also need a way to keep its prefix (what the passage was) in the text.
+- **Live updates between devices:** a tab catches up when it comes back to the foreground, not while two
+  screens are both in view. A server-sent event per conversation would do it, if that ever matters.
 - **Rewind:** delete a message and everything after it in a thread, with a confirmation listing what goes.
 
 ## Sub-agents that explore
