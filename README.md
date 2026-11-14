@@ -2,7 +2,7 @@
 
 **A branching chat for learning.** Highlight any words in an answer, ask about them, and the reply opens in its own thread beside the one it came from. Follow a tangent as far as you like, then come back to exactly where you were.
 
-[![Watch the one-minute film: Digress, a branching chat for learning](docs/media/film/poster.png)](docs/media/film/digress-film.mp4)
+[![Watch the 30-second film: Digress, a branching chat for learning](docs/media/film/poster.png)](docs/media/film/digress-film.mp4)
 
 ## Why branch?
 

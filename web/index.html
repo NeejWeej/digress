@@ -170,6 +170,9 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .wsrc .wq{color:var(--faint);margin:4px 0}
 .wsrc ol{margin:4px 0 6px;padding-left:20px}.wsrc li{margin:2px 0;overflow-wrap:anywhere}.wsrc .wh{color:var(--faint);font-size:11.5px}
 .sel select{font:13px var(--sans);color:var(--ink);background:var(--panel);border:0;border-radius:7px;padding:4px 6px;outline:none;cursor:pointer}
+.mdef{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;color:var(--faint)}
+.mdef .i{width:14px;height:14px}
+.mdef:hover{color:var(--accent);background:var(--panel)}
 
 .side{overflow:auto;border-right:1px solid var(--line);background:var(--panel-2);padding:12px 10px}
 .app.noside .side{display:none}
@@ -567,9 +570,9 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .cvviews input{flex:1;min-width:0;font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--ink)}
 .cvviews form .tb{flex:none;width:auto;padding:5px 10px;justify-content:center;background:var(--user-bg)}
 .cvviews .vrow .ib{width:26px}
-.cvhint{position:absolute;left:14px;bottom:14px;font-size:12px;line-height:1.45;color:var(--faint);z-index:3;pointer-events:none;max-width:calc(100% - 440px)}
+.cvhint{position:absolute;left:14px;bottom:14px;font-size:12px;line-height:1.45;color:var(--faint);z-index:3;pointer-events:none;max-width:calc(100% - 580px)}
 .cv{container-type:size}
-@container (max-width:760px){.cvhint{display:none}}
+@container (max-width:900px){.cvhint{display:none}}
 /* pins and archive */
 .ib.pinned{color:var(--accent)}
 .citem{position:relative}
@@ -779,7 +782,7 @@ a.pref:hover{border-bottom-style:solid}
     <div class="backchip" id="backChip"><button class="bgo" id="backGo"><span class="bi"></span><span class="bt"></span></button><button class="bx" id="backX" title="Dismiss">×</button></div>
     <div class="sp"></div>
     <span class="status" id="status"></span>
-    <label class="sel" title="Which model answers new messages. Each reply shows the model that answered."><span>Model</span><select id="mSel"></select></label>
+    <label class="sel" title="Which model answers new messages. Each reply shows the model that answered."><span>Model</span><select id="mSel"></select><button class="mdef" id="mDef" type="button"></button></label>
     <label class="sel" title="How much the model thinks before answering. Higher is slower but more careful."><span>Effort</span><select id="eSel"></select></label>
     <button class="webt" id="webT" aria-pressed="false" style="display:none" title="Web search: let new replies look things up online. Only search queries leave; your chats and documents stay on this server. You can switch this any time."><span class="wi"></span><span class="lbl">Web</span></button>
     <button class="webt" id="resetOrder" style="display:none" title="Put the panes back in branching order: each branch right after the thread it came from">Reset order</button>
@@ -820,7 +823,7 @@ a.pref:hover{border-bottom-style:solid}
     <svg id="wires"></svg>
     <div class="cv" id="cv"><div id="world"><svg id="edges" width="1" height="1"></svg></div><div id="dock"></div><div id="snapPrev"></div>
       <div class="cvhint">Drag the background to pan, scroll to zoom. Drag a card by its title to move it, or to an edge to snap it there. Alt+scroll zooms one card. Space reads the selected card full screen.</div>
-      <div class="cvtools"><button class="tb" id="zViews" title="Canvas views: saved arrangements of this canvas, shared with your other devices"></button><button class="tb" id="zTidy" title="Forget the positions you set and lay the tree out automatically"></button><button class="ib" id="zOut" title="Zoom out"></button><button class="ib" id="zFit" title="Fit the whole tree in view"></button><button class="ib" id="zIn" title="Zoom in"></button></div>
+      <div class="cvtools"><button class="tb" id="zHere" style="display:none" title="Go back to the card you came from"></button><button class="tb" id="zViews" title="Canvas views: saved arrangements of this canvas, shared with your other devices"></button><button class="tb" id="zTidy" title="Forget the positions you set and lay the tree out automatically"></button><button class="ib" id="zOut" title="Zoom out"></button><button class="ib" id="zFit" title="Fit the whole tree in view"></button><button class="ib" id="zIn" title="Zoom in"></button></div>
     </div>
     <div class="banner" id="banner"></div>
   </main>
@@ -863,6 +866,8 @@ const I={
  check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
  chev:'<path d="M6 9.5l6 6 6-6"/>',
  search:'<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
+ locate:'<circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="7.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22"/>',
+ star:'<path d="M12 3.8l2.5 5.2 5.7.8-4.1 4 1 5.6L12 16.7l-5.1 2.7 1-5.6-4.1-4 5.7-.8z"/>',
  sparkle:'<path d="M12 4l1.8 4.7L18.5 10.5 13.8 12.3 12 17l-1.8-4.7L5.5 10.5l4.7-1.8z"/><path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/>',
  dots:'<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>',
  edit:'<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
@@ -1069,8 +1074,10 @@ function serverLlm(info){
     models:()=>models,
     ready:async()=>!!info.llm,
     async loadModels(){
-      try{const j=await (await okOrThrow(await fetch('api/models'))).json();models=[['auto','Default'+(j.defaultLabel?' ('+j.defaultLabel+')':'')],...j.models]}catch(e){console.warn('model list failed',e)}
+      try{const j=await (await okOrThrow(await fetch('api/models'))).json();models=[['auto','Default'+(j.defaultLabel?' ('+j.defaultLabel+')':'')],...j.models];llm.defaultModel=j.default||null}catch(e){console.warn('model list failed',e)}
     },
+    // what "Default" means on every device (stored by the server); then the list is reloaded with its new label
+    async setDefault(id){await okOrThrow(await fetch('api/prefs',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({defaultModel:id})}));await llm.loadModels()},
     // tools: {run(name,input) → {parts}|{error}} lets the model use the document tools (server/doctools.mjs):
     // the server sends each call down this stream as {tool:{id,name,input}}, we run it here (this page has the
     // document open) and post the result back to api/chat/tool, where the server's loop is waiting for it.
@@ -2623,20 +2630,28 @@ function focusedPane(){
     const a=Math.max(0,Math.min(r.right,pr.right)-Math.max(r.left,pr.left))*Math.max(0,Math.min(r.bottom,pr.bottom)-Math.max(r.top,pr.top));if(a>=area&&a>0){area=a;best=tid}}
   return best;
 }
-/* …and it stays marked (a quiet ring and "You were here") until you touch the canvas: click, drag, scroll
-   or zoom. Per page, never saved; survives the canvas redrawing (renderCanvas → markHere). */
+/* …and it stays marked (a quiet ring and "You were here") while you look around (pan, zoom, scroll), until
+   you do something with a card (click into one, drag one) or leave the canvas. Per page, never saved;
+   survives the canvas redrawing (renderCanvas → markHere). */
 let cvHere=null;
 function markHere(){
   document.querySelectorAll('#cv .cnode.here').forEach(n=>n.classList.remove('here'));
   const n=cvHere&&$('#cv').querySelector(`.cnode[data-ctid="${cvHere}"]`);let tag=$('#cvHereTag');
   if(n)n.classList.add('here');
+  $('#zHere').style.display=n?'':'none';
   if(!n||n.classList.contains('docked')){tag&&tag.remove();return}   // a card stuck to the screen gets the ring only
   if(!tag){tag=document.createElement('div');tag.id='cvHereTag';tag.textContent='You were here'}
   if(tag.parentNode!==$('#world'))$('#world').appendChild(tag);
   tag.style.left=(n.offsetLeft+10)+'px';tag.style.top=n.offsetTop+'px';tag.style.color=getComputedStyle(n).getPropertyValue('--c');
 }
 function clearHere(){if(cvHere){cvHere=null;markHere()}}
-for(const t of ['pointerdown','wheel'])$('#cv').addEventListener(t,clearHere,{capture:true,passive:true});
+// glide the camera so a card is in view (its top in sight); a card stuck to the screen is already there
+function panToCard(n){
+  if(n.classList.contains('docked'))return;
+  const cv=$('#cv').getBoundingClientRect();
+  animateCam(cv.width/2-(n.offsetLeft+n.offsetWidth/2)*cam.k,Math.min(cv.height/2-(n.offsetTop+Math.min(n.offsetHeight,500)/2)*cam.k,60-n.offsetTop*cam.k+40));
+}
+$('#cv').addEventListener('pointerdown',e=>{if(e.target.closest('.cnode'))clearHere()},{capture:true,passive:true});
 function cvArrive(tid){
   const box=$('#cv');let n=null;
   for(let id=tid;id&&!(n=box.querySelector(`.cnode[data-ctid="${id}"]`));id=visParentId(id));
@@ -2644,7 +2659,7 @@ function cvArrive(tid){
   cvHere=n.dataset.ctid;markHere();
   const cv=box.getBoundingClientRect(),h=(n.querySelector('.ch')||n).getBoundingClientRect();
   const seen=n.classList.contains('docked')||(h.left>=cv.left&&h.right<=cv.right&&h.top>=cv.top&&h.bottom<=cv.bottom);
-  if(!seen)animateCam(cv.width/2-(n.offsetLeft+n.offsetWidth/2)*cam.k,Math.min(cv.height/2-(n.offsetTop+Math.min(n.offsetHeight,500)/2)*cam.k,60-n.offsetTop*cam.k+40));
+  if(!seen)panToCard(n);
   n.classList.remove('flash');void n.offsetWidth;n.classList.add('flash');
 }
 for(const t of ['pointerdown','focusin','wheel'])$('#panes').addEventListener(t,e=>{const p=e.target.closest&&e.target.closest('.pane[data-tid]');if(p&&conv&&!p.classList.contains('rail'))lastPane={cid:conv.id,tid:p.dataset.tid}},{passive:true,capture:true});
@@ -2927,6 +2942,8 @@ function canvasAction(act,tid,btn){
   cv.addEventListener('keydown',e=>{const i=e.target.closest('.cask textarea');if(i&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();canvasAction('ask',i.closest('.cnode').dataset.ctid,i)}});
   $('#zIn').innerHTML=ic('plus');$('#zOut').innerHTML=ic('minus');$('#zFit').innerHTML=ic('fit');
   $('#zTidy').innerHTML=ic('canvas')+'Tidy';
+  $('#zHere').innerHTML=ic('locate')+'You were here';
+  $('#zHere').onclick=()=>{const n=cvHere&&$('#cv').querySelector(`.cnode[data-ctid="${cvHere}"]`);if(n){panToCard(n);n.classList.remove('flash');void n.offsetWidth;n.classList.add('flash')}};
   $('#zIn').onclick=()=>zoomAt(1.2);$('#zOut').onclick=()=>zoomAt(1/1.2);$('#zFit').onclick=fitCanvas;
   $('#zTidy').onclick=()=>{cvState().pos={};renderCanvas();fitCanvas();save()};
   $('#zViews').onclick=(e)=>{e.stopPropagation();$('#cvViews').classList.contains('open')?closeViews():openViews()};
@@ -4695,6 +4712,7 @@ MODELS.forEach(([v,l])=>mSel.add(new Option(l,v)));EFFORTS.forEach(([v,l])=>eSel
 function fillModelPicker(){
   const list=io.llm?io.llm.models():MODELS;mSel.replaceChildren();list.forEach(([v,l])=>mSel.add(new Option(l,v)));
   mSel.value=settings.model;if(!mSel.value)mSel.value=settings.model=list[0]?list[0][0]:'auto';
+  syncDefStar();
   eSel.closest('.sel').style.display=io.llm&&io.llm.supportsEffort?'':'none';
   webT.style.display=io.llm&&io.llm.supportsWeb?'':'none';
 }
@@ -4758,7 +4776,19 @@ function showWeb(){webT.setAttribute('aria-pressed',settings.web?'true':'false')
 showWeb();
 webT.onclick=()=>{settings.web=!settings.web;saveSettings();showWeb();setStatus(settings.web?'Web search on for new replies':'Web search off')};
 mSel.value=settings.model;eSel.value=settings.effort;if(!mSel.value)mSel.value=settings.model='auto';if(!eSel.value)eSel.value=settings.effort='auto';
-mSel.onchange=()=>{settings.model=mSel.value;saveSettings();setStatus('New replies use '+modelLabel(mSel.value))};
+mSel.onchange=()=>{settings.model=mSel.value;saveSettings();syncDefStar();setStatus('New replies use '+modelLabel(mSel.value))};
+/* ☆ beside the picker: make the model picked here what "Default" means, on every device. It shows only when
+   a specific model is picked (not "Default" itself); afterwards the picker goes back to following Default. */
+const mDef=$('#mDef');mDef.innerHTML=ic('star');
+function syncDefStar(){
+  const on=!!(io.llm&&io.llm.setDefault)&&settings.model!=='auto'&&settings.model!==io.llm.defaultModel;
+  mDef.style.display=on?'':'none';if(on)mDef.title=`Make ${modelLabel(settings.model)} the default, on all your devices`;
+}
+mDef.onclick=async(e)=>{e.preventDefault();e.stopPropagation();const id=settings.model,name=modelLabel(id);
+  try{await io.llm.setDefault(id)}catch(err){toast('Couldn’t change the default: '+((err&&err.message)||'error'));return}
+  settings.model='auto';saveSettings();fillModelPicker();setStatus(name+' is now the default');toast(`${name} is now the default model, on all your devices.`)};
+// another device may have changed the default: refresh the list when this tab comes back
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&io.llm&&io.llm.setDefault)io.llm.loadModels().then(fillModelPicker)});
 eSel.onchange=()=>{settings.effort=eSel.value;saveSettings()};
 $('#tSide').addEventListener('click',()=>{const app=$('#app');if(innerWidth<760){app.classList.toggle('sideopen')}else{app.classList.toggle('noside');try{localStorage.setItem('sq:noside',app.classList.contains('noside')?'1':'')}catch(e){}}setTimeout(()=>{wires();if(conv.ui.view==='canvas')applyCam()},50)});
 try{if(localStorage.getItem('sq:noside'))$('#app').classList.add('noside')}catch(e){}

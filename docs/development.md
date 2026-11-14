@@ -33,7 +33,7 @@ This rewrites `docs/media/columns.png`, `document.png`, `canvas.png` and `branch
 
 ```sh
 pip install numpy pillow imageio-ffmpeg  # imageio-ffmpeg brings its own ffmpeg
-python3 docs/media/film/make_film.py      # about 5 minutes
+python3 docs/media/film/make_film.py      # about 3 minutes
 ```
 
-This rebuilds `docs/media/film/digress-film.mp4` (about a minute, 1080p, under 10 MB) and its `poster.png`, the same way: its own server, a fake model, the real app captured with Playwright. Title cards are `docs/media/film/cards.html`; the music is synthesized in the script, nothing sampled. `--keep DIR` keeps the recordings so you can re-edit without recapturing (see the script's header). Fonts come from Google Fonts, so build it online.
+This rebuilds `docs/media/film/digress-film.mp4` (about 30 seconds, 1080p, H.264 High + AAC, under 5 MB so it fits GitHub's upload limit) and its `poster.png`, the same way: its own server, a fake model, the real app captured with Playwright. Title cards are `docs/media/film/cards.html`; the music is synthesized in the script, nothing sampled. `--keep DIR` keeps the recordings so you can re-edit without recapturing (see the script's header). Fonts come from Google Fonts, so build it online. GitHub's file viewer doesn't play videos (an `.mp4` in the repo only offers a download), so for a player in the README, drag the new file into GitHub's web editor for README.md once and use the `https://github.com/user-attachments/assets/…` URL it inserts.

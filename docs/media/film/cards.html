@@ -52,8 +52,8 @@ svg{position:absolute;overflow:visible}
       <circle id="c3" cx="292" cy="-19" r="8.5" fill="#c4643c"/>
     </g>
   </svg>
-  <div class="cap serif" id="thinkA" style="top:880px">Every good answer raises new questions.</div>
-  <div class="cap serif" id="thinkB" style="top:880px">Follow them, without losing your place.</div>
+  <div class="cap serif" id="thinkA" style="top:842px">Every good answer raises new questions.</div>
+  <div class="cap serif" id="thinkB" style="top:912px;color:var(--muted);font-style:italic;font-size:40px">Follow them, without losing your place.</div>
 </div>
 
 <div class="scene" id="close">
@@ -95,25 +95,24 @@ function twig(root, t, t0, k = 1) {
 window.show = function (scene, t) {
   document.querySelectorAll('.scene').forEach((s) => s.classList.toggle('on', s.id === scene));
   const S = document.getElementById(scene);
+  // timings fit the 30-second cut: open 3.2 s, think 3.4 s, close 4.6 s (cards crossfade over 0.6 s)
   if (scene === 'open') {
-    twig(S, t, 0.35);
-    fadeUp(S.querySelector('.word'), span(t, 1.5, 2.6));
-    fadeUp(S.querySelector('.sub'), span(t, 2.2, 3.3), 12);
+    twig(S, t, 0.15, 0.75);
+    fadeUp(S.querySelector('.word'), span(t, 0.8, 1.6));
+    fadeUp(S.querySelector('.sub'), span(t, 1.25, 2.05), 12);
   } else if (scene === 'think') {
     const q = (s) => document.getElementById(s);
-    draw(q('head'), span(t, 0.1, 1.8));
-    draw(q('t0'), span(t, 1.5, 2.6)); pop(q('c0'), span(t, 2.45, 2.95));
-    draw(q('t1'), span(t, 2.0, 2.9)); pop(q('c1'), span(t, 2.75, 3.25));
-    draw(q('t2'), span(t, 2.45, 3.2)); pop(q('c2'), span(t, 3.05, 3.55));
-    draw(q('t3'), span(t, 2.3, 3.1)); pop(q('c3'), span(t, 2.95, 3.45));
-    const A = q('thinkA'), B = q('thinkB');
-    if (t < 3.0) { fadeUp(A, span(t, 0.5, 1.4)); B.style.opacity = 0; }
-    else { fadeOut(A, span(t, 3.0, 3.4)); fadeUp(B, span(t, 3.45, 4.2)); }
+    draw(q('head'), span(t, 0.0, 1.2));
+    draw(q('t0'), span(t, 0.95, 1.7)); pop(q('c0'), span(t, 1.6, 1.95));
+    draw(q('t1'), span(t, 1.3, 1.95)); pop(q('c1'), span(t, 1.85, 2.2));
+    draw(q('t2'), span(t, 1.6, 2.15)); pop(q('c2'), span(t, 2.05, 2.4));
+    draw(q('t3'), span(t, 1.45, 2.0)); pop(q('c3'), span(t, 1.95, 2.3));
+    fadeUp(q('thinkA'), span(t, 0.25, 0.95)); fadeUp(q('thinkB'), span(t, 1.35, 2.05), 12);
   } else if (scene === 'close') {
-    twig(S, t, 0.1, 0.9);
-    fadeUp(S.querySelector('.word'), span(t, 0.6, 1.6));
-    fadeUp(S.querySelector('.sub'), span(t, 1.2, 2.2), 12);
-    fadeUp(S.querySelector('.cue'), span(t, 1.9, 2.9), 8);
+    twig(S, t, 0.1, 0.75);
+    fadeUp(S.querySelector('.word'), span(t, 0.5, 1.3));
+    fadeUp(S.querySelector('.sub'), span(t, 0.9, 1.7), 12);
+    fadeUp(S.querySelector('.cue'), span(t, 1.3, 2.1), 8);
   }
 };
 window.caption = function (html) {

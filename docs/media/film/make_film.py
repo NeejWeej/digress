@@ -1,25 +1,37 @@
-"""Make the Digress demo film: docs/media/film/digress-film.mp4 and its README thumbnail, poster.png.
+"""Make the Digress demo film (about 30 s): docs/media/film/digress-film.mp4 and its README thumbnail, poster.png.
 
-    .venv/bin/python docs/media/film/make_film.py            # everything, end to end (about 5 minutes)
+    .venv/bin/python docs/media/film/make_film.py            # everything, end to end (about 3 minutes)
 
 Needs what the tests need (`npm install`, Playwright with Chromium) plus numpy, Pillow and imageio-ffmpeg
 (`.venv/bin/pip install numpy pillow imageio-ffmpeg`; the last one ships its own ffmpeg binary). The page
 fonts (Inter, Source Serif 4) come from Google Fonts, so a network connection gives the intended look.
 
+The story, in five beats: the twig and the name; a line-drawn head whose thought branches ("Every answer
+raises new questions"); the core move (highlight a phrase, ask, the branch opens beside it); the canvas map
+of the conversation, then ⌘K search landing on the words inside a PDF in another conversation; the closing card.
+
 How it works:
   1. capture  It starts its own Digress server on a free port with a throwaway data folder and a stand-in
               for the Claude Code CLI that streams the canned replies below (no model is called, your own
               conversations and any running dev server are never touched), then drives the real app in
-              headless Chromium: it selects a phrase, types a question, makes a branch and a takeaway,
-              opens a PDF, searches, shows the canvas and the themes. Each shot is recorded as 1920x1080
+              headless Chromium. Two shots are recorded: 'core' (select, ask, the branch opens) and 'tour'
+              (the canvas, then ⌘K into a PDF conversation set up off camera). Each is recorded as 1920x1080
               screenshots (the page at 1280x720 CSS px, 1.5x), with the pointer path, named time marks and
               element boxes logged alongside. The pointer is not in the screenshots; it is drawn in step 3,
-              so it moves smoothly at 30 fps whatever the capture rate.
+              so it moves smoothly at 30 fps whatever the capture rate. The top bar's model picker is hidden
+              (CALM_CSS): it changes often and says nothing in a film.
   2. cards    Title and illustration cards from cards.html (next to this file), one frame per call of
               show(scene, t), so every frame is a pure function of time; the captions are rendered there too.
   3. compose  BEATS below is the edit: which stretch of which shot, retimed (waits shortened), with eased
               camera moves and captions; cards crossfade in and out. The music is composed and synthesized
-              here in numpy (music()), and ffmpeg (from imageio-ffmpeg) writes H.264 + AAC with +faststart.
+              here in numpy (music()), fitted to the cut. ffmpeg (from imageio-ffmpeg) writes a file that
+              plays everywhere, including GitHub's inline player: H.264 High@4.0, yuv420p, constant 30 fps,
+              AAC-LC, +faststart, kept under 5 MB (the free-plan limit for videos attached on GitHub is 10 MB).
+
+GitHub's repository file viewer does not play videos at all (a blob page of any .mp4 only offers "View raw",
+which downloads it as application/octet-stream). For a player in the README, drag this file once into
+GitHub's web editor for README.md (or any issue comment); GitHub uploads it and inserts a
+https://github.com/user-attachments/assets/... URL, which renders as an inline player on a line of its own.
 
 Intermediate files go to a temporary folder that is removed at the end (pass --keep DIR to keep them
 there and reuse them: `make_film.py --keep /tmp/film` captures once, later runs with the same DIR skip
@@ -205,6 +217,7 @@ FIND = """([root, phrase, scroll]) => { const el=document.querySelector(root); i
 CALM_CSS = """
 *{scrollbar-width:none!important}
 *::-webkit-scrollbar{display:none!important}
+.top label.sel:has(#mSel),#mSel,#mDef{display:none!important}
 """
 
 
@@ -400,40 +413,29 @@ async def capture(outdir, tmp, url):
 
         pg = await new_app_page(b, url)
         set_delay(tmp, 4)
+        bp = '.pane:not([data-tid=main]):not([data-tid=doc])'
 
-        # ---- A. the core move: highlight, ask, a branch opens; carry a takeaway back ----
+        # ---- the core move: highlight, ask, a branch opens beside it ----
         await pg.locator('#newConv').click(); await pg.wait_for_timeout(400)
         await ask_main(pg, Q_MAIN, 3500); await math_ready(pg)
         await pg.locator('#tSide').click(); await pg.wait_for_timeout(500)       # sidebar away: more room
         await pg.evaluate("document.querySelector('.pane[data-tid=main] .pb').scrollTop=0"); await pg.wait_for_timeout(300)
-        set_delay(tmp, 16)
+        set_delay(tmp, 14)
         r = Rig(pg, 'core'); await r.start()
-        await r.hold(1.2)
-        await r.rect('passage', f"()=>{{const b=document.querySelector('{MAIN}');return b}}")
-        r.mark('sel0'); await r.select(MAIN, SEL_MAIN, 1.1); r.mark('sel1')
-        await pg.wait_for_selector('#pop.show'); await r.hold(0.5)
+        await r.hold(1.0)
+        r.mark('sel0'); await r.select(MAIN, SEL_MAIN, 1.0); r.mark('sel1')
+        await pg.wait_for_selector('#pop.show'); await r.hold(0.4)
         await r.rect('pop', '#pop')
-        await r.click('#popIn', 0.3); await r.hold(0.3)
-        r.mark('type0'); await r.type(Q_WHY4); r.mark('type1'); await r.hold(0.5)
+        await r.click('#popIn', 0.3); await r.hold(0.2)
+        r.mark('type0'); await r.type(Q_WHY4, 0.06); r.mark('type1'); await r.hold(0.4)
         await pg.keyboard.press('Enter'); r.mark('sent')
-        await r.move(VW * 0.62, VH * 0.80, 1.2)
+        await r.move(VW * 0.62, VH * 0.84, 1.2)
         await wait_idle(r, 2)
         await math_ready(pg); r.mark('done')
-        await r.hold(2.6)
-        # takeaway
-        bp = '.pane:not([data-tid=main]):not([data-tid=doc])'
-        r.mark('take0'); await r.click(f'{bp} [data-act=take]'); await r.hold(0.7)
-        await r.click(f'{bp} .tk .go'); r.mark('take1')
-        await r.move(VW * 0.62, VH * 0.56, 1.2)
-        await pg.wait_for_selector('.pane[data-tid=main] .msg.note'); await wait_idle(r)
-        await math_ready(pg); r.mark('noted')
-        await r.hold(1.4)
-        r.mark('src0'); await r.click(f'{bp} >> text=Show in source'); r.mark('src1')
-        await r.move(VW * 0.30, VH * 0.84, 1.2)
-        await r.hold(2.6)
+        await r.hold(2.4)
         await r.stop(); r.save(outdir)
 
-        # off camera: two more branches for the canvas
+        # off camera: two more branches, for the canvas
         set_delay(tmp, 3)
         await branch(pg, MAIN, SEL_EYE, Q_EYE, 3000)
         await branch(pg, f'{bp} .msg.assistant .body', SEL_DIPOLE, Q_DIPOLE, 3000)
@@ -442,61 +444,41 @@ async def capture(outdir, tmp, url):
             await pg.locator('.pane').filter(has=pg.locator('.ph-title', has_text=q)).locator('[data-act=close]').click()
             await pg.wait_for_timeout(500)
 
-        # ---- B. a document beside the chat ----
+        # off camera: a second conversation, a PDF with a branch from it, for the search to land in
         await pg.locator('#tSide').click(); await pg.wait_for_timeout(400)
         await pg.locator('#newDoc').click(); await pg.wait_for_timeout(300)
         await pg.set_input_files('#docFile', pdf)
         await pg.locator('#docGo').click(); await pg.wait_for_timeout(2500)
         await ask_main(pg, Q_DOC, 3000)
         await pg.locator('#tSide').click(); await pg.wait_for_timeout(500)
-        await pg.locator('.pane[data-tid=main] [data-act=collapse]').click(); await pg.wait_for_timeout(1200)
-        for _ in range(3):
-            await pg.locator('.pane[data-tid=doc] [data-act=zout]').click(); await pg.wait_for_timeout(700)
-        await pg.evaluate("document.querySelectorAll('.pb').forEach(e=>e.scrollTop=0)"); await pg.wait_for_timeout(800)
-        set_delay(tmp, 16)
-        r = Rig(pg, 'doc'); await r.start()
-        await r.hold(1.2)
-        r.mark('sel0'); await r.select(DOCP, SEL_DOC, 1.3); r.mark('sel1')
-        await pg.wait_for_selector('#pop.show'); await r.hold(0.5)
-        await r.rect('pop', '#pop')
-        await r.click('#popIn', 0.3); await r.hold(0.3)
-        await r.type(Q_SIGHT, 0.055); await r.hold(0.4)
-        await pg.keyboard.press('Enter'); r.mark('sent')
-        await r.move(VW * 0.45, VH * 0.85, 1.2)
-        await wait_idle(r, 2)
-        await math_ready(pg); r.mark('done')
-        await r.hold(3.0)
-        await r.stop(); r.save(outdir)
+        await branch(pg, DOCP, SEL_DOC, Q_SIGHT, 3500)
+        await pg.locator('.pane[data-tid=main] [data-act=collapse]').click(); await pg.wait_for_timeout(1000)
+        for _ in range(2):
+            await pg.locator('.pane[data-tid=doc] [data-act=zout]').click(); await pg.wait_for_timeout(600)
+        await pg.evaluate("document.querySelectorAll('.pb').forEach(e=>e.scrollTop=0)"); await pg.wait_for_timeout(500)
 
-        # ---- C. search: from the sky conversation, find words in the other one ----
-        await pg.locator('#tSide').click(); await pg.wait_for_timeout(400)
-        await pg.locator('#clist .citem', has_text=Q_MAIN).first.click(); await pg.wait_for_timeout(1500)
-        await pg.locator('#tSide').click(); await pg.wait_for_timeout(500)
-        r = Rig(pg, 'search'); await r.start()
-        await r.hold(0.6)
-        await pg.keyboard.press('Control+K'); r.mark('open'); await r.hold(0.8)
-        await r.type('line of sight', 0.09); r.mark('typed'); await r.hold(1.0)
-        await r.click('#palRes .pr:has(.pk:text-matches("Document"))', 0.4); r.mark('go')
-        await r.move(VW * 0.47, VH * 0.70, 1.2)
-        await r.hold(3.0)
-        await r.stop(); r.save(outdir)
-
-        # ---- D. the canvas, then themes ----
+        # back to the sky conversation, last in the "fourth power" branch
         await pg.locator('#tSide').click(); await pg.wait_for_timeout(400)
         await pg.locator('#clist .citem', has_text=Q_MAIN).first.click(); await pg.wait_for_timeout(1500)
         await pg.locator('#tSide').click(); await pg.wait_for_timeout(500)
         if await pg.locator('#backChip.show').count(): await pg.locator('#backX').click()
-        r = Rig(pg, 'canvas'); await r.start()
-        await r.hold(0.6)
-        await r.click('[data-v=canvas]'); r.mark('canvas'); await r.hold(1.2)
-        await r.move(VW * 0.70, VH * 0.42, 2.4); await r.hold(1.0)
-        r.mark('theme0'); await r.click('#themeB'); await r.hold(0.5)
-        for name in ('Sand', 'Rosé Pine Dawn', 'Dark'):
-            bb = await pg.locator('.thmenu.open button', has_text=name).first.bounding_box()
-            await r.move(bb['x'] + 70, bb['y'] + bb['height'] / 2, 0.55); r.mark('hover-' + name); await r.hold(0.9 if name != 'Dark' else 0.4)
-        await r.press(); await r.release(); r.mark('dark'); await r.hold(0.35)
-        await pg.keyboard.press('Escape')
-        await r.move(VW * 0.14, VH * 0.9, 1.2); await r.hold(2.0)
+        await pg.evaluate("document.querySelectorAll('.pb').forEach(e=>e.scrollTop=0)")
+        await pg.locator(f'{bp} .ph-title').first.click(); await pg.wait_for_timeout(300)
+        await pg.mouse.move(VW * 0.62, VH * 0.84); await pg.wait_for_timeout(800)
+
+        # ---- the tour: the canvas, then ⌘K into the PDF ----
+        r = Rig(pg, 'tour'); r.x, r.y = VW * 0.62, VH * 0.84; await r.start()
+        await r.hold(0.5)
+        await r.click('[data-v=canvas]'); r.mark('canvas'); await r.hold(0.6)
+        await r.move(VW * 0.86, VH * 0.17, 1.6); await r.hold(1.6)   # rest on empty canvas, above where the search
+        # results will be, so the way down to the Document row doesn't pass over the 'Describe it instead' row
+        await pg.keyboard.press('Meta+K'); r.mark('open'); await r.hold(0.6)
+        if not await pg.locator('#pal.show').count():
+            await pg.keyboard.press('Control+K'); await r.hold(0.4)
+        await r.type('line of sight', 0.08); r.mark('typed'); await r.hold(0.9)
+        await r.click('#palRes .pr:has(.pk:text-matches("Document"))', 0.4); r.mark('go')
+        await r.move(VW * 0.47, VH * 0.86, 1.2)
+        await r.hold(2.6)
         await r.stop(); r.save(outdir)
 
         if pg.errors: print('page errors:', *pg.errors[:5], sep='\n  ')
@@ -506,7 +488,7 @@ async def capture(outdir, tmp, url):
 
 # ---- the cut ---------------------------------------------------------------------------------------
 FPS, OW, OH = 30, 1920, 1080
-XF = 0.7                                   # crossfade between beats, seconds
+XF = 0.6                                   # crossfade between beats, seconds
 WIN = (208, 178, 1504, 846)                # where the app window sits in the frame (x, y, w, h)
 CAP_H = 160                                # the caption band above it
 BG = (243, 239, 230)                       # the cream around the window (cards use the same)
@@ -518,30 +500,19 @@ FULL = (VW / 2, VH / 2, 1.0)
 #   cam:  (film time, (cx, cy, zoom)) in CSS px of the 1280x720 page; eased between points.
 #   caps: (text, from, to) in film time within the beat.
 BEATS = [
-    {'card': 'open', 'dur': 4.6},
-    {'card': 'think', 'dur': 5.6},
+    {'card': 'open', 'dur': 3.2},
+    {'card': 'think', 'dur': 3.4},
     {'shot': 'core',
-     'warp': [(0, ('start', 0.6)), (None, ('sent', 0)), (None, ('done', 1.5)), (0.4, ('take0', 0)),
-              ('x1.15', ('noted', 1.0)), ('x1.1', ('src1', 2.1))],
-     'cam': [(0, (640, 400, 1.14)), (('sel0', -0.4), (640, 381, 1.28)), (('sent', -0.5), (640, 381, 1.28)), (('sent', 0.7), FULL)],
-     'caps': [('Highlight what puzzles you, and ask.', 0.6, ('sent', -0.3)),
-              ('The answer opens beside it.', ('sent', 0.2), ('done', 1.5)),
-              ('Carry what you learned back.', ('take0', -0.3), ('noted', 0.8)),
-              ('And find your way back to the exact words.', ('noted', 1.1), ('src1', 2.1))]},
-    {'shot': 'doc',
-     'warp': [(0, ('start', 0.7)), (None, ('sel1', 0)), ('x1.1', ('sent', 0)), ('x1.15', ('done', 0)), (None, ('done', 1.3))],
+     'warp': [(0, ('start', 0.6)), (None, ('sel1', 0)), ('x1.25', ('sent', 0)), ('x1.2', ('done', 0)), (None, ('done', 1.7))],
+     'cam': [(0, (640, 400, 1.14)), (('sel0', -0.3), (640, 381, 1.28)), (('sent', -0.3), (640, 381, 1.28)), (('sent', 0.8), FULL)],
+     'caps': [('Highlight what puzzles you, and ask.', 0.4, ('sent', -0.3)),
+              ('The answer opens beside it.', ('sent', 0.2), ('done', 1.7))]},
+    {'shot': 'tour',
+     'warp': [(0, ('canvas', -1.2)), (None, ('canvas', 0.2)), ('x1.3', ('open', 0)), (None, ('typed', 0)), ('x1.2', ('go', 0)), (None, ('go', 3.2))],
      'cam': [(0, FULL)],
-     'caps': [('Read a PDF or an article beside the chat.', 0.5, ('done', 1.3))]},
-    {'shot': 'search',
-     'warp': [(0, ('start', 0.4)), (None, ('go', 2.5))],
-     'cam': [(0, FULL), (('go', 0.5), FULL), (('go', 1.6), (430, 380, 1.15))],
-     'caps': [('<kbd>⌘K</kbd> finds any thought again.', 0.5, ('go', 2.5))]},
-    {'shot': 'canvas',
-     'warp': [(0, ('start', 0.3)), (None, ('theme0', 0)), ('x1.12', ('dark', 0)), (None, ('dark', 1.9))],
-     'cam': [(0, FULL), (('canvas', 0.9), FULL), (('theme0', -0.9), (600, 400, 1.12)), (('theme0', 0.1), FULL)],
-     'caps': [('See the whole conversation as a map.', 0.5, ('theme0', 0.0)),
-              ('Make it yours.', ('theme0', 0.6), ('dark', 1.9))]},
-    {'card': 'close', 'dur': 5.3},
+     'caps': [('See the whole conversation as a map.', 0.3, ('open', -0.2)),
+              ('<kbd>⌘K</kbd> finds any thought again, even in a PDF.', ('open', 0.1), ('go', 3.2))]},
+    {'card': 'close', 'dur': 4.6},
 ]
 
 
@@ -580,8 +551,8 @@ POSTER_CAP = ('<svg class="pm" viewBox="0 0 24 24" fill="none" stroke-width="2.2
               '<path stroke="#c4643c" d="M15.2 14c1.1-1.6 2.7-2.6 5-3.1"/><circle fill="#2a2723" stroke="none" cx="15.2" cy="4.3" r="1.9"/>'
               '<circle fill="#c4643c" stroke="none" cx="19.8" cy="15.9" r="1.7"/><circle fill="#c4643c" stroke="none" cx="20.4" cy="10.5" r="1.4"/></svg>'
               'Digress<span class="mu">a branching chat for learning</span>'
-              '<span class="play"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z" fill="#fffdf9"/></svg>Watch the 1-minute film</span>')
-POSTER_AT = ('core', ('noted', 1.0))      # the app frame behind the poster's title
+              '<span class="play"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z" fill="#fffdf9"/></svg>Watch the 30-second film</span>')
+POSTER_AT = ('core', ('done', 1.5))      # the app frame behind the poster's title
 
 
 def captions_of():
@@ -757,14 +728,18 @@ class Composer:
 
 # ---- the music: composed and synthesized here ------------------------------------------------------
 def music(total, sr=44100):
-    """A slow piano-like piece over a soft pad: D major, four chords, ~66 bpm, then a last chord that
-    rings out under the closing card. Additive synthesis + a synthetic reverb; nothing sampled."""
+    """A slow piano-like piece over a soft pad: D major, four chords in 6/4, one per bar, the tempo set so that
+    the fourth chord (A, the dominant) resolves to D exactly as the closing card comes in; that last chord
+    rings out under it. Additive synthesis + a synthetic reverb; nothing sampled."""
     import numpy as np
     rng = np.random.default_rng(3)
     n = int(total * sr) + sr
     L = np.zeros(n); R = np.zeros(n)
     hz = lambda m: 440.0 * 2 ** ((m - 69) / 12)
-    beat = 60 / 66
+    close = beat_times()[0][-1][0] + 0.1          # the last chord lands with the closing card
+    start = 0.35
+    bar = (close - start) / 4                       # four bars: about 5.8 s each for the 30-second cut
+    beat = bar / 6                                  # about 62 bpm
     # (bass root, pad voicing, arpeggio notes), MIDI numbers
     prog = [
         (38, [62, 66, 69, 73], [74, 78, 81, 85, 81, 78]),        # Dmaj7
@@ -793,21 +768,17 @@ def music(total, sr=44100):
                 s *= 1 + 0.15 * np.sin(2 * np.pi * 0.18 * tt + rng.random() * 6)
                 i = int(t * sr); j = min(n, i + k)
                 (L if side == 0 else R)[i:j] += s[:j - i]
-    close = beat_times()[0][-1][0] + 0.1          # the last chord lands with the closing card
-    bar = 4 * beat * 2                             # each chord lasts two bars
-    t, c = 0.6, 0
-    while t + 0.5 < close:
-        root, voicing, arp = prog[c % 4]
-        dur = min(bar, close - t)
-        pad(voicing, t, dur, 0.022)
-        pad([root], t, dur, 0.036)
-        for q in range(int(dur / (beat * 1.0))):
-            if q % 8 in (0, 2, 3, 5, 6) and (c > 0 or q >= 2):
+    t = start
+    for c, (root, voicing, arp) in enumerate(prog):
+        pad(voicing, t, bar, 0.022)
+        pad([root], t, bar, 0.036)
+        for q in range(6):
+            if q in (0, 2, 3, 5) and (c > 0 or q >= 2):
                 note = arp[(q + c) % len(arp)]
                 piano(note, t + q * beat + rng.normal(0, 0.012), 0.14 + 0.06 * rng.random(), 0.35 + 0.3 * rng.random())
-        t += bar; c += 1
+        t += bar
     # the last chord: D major 9, rolled
-    pad([50, 62, 66, 69, 76], close, total - close - 1.5, 0.022)
+    pad([50, 62, 66, 69, 76], close, total - close - 1.0, 0.022)
     for i, m in enumerate([62, 69, 74, 78, 81, 88]):
         piano(m, close + 0.11 * i, 0.12 - 0.008 * i, 0.3 + 0.08 * i)
     # reverb: decaying filtered noise, a little different on each side
@@ -823,7 +794,7 @@ def music(total, sr=44100):
     # gentle low-pass, then fades
     k = np.ones(3) / 3; L = np.convolve(L, k, 'same'); R = np.convolve(R, k, 'same')
     tt = np.arange(n) / sr
-    fade = np.minimum(1, tt / 2.5) * np.clip((total - tt) / 3.5, 0, 1) ** 1.5
+    fade = np.minimum(1, tt / 1.2) * np.clip((total - tt) / 2.4, 0, 1) ** 1.5
     L *= fade; R *= fade
     st = np.stack([L, R], 1)[:int(total * sr)]
     st *= 10 ** (-20 / 20) / np.sqrt(np.mean(st ** 2))     # quiet: about -20 dBFS RMS
@@ -839,25 +810,50 @@ def write_wav(path, st, sr):
         w.setnchannels(2); w.setsampwidth(2); w.setframerate(sr); w.writeframes(pcm.tobytes())
 
 
-def compose(work, out_mp4, only=None):
+MAX_BYTES = 4_900_000      # GitHub's free plan takes videos up to 10 MB; keep well under 5 MB
+
+
+def encode(ff, master, wav, out_mp4, crf):
+    """The delivery file: H.264 High, level 4.0, yuv420p (BT.709, tagged), constant 30 fps, AAC-LC 128k stereo,
+    moov atom up front (+faststart) so a browser starts playing before the download ends."""
+    cmd = [ff, '-y', '-loglevel', 'error', '-i', master, '-i', wav,
+           '-map', '0:v:0', '-map', '1:a:0',
+           '-vf', 'scale=out_color_matrix=bt709:flags=lanczos+accurate_rnd+full_chroma_int,format=yuv420p',
+           '-c:v', 'libx264', '-preset', 'veryslow', '-tune', 'animation', '-crf', str(crf),
+           '-profile:v', 'high', '-level:v', '4.0', '-pix_fmt', 'yuv420p',
+           '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709', '-color_range', 'tv',
+           '-r', str(FPS), '-fps_mode', 'cfr', '-x264-params', f'keyint={FPS * 2}:min-keyint={FPS}:force-cfr=1:colorprim=bt709:transfer=bt709:colormatrix=bt709',
+           '-c:a', 'aac', '-b:a', '128k', '-ar', '44100', '-ac', '2',
+           '-shortest', '-movflags', '+faststart', out_mp4]
+    subprocess.run(cmd, check=True)
+
+
+def compose(work, out_mp4):
     import imageio_ffmpeg
     import numpy as np
     C = Composer(work)
     total = C.total
     wav = os.path.join(work, 'music.wav'); st, sr = music(total); write_wav(wav, st, sr)
     ff = imageio_ffmpeg.get_ffmpeg_exe()
+    # first a lossless master (RGB, in the work folder), so the size search below doesn't redraw every frame
+    master = os.path.join(work, 'master.mkv')
     cmd = [ff, '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{OW}x{OH}', '-r', str(FPS), '-i', '-',
-           '-i', wav, '-c:v', 'libx264', '-preset', 'slow', '-crf', '21', '-tune', 'animation', '-pix_fmt', 'yuv420p',
-           '-x264-params', 'keyint=60', '-c:a', 'aac', '-b:a', '128k', '-shortest', '-movflags', '+faststart', out_mp4]
+           '-c:v', 'libx264rgb', '-qp', '0', '-preset', 'ultrafast', master]
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
-    N = int(total * FPS)
+    N = int(round(total * FPS))
     t0 = time.time()
     for i in range(N):
         fr = C.frame(i / FPS)
         p.stdin.write(np.clip(fr, 0, 255).astype(np.uint8).tobytes())
         if i % 150 == 0: print(f'  frame {i}/{N} ({time.time() - t0:.0f}s)', flush=True)
     p.stdin.close(); p.wait()
+    for crf in (18, 20, 22, 24, 26, 28):     # the best quality that fits
+        encode(ff, master, wav, out_mp4, crf)
+        size = os.path.getsize(out_mp4)
+        print(f'  crf {crf}: {size / 1e6:.2f} MB')
+        if size <= MAX_BYTES: break
     print(f'{out_mp4}: {total:.1f}s, {os.path.getsize(out_mp4) / 1e6:.2f} MB')
+    os.remove(master)
 
 
 def stills(work, times, outdir):

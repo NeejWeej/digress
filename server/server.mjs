@@ -4,7 +4,8 @@
 // No dependencies; needs Node 18 or newer. Configuration comes from the environment or a .env file.
 //
 //   GET  /api/health                   {app:'digress', llm:bool, provider, web:bool, why}
-//   GET  /api/models                   {models:[[id,label]], defaultLabel}
+//   GET  /api/models                   {models:[[id,label]], defaultLabel, default, chosen}
+//   GET|PUT /api/prefs                 {defaultModel}: preferences shared by every device
 //   POST /api/chat                     {system, messages, model, effort, web} -> streamed lines: {d}, {search}, {sources},
 //                                      then {done,model,truncated} or {error}  (see PROVIDERS)
 //   GET  /api/store/:coll              [{id, data}]          (coll: convs | index)
@@ -211,8 +212,28 @@ async function listModels() {
   for (const k of enabled()) for (const m of await PROVIDERS[k].models()) { owner.set(m[0], k); all.push(m); }
   return all;
 }
-// "Default" means DEFAULT_MODEL if set, else the default provider's first choice
+// Preferences shared by every device (data/prefs.json): today just the default model, chosen in the app.
+const PREFS_FILE = path.join(DATA, 'prefs.json');
+let prefsCache = null;
+async function getPrefs() {
+  if (!prefsCache) { try { prefsCache = JSON.parse(await fs.readFile(PREFS_FILE, 'utf8')); } catch { prefsCache = {}; } }
+  return prefsCache;
+}
+async function setPrefs(patch) {
+  return withLock(PREFS_FILE, async () => {
+    const next = { ...(await getPrefs()), ...patch };
+    for (const k of Object.keys(next)) if (next[k] == null) delete next[k];
+    await fs.mkdir(DATA, { recursive: true }); await writeAtomic(PREFS_FILE, JSON.stringify(next)); prefsCache = next; return next;
+  });
+}
+// "Default" means: the default chosen in the app (if a connected provider still offers it), else DEFAULT_MODEL
+// if set, else the default provider's first choice
 async function defaultModel() {
+  const chosen = (await getPrefs()).defaultModel;
+  if (chosen) { const ids = (await listModels()).map((m) => m[0]); if (ids.includes(chosen)) return chosen; }
+  return builtinDefault();
+}
+async function builtinDefault() {
   if (process.env.DEFAULT_MODEL) return process.env.DEFAULT_MODEL;
   const k = enabled()[0];
   if (k === 'chatgpt') { const m = await chatgpt.listModels(); if (m.length) return m[0][0]; }
@@ -627,7 +648,20 @@ async function route(req, res) {
   if (parts[1] === 'models' && req.method === 'GET') {
     const models = await listModels(), def = await defaultModel();
     const d = models.find((m) => m[0] === def);
-    return send(res, 200, { models, defaultLabel: d ? d[1] : def });
+    return send(res, 200, { models, defaultLabel: d ? d[1] : def, default: def, chosen: (await getPrefs()).defaultModel || null });
+  }
+  // PUT /api/prefs {defaultModel: id | null}: the model "Default" means, on every device (null: back to the built-in one)
+  if (parts[1] === 'prefs' && parts.length === 2) {
+    if (req.method === 'GET') return send(res, 200, await getPrefs());
+    if (req.method === 'PUT') {
+      const p = await readJson(req, 4096), m = p && p.defaultModel;
+      if (m != null) {
+        if (typeof m !== 'string' || m.length > 120) return fail(res, 400, 'Bad model');
+        if (!(await listModels()).some((x) => x[0] === m)) return fail(res, 400, 'No connected provider offers that model');
+      }
+      return send(res, 200, await setPrefs({ defaultModel: m || null }));
+    }
+    return fail(res, 405, 'Method not allowed');
   }
   if (parts[1] === 'chat' && req.method === 'POST' && parts.length === 2) return handleChat(req, res);
   // a page coming back to a reply: the lines from `from` on, then the rest as it comes (runs.mjs)

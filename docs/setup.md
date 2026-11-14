@@ -63,7 +63,7 @@ The API path streams directly, caches the system prompt (handy for long PDFs) an
 
 ### Which model is the default
 
-When the picker says **Default**, Digress uses `DEFAULT_MODEL` if it's set (`claude-opus-5-5` out of the box), otherwise the first model of the default connection. `LLM_PROVIDER` picks that connection: `claude-code`, `anthropic` or `chatgpt`. It defaults to `anthropic` when there's an API key and `claude-code` otherwise.
+To change what **Default** means, pick a model and click the ☆ beside the picker: it becomes the default on all your devices (kept in `data/prefs.json`). Without that, when the picker says **Default**, Digress uses `DEFAULT_MODEL` if it's set (`claude-opus-5-5` out of the box), otherwise the first model of the default connection. `LLM_PROVIDER` picks that connection: `claude-code`, `anthropic` or `chatgpt`. It defaults to `anthropic` when there's an API key and `claude-code` otherwise.
 
 ## Web search
 
@@ -117,7 +117,7 @@ Back it up by copying the folder. It's git-ignored.
 | Setting | Default | What it does |
 |---|---|---|
 | `LLM_PROVIDER` | `anthropic` with a key, else `claude-code` | Default connection: `claude-code`, `anthropic` or `chatgpt` |
-| `DEFAULT_MODEL` | `claude-opus-5-5` | Model used when the picker says Default |
+| `DEFAULT_MODEL` | `claude-opus-5-5` | Model used when the picker says Default, unless you chose one with the ☆ in the app |
 | `CLAUDE_BIN` | `claude` | Path to the Claude Code CLI |
 | `CLAUDE_CODE_OAUTH_TOKEN` | | Token from `claude setup-token`, for headless machines |
 | `ANTHROPIC_API_KEY` | | Use the Anthropic API for Claude |
