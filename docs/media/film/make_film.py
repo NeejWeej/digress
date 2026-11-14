@@ -6,9 +6,10 @@ Needs what the tests need (`npm install`, Playwright with Chromium) plus numpy, 
 (`.venv/bin/pip install numpy pillow imageio-ffmpeg`; the last one ships its own ffmpeg binary). The page
 fonts (Inter, Source Serif 4) come from Google Fonts, so a network connection gives the intended look.
 
-The story, in five beats: the twig and the name; a line-drawn head whose thought branches ("Every answer
-raises new questions"); the core move (highlight a phrase, ask, the branch opens beside it); the canvas map
-of the conversation, then ⌘K search landing on the words inside a PDF in another conversation; the closing card.
+The story, in five beats: the twig and the name; a single line of thought that forks into side questions and
+still runs on to its end ("Every good answer raises new questions. Follow them, without losing your place.");
+the core move (highlight a phrase, ask, the branch opens beside it); the canvas map of the conversation, then
+⌘K search landing on the words inside a PDF in another conversation; the closing card. No people or faces.
 
 How it works:
   1. capture  It starts its own Digress server on a free port with a throwaway data folder and a stand-in
@@ -18,9 +19,9 @@ How it works:
               (the canvas, then ⌘K into a PDF conversation set up off camera). Each is recorded as 1920x1080
               screenshots (the page at 1280x720 CSS px, 1.5x), with the pointer path, named time marks and
               element boxes logged alongside. The pointer is not in the screenshots; it is drawn in step 3,
-              so it moves smoothly at 30 fps whatever the capture rate. The top bar's model picker is hidden
-              (CALM_CSS): it changes often and says nothing in a film.
-  2. cards    Title and illustration cards from cards.html (next to this file), one frame per call of
+              so it moves smoothly at 30 fps whatever the capture rate. The top bar is shown as it is, with
+              the model picker; top_fits() checks that at 1280 px nothing is moved into the ⋯ menu.
+  2. cards    Title cards from cards.html (next to this file), one frame per call of
               show(scene, t), so every frame is a pure function of time; the captions are rendered there too.
   3. compose  BEATS below is the edit: which stretch of which shot, retimed (waits shortened), with eased
               camera moves and captions; cards crossfade in and out. The music is composed and synthesized
@@ -213,11 +214,10 @@ FIND = """([root, phrase, scroll]) => { const el=document.querySelector(root); i
   const rs=[...r.getClientRects()].filter(q=>q.width>0); const f=rs[0], l=rs[rs.length-1];
   return [f.left+1, f.top+f.height/2, l.right-1, l.top+l.height/2]; }"""
 
-# hide the text cursor blink and scrollbars so frames stay calm
+# hide scrollbars so frames stay calm (the top bar, model picker included, is left exactly as the app shows it)
 CALM_CSS = """
 *{scrollbar-width:none!important}
 *::-webkit-scrollbar{display:none!important}
-.top label.sel:has(#mSel),#mSel,#mDef{display:none!important}
 """
 
 
@@ -238,6 +238,17 @@ async def new_app_page(browser, url, mac=True):
     await pg.goto(url); await pg.wait_for_timeout(1500)
     await pg.add_style_tag(content=CALM_CSS)
     return pg
+
+
+async def top_fits(pg):
+    """The top bar must look as it does in the app at full width: the model picker on it, visible, nothing
+    moved into the ⋯ menu. If this fails, the capture size is too narrow for the bar; widen VW, don't hide things."""
+    st = await pg.evaluate("""()=>{const m=document.querySelector('#mSel'),r=m.getBoundingClientRect(),top=document.querySelector('.top');
+        return {onBar: !!m.closest('.top'), more: getComputedStyle(document.querySelector('#moreB')).display,
+                inMenu: document.querySelector('.tmore').children.length, w: r.width, right: r.right, vw: innerWidth,
+                label: m.selectedOptions[0] && m.selectedOptions[0].text}}""")
+    assert st['onBar'] and st['more'] == 'none' and not st['inMenu'] and st['w'] > 40 and st['right'] <= st['vw'], f'top bar does not fit: {st}'
+    print(f"  top bar fits; model picker shows {st['label']!r}")
 
 
 async def ask_main(pg, q, wait=4000):
@@ -273,6 +284,7 @@ class Rig:
         self.x, self.y, self.down_ = VW * 0.82, VH * 0.86, False
 
     async def start(self):
+        await top_fits(self.pg)
         # Screenshots in a loop rather than Page.startScreencast: the screencast only delivers CSS-pixel
         # frames in headless Chromium, and we want device pixels (2x) for crisp text.
         self.cdp = await self.pg.context.new_cdp_session(self.pg)
@@ -294,6 +306,7 @@ class Rig:
             await asyncio.sleep(0.005)
 
     async def stop(self):
+        await top_fits(self.pg)
         self.mark('end'); self.log()
         await asyncio.sleep(0.3)
         self.running = False; await self.task
@@ -501,7 +514,7 @@ FULL = (VW / 2, VH / 2, 1.0)
 #   caps: (text, from, to) in film time within the beat.
 BEATS = [
     {'card': 'open', 'dur': 3.2},
-    {'card': 'think', 'dur': 3.4},
+    {'card': 'fork', 'dur': 3.4},
     {'shot': 'core',
      'warp': [(0, ('start', 0.6)), (None, ('sel1', 0)), ('x1.25', ('sent', 0)), ('x1.2', ('done', 0)), (None, ('done', 1.7))],
      'cam': [(0, (640, 400, 1.14)), (('sel0', -0.3), (640, 381, 1.28)), (('sent', -0.3), (640, 381, 1.28)), (('sent', 0.8), FULL)],

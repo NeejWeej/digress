@@ -1,7 +1,7 @@
 <!doctype html>
-<!-- The film's title and illustration cards. make_film.py loads this page at 1920x1080 and calls
+<!-- The film's title cards. make_film.py loads this page at 1920x1080 and calls
      show(scene, t) for every frame, so each frame is a pure function of time (no clocks, no CSS animation).
-     Scenes: open, think, close; and caption(text) for the lines above the app window. -->
+     Scenes: open, fork (a line of thought that branches), close; and caption(text) for the lines above the app window. -->
 <html><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;1,8..60,400&display=block" rel="stylesheet">
 <style>
@@ -34,26 +34,23 @@ svg{position:absolute;overflow:visible}
   <div class="sub serif" style="top:655px">A branching chat for learning</div>
 </div>
 
-<div class="scene" id="think">
+<div class="scene" id="fork">
+  <!-- one line of thought (ink) that forks: two side questions (terracotta), and the line carries on to its end -->
   <svg width="1920" height="1080" viewBox="0 0 1920 1080">
-    <g transform="translate(700 210)" stroke="#2a2723" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <!-- a head in profile, one unbroken line -->
-      <path id="head" d="M150 560 C152 520 140 492 118 466 C 70 410 66 300 118 236 C 176 164 300 150 360 212 C 392 246 400 284 394 312 C 412 336 432 362 432 376 C 432 388 414 392 402 394 C 408 406 406 418 398 424 C 404 432 404 444 394 450 C 398 466 392 482 372 488 C 348 494 318 496 300 504 C 290 522 292 544 298 560"/>
-      <!-- the thought: rises from the head and branches like the twig -->
-      <path id="t0" d="M300 196 C 330 150 352 112 372 72 C 392 32 404 -6 410 -40"/>
-      <path id="t1" stroke="#c4643c" d="M366 84 C 410 78 452 84 500 108"/>
-      <path id="t2" stroke="#c4643c" d="M420 84 C 436 58 460 40 494 30"/>
-      <path id="t3" stroke="#c4643c" d="M392 26 C 360 0 330 -14 300 -18"/>
+    <g stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path id="f0" stroke="#2a2723" d="M560 486 C 820 482 1100 476 1360 470"/>
+      <path id="f1" stroke="#c4643c" d="M820 483 C 868 472 902 424 926 362"/>
+      <path id="f2" stroke="#c4643c" d="M902 412 C 942 400 986 402 1030 418"/>
+      <path id="f3" stroke="#c4643c" d="M1080 477 C 1128 490 1162 528 1180 582"/>
     </g>
-    <g transform="translate(700 210)">
-      <circle id="c0" cx="410" cy="-46" r="11" fill="#2a2723"/>
-      <circle id="c1" cx="508" cy="112" r="10" fill="#c4643c"/>
-      <circle id="c2" cx="502" cy="27" r="8.5" fill="#c4643c"/>
-      <circle id="c3" cx="292" cy="-19" r="8.5" fill="#c4643c"/>
-    </g>
+    <circle id="d0" cx="560" cy="486" r="11" fill="#2a2723"/>
+    <circle id="d1" cx="929" cy="354" r="11" fill="#c4643c"/>
+    <circle id="d2" cx="1038" cy="421" r="9.5" fill="#c4643c"/>
+    <circle id="d3" cx="1183" cy="590" r="9.5" fill="#c4643c"/>
+    <circle id="d4" cx="1368" cy="470" r="13" fill="#2a2723"/>
   </svg>
-  <div class="cap serif" id="thinkA" style="top:842px">Every good answer raises new questions.</div>
-  <div class="cap serif" id="thinkB" style="top:912px;color:var(--muted);font-style:italic;font-size:40px">Follow them, without losing your place.</div>
+  <div class="cap serif" id="forkA" style="top:742px">Every good answer raises new questions.</div>
+  <div class="cap serif" id="forkB" style="top:812px;color:var(--muted);font-style:italic;font-size:40px">Follow them, without losing your place.</div>
 </div>
 
 <div class="scene" id="close">
@@ -95,19 +92,19 @@ function twig(root, t, t0, k = 1) {
 window.show = function (scene, t) {
   document.querySelectorAll('.scene').forEach((s) => s.classList.toggle('on', s.id === scene));
   const S = document.getElementById(scene);
-  // timings fit the 30-second cut: open 3.2 s, think 3.4 s, close 4.6 s (cards crossfade over 0.6 s)
+  // timings fit the 30-second cut: open 3.2 s, fork 3.4 s, close 4.6 s (cards crossfade over 0.6 s)
   if (scene === 'open') {
     twig(S, t, 0.15, 0.75);
     fadeUp(S.querySelector('.word'), span(t, 0.8, 1.6));
     fadeUp(S.querySelector('.sub'), span(t, 1.25, 2.05), 12);
-  } else if (scene === 'think') {
+  } else if (scene === 'fork') {
     const q = (s) => document.getElementById(s);
-    draw(q('head'), span(t, 0.0, 1.2));
-    draw(q('t0'), span(t, 0.95, 1.7)); pop(q('c0'), span(t, 1.6, 1.95));
-    draw(q('t1'), span(t, 1.3, 1.95)); pop(q('c1'), span(t, 1.85, 2.2));
-    draw(q('t2'), span(t, 1.6, 2.15)); pop(q('c2'), span(t, 2.05, 2.4));
-    draw(q('t3'), span(t, 1.45, 2.0)); pop(q('c3'), span(t, 1.95, 2.3));
-    fadeUp(q('thinkA'), span(t, 0.25, 0.95)); fadeUp(q('thinkB'), span(t, 1.35, 2.05), 12);
+    pop(q('d0'), span(t, 0.0, 0.35));
+    draw(q('f0'), span(t, 0.1, 1.7)); pop(q('d4'), span(t, 1.6, 1.95));
+    draw(q('f1'), span(t, 0.75, 1.35)); pop(q('d1'), span(t, 1.25, 1.6));
+    draw(q('f2'), span(t, 1.1, 1.6)); pop(q('d2'), span(t, 1.5, 1.85));
+    draw(q('f3'), span(t, 1.0, 1.6)); pop(q('d3'), span(t, 1.5, 1.85));
+    fadeUp(q('forkA'), span(t, 0.25, 0.95)); fadeUp(q('forkB'), span(t, 1.35, 2.05), 12);
   } else if (scene === 'close') {
     twig(S, t, 0.1, 0.75);
     fadeUp(S.querySelector('.word'), span(t, 0.5, 1.3));
