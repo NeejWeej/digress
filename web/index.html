@@ -523,6 +523,9 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .cnode.main.picked{--c:var(--faint)}
 @keyframes cflash{0%,100%{box-shadow:0 1px 3px rgba(0,0,0,.05)}30%{box-shadow:0 0 0 5px color-mix(in srgb,var(--c) 40%,transparent)}}
 .cnode.flash{animation:cflash 1.1s ease 2}
+.zhere{display:inline-flex;align-items:center}
+.zhere .zx{padding:0 6px;font-size:15px;color:var(--faint);margin-left:-4px}
+.zhere .zx:hover{color:var(--ink)}
 .cnode.here{border-color:color-mix(in srgb,var(--c) 55%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,transparent),0 1px 3px rgba(0,0,0,.05)}
 #cvHereTag{position:absolute;font:500 11px var(--sans);opacity:.85;white-space:nowrap;pointer-events:none;transform:translateY(-100%);padding-bottom:6px}
 .cnode .ch{display:flex;align-items:center;gap:6px;padding:7px 6px 6px 12px;font-weight:500;cursor:grab;user-select:none}
@@ -823,7 +826,7 @@ a.pref:hover{border-bottom-style:solid}
     <svg id="wires"></svg>
     <div class="cv" id="cv"><div id="world"><svg id="edges" width="1" height="1"></svg></div><div id="dock"></div><div id="snapPrev"></div>
       <div class="cvhint">Drag the background to pan, scroll to zoom. Drag a card by its title to move it, or to an edge to snap it there. Alt+scroll zooms one card. Space reads the selected card full screen.</div>
-      <div class="cvtools"><button class="tb" id="zHere" style="display:none" title="Go back to the card you came from"></button><button class="tb" id="zViews" title="Canvas views: saved arrangements of this canvas, shared with your other devices"></button><button class="tb" id="zTidy" title="Forget the positions you set and lay the tree out automatically"></button><button class="ib" id="zOut" title="Zoom out"></button><button class="ib" id="zFit" title="Fit the whole tree in view"></button><button class="ib" id="zIn" title="Zoom in"></button></div>
+      <div class="cvtools"><span class="zhere" id="zHereW" style="display:none"><button class="tb" id="zHere" title="Go back to the card you came from"></button><button class="tb zx" id="zHereX" title="Remove the “You were here” mark">×</button></span><button class="tb" id="zViews" title="Canvas views: saved arrangements of this canvas, shared with your other devices"></button><button class="tb" id="zTidy" title="Forget the positions you set and lay the tree out automatically"></button><button class="ib" id="zOut" title="Zoom out"></button><button class="ib" id="zFit" title="Fit the whole tree in view"></button><button class="ib" id="zIn" title="Zoom in"></button></div>
     </div>
     <div class="banner" id="banner"></div>
   </main>
@@ -2630,15 +2633,15 @@ function focusedPane(){
     const a=Math.max(0,Math.min(r.right,pr.right)-Math.max(r.left,pr.left))*Math.max(0,Math.min(r.bottom,pr.bottom)-Math.max(r.top,pr.top));if(a>=area&&a>0){area=a;best=tid}}
   return best;
 }
-/* …and it stays marked (a quiet ring and "You were here") while you look around (pan, zoom, scroll), until
-   you do something with a card (click into one, drag one) or leave the canvas. Per page, never saved;
-   survives the canvas redrawing (renderCanvas → markHere). */
+/* …and it stays marked (a quiet ring and "You were here") for the whole visit: whatever you do on the canvas,
+   until you switch to Columns or Rows or open another conversation. Per page, never saved; survives the
+   canvas redrawing (renderCanvas → markHere). */
 let cvHere=null;
 function markHere(){
   document.querySelectorAll('#cv .cnode.here').forEach(n=>n.classList.remove('here'));
   const n=cvHere&&$('#cv').querySelector(`.cnode[data-ctid="${cvHere}"]`);let tag=$('#cvHereTag');
   if(n)n.classList.add('here');
-  $('#zHere').style.display=n?'':'none';
+  $('#zHereW').style.display=n?'':'none';
   if(!n||n.classList.contains('docked')){tag&&tag.remove();return}   // a card stuck to the screen gets the ring only
   if(!tag){tag=document.createElement('div');tag.id='cvHereTag';tag.textContent='You were here'}
   if(tag.parentNode!==$('#world'))$('#world').appendChild(tag);
@@ -2651,7 +2654,6 @@ function panToCard(n){
   const cv=$('#cv').getBoundingClientRect();
   animateCam(cv.width/2-(n.offsetLeft+n.offsetWidth/2)*cam.k,Math.min(cv.height/2-(n.offsetTop+Math.min(n.offsetHeight,500)/2)*cam.k,60-n.offsetTop*cam.k+40));
 }
-$('#cv').addEventListener('pointerdown',e=>{if(e.target.closest('.cnode'))clearHere()},{capture:true,passive:true});
 function cvArrive(tid){
   const box=$('#cv');let n=null;
   for(let id=tid;id&&!(n=box.querySelector(`.cnode[data-ctid="${id}"]`));id=visParentId(id));
@@ -2943,6 +2945,7 @@ function canvasAction(act,tid,btn){
   $('#zIn').innerHTML=ic('plus');$('#zOut').innerHTML=ic('minus');$('#zFit').innerHTML=ic('fit');
   $('#zTidy').innerHTML=ic('canvas')+'Tidy';
   $('#zHere').innerHTML=ic('locate')+'You were here';
+  $('#zHereX').onclick=()=>clearHere();
   $('#zHere').onclick=()=>{const n=cvHere&&$('#cv').querySelector(`.cnode[data-ctid="${cvHere}"]`);if(n){panToCard(n);n.classList.remove('flash');void n.offsetWidth;n.classList.add('flash')}};
   $('#zIn').onclick=()=>zoomAt(1.2);$('#zOut').onclick=()=>zoomAt(1/1.2);$('#zFit').onclick=fitCanvas;
   $('#zTidy').onclick=()=>{cvState().pos={};renderCanvas();fitCanvas();save()};
@@ -3013,7 +3016,7 @@ function openFromCanvas(tid,mid){
   if(mid)revealMsg(tid,mid);
 }
 function setView(v){
-  if(v!=='canvas')cvHere=null;
+  if(v!=='canvas')clearHere();
   if(v==='canvas'){const from=conv.ui.view!=='canvas'?focusedPane():null;conv.ui.view='canvas';$('#stage').classList.add('canvas');hidePop();renderCanvas();if(from)requestAnimationFrame(()=>cvArrive(from))}
   else{
     const was=conv.ui.view;conv.ui.view='panes';$('#stage').classList.remove('canvas');
@@ -4436,6 +4439,7 @@ async function deleteConv(id){
   if(conv&&conv.id===id){dirty=false;setConv(newConv())}else renderConvList();
 }
 function setConv(c){
+  clearHere();   // "You were here" belongs to this conversation's canvas visit
   for(const s of streaming.values()){s.detached=true;s.ctrl.abort()}streaming.clear();   // replies carry on on the server; back here, resumeRuns picks them up
   conv=c;const ui=conv.ui=conv.ui||{};
   ui.open=(ui.open||['main']).filter(id=>conv.threads[id]||(id==='doc'&&conv.doc));if(!ui.open.includes('main'))ui.open.unshift('main');

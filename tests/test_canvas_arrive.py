@@ -84,8 +84,12 @@ async def main():
         back = await pg.evaluate("(()=>{const c=document.getElementById('cv').getBoundingClientRect(),h=document.querySelector('#cv .cnode.here .ch').getBoundingClientRect();return h.left>=c.left&&h.right<=c.right&&h.top>=c.top&&h.bottom<=c.bottom})()")
         check('…which glides back to the card, and the mark stays', back and await pg.locator('#cv .cnode.here').count() == 1)
         await pg.locator('#cv .cnode[data-ctid="main"] .ch .ct').click(); await pg.wait_for_timeout(200)
-        check('doing something with a card (here: clicking one) clears it', await pg.locator('#cv .cnode.here').count() == 0 and await pg.locator('#cvHereTag').count() == 0)
-        check('…and the toolbar button goes with it', not await btn.is_visible())
+        check('it lasts the whole visit: clicking a card keeps it', await pg.locator('#cv .cnode.here').count() == 1 and await btn.is_visible())
+        await pg.locator('#zHereX').click(); await pg.wait_for_timeout(150)
+        check('× beside the button removes the mark (and the button)', await pg.locator('#cv .cnode.here').count() == 0 and await pg.locator('#cvHereTag').count() == 0 and not await btn.is_visible())
+        await view('cols'); await calm(pg); await view('canvas'); await calm(pg)   # a new visit marks again
+        await view('cols'); await calm(pg)
+        check('leaving the canvas clears it, and the toolbar button with it', await pg.locator('#cv .cnode.here').count() == 0 and await pg.locator('#cvHereTag').count() == 0 and not await btn.is_visible())
         await view('cols'); await calm(pg)
         check('…and so is every pane’s scroll', await scrolls() == sc0, [sc0, await scrolls()])
 
