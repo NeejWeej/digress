@@ -14,8 +14,8 @@ Asserts and exits non-zero on the first failure.
 """
 import asyncio, base64, hashlib, json, os, shutil, subprocess, sys, tempfile, time
 from playwright.async_api import async_playwright
-from common import FIX, OUT, launch_args
-from test_server import FAKES, CDN, check, free_port, start, req, chat
+from common import FIX, OUT, launch_args, BOOT_WATCH, booted, replies, settled, saved, soon, frames
+from test_server import FAKES, CDN, check, free_port, start, req, chat, wait_port
 
 sha = lambda b: hashlib.sha256(b).hexdigest()
 IMG = '\x00IMG:{}\x00'
@@ -96,7 +96,7 @@ def server_checks(tmp, imgs):
         # --- Claude Code CLI + ChatGPT side by side
         oport = free_port()
         procs.append(subprocess.Popen(['node', os.path.join(FAKES, 'fake-openai.mjs'), str(oport)], stdout=subprocess.PIPE, env={**os.environ, 'FAKE_LOG': os.path.join(tmp, 'openai.log')}))
-        time.sleep(0.5)
+        wait_port(oport)
         obase = f'http://127.0.0.1:{oport}'
         auth = os.path.join(tmp, 'chatgpt.json')
         with open(os.open(auth, os.O_WRONLY | os.O_CREAT, 0o600), 'w') as f:
@@ -152,7 +152,7 @@ def server_checks(tmp, imgs):
         # --- Anthropic API
         aport = free_port(); api_log = os.path.join(tmp, 'api.log'); open(api_log, 'w').close()
         procs.append(subprocess.Popen(['node', os.path.join(FAKES, 'fake-anthropic.mjs'), str(aport)], stdout=subprocess.PIPE, env={**os.environ, 'FAKE_API_LOG': api_log}))
-        time.sleep(0.4)
+        wait_port(aport)
         proc2, base2 = start({'ANTHROPIC_API_KEY': 'test-key', 'ANTHROPIC_BASE_URL': f'http://127.0.0.1:{aport}', 'DATA_DIR': os.path.join(tmp, 'd2')})
         procs.append(proc2)
         st, text, ls = chat(base2, {'system': system, 'model': 'claude-test-1', 'messages': convo})
@@ -200,7 +200,7 @@ def expected_path(conv, tid, files_dir):
 async def app_checks(tmp, b):
     oport = free_port(); oa_log = os.path.join(tmp, 'openai2.log'); open(oa_log, 'w').close()
     fo = subprocess.Popen(['node', os.path.join(FAKES, 'fake-openai.mjs'), str(oport)], stdout=subprocess.PIPE, env={**os.environ, 'FAKE_LOG': oa_log})
-    time.sleep(0.5)
+    wait_port(oport)
     obase = f'http://127.0.0.1:{oport}'
     auth = os.path.join(tmp, 'chatgpt2.json')
     with open(os.open(auth, os.O_WRONLY | os.O_CREAT, 0o600), 'w') as f:
@@ -223,13 +223,12 @@ async def app_checks(tmp, b):
             if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
             await r.continue_()
         await pg.route('**/*', route)
-        await pg.goto(base + '/'); await pg.wait_for_timeout(1500)
+        await pg.add_init_script(BOOT_WATCH); await pg.goto(base + '/'); await booted(pg)
 
-        async def wait_idle():
-            for _ in range(100):
-                if await pg.locator('.msg.assistant .typing, .msg.assistant.pending').count() == 0 and await pg.evaluate("![...document.querySelectorAll('.sendb')].some(b=>b.title==='Stop')"): break
-                await pg.wait_for_timeout(100)
-            await pg.wait_for_timeout(900)  # the app saves ~0.7s after a change
+        async def wait_idle(n):   # n replies, none still being written, and saved
+            await settled(pg, n)
+            await pg.wait_for_function("!document.querySelector('.msg.assistant .typing, .msg.assistant.pending')&&![...document.querySelectorAll('.sendb')].some(b=>b.title==='Stop')")
+            await saved(pg)
 
         async def paste(sel, seed):
             await pg.evaluate('''([sel, seed]) => new Promise(res => { const c = document.createElement('canvas'); c.width = 900; c.height = 500;
@@ -238,11 +237,11 @@ async def app_checks(tmp, b):
                 x.fillStyle = '#222'; x.font = '28px sans-serif'; x.fillText('Screenshot ' + seed, 30, 40);
                 c.toBlob(bl => { const dt = new DataTransfer(); dt.items.add(new File([bl], 'shot.png', { type: 'image/png' }));
                   const ta = document.querySelector(sel); ta.focus(); ta.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); res(); }, 'image/png'); })''', [sel, seed])
-            await pg.wait_for_timeout(500)
+            await pg.wait_for_function("sel => { const i = document.querySelector(sel).closest('.pane').querySelector('.cimg img'); return i && i.complete && i.naturalWidth > 0 }", arg=sel)
 
         async def ask(tid, text):
             ta = pg.locator(f'.pane[data-tid="{tid}"] textarea').first
-            await ta.fill(text); await ta.press('Enter'); await wait_idle()
+            n = await replies(pg); await ta.fill(text); await ta.press('Enter'); await wait_idle(n + 1)
 
         async def saved_conv():
             convs = json.loads(req(base, 'GET', '/api/store/convs')[1])
@@ -271,8 +270,9 @@ async def app_checks(tmp, b):
             return got_imgs, system, stream
 
         # a PDF, then the main thread with a pasted screenshot
-        await pg.locator('#newDoc').click(); await pg.wait_for_timeout(200)
-        await pg.set_input_files('#docFile', FIX + '/paper.pdf'); await pg.locator('#docGo').click(); await pg.wait_for_timeout(3000)
+        await pg.locator('#newDoc').click()
+        await pg.set_input_files('#docFile', FIX + '/paper.pdf'); await pg.locator('#docGo').click()
+        await pg.wait_for_function("(()=>{const c=__digress.conv;return c.doc&&c.doc.assetId&&document.querySelectorAll('.dpage').length>=3&&(document.querySelector('.dpage[data-page=\"1\"] .textLayer')||{}).textContent})()", timeout=20000)
         await paste('.pane[data-tid="main"] textarea', 1)
         check(await pg.locator('.pane[data-tid="main"] .cimg img').count() == 1, 'pasting a screenshot shows it in the message box')
         await pg.screenshot(path=OUT + '/context_paste.png')
@@ -290,8 +290,7 @@ async def app_checks(tmp, b):
         await pg.evaluate('''() => { const body = [...document.querySelectorAll('.pane[data-tid=main] .msg.assistant .body')][0];
           const w = document.createTreeWalker(body, NodeFilter.SHOW_TEXT); const n = w.nextNode(); const r = document.createRange(); r.setStart(n, 0); r.setEnd(n, 10);
           const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); }''')
-        await pg.wait_for_timeout(200)
-        await pg.locator('#popIn').fill('Q-text-branch: explain that part'); await pg.locator('#popIn').press('Enter'); await wait_idle()
+        n = await replies(pg); await pg.locator('#popIn').fill('Q-text-branch: explain that part'); await pg.locator('#popIn').press('Enter'); await wait_idle(n + 1)
         conv = await saved_conv()
         tb = [t for t in conv['threads'].values() if t.get('parent') == 'main' and t['anchorMsg'] != 'DOC'][0]
         _, _, stream = verify(conv, tb['id'], 'branch from highlighted text')
@@ -299,14 +298,14 @@ async def app_checks(tmp, b):
 
         # a snip of the PDF
         doc = pg.locator('.pane[data-tid=doc]')
-        await doc.locator('[data-act=snip]').click(); await pg.wait_for_timeout(150)
+        await doc.locator('[data-act=snip]').click(); await frames(pg)
         p1 = await doc.locator('.dpage[data-page="1"]').bounding_box()
         await pg.mouse.move(p1['x'] + p1['width'] * 0.1, p1['y'] + p1['height'] * 0.05); await pg.mouse.down()
         await pg.mouse.move(p1['x'] + p1['width'] * 0.8, p1['y'] + p1['height'] * 0.2, steps=8); await pg.mouse.up()
-        await pg.wait_for_timeout(800)
+        await soon(pg, "(()=>{const i=document.querySelector('#pop.show .pimg');return i&&i.complete&&i.naturalWidth>200})()")
         check(await pg.locator('#pop.show .pimg').count() == 1 and (await pg.locator('#pop .pimg').evaluate('e=>e.naturalWidth')) > 200, 'snipping a box opens the question popup with a sharp image of it')
         await pg.screenshot(path=OUT + '/context_snip.png')
-        await pg.locator('#popIn').fill('Q-snip: what is in this box?'); await pg.locator('#popIn').press('Enter'); await wait_idle()
+        n = await replies(pg); await pg.locator('#popIn').fill('Q-snip: what is in this box?'); await pg.locator('#popIn').press('Enter'); await wait_idle(n + 1)
         conv = await saved_conv()
         sb = [t for t in conv['threads'].values() if t.get('anchorRegion') and t['anchorRegion']['w'] < 1][0]
         check(0.05 < sb['anchorRegion']['x'] < 0.15 and 0.6 < sb['anchorRegion']['w'] < 0.8 and sb['anchorPage'] == 0, f'the branch remembers where the snip is on the page {sb["anchorRegion"]}')
@@ -315,7 +314,7 @@ async def app_checks(tmp, b):
         check(len(snip_imgs) == 1 and 'area of the document (p. 1)' in stream and sb['regionText'] in stream, 'the snip image itself arrives, with the page and the text inside it')
         check(await doc.locator(f'.dregion[data-tid="{sb["id"]}"]').count() == 1, 'the snip is outlined on the page in the branch\'s colour')
         oi = pg.locator(f'.pane[data-tid="{sb["id"]}"] .origin .oimg img')
-        await pg.wait_for_timeout(300)
+        await soon(pg, "sel=>{const i=document.querySelector(sel);return i&&i.complete&&i.naturalWidth>100}", f'.pane[data-tid="{sb["id"]}"] .origin .oimg img')
         check(await oi.count() == 1 and await oi.evaluate('e=>e.naturalWidth') > 100, 'the snip branch shows the snip at its top')
         await pg.locator(f'.pane[data-tid="{sb["id"]}"]').screenshot(path=OUT + '/context_snip_branch.png')
         await ask(sb['id'], 'Q-snip-2: a follow-up in the snip branch')
@@ -326,8 +325,7 @@ async def app_checks(tmp, b):
         await pg.evaluate(f'''() => {{ const body = document.querySelector('.pane[data-tid="{sb["id"]}"] .msg.assistant .body');
           const w = document.createTreeWalker(body, NodeFilter.SHOW_TEXT); const n = w.nextNode(); const r = document.createRange(); r.setStart(n, 0); r.setEnd(n, 8);
           const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.dispatchEvent(new MouseEvent('mouseup', {{ bubbles: true }})); }}''')
-        await pg.wait_for_timeout(200)
-        await pg.locator('#popChips .chip').first.click(); await wait_idle()
+        n = await replies(pg); await pg.locator('#popChips .chip').first.click(); await wait_idle(n + 1)
         conv = await saved_conv()
         nb = [t for t in conv['threads'].values() if t.get('parent') == sb['id']][0]
         await paste(f'.pane[data-tid="{nb["id"]}"] textarea', 2)
@@ -338,10 +336,10 @@ async def app_checks(tmp, b):
 
         # ask about a whole page, then the same branch on ChatGPT
         p2 = doc.locator('.dpage[data-page="2"]')
-        await p2.scroll_into_view_if_needed(); await p2.hover(); await pg.wait_for_timeout(200)
-        await p2.locator('.pask').click(); await pg.wait_for_timeout(900)
+        await p2.scroll_into_view_if_needed(); await p2.hover()
+        await p2.locator('.pask').click(); await soon(pg, "(()=>{const i=document.querySelector('#pop.show .pimg');return i&&i.complete&&i.naturalWidth>0})()")
         check(await pg.locator('#pop.show .pimg').count() == 1, '"Ask about this page" opens the popup with the page')
-        await pg.locator('#popIn').fill('Q-page: summarise this page'); await pg.locator('#popIn').press('Enter'); await wait_idle()
+        n = await replies(pg); await pg.locator('#popIn').fill('Q-page: summarise this page'); await pg.locator('#popIn').press('Enter'); await wait_idle(n + 1)
         conv = await saved_conv()
         pb = [t for t in conv['threads'].values() if t.get('anchorRegion') and t['anchorRegion']['w'] >= 1][0]
         pimgs, _, stream = verify(conv, pb['id'], 'whole-page branch')
@@ -352,7 +350,7 @@ async def app_checks(tmp, b):
         gimgs, _, _ = verify(conv, nb['id'], 'ChatGPT, branch off the snip branch', provider='openai')
         check(len(gimgs) == 2 and snip_imgs[0] in gimgs, 'ChatGPT gets the same snip and screenshot')
 
-        await pg.reload(); await pg.wait_for_timeout(2500)
+        await pg.reload(); await booted(pg); await soon(pg, "!!document.querySelector('.msg.user .uimg img')")
         check(await pg.locator('.msg.user .uimg img').count() >= 1, 'after a reload, sent screenshots still show')
         await pg.screenshot(path=OUT + '/context_after_reload.png')
         check(not errs, 'no page errors: ' + '; '.join(errs[:3]))

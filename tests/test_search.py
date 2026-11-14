@@ -1,6 +1,13 @@
 import asyncio, json
 from playwright.async_api import async_playwright
-from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app
+from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app, booted, answered, saved, frames, calm, steady, changed, new_conv
+
+RES = "document.getElementById('palRes').innerHTML"
+INDEXED = "(()=>{const id=__digress.conv.id;return !!localStorage.getItem('fakesrv:index/'+id)})()"   # the open conversation's search entries are written
+
+
+async def search(pg, q):   # type into the palette and wait for its results to settle
+    await changed(pg, RES, pg.locator('#palIn').fill(q)); await steady(pg, RES)
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -39,42 +46,44 @@ async def main():
         old = json.loads(open(FIX + '/conv.json').read()); old['id']='cOLD'; old['title']='Fourier notes'; old['updated']=5
         old['msgs']['a1']['content'] += '\n\nThis is the Fourier transform view of signals.'
         await pg.add_init_script("localStorage.setItem('fakesrv:convs/cOLD',"+json.dumps(json.dumps(old))+")")
-        await goto_app(pg); await pg.wait_for_timeout(1500)
-        await pg.locator('#newConv').click(); await pg.wait_for_timeout(200)
-        ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Explain attention'); await ta.press('Enter'); await pg.wait_for_timeout(1800)
+        await goto_app(pg); await booted(pg)
+        await new_conv(pg)
+        ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Explain attention'); await answered(pg, ta.press('Enter'))
         await pg.evaluate("""() => { const b=document.querySelector('.pane[data-tid=main] .msg.assistant .body'); const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT); let n;
           while((n=w.nextNode())){const i=n.nodeValue.indexOf('soft dictionary lookup'); if(i>=0){const r=document.createRange(); r.setStart(n,i); r.setEnd(n,i+22); const s=getSelection(); s.removeAllRanges(); s.addRange(r); break}}
           document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true})); }""")
-        await pg.wait_for_timeout(150); await pg.locator('#popIn').fill('Why a lookup?'); await pg.locator('#popIn').press('Enter'); await pg.wait_for_timeout(2000)
-        await pg.locator('#newConv').click(); await pg.wait_for_timeout(200)
-        ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Second topic: Raft'); await ta.press('Enter'); await pg.wait_for_timeout(2600)
+        await pg.locator('#popIn').fill('Why a lookup?'); await answered(pg, pg.locator('#popIn').press('Enter')); await saved(pg); await pg.wait_for_function(INDEXED)
+        await new_conv(pg)
+        ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Second topic: Raft'); await answered(pg, ta.press('Enter')); await saved(pg); await pg.wait_for_function(INDEXED)
         print('index entries written:', await pg.evaluate("Object.keys(localStorage).filter(k=>k.startsWith('fakesrv:index/')).length"))
-        await pg.keyboard.press('Control+k'); await pg.wait_for_timeout(600)
+        await pg.keyboard.press('Control+k'); await pg.locator('#pal.show #palRes .pr').first.wait_for()
         print('palette open:', await pg.locator('#pal.show').count(), '| recent:', await pg.evaluate("[...document.querySelectorAll('#palRes .pr .ps')].map(e=>e.textContent)"))
-        await pg.wait_for_timeout(800)
+        await pg.wait_for_function("!!localStorage.getItem('fakesrv:index/cOLD')&&!document.getElementById('palFoot').textContent")   # the older conversation got indexed
         print('index after backfill:', await pg.evaluate("Object.keys(localStorage).filter(k=>k.startsWith('fakesrv:index/')).length"))
-        await pg.locator('#palIn').fill('dictonary'); await pg.wait_for_timeout(600)
+        await search(pg, 'dictonary')
         res = await pg.evaluate("[...document.querySelectorAll('#palRes .pgrp, #palRes .pr')].map(e=>e.classList.contains('pgrp')?'## '+e.textContent:(e.querySelector('.pk').textContent+': '+e.querySelector('.ps').innerHTML.slice(0,80)))")
         print('results for typo "dictonary":'); [print('   ',r) for r in res]
         await pg.screenshot(path=OUT + '/s1.png')
         idx = await pg.evaluate("[...document.querySelectorAll('#palRes .pr')].findIndex(e=>e.querySelector('.pk').textContent==='Highlight')")
         for _ in range(max(0,idx)): await pg.keyboard.press('ArrowDown')
-        await pg.keyboard.press('Enter'); await pg.wait_for_timeout(1300)
+        await pg.keyboard.press('Enter'); await pg.wait_for_function("!document.querySelector('#pal.show')&&__digress.conv.title==='Explain attention'&&document.querySelectorAll('.pane').length===2"); await calm(pg)
         print('after Enter: palette closed', await pg.locator('#pal.show').count()==0, '| conversation', await pg.locator('#cTitle').text_content(), '| flashing highlight', await pg.locator('.anchor.flash').count(), '| panes', await pg.evaluate("[...document.querySelectorAll('.pane .ph-title')].map(t=>t.textContent)"))
-        await pg.locator('#sboxIn').click(); await pg.wait_for_timeout(300)
+        await pg.locator('#sboxIn').click(); await pg.locator('#pal.show').wait_for()
         print('sidebar search bar opens palette:', await pg.locator('#pal.show').count())
-        await pg.locator('#palIn').fill('fourier'); await pg.wait_for_timeout(600)
+        await search(pg, 'fourier')
         print('"fourier" groups:', await pg.evaluate("[...document.querySelectorAll('#palRes .pgrp')].map(e=>e.textContent)"))
-        await pg.keyboard.press('Control+Enter'); await pg.wait_for_timeout(1300)
+        await pg.keyboard.press('Control+Enter'); await pg.wait_for_function("__digress.conv.id==='cOLD'"); await calm(pg)
         print('ctrl+enter: palette still open', await pg.locator('#pal.show').count(), '| conversation now', await pg.locator('#cTitle').text_content())
-        await pg.keyboard.press('Escape'); await pg.wait_for_timeout(200)
-        await pg.locator('#newDoc').click(); await pg.wait_for_timeout(200)
-        await pg.set_input_files('#docFile', FIX + '/paper.pdf'); await pg.locator('#docGo').click(); await pg.wait_for_timeout(3000)
-        await pg.locator('#newConv').click(); await pg.wait_for_timeout(300)
-        await pg.keyboard.press('Control+k'); await pg.wait_for_timeout(400)
-        await pg.locator('#palIn').fill('saturating'); await pg.wait_for_timeout(700)
+        await pg.keyboard.press('Escape'); await pg.locator('#pal').wait_for(state='hidden')
+        await pg.locator('#newDoc').click()
+        await pg.set_input_files('#docFile', FIX + '/paper.pdf'); await pg.locator('#docGo').click()
+        # the document's text is read (its header says "Page 1 of 3"), and it's saved
+        await pg.wait_for_function(r"(()=>{const o=document.querySelector('.pane[data-tid=doc] .ph-origin');return __digress.conv.doc&&o&&/Page \d+ of \d+/.test(o.textContent)})()"); await saved(pg)
+        await new_conv(pg)
+        await pg.keyboard.press('Control+k'); await pg.locator('#pal.show').wait_for(); await pg.wait_for_function("!document.getElementById('palFoot').textContent")
+        await search(pg, 'saturating')
         print('"saturating":', await pg.evaluate("[...document.querySelectorAll('#palRes .pr')].map(e=>e.querySelector('.pk').textContent+' | '+e.querySelector('.ps').textContent.slice(0,50))"))
-        await pg.keyboard.press('Enter'); await pg.wait_for_timeout(2500)
+        await pg.keyboard.press('Enter'); await pg.locator('.dpage.flash').wait_for(); await calm(pg)
         print('opened doc at page:', await pg.locator('.docpane .ph-origin').text_content(), '| page flash', await pg.locator('.dpage.flash').get_attribute('data-page'))
         await pg.screenshot(path=OUT + '/s2.png')
         print('\n'.join(errs[:15]) or 'no errors')

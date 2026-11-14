@@ -13,8 +13,8 @@ the new endpoints refuse what they should. Asserts and exits non-zero.
 """
 import asyncio, json, os, re, shutil, subprocess, sys, tempfile, time
 from playwright.async_api import async_playwright
-from common import FIX, OUT, launch_args
-from test_server import FAKES, CDN, free_port, start, req
+from common import FIX, OUT, launch_args, BOOT_WATCH, booted, replies, settled, saved
+from test_server import FAKES, CDN, free_port, start, req, wait_port
 
 fails = []
 def check(name, ok, detail=''):
@@ -54,7 +54,7 @@ async def main():
             for f in (oa_log, api_log, cc_log): open(f, 'w').close()
             procs.append(subprocess.Popen(['node', os.path.join(FAKES, 'fake-openai.mjs'), str(oport)], stdout=subprocess.PIPE, env={**os.environ, 'FAKE_LOG': oa_log}))
             procs.append(subprocess.Popen(['node', os.path.join(FAKES, 'fake-anthropic.mjs'), str(aport)], stdout=subprocess.PIPE, env={**os.environ, 'FAKE_API_LOG': api_log}))
-            time.sleep(0.6)
+            wait_port(oport); wait_port(aport)
             obase = f'http://127.0.0.1:{oport}'
             auth = os.path.join(tmp, 'chatgpt.json')
             with open(os.open(auth, os.O_WRONLY | os.O_CREAT, 0o600), 'w') as f:
@@ -96,30 +96,25 @@ async def main():
                     if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
                     await r.continue_()
                 await pg.route('**/*', route)
-                await pg.goto(base + '/'); await pg.wait_for_timeout(1500)
+                await pg.add_init_script(BOOT_WATCH); await pg.goto(base + '/'); await booted(pg)
                 return ctx, pg, errs
 
-            async def wait_idle(pg):
-                for _ in range(200):
-                    if await pg.evaluate("![...document.querySelectorAll('.sendb')].some(b=>b.title==='Stop')"): break
-                    await pg.wait_for_timeout(100)
-                await pg.wait_for_timeout(900)
+            async def wait_idle(pg, n):   # n replies, all finished (no Stop button left), and saved
+                await settled(pg, n, timeout=20000)
+                await pg.wait_for_function("![...document.querySelectorAll('.sendb')].some(b=>b.title==='Stop')", timeout=20000)
+                await saved(pg)
 
             async def new_doc(pg, path):
-                await pg.locator('#newDoc').click(); await pg.wait_for_timeout(200)
-                before = await pg.evaluate("location.hash+'|'+document.querySelectorAll('.citem').length")
+                await pg.locator('#newDoc').click()
+                before = await pg.evaluate('__digress.conv.id')
                 await pg.set_input_files('#docFile', path); await pg.locator('#docGo').click()
-                for _ in range(50):    # the new conversation exists
-                    if await pg.evaluate("location.hash+'|'+document.querySelectorAll('.citem').length") != before: break
-                    await pg.wait_for_timeout(100)
-                for _ in range(200):   # the doc pane's header says "Page 1 of N" once the text is read
-                    o = pg.locator('.pane[data-tid=doc] .ph-origin')
-                    if await o.count() and re.search(r'Page \d+ of \d+', await o.first.text_content() or ''): break
-                    await pg.wait_for_timeout(100)
+                # the new conversation exists, and the doc pane's header says "Page 1 of N" once the text is read
+                await pg.wait_for_function(r"""id => { const o = document.querySelector('.pane[data-tid=doc] .ph-origin');
+                  return __digress.conv.id !== id && __digress.conv.doc && o && /Page \d+ of \d+/.test(o.textContent || '') }""", arg=before, timeout=20000)
 
             async def ask(pg, text, tid='main'):
                 ta = pg.locator(f'.pane[data-tid="{tid}"] textarea').first
-                await ta.fill(text); await ta.press('Enter'); await wait_idle(pg)
+                n = await replies(pg); await ta.fill(text); await ta.press('Enter'); await wait_idle(pg, n + 1)
 
             last_reply = lambda pg: pg.evaluate("(()=>{const r=[...document.querySelectorAll('.pane[data-tid=main] .msg.assistant')].pop();return r?r.innerText:''})()")
 
@@ -155,7 +150,7 @@ async def main():
             check('it is told how to use the tools and not to guess', 'search finds where something is' in sys1 and 'never guess' in sys1)
 
             # same conversation, ChatGPT
-            await pg.select_option('#mSel', 'gpt-test-1'); await pg.wait_for_timeout(200)
+            await pg.select_option('#mSel', 'gpt-test-1')
             await ask(pg, 'READDOC and again, through ChatGPT')
             reply = await last_reply(pg)
             check_script('ChatGPT', reply)
@@ -165,20 +160,20 @@ async def main():
             check('ChatGPT: the same starting point (contents + first pages) as the developer message', oa[-1]['input'][0]['role'] == 'developer' and '<contents>' in oa[-1]['input'][0]['content'])
 
             # the starting point never changes between questions (one prompt cache for the conversation)
-            await pg.select_option('#mSel', 'auto'); await pg.wait_for_timeout(200)
+            await pg.select_option('#mSel', 'auto')
             await ask(pg, 'A follow-up about something else entirely: transformers in general?')
             sys2 = [l for l in lines(cc_log) if 'model' in l][-1]['system']
             check('a different question starts from exactly the same instructions', sys2 == sys1)
 
             # a branch about a passage on p. 30 carries pp. 29–31
-            await pg.locator('.dpage[data-page="30"]').scroll_into_view_if_needed(); await pg.wait_for_timeout(1500)
+            await pg.locator('.dpage[data-page="30"]').scroll_into_view_if_needed()
+            await pg.wait_for_function("(document.querySelector('.dpage[data-page=\"30\"] .textLayer')||{}).textContent?.includes('ZEBRA-30')", timeout=15000)   # its text layer is drawn
             ok = await pg.evaluate('''() => { const tl = document.querySelector('.dpage[data-page="30"] .textLayer'); if (!tl) return false;
               const w = document.createTreeWalker(tl, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode())) { const i = n.nodeValue.indexOf('ZEBRA-30');
               if (i >= 0) { const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 8); const s = getSelection(); s.removeAllRanges(); s.addRange(r);
               document.dispatchEvent(new MouseEvent('mouseup', {bubbles: true})); return true; } } return false; }''')
             check('selected a passage on p. 30', ok)
-            await pg.wait_for_timeout(300)
-            await pg.locator('#popIn').fill('What is this marker?'); await pg.locator('#popIn').press('Enter'); await wait_idle(pg)
+            n = await replies(pg); await pg.locator('#popIn').fill('What is this marker?'); await pg.locator('#popIn').press('Enter'); await wait_idle(pg, n + 1)
             br = [l for l in lines(cc_log) if 'model' in l][-1]
             check('a branch about a passage brings the text of its page and the pages either side', '[The text of pp. 29–31, around it:]' in br['prompt'] and 'ZEBRA-29' in br['prompt'] and 'ZEBRA-31' in br['prompt'] and 'ZEBRA-32' not in br['prompt'], br['prompt'][:400])
             check('…and still the same instructions', br['system'] == sys1)

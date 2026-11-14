@@ -4,7 +4,13 @@ then lose the connection (the server stops and the network is cut). Reloading st
 an outbox and reach the server once it is back. Asserts and exits non-zero."""
 import asyncio, base64, json, os, shutil, subprocess, sys, tempfile, time, urllib.request
 from playwright.async_api import async_playwright
-from common import OUT, launch_args
+from common import OUT, launch_args, BOOT_WATCH, booted, soon, frames, poll
+
+CACHED = r"""async (asset) => { const c = await caches.open('digress-v1'), keys = new Set((await c.keys()).map(r => r.url));
+  const want = [new URL('./', location.href).href, location.origin + '/prompts.js', location.origin + '/threads.js', location.origin + '/api/files/' + asset,
+    ...[...document.scripts].map(s => s.src).filter(u => /^https:\/\/(cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com)\//.test(u))];
+  return want.every(u => keys.has(u)) }"""   # the worker has kept the page, its scripts and the card's image
+
 from test_server import CDN, FAKES, SERVER, free_port, req
 
 fails = []
@@ -50,33 +56,35 @@ async def main():
             pg = await ctx.new_page()
             errs = []
             pg.on('pageerror', lambda e: errs.append(str(e)))
-            await pg.goto(base + '/'); await pg.wait_for_timeout(1500)
+            await pg.add_init_script(BOOT_WATCH); await pg.goto(base + '/'); await booted(pg)
             check('the service worker installs', await pg.evaluate("navigator.serviceWorker.ready.then(r=>!!r.active)"))
-            await pg.reload(); await pg.wait_for_timeout(2000)   # now the page and its libraries go through the worker, which keeps them
+            await pg.reload(); await booted(pg)   # now the page and its libraries go through the worker, which keeps them
             check('the page is controlled by it', await pg.evaluate('!!navigator.serviceWorker.controller'))
             check('online: the Review button shows the 2 due cards', '2 due' in await pg.locator('#reviewBtn').text_content())
-            await pg.wait_for_timeout(500)
+            await pg.wait_for_function(CACHED, arg=asset, polling=100)
 
             # lose the connection: the server goes away and the network is cut
             srv.kill(); srv.wait()
             await ctx.set_offline(True)
-            await pg.reload(); await pg.wait_for_timeout(2500)
+            await pg.reload(); await booted(pg); await soon(pg, "() => (document.getElementById('reviewBtn').textContent || '').includes('2 due')")
             check('offline, the app still opens', await pg.locator('#reviewBtn').count() == 1 and await pg.evaluate("typeof marked!=='undefined'"))
             check('it says it is offline and that cards still work', 'offline' in (await pg.locator('#banner').text_content()).lower() and await pg.locator('#banner').is_visible())
             check('the cards are there, from this browser\'s copy', '2 due' in await pg.locator('#reviewBtn').text_content(), await pg.locator('#reviewBtn').text_content())
-            await pg.locator('#reviewBtn').click(); await pg.wait_for_timeout(300)
-            await pg.keyboard.press('Space'); await pg.wait_for_timeout(200)
+            await pg.locator('#reviewBtn').click(); await pg.locator('#cardsModal.show').wait_for()
+            await pg.keyboard.press('Space'); await frames(pg)
             check('review works offline', await pg.locator('#cardsModal .krate button').count() == 4)
-            await pg.keyboard.press('3'); await pg.wait_for_timeout(600)
+            await pg.keyboard.press('3'); await soon(pg, "() => { const i = document.querySelector('#cardsModal .kimg img'); return i && i.complete && i.naturalWidth === 8 }")
             check('the card with an image shows it offline', await pg.locator('#cardsModal .kimg img').count() == 1 and await pg.locator('#cardsModal .kimg img').evaluate('e=>e.complete&&e.naturalWidth===8'))
             await pg.screenshot(path=OUT + '/offline_review.png')
-            await pg.keyboard.press('Space'); await pg.keyboard.press('4'); await pg.wait_for_timeout(400)
+            await pg.keyboard.press('Space'); await pg.keyboard.press('4'); await soon(pg, "() => JSON.parse(localStorage.getItem('digress:cards-outbox')||'[]').length === 2")
             check('both ratings wait in the outbox', await pg.evaluate("JSON.parse(localStorage.getItem('digress:cards-outbox')||'[]').length") == 2)
 
             # back online: the reviews reach the server
             srv = run_server(port, data)
             await ctx.set_offline(False)
-            await pg.evaluate("dispatchEvent(new Event('online'))"); await pg.wait_for_timeout(2500)
+            await pg.evaluate("dispatchEvent(new Event('online'))")
+            await poll(lambda: all(len(json.loads(req(base, 'GET', f'/api/store/cards/kc{i}')[1])['reviews']) == 1 for i in range(2)))
+            await soon(pg, "() => JSON.parse(localStorage.getItem('digress:cards-outbox')||'[]').length === 0 && document.getElementById('banner').textContent.includes('Back online')")
             got = [json.loads(req(base, 'GET', f'/api/store/cards/kc{i}')[1]) for i in range(2)]
             check('back online, the offline reviews are saved on the server', all(len(c['reviews']) == 1 and c['due'] > now + 86400_000 for c in got), str([(len(c['reviews']), c['due'] - now) for c in got]))
             check('the outbox is empty', await pg.evaluate("JSON.parse(localStorage.getItem('digress:cards-outbox')||'[]').length") == 0)

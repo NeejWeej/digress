@@ -4,7 +4,7 @@ asks again in a new thread starting where the question did, without touching any
 hidden from the tree. The saved conversation is checked with ThreadOps.check. Asserts, exits non-zero."""
 import asyncio, json, sys
 from playwright.async_api import async_playwright
-from common import ROOT, OUT, launch_args, goto_app
+from common import ROOT, OUT, launch_args, goto_app, booted, answered, frames, saved as page_saved
 
 MAP = {'marked.min.js': ROOT + 'marked/marked.min.js', 'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
        'highlight.min.js': ROOT + '@highlightjs/cdn-assets/highlight.min.js', 'tex-svg-full.js': ROOT + 'mathjax/es5/tex-svg-full.js'}
@@ -32,7 +32,7 @@ async def main():
                 if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript')
             if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
             await r.continue_()
-        await pg.route('**/*', route); await pg.add_init_script(FAKE); await goto_app(pg); await pg.wait_for_timeout(1200)
+        await pg.route('**/*', route); await pg.add_init_script(FAKE); await goto_app(pg); await booted(pg)
         main = pg.locator('.pane[data-tid=main]'); ta = main.locator('textarea')
         qtexts = lambda pane: pane.locator('.msg.user .body').all_inner_texts()
         alts = pg.locator('.pane:not([data-tid=main]):not([data-tid=doc])')
@@ -41,14 +41,14 @@ async def main():
               const c = JSON.parse(localStorage.getItem(k)); return {c, bad: ThreadOps.check(c, [])}; }""")
 
         await pg.select_option('#mSel', 'claude-haiku-5-5')
-        await ta.fill('Q1 what is a tide?'); await ta.press('Enter'); await pg.wait_for_timeout(700)
-        await ta.fill('Q2 and neap tides?'); await ta.press('Enter'); await pg.wait_for_timeout(700)
+        await ta.fill('Q1 what is a tide?'); await answered(pg, ta.press('Enter'))
+        await ta.fill('Q2 and neap tides?'); await answered(pg, ta.press('Enter'))
         await pg.select_option('#mSel', 'claude-opus-5-5')
 
         r1 = main.locator('.msg.assistant').first
         title = await r1.locator('[data-act=redo]').get_attribute('title')
         check('an earlier reply can still be redone, as another version', title.startswith('Redo as another version'), title)
-        await r1.locator('[data-act=redo]').click(); await pg.wait_for_timeout(900)
+        await answered(pg, r1.locator('[data-act=redo]').click())
         check('it opens beside, asking the same question with the model selected now', await alts.count() == 1 and await qtexts(alts.first) == ['Q1 what is a tide?'] and 'ANSWER(claude-opus-5-5) to Q1' in await alts.first.locator('.msg.assistant').inner_text())
         check('…and sees only what the original saw: no later messages, no side-question prefix', pg and (await pg.evaluate('window.__calls.at(-1)')) == ['Q1 what is a tide?'], await pg.evaluate('window.__calls.at(-1)'))
         check('nothing in the main thread changed', await qtexts(main) == ['Q1 what is a tide?', 'Q2 and neap tides?'] and 'claude-haiku-5-5' in await r1.inner_text())
@@ -59,35 +59,35 @@ async def main():
         check('it isn’t shown as a side-question chip on the reply before it', await main.locator('.bchip').count() == 0)
 
         # edit an earlier question: another version with the new text
-        q1 = main.locator('.msg.user').first; await q1.hover(); await q1.locator('[data-act=edit]').click(); await pg.wait_for_timeout(200)
+        q1 = main.locator('.msg.user').first; await q1.hover(); await q1.locator('[data-act=edit]').click(); await main.locator('.uedit textarea').wait_for()
         hint = await main.locator('.uedit .hint').inner_text()
         check('editing an earlier question says it becomes another version', 'another version' in hint, hint)
-        await main.locator('.uedit textarea').fill('Q1b why are there two tides a day?'); await main.locator('.uedit textarea').press('Enter'); await pg.wait_for_timeout(900)
+        await main.locator('.uedit textarea').fill('Q1b why are there two tides a day?'); await answered(pg, main.locator('.uedit textarea').press('Enter'))
         check('…and it does: a third version, main untouched', await alts.count() == 2 and await qtexts(main) == ['Q1 what is a tide?', 'Q2 and neap tides?'] and '3 versions' in await chip.inner_text())
         vb = pg.locator('.pane', has=pg.locator('.msg.user .body', has_text='Q1b'))
         vb_tid = await vb.get_attribute('data-tid')
 
         # use the edited version
-        await vb.locator('[data-usev]').click(); await pg.wait_for_timeout(600)
+        await vb.locator('[data-usev]').click(); await frames(pg)
         check('“Use this version”: the main thread now goes on with it', await qtexts(main) == ['Q1b why are there two tides a day?'], await qtexts(main))
         check('…and the old conversation moved into that pane, nothing lost', await qtexts(pg.locator(f'.pane[data-tid={vb_tid}]')) == ['Q1 what is a tide?', 'Q2 and neap tides?'])
         check('…the conversation title follows the question in use', (await pg.locator('#cTitle').inner_text()).strip() == 'Q1b why are there two tides a day?')
-        s = await saved(); check('…and the saved conversation is well formed', not s['bad'], s['bad'])
-        ta2 = main.locator('textarea'); await ta2.fill('Q3 follow-up'); await ta2.press('Enter'); await pg.wait_for_timeout(700)
+        await page_saved(pg); s = await saved(); check('…and the saved conversation is well formed', not s['bad'], s['bad'])
+        ta2 = main.locator('textarea'); await ta2.fill('Q3 follow-up'); await answered(pg, ta2.press('Enter'))
         check('continuing in main now builds on the version in use', await pg.evaluate('window.__calls.at(-1)') == ['Q1b why are there two tides a day?', 'ANSWER(claude-opus-5-5) to Q1b why are there two tides a day?', 'Q3 follow-up'], await pg.evaluate('window.__calls.at(-1)'))
-        await pg.locator(f'.pane[data-tid={vb_tid}] [data-usev]').click(); await pg.wait_for_timeout(600)
+        await pg.locator(f'.pane[data-tid={vb_tid}] [data-usev]').click(); await frames(pg)
         check('using the other one swaps back', await qtexts(main) == ['Q1 what is a tide?', 'Q2 and neap tides?'] and await qtexts(pg.locator(f'.pane[data-tid={vb_tid}]')) == ['Q1b why are there two tides a day?', 'Q3 follow-up'])
 
         # hide a version from the tree
-        row = pg.locator(f'.mnode[data-map="{vb_tid}"]'); await row.hover(); await row.locator('[data-hideb]').click(); await pg.wait_for_timeout(300)
+        row = pg.locator(f'.mnode[data-map="{vb_tid}"]'); await row.hover(); await row.locator('[data-hideb]').click(); await frames(pg)
         check('a hidden branch leaves the tree, with a way to show it', await pg.locator(f'.mnode[data-map="{vb_tid}"]').count() == 0 and 'Show 1 hidden branch' in await pg.locator('.showhid').inner_text())
         check('…the question still counts it among its versions', '3 versions' in await chip.inner_text())
-        await pg.locator('.showhid').click(); await pg.wait_for_timeout(200)
+        await pg.locator('.showhid').click(); await frames(pg)
         check('“show hidden” brings it back', await pg.locator(f'.mnode[data-map="{vb_tid}"]').count() == 1)
 
         await pg.screenshot(path=OUT + '/versions.png')
-        await pg.wait_for_timeout(1000)   # saves are debounced
-        await pg.reload(); await pg.wait_for_timeout(1500)
+        await page_saved(pg, layout=True)   # saves are debounced
+        await pg.reload(); await booted(pg)
         got = [await qtexts(pg.locator('.pane[data-tid=main]')), await pg.locator('.pane[data-tid=main] .msg.user').first.locator('.vchip').all_inner_texts()]
         check('after a reload it all stays', got[0] == ['Q1 what is a tide?', 'Q2 and neap tides?'] and '3 versions' in ''.join(got[1]), got)
         s = await saved(); check('the saved conversation is well formed', not s['bad'], s['bad'])

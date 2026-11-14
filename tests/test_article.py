@@ -9,7 +9,7 @@ only the article's own image links. Asserts and exits non-zero.
 """
 import asyncio, http.server, json, os, re, shutil, sys, tempfile, threading, time
 from playwright.async_api import async_playwright
-from common import OUT, launch_args
+from common import OUT, launch_args, BOOT_WATCH, booted, replies, settled, answered, saved, soon
 from test_server import FAKES, CDN, start
 
 fails = []
@@ -71,14 +71,15 @@ async def main():
                 if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
                 await r.continue_()
             await pg.route('**/*', route)
-            await pg.goto(base + '/'); await pg.wait_for_timeout(1500)
+            await pg.add_init_script(BOOT_WATCH); await pg.goto(base + '/'); await booted(pg)
 
             # open the article from its link (a plain-http, bare-IP test site, so it asks first)
-            await pg.locator('#newDoc').click(); await pg.wait_for_timeout(200)
+            await pg.locator('#newDoc').click()
             await pg.locator('#docPaste').fill(f'http://{site}/post')
-            await pg.locator('#docGo').click(); await pg.wait_for_timeout(800)
+            await pg.locator('#docGo').click(); await soon(pg, "document.querySelector('#docGo').textContent==='Open anyway'")
             check('the link needs an OK first, like a PDF link', await pg.locator('#docGo').text_content() == 'Open anyway')
-            await pg.locator('#docGo').click(); await pg.wait_for_timeout(2500)
+            await pg.locator('#docGo').click()
+            await pg.wait_for_function("__digress.conv.doc&&__digress.conv.doc.article&&!!document.querySelector('.docwrap .abar')&&(document.querySelector('.docbody')||{}).textContent?.includes('ZEBRA-ART')")
             body = pg.locator('.docbody')
             text = await body.inner_text()
             check('the article opens in reader view: its heading and text', 'Why attention scales' in text and 'ZEBRA-ART' in text and 'Scaling by the square root' in text, text[:300])
@@ -102,21 +103,19 @@ async def main():
             await pg.screenshot(path=OUT + '/article.png')
 
             # load one: the server downloads it (after the OK this test site needs), a copy is kept
-            await figs.first.locator('[data-aload]').click(); await pg.wait_for_timeout(800)
+            await figs.first.locator('[data-aload]').click(); await pg.wait_for_function("i => !document.querySelectorAll('.docbody .aimg')[i].classList.contains('busy')", arg=0)   # that try is over
             check('loading an image from an http/bare-IP site asks first', 'Click again to load it anyway' in (await pg.locator('#toast').text_content() or ''))
-            await figs.first.locator('[data-aload]').click(); await pg.wait_for_timeout(1500)
+            await figs.first.locator('[data-aload]').click(); await pg.wait_for_function("i => !document.querySelectorAll('.docbody .aimg')[i].classList.contains('busy')", arg=0)
+            await soon(pg, "() => { const i = document.querySelector('.docbody .aimg .aview img'); return i && i.complete && i.naturalWidth > 0 }")
             check('…then it shows, downloaded once by the server', await figs.first.locator('.aview img').evaluate('i=>i.complete&&i.naturalWidth===16') and hits.get('/fig1.png') == 1, hits)
             check('the text is unchanged, so highlights still line up', (await body.inner_text()).replace('\n', '') == text.replace('\n', ''))
-            await figs.nth(2).locator('[data-aload]').click(); await pg.wait_for_timeout(800)
-            await figs.nth(2).locator('[data-aload]').click(); await pg.wait_for_timeout(1200)
+            await figs.nth(2).locator('[data-aload]').click(); await pg.wait_for_function("i => !document.querySelectorAll('.docbody .aimg')[i].classList.contains('busy')", arg=2)
+            await figs.nth(2).locator('[data-aload]').click(); await pg.wait_for_function("i => !document.querySelectorAll('.docbody .aimg')[i].classList.contains('busy')", arg=2)
             check('an SVG is refused (only PNG, JPEG, WebP, GIF)', 'PNG, JPEG, WebP or GIF' in (await pg.locator('#toast').text_content() or '') and await figs.nth(2).locator('.aview').count() == 0)
 
             # the model: placeholders in the text; view_page shows the pictures in a part
-            ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('READART what does the loss curve show?'); await ta.press('Enter')
-            for _ in range(100):
-                if await pg.evaluate("![...document.querySelectorAll('.sendb')].some(b=>b.title==='Stop')"): break
-                await pg.wait_for_timeout(100)
-            await pg.wait_for_timeout(1000)
+            ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('READART what does the loss curve show?'); await answered(pg, ta.press('Enter'))
+            await pg.wait_for_function("![...document.querySelectorAll('.sendb')].some(b=>b.title==='Stop')")
             sent = [json.loads(l) for l in open(cc_log).read().splitlines() if l.startswith('{') and '"system"' in l][-1]
             check('the model gets the article, told it is one and how to see its pictures', 'web article' in sent['system'] and f'[Image: Loss curve](http://{site}/fig1.png "digress-image")' in sent['system'] and 'view_page' in sent['system'], sent['system'][-900:])
             reply = await pg.locator('.pane[data-tid=main] .msg.assistant').last.inner_text()
@@ -128,14 +127,14 @@ async def main():
             await pg.evaluate('''() => { const b = document.querySelector('.docbody'); const w = document.createTreeWalker(b, NodeFilter.SHOW_TEXT); let n;
               while ((n = w.nextNode())) { const i = n.nodeValue.indexOf('ZEBRA-ART'); if (i >= 0) { const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 9);
               const s = getSelection(); s.removeAllRanges(); s.addRange(r); break; } } document.dispatchEvent(new MouseEvent('mouseup', {bubbles: true})); }''')
-            await pg.wait_for_timeout(300)
-            await pg.locator('#popIn').fill('What is this marker?'); await pg.locator('#popIn').press('Enter'); await pg.wait_for_timeout(2500)
+            await pg.locator('#popIn').fill('What is this marker?'); await answered(pg, pg.locator('#popIn').press('Enter'))
             check('highlighting a passage in the article opens a branch about it, marked in the text', await pg.locator('.docbody .anchor').count() >= 1 and await pg.locator('.pane:not([data-tid=main]):not([data-tid=doc])').count() == 1)
             br = [json.loads(l) for l in open(cc_log).read().splitlines() if l.startswith('{') and '"system"' in l][-1]
             check('…and the model is told which passage', 'ZEBRA-ART' in br['prompt'] and 'Side question about this passage from the document' in br['prompt'], br['prompt'][:300])
 
             # it all stays: reload
-            await pg.wait_for_timeout(900); await pg.reload(); await pg.wait_for_timeout(2500)
+            await saved(pg, layout=True); await pg.reload(); await booted(pg)
+            await soon(pg, "() => (document.querySelector('.docbody')||{}).textContent?.includes('ZEBRA-ART') && [...document.querySelectorAll('.docbody .aimg.loaded .aview img')].some(i => i.complete && i.naturalWidth > 0)")
             check('after a reload the article and the loaded image are still there', 'ZEBRA-ART' in await pg.locator('.docbody').inner_text() and await pg.locator('.docbody .aimg.loaded .aview img').count() == 1 and hits.get('/fig1.png') == 1, hits)
             check('no page errors', not errs, errs[:3])
             await b.close()

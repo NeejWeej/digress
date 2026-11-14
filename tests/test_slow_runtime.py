@@ -1,7 +1,7 @@
 import asyncio, sys, os
 from playwright.async_api import async_playwright
 
-from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app
+from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app, settled, steady
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -60,12 +60,12 @@ async def main():
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
         await goto_app(pg)
-        await pg.wait_for_timeout(300)
+        await pg.wait_for_timeout(300)   # deliberate: click before the slow model (2 s + 1.5 s) is ready
         await pg.locator('[data-ask]').first.click()
-        await pg.wait_for_timeout(6000)
+        await settled(pg, 1, timeout=20000)
         print('errors shown:', await pg.locator('.err').count(), '| assistant msgs:', await pg.locator('.msg.assistant').count())
         await pg.locator('#tSide').click()
-        await pg.wait_for_timeout(400)
+        await steady(pg, "document.getElementById('stage').getBoundingClientRect().width")
         print('stage width after collapse:', await pg.evaluate("document.getElementById('stage').getBoundingClientRect().width"))
         await pg.screenshot(path=OUT + '/s5.png')
         print('\n'.join(errs[:20]) or 'no errors')

@@ -5,7 +5,7 @@ then drives the real app in a browser against it. Exits non-zero on the first fa
 """
 import asyncio, json, os, urllib.parse, shutil, socket, subprocess, sys, tempfile, threading, time, urllib.request, urllib.error, http.client, http.server
 from playwright.async_api import async_playwright
-from common import ROOT, REPO, FIX, OUT, launch_args
+from common import ROOT, REPO, FIX, OUT, launch_args, BOOT_WATCH, booted, settled, saved, soon, poll
 
 FAKES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fakes')
 SERVER = os.path.join(REPO, 'server', 'server.mjs')
@@ -35,6 +35,23 @@ def check(cond, what):
 
 def free_port():
     s = socket.socket(); s.bind(('127.0.0.1', 0)); p = s.getsockname()[1]; s.close(); return p
+
+
+def wait_port(port, timeout=10):
+    """Wait until something listens on the port (a fake we just started)."""
+    end = time.time() + timeout
+    while True:
+        try: socket.create_connection(('127.0.0.1', port), timeout=1).close(); return
+        except OSError:
+            if time.time() > end: raise
+            time.sleep(0.05)
+
+
+def wait_until(fn, timeout=10):
+    """Call fn until it returns something truthy (or the time is up); returns its last value."""
+    end = time.time() + timeout
+    while not (v := fn()) and time.time() < end: time.sleep(0.05)
+    return v
 
 
 def start(env_extra):
@@ -84,7 +101,7 @@ async def browser_checks(base, data_dir):
                 if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
                 await r.continue_()
             await pg.route('**/*', route)
-            await pg.goto(base + '/'); await pg.wait_for_timeout(1500)
+            await pg.add_init_script(BOOT_WATCH); await pg.goto(base + '/'); await booted(pg)
             return pg
 
         pg = await page()
@@ -97,7 +114,7 @@ async def browser_checks(base, data_dir):
         await pg.wait_for_selector('.pane[data-tid="main"] .msg.assistant mjx-container', timeout=15000)
         body = await pg.locator('.pane[data-tid="main"] .msg.assistant .body').first.text_content()
         check('model=claude-opus-5-5' in body, 'reply streamed into the app with the chosen model')
-        await pg.wait_for_timeout(1200)
+        await settled(pg, 1)
         title = await pg.locator('#cTitle').text_content()
         await pg.screenshot(path=OUT + '/server_chat.png')
 
@@ -113,8 +130,8 @@ async def browser_checks(base, data_dir):
         hrefs = await ws.evaluate("e=>[...e.querySelectorAll('a')].map(a=>[a.href,a.rel])")
         check(hrefs == [['https://example.com/a', 'noopener noreferrer']], f'source links open safely {hrefs}')
         await pg.screenshot(path=OUT + '/server_web.png')
-        await pg.wait_for_timeout(1200)   # let the save land
-        await pg.reload(); await pg.wait_for_timeout(1500)
+        await settled(pg, 2); await saved(pg)   # let the save land
+        await pg.reload(); await booted(pg)
         check(await pg.get_attribute('#webT', 'aria-pressed') == 'true', 'web toggle remembered after reload')
         check(await pg.locator('.pane[data-tid="main"] .msg.assistant .wsrc').count() >= 1, 'search record saved with the reply')
         await pg.locator('#webT').click()
@@ -129,39 +146,44 @@ async def browser_checks(base, data_dir):
         check(len(os.listdir(os.path.join(data_dir, 'convs'))) >= 1, 'conversation written to the data folder')
 
         # documents are stored as files on the server and survive a reload
-        await pg2.locator('#newDoc').click(); await pg2.wait_for_timeout(200)
+        await pg2.locator('#newDoc').click()
         await pg2.set_input_files('#docFile', FIX + '/paper.pdf')
-        await pg2.locator('#docGo').click(); await pg2.wait_for_timeout(3500)
+        await pg2.locator('#docGo').click()
+        await soon(pg2, "()=>{const c=__digress.conv;return c.doc&&c.doc.assetId&&document.querySelectorAll('.dpage').length>=3}", timeout=15000)
         check(await pg2.locator('.dpage').count() == 3, 'PDF opened (3 pages)')
         files = [f for f in os.listdir(os.path.join(data_dir, 'files')) if not f.endswith('.json')]
         check(len(files) == 1, 'PDF stored in the data folder')
-        await pg2.reload(); await pg2.wait_for_timeout(3500)
+        await saved(pg2)
+        await pg2.reload(); await booted(pg2); await soon(pg2, "document.querySelectorAll('.dpage').length>=3", timeout=15000)
         check(await pg2.locator('.dpage').count() == 3, 'PDF reloads from the server')
         await pg2.screenshot(path=OUT + '/server_doc.png')
 
         # a document from a link: risky links ask first, then it opens and shows where it came from
         site = os.environ['FAKE_SITE']
-        await pg2.locator('#newDoc').click(); await pg2.wait_for_timeout(200)
+        await pg2.locator('#newDoc').click()
         await pg2.locator('#docPaste').fill(f'http://{site}/paper.pdf')
-        await pg2.locator('#docGo').click(); await pg2.wait_for_timeout(800)
+        await pg2.locator('#docGo').click(); await soon(pg2, "document.querySelector('#docGo').textContent==='Open anyway'")
         m = await pg2.locator('#docMsg').text_content()
         check('isn’t encrypted' in m and 'bare IP' in m and await pg2.locator('#docGo').text_content() == 'Open anyway', f'a risky link asks before downloading {m!r}')
-        await pg2.locator('#docGo').click(); await pg2.wait_for_timeout(3500)
+        await pg2.locator('#docGo').click()
+        await soon(pg2, "!!document.querySelector('.pane[data-tid=doc] .docsrc')&&document.querySelectorAll('.dpage').length>=3", timeout=15000)
         check(await pg2.locator('.dpage').count() == 3, 'after Open anyway, the PDF from the link opens')
         src = await pg2.locator('.pane[data-tid="doc"] .docsrc').evaluate("a=>[a.textContent,a.href,a.rel,a.target]")
         check(src == ['127.0.0.1', f'http://{site}/paper.pdf', 'noopener noreferrer', '_blank'], f'the document shows where it came from {src}')
         await pg2.screenshot(path=OUT + '/server_doc_link.png')
-        await pg2.locator('#newDoc').click(); await pg2.wait_for_timeout(200)
+        await pg2.locator('#newDoc').click()
         await pg2.locator('#docPaste').fill(f'http://{site}/page.html')
-        await pg2.locator('#docGo').click(); await pg2.wait_for_timeout(600); await pg2.locator('#docGo').click(); await pg2.wait_for_timeout(1500)
+        await pg2.locator('#docGo').click(); await pg2.wait_for_function("document.querySelector('#docGo').textContent==='Open anyway'")
+        await pg2.locator('#docGo').click(); await soon(pg2, "document.querySelector('#docMsg').textContent.includes('find an article')")
         check('find an article' in await pg2.locator('#docMsg').text_content(), 'a web page with no article in it explains what to do instead')
         await pg2.locator('#docCancel').click()
 
         # stop button ends the model run
         ta2 = pg2.locator('.pane[data-tid="main"] textarea')
-        await ta2.fill('SLOW please'); await ta2.press('Enter'); await pg2.wait_for_timeout(1200)
+        await ta2.fill('SLOW please'); await ta2.press('Enter')
+        await pg2.wait_for_function("(()=>{const c=__digress.conv,m=c.msgs[c.order.main.at(-1)];return m.pending&&m.content.includes('tick')})()")   # the CLI is writing
         await pg2.locator('.pane[data-tid="main"] form button[type=submit], .pane[data-tid="main"] form .send').last.click()
-        await pg2.wait_for_timeout(1500)
+        await poll(lambda: 'KILLED' in open(os.environ['FAKE_LOG']).read())
         check('KILLED' in open(os.environ['FAKE_LOG']).read(), 'Stop in the app stops the Claude Code process')
 
         check(not errs, 'no page errors ' + '; '.join(errs[:5]))
@@ -256,7 +278,7 @@ def chatgpt_checks(tmp, fake_claude, log, procs):
     """ChatGPT on the plan route, against tests/fakes/fake-openai.mjs: sign-in, refresh, requests, events."""
     oport = free_port()
     fo = subprocess.Popen(['node', os.path.join(FAKES, 'fake-openai.mjs'), str(oport)], stdout=subprocess.PIPE); procs.append(fo)
-    time.sleep(0.5)
+    wait_port(oport)
     obase = f'http://127.0.0.1:{oport}'
     auth = os.path.join(tmp, 'cfg', 'chatgpt.json')
     cli_env = {**{k: v for k, v in os.environ.items() if not k.startswith('CHATGPT_')}, 'CHATGPT_AUTH_FILE': auth, 'CHATGPT_AUTH_BASE': obase, 'CHATGPT_API_BASE': obase + '/v1'}
@@ -387,9 +409,9 @@ def main():
 
         # Stop kills the CLI; a dropped connection doesn't (the reply carries on: test_runs.py)
         c = http.client.HTTPConnection(base.split('//')[1]); c.request('POST', '/api/chat', json.dumps({'chat': 'a' * 32, 'messages': [{'role': 'user', 'content': 'SLOW'}]}), {'content-type': 'application/json'})
-        r = c.getresponse(); r.readline(); c.close(); time.sleep(1)
+        r = c.getresponse(); r.readline(); c.close(); time.sleep(1)   # deliberate: a second for it to (wrongly) stop
         check(open(log).read().count('KILLED') == 0, 'closing the request leaves the Claude Code process running')
-        req(base, 'POST', '/api/chat/stop', {'chat': 'a' * 32}); time.sleep(1)
+        req(base, 'POST', '/api/chat/stop', {'chat': 'a' * 32}); wait_until(lambda: open(log).read().count('KILLED') >= 1)
         check(open(log).read().count('KILLED') == 1, 'Stop ends the Claude Code process')
 
         # storage
@@ -416,7 +438,7 @@ def main():
         # ---- provider: Anthropic API ----
         api_port = free_port()
         fa = subprocess.Popen(['node', os.path.join(FAKES, 'fake-anthropic.mjs'), str(api_port)], stdout=subprocess.PIPE); procs.append(fa)
-        time.sleep(0.5)
+        wait_port(api_port)
         proc2, base2 = start({'ANTHROPIC_API_KEY': 'test-key', 'ANTHROPIC_BASE_URL': f'http://127.0.0.1:{api_port}', 'DATA_DIR': os.path.join(tmp, 'data2')})
         procs.append(proc2)
         h = json.loads(req(base2, 'GET', '/api/health')[1])

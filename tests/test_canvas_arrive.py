@@ -1,0 +1,105 @@
+"""Switching from columns to the canvas points out the card for the pane you were in: it flashes; the camera
+moves only if that card is off screen; a card folded away is shown by the visible card holding it. Nothing
+about either layout changes: a round trip leaves conv.ui (open panes, order, sizes, canvas folds, expanded
+cards) and the panes' scroll exactly as they were. Asserts and exits non-zero."""
+import asyncio, json, sys
+from playwright.async_api import async_playwright
+from common import ROOT, OUT, launch_args, goto_app, booted, answered, frames, calm
+
+MAP = {
+    'marked.min.js': ROOT + 'marked/marked.min.js',
+    'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
+    'highlight.min.js': ROOT + '@highlightjs/cdn-assets/highlight.min.js',
+    'tex-svg-full.js': ROOT + 'mathjax/es5/tex-svg-full.js',
+    'mermaid.min.js': ROOT + 'mermaid/dist/mermaid.min.js',
+}
+FAKE = r"""
+window.fakeLLM={use:async(n)=>{
+  if(n==='sample')return async(input,opts)=>{const out=('A reply with a few sentences in it. '.repeat(25)+'\n\n').repeat(3);opts.onText&&opts.onText({text:out});return {text:out,truncated:false};};
+  return null;}};
+"""
+fails = []
+def check(name, ok, detail=''):
+    print(('ok   ' if ok else 'FAIL ') + name, '' if ok else detail)
+    if not ok: fails.append(name)
+
+async def main():
+    async with async_playwright() as p:
+        b = await p.chromium.launch(**launch_args())
+        pg = await b.new_page(viewport={'width': 1400, 'height': 850})
+        errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        async def route(r):
+            u = r.request.url
+            for k, v in MAP.items():
+                if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript')
+            if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
+            await r.continue_()
+        await pg.route('**/*', route); await pg.add_init_script(FAKE)
+        await goto_app(pg); await booted(pg)
+        async def ask(tid, q):
+            ta = pg.locator(f'.pane[data-tid="{tid}"] textarea'); await ta.fill(q); await answered(pg, ta.press('Enter'))
+        await ask('main', 'Explain gradients')
+        tids = []
+        for q in ('First side question', 'Second side question'):
+            await pg.locator('.pane[data-tid="main"] [data-act="wbranch"]').first.click(); await pg.wait_for_function('n => Object.keys(__digress.conv.threads).length > n', arg=len(tids) + 1)
+            tid = await pg.evaluate(f"Object.keys(__digress.conv.threads).find(t=>t!=='main'&&!{json.dumps(tids)}.includes(t))")
+            tids.append(tid); await ask(tid, q)
+        b1, b2 = tids
+        view = lambda v: pg.evaluate(f"document.querySelector('#viewSeg button[data-v={v}]').click()")
+        state = lambda: pg.evaluate("JSON.stringify((({view,...u})=>u)(__digress.conv.ui))")
+        scrolls = lambda: pg.evaluate("JSON.stringify([...document.querySelectorAll('#panes .pane')].map(p=>[p.dataset.tid,Math.round((p.querySelector('.pb')||{}).scrollTop||0)]).concat([[ 'strip',Math.round(document.getElementById('panes').scrollLeft)]]))")
+        flashed = lambda: pg.evaluate("[...document.querySelectorAll('#cv .cnode.flash')].map(n=>n.dataset.ctid)")
+        camxf = lambda: pg.evaluate("document.getElementById('world').style.transform")
+
+        # visit the canvas once so it has a camera, then come back
+        await view('canvas'); await calm(pg); await view('cols'); await calm(pg)
+        await pg.locator(f'.pane[data-tid="{b1}"] .pb').evaluate('e=>e.scrollTop=120')
+        await pg.locator(f'.pane[data-tid="{b1}"] .msg.assistant .body').first.click(); await frames(pg)
+        s0, sc0 = await state(), await scrolls()
+
+        # in view: it flashes and the camera stays
+        await view('canvas'); await frames(pg); cam0 = await camxf(); await pg.wait_for_timeout(500)   # deliberate: longer than the camera's 280 ms glide, so a move would show
+        check('the card for the pane you were in flashes (and only it)', await flashed() == [b1], await flashed())
+        check('it was on screen, so the camera didn’t move', await camxf() == cam0, [cam0, await camxf()])
+        await pg.screenshot(path=OUT + '/canvas_arrive.png')
+        await view('cols'); await calm(pg)
+        check('round trip: the layout is exactly as it was', await state() == s0)
+        check('…and so is every pane’s scroll', await scrolls() == sc0, [sc0, await scrolls()])
+
+        # off screen: pan the canvas far away, then come back from b2
+        await view('canvas'); await calm(pg)
+        pt = await pg.evaluate("""(()=>{const c=document.getElementById('cv').getBoundingClientRect();
+            for(let y=c.bottom-80;y>c.top+40;y-=30)for(let x=c.left+40;x<c.right-40;x+=30){const e=document.elementFromPoint(x,y);if(e&&['cv','world','edges'].includes(e.id))return [x,y]}return null})()""")
+        before = await camxf()
+        await pg.mouse.move(*pt); await pg.mouse.down()
+        await pg.mouse.move(pt[0] - 2500, pt[1] - 2000, steps=12); await pg.mouse.up(); await frames(pg)
+        far = await camxf()
+        check('(the test panned the canvas away)', far != before, [before, far])
+        await view('cols'); await calm(pg)
+        await pg.locator(f'.pane[data-tid="{b2}"] .msg.assistant .body').first.click(); await frames(pg)
+        s1 = await state()
+        await view('canvas'); await calm(pg)
+        vis = await pg.evaluate(f"""(()=>{{const c=document.getElementById('cv').getBoundingClientRect(),h=document.querySelector('#cv .cnode[data-ctid="{b2}"] .ch').getBoundingClientRect();
+            return h.left>=c.left&&h.right<=c.right&&h.top>=c.top&&h.bottom<=c.bottom}})()""")
+        check('an off-screen card: the camera pans to it', await camxf() != far and vis, [far, await camxf()])
+        check('…and it flashes', b2 in await flashed())
+        await view('cols'); await calm(pg)
+        check('still nothing changed in the layout', await state() == s1)
+
+        # folded away: the visible card holding it flashes; the fold stays
+        await view('canvas'); await calm(pg)
+        await pg.evaluate("__digress.conv.ui.cv.fold=['main']")
+        await view('cols'); await calm(pg)
+        await pg.locator(f'.pane[data-tid="{b1}"] .msg.assistant .body').first.click(); await frames(pg)
+        s2 = await state()
+        await view('canvas'); await calm(pg)
+        check('a card folded away: the card holding it flashes', await flashed() == ['main'], await flashed())
+        check('…and it stays folded', await pg.evaluate("JSON.stringify(__digress.conv.ui.cv.fold)") == '["main"]' and not await pg.locator(f'#cv .cnode[data-ctid="{b1}"]').count())
+        await view('cols'); await calm(pg)
+        check('…and the layout is untouched', await state() == s2)
+        check('no page errors', not errs, errs[:3])
+        await b.close()
+    print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')
+    sys.exit(1 if fails else 0)
+
+asyncio.run(main())

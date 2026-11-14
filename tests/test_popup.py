@@ -1,6 +1,6 @@
 import asyncio, json
 from playwright.async_api import async_playwright
-from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app
+from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app, booted, answered
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -36,12 +36,12 @@ async def main():
             await r.continue_()
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
-        await goto_app(pg); await pg.wait_for_timeout(1500)
-        ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Explain attention'); await ta.press('Enter'); await pg.wait_for_timeout(1800)
+        await goto_app(pg); await booted(pg)
+        ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Explain attention'); await answered(pg, ta.press('Enter'))
         await pg.evaluate("""() => { const b=document.querySelector('.pane[data-tid=main] .msg.assistant .body'); const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT); let n;
           while((n=w.nextNode())){const i=n.nodeValue.indexOf('training'); if(i>=0){const r=document.createRange(); r.setStart(n,i); r.setEnd(n,i+8); const s=getSelection(); s.removeAllRanges(); s.addRange(r); break}}
           document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true})); }""")
-        await pg.wait_for_timeout(200)
+        await pg.locator('#pop.show').wait_for()
         pi = pg.locator('#popIn'); h0 = await pi.evaluate('e=>e.offsetHeight')
         await pi.click(); await pi.type('this is a long question that keeps going and going so that it wraps over several lines in the box ' * 2)
         h1 = await pi.evaluate('e=>e.offsetHeight')
@@ -49,7 +49,7 @@ async def main():
         r = await pg.evaluate("(()=>{const r=document.getElementById('pop').getBoundingClientRect();return [Math.round(r.top),Math.round(r.bottom),innerHeight]})()")
         print('popup box grows:', h0, '->', h1, '| has newline:', '\n' in await pi.input_value(), '| popup top/bottom/viewport:', r)
         await pg.screenshot(path=OUT + '/pop.png')
-        await pi.press('Enter'); await pg.wait_for_timeout(1800)
+        await answered(pg, pi.press('Enter'))
         print('Enter created branch:', await pg.locator('.pane').count()==2, '| question kept both lines:', await pg.evaluate("document.querySelectorAll('.pane')[1].querySelector('.msg.user .body').textContent.includes('second line')"))
         print('\n'.join(errs[:15]) or 'no errors')
         await b.close()

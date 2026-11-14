@@ -1,6 +1,6 @@
 import asyncio, json
 from playwright.async_api import async_playwright
-from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app
+from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app, booted, answered, frames, steady, CAM
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -36,33 +36,33 @@ async def main():
             await r.continue_()
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
-        await goto_app(pg); await pg.wait_for_timeout(1500)
+        await goto_app(pg); await booted(pg)
         ta = pg.locator('.pane[data-tid=main] textarea')
         # a long main thread, so the branch's source passage sits far down inside the parent card
         for q in ['Q1','Q2','Q3','Q4','Q5','Q6','Q7','Q8','Q9','Q10']:
-            await ta.fill(q); await ta.press('Enter'); await pg.wait_for_timeout(1500)
+            await ta.fill(q); await answered(pg, ta.press('Enter'))
         await pg.evaluate("""() => { const bs=document.querySelectorAll('.pane[data-tid=main] .msg.assistant .body'); const b=bs[3]; const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT); let n;
           while((n=w.nextNode())){const i=n.nodeValue.indexOf('soft dictionary'); if(i>=0){const r=document.createRange(); r.setStart(n,i); r.setEnd(n,i+15); const s=getSelection(); s.removeAllRanges(); s.addRange(r); break}}
           document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true})); }""")
-        await pg.wait_for_timeout(200); await pg.locator('#popIn').fill('Why?'); await pg.locator('#popIn').press('Enter'); await pg.wait_for_timeout(1800)
-        await pg.locator('[data-v=canvas]').click(); await pg.wait_for_timeout(700)
+        await pg.locator('#popIn').fill('Why?'); await answered(pg, pg.locator('#popIn').press('Enter'))
+        await pg.locator('[data-v=canvas]').click(); await pg.locator('.cnode.main').wait_for(); await steady(pg, CAM)
         VIS = """() => { const f=document.querySelector('.cnode.main .cfull'); const a=f&&f.querySelector('.anchor'); if(!f||!a) return 'missing';
             const fr=f.getBoundingClientRect(), ar=a.getBoundingClientRect(), cv=document.getElementById('cv').getBoundingClientRect();
             return {inCard: ar.top>=fr.top-1 && ar.bottom<=fr.bottom+1, onScreen: ar.top>=cv.top && ar.bottom<=cv.bottom && ar.left>=cv.left && ar.right<=cv.right, flashing: a.classList.contains('flash'), at: Math.round(100*(ar.top-fr.top)/fr.height)+'% down the card', scrolled: Math.round(f.scrollTop)} }"""
         async def check(label, zoom, canvas_zoom_clicks=0, stick=False):
-            await pg.locator('#zTidy').click(); await pg.wait_for_timeout(300)
+            await pg.locator('#zTidy').click(); await frames(pg)
             await pg.evaluate("(z)=>{const n=document.querySelector('.cnode.main');n.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));}", zoom)
             # set the parent's own zoom with Alt+scroll-equivalent controls, starting from 100%
-            await pg.locator('.cnode.main .zl').evaluate('e=>e.click()'); await pg.locator('.cnode.main .zin').evaluate("e=>{e.value='100';e.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))}"); await pg.wait_for_timeout(100)
+            await pg.locator('.cnode.main .zl').evaluate('e=>e.click()'); await pg.locator('.cnode.main .zin').evaluate("e=>{e.value='100';e.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))}"); await frames(pg)
             steps = {1.0:0, 1.5:3, 0.66:-3}[zoom]
             for _ in range(abs(steps)): await pg.locator('.cnode.main [data-cact=%s]' % ('zin' if steps>0 else 'zout')).evaluate('e=>e.click()')
             for _ in range(canvas_zoom_clicks): await pg.locator('#zOut').click()
-            if stick: await pg.locator('.cnode.main [data-cact=stick]').evaluate('e=>e.click()'); await pg.wait_for_timeout(300)
-            if not await pg.locator('.cnode.main.exp').count(): await pg.locator('.cnode.main [data-cact=exp]').evaluate('e=>e.click()'); await pg.wait_for_timeout(300)
-            await pg.locator('.cnode.main .cfull').evaluate('e=>e.scrollTop=0'); await pg.wait_for_timeout(150)
-            await pg.locator('.cnode:not(.main) .cq').evaluate('e=>e.click()'); await pg.wait_for_timeout(700)
+            if stick: await pg.locator('.cnode.main [data-cact=stick]').evaluate('e=>e.click()'); await frames(pg)
+            if not await pg.locator('.cnode.main.exp').count(): await pg.locator('.cnode.main [data-cact=exp]').evaluate('e=>e.click()'); await frames(pg)
+            await pg.locator('.cnode.main .cfull').evaluate('e=>e.scrollTop=0'); await frames(pg)
+            await pg.locator('.cnode:not(.main) .cq').evaluate('e=>e.click()'); await frames(pg); await steady(pg, CAM)   # the camera glides over (280 ms)
             print(f'{label} (card zoom {await pg.locator(".cnode.main .zl").text_content()}):', await pg.evaluate(VIS))
-            if stick: await pg.locator('.cnode.main [data-cact=restore]').evaluate('e=>e.click()'); await pg.wait_for_timeout(300)
+            if stick: await pg.locator('.cnode.main [data-cact=restore]').evaluate('e=>e.click()'); await frames(pg)
         await check('parent at 100%', 1.0)
         await check('parent zoomed in', 1.5)
         await check('parent zoomed out', 0.66)

@@ -2,13 +2,15 @@
 
 **A branching chat for learning.** Highlight any words in an answer, ask about them, and the reply opens in its own thread beside the one it came from. Follow a tangent as far as you like, then come back to exactly where you were.
 
-![Digress in Columns view: the main thread on the left, two branches beside it, and a takeaway carried back into the main thread](docs/media/columns.png)
+[![Watch the one-minute film: Digress, a branching chat for learning](docs/media/film/poster.png)](docs/media/film/digress-film.mp4)
 
 ## Why branch?
 
 Learning something hard is not a straight line. A good explanation raises three new questions, and in a normal chat each one pushes the original thread further up the screen until you lose it. You either stop asking, or you end up with one long scroll where the main idea and every side question are tangled together.
 
 Digress keeps them apart. Every question you ask about a passage becomes a **branch** that remembers the exact words it came from. The main thread stays readable, each side question gets a full, focused answer, and the shape of the conversation shows you how the ideas connect.
+
+![Digress in Columns view: the main thread on the left, a branch from one of its sentences, and a branch of that branch, whose takeaway has been carried back into its parent](docs/media/columns.png)
 
 ## Highlight → branch
 
@@ -56,7 +58,7 @@ Switch views from the top bar at any time; the conversation is the same.
 - **Rows:** the same panes stacked top to bottom, each at full width.
 - **Canvas:** the whole tree as cards on an infinite canvas. Pan, zoom, move cards, snap them to an edge or keep one stuck to the screen while you move around. Works with touch, too.
 
-<img src="docs/media/canvas.png" alt="The same conversation as cards on a canvas, connected by lines from each highlight to its branch" width="700">
+<img src="docs/media/canvas.png" alt="The same conversation as cards on a canvas in the dark theme, one card expanded to read in place, connected by lines from each highlight to its branch" width="700">
 
 **Canvas views** save an arrangement of the canvas under a name (the **Views** button in its corner), so you can switch between setups and open the same one on another device. Without them, each device keeps its own canvas and pane layout, since what fits on a laptop doesn't fit on a phone.
 
@@ -64,7 +66,7 @@ Answers render Markdown, code with syntax highlighting, LaTeX math and Mermaid d
 
 ## Search everything
 
-<kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd> searches every conversation at once: questions, answers, highlights, takeaways and documents. It is a full-text index (BM25) that tolerates typos and takes you straight to the message. Pin the conversations and branches you keep coming back to, and archive the rest.
+<kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd> searches every conversation at once: questions, answers, highlights, takeaways and documents. It is a full-text index (BM25) that tolerates typos and takes you to the words it found, highlighted, inside the message or document page. A **Back** chip then returns you to where you were, even in another conversation. Pin the conversations and branches you keep coming back to, and archive the rest. Once you have a document conversation, **All · Docs · Chats** above the list shows just one kind. Double-click a title in the sidebar to rename it.
 
 ## Models: Claude and ChatGPT, on the plans you already pay for
 

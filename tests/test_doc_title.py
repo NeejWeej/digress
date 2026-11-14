@@ -2,7 +2,7 @@
 title; junk titles fall back to the file name, and a title typed in the dialog always wins."""
 import asyncio, os, sys
 from playwright.async_api import async_playwright
-from common import ROOT, OUT, launch_args, goto_app
+from common import ROOT, OUT, launch_args, goto_app, booted, answered, SAVED_JS
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -51,20 +51,23 @@ async def main():
             await r.continue_()
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
-        await goto_app(pg); await pg.wait_for_timeout(1200)
+        await goto_app(pg); await booted(pg)
 
         title = lambda: pg.locator('#cTitle').text_content()
         # the saved copy of the newest conversation (the app's state is private to its script)
         saved = lambda: pg.evaluate("""Object.keys(localStorage).filter(k=>k.startsWith('fakesrv:convs/')).map(k=>JSON.parse(localStorage.getItem(k))).sort((a,b)=>b.created-a.created)[0]""")
         async def start(path, typed=''):
-            await pg.locator('#newDoc').click(); await pg.wait_for_timeout(200)
+            before = await pg.evaluate('__digress.conv.id')
+            await pg.locator('#newDoc').click()
             await pg.set_input_files('#docFile', path)
             await pg.locator('#docName').fill(typed)
-            await pg.locator('#docGo').click(); await pg.wait_for_timeout(2500)
+            await pg.locator('#docGo').click()
+            # the new conversation has its document, the PDF's metadata has been looked at (autoTitle dropped), and it's saved
+            await pg.wait_for_function(f"id => {{ const c = __digress.conv; return c.id !== id && c.doc && !('autoTitle' in c) && {SAVED_JS} }}", arg=before)
             s = await saved()
             return [await title(), s['title'], s['doc']['name'], 'autoTitle' in s]
         async def ask(q):
-            ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill(q); await ta.press('Enter'); await pg.wait_for_timeout(1500)
+            ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill(q); await answered(pg, ta.press('Enter'))
 
         t = await start(good); print('good PDF:', t)
         check(t[0] == t[1] == 'Attention Is All You Need', 'a real metadata title names the conversation, and is saved')

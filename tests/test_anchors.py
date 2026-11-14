@@ -1,7 +1,7 @@
 import asyncio, sys, os
 from playwright.async_api import async_playwright
 
-from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app
+from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app, booted, answered, drawn, frames, changed
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -65,17 +65,15 @@ async def main():
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
         await goto_app(pg)
-        await pg.wait_for_timeout(1200)
+        await booted(pg)
         ta = pg.locator('.pane[data-tid="main"] textarea')
-        await ta.fill('Explain'); await ta.press('Enter')
-        await pg.wait_for_timeout(3000)
+        await ta.fill('Explain'); await answered(pg, ta.press('Enter')); await drawn(pg)
         # select from inside "query" in list item 1 to "each" in list item 2 (crosses bold, math, li boundary)
         await pg.evaluate("""() => { const body=document.querySelector('.pane .msg.assistant .body');
           const lis=body.querySelectorAll('li'); const q=lis[0].querySelector('strong').firstChild; const t2=[...lis[1].childNodes].find(n=>n.nodeType===3&&n.nodeValue.includes('each'));
           const r=document.createRange(); r.setStart(q,2); r.setEnd(t2, t2.nodeValue.indexOf('each')+4);
           const s=getSelection(); s.removeAllRanges(); s.addRange(r); document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true})); }""")
-        await pg.wait_for_timeout(200)
-        await pg.locator('#popIn').fill('What is this?'); await pg.locator('#popIn').press('Enter'); await pg.wait_for_timeout(2800)
+        await pg.locator('#popIn').fill('What is this?'); await answered(pg, pg.locator('#popIn').press('Enter')); await drawn(pg)
         info = await pg.evaluate("""() => { const b=document.querySelector('.pane[data-tid=main] .msg.assistant .body');
           const sup=b.querySelector('sup.fn'); return {anchored:[...b.querySelectorAll('.anchor')].map(a=>a.textContent).join('|'),
           supParent: sup && sup.closest('li') ? sup.closest('li').textContent.slice(0,40) : (sup? 'NOT IN LI: '+sup.parentElement.tagName : 'none'),
@@ -85,22 +83,22 @@ async def main():
         await pg.evaluate("""() => { const body=document.querySelectorAll('.pane')[1].querySelector('.msg.assistant .body');
           const w=document.createTreeWalker(body,NodeFilter.SHOW_TEXT); let n; while((n=w.nextNode())){const i=n.nodeValue.indexOf('lookup'); if(i>=0){const r=document.createRange(); r.setStart(n,i); r.setEnd(n,i+6); const s=getSelection(); s.removeAllRanges(); s.addRange(r); break;}}
           document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true})); }""")
-        await pg.wait_for_timeout(200); await pg.locator('#popChips .chip').first.click(); await pg.wait_for_timeout(2800)
+        await answered(pg, pg.locator('#popChips .chip').first.click()); await drawn(pg)
         print('panes before', await pg.locator('.pane').count())
         # tooltip on the pane delete button
         btn = pg.locator('.pane').nth(1).locator('.ph [data-delb]')
-        await btn.hover(); await pg.wait_for_timeout(600)
+        await btn.hover(); await pg.locator('#tipbox.show').wait_for()   # after the 380 ms delay
         print('tooltip:', await pg.locator('#tipbox.show').text_content())
-        await btn.click(); await pg.wait_for_timeout(300)
+        await btn.click(); await pg.locator('#modal.show').wait_for()
         print('modal:', (await pg.locator('#modal .mbox').inner_text()).replace('\n',' / '))
         await pg.screenshot(path=OUT + '/w1.png')
-        await pg.locator('#mOk').click(); await pg.wait_for_timeout(400)
+        await pg.locator('#mOk').click(); await pg.wait_for_function("!document.querySelector('#modal.show')"); await frames(pg)
         print('panes after', await pg.locator('.pane').count(), 'threads', await pg.evaluate("document.querySelectorAll('#tree .mnode').length"))
         # sidebar delete: make a new branch then delete from tree
-        await pg.locator('.pane[data-tid=main] [data-act=wbranch]').click(); await pg.wait_for_timeout(300)
-        node = pg.locator('#tree .mnode').nth(1); await node.hover(); await node.locator('[data-delb]').click(); await pg.wait_for_timeout(200)
+        await changed(pg, "document.querySelectorAll('#tree .mnode').length", pg.locator('.pane[data-tid=main] [data-act=wbranch]').click())
+        node = pg.locator('#tree .mnode').nth(1); await node.hover(); await node.locator('[data-delb]').click(); await pg.wait_for_function("!!document.querySelector('#modal.show')&&document.activeElement.id==='mOk'")   # open, and focused (20 ms later)
         print('sidebar modal title:', await pg.locator('#mTitle').text_content())
-        await pg.keyboard.press('Escape'); await pg.wait_for_timeout(200)
+        await pg.keyboard.press('Escape'); await pg.wait_for_function("!document.querySelector('#modal.show')")
         print('modal closed by esc:', await pg.locator('#modal.show').count()==0, 'tree nodes', await pg.locator('#tree .mnode').count())
         print('\n'.join(errs[:20]) or 'no errors')
         await b.close()

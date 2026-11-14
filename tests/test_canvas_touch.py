@@ -3,7 +3,7 @@ and scrolling inside a card without moving the canvas. Touches go through CDP so
 real gesture handling (touch-action, pointercancel) applies. Asserts and exits non-zero."""
 import asyncio, re, sys
 from playwright.async_api import async_playwright
-from common import ROOT, PAGE, OUT, launch_args, goto_app
+from common import ROOT, PAGE, OUT, launch_args, goto_app, booted, answered, calm
 
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
@@ -40,9 +40,9 @@ async def main():
             await r.continue_()
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
-        await goto_app(pg); await pg.wait_for_timeout(1500)
-        ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Explain attention'); await ta.press('Enter'); await pg.wait_for_timeout(1200)
-        await pg.locator('[data-v=canvas]').click(); await pg.wait_for_timeout(800)
+        await goto_app(pg); await booted(pg)
+        ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Explain attention'); await answered(pg, ta.press('Enter'))
+        await pg.locator('[data-v=canvas]').click(); await pg.locator('.cnode').first.wait_for(); await calm(pg)
         cdp = await ctx.new_cdp_session(pg)
 
         async def touch(paths, steps=10):
@@ -53,7 +53,7 @@ async def main():
                 await cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': pts(s / steps)})
                 await pg.wait_for_timeout(16)
             await cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
-            await pg.wait_for_timeout(250)
+            await calm(pg)   # until nothing moves (a fling, or a camera that shouldn't move)
 
         async def camera():
             t = await pg.evaluate("document.getElementById('world').style.transform")
@@ -84,7 +84,7 @@ async def main():
         check('pinch in zooms back out', abs(k3 - k1) < 0.05, f'k {k2:.2f} -> {k3:.2f}')
         check('page itself did not zoom', await pg.evaluate('visualViewport.scale') == 1)
 
-        await pg.locator('#zFit').click(); await pg.wait_for_timeout(500)
+        await pg.locator('#zFit').click(); await calm(pg)
         card = pg.locator('.cnode').last
         hb = await card.locator('.ch').bounding_box(); left0 = await card.evaluate('e=>e.offsetLeft')
         hx, hy = hb['x'] + 40, hb['y'] + hb['height'] / 2
@@ -95,7 +95,7 @@ async def main():
 
         # open a card so it has a scrollable body, then scroll it with a finger
         if not await pg.locator('.cnode.exp .cfull').count():
-            await pg.locator('.cnode [data-cact=exp]').first.tap(); await pg.wait_for_timeout(400)
+            await pg.locator('.cnode [data-cact=exp]').first.tap(); await calm(pg)
         f = pg.locator('.cnode .cfull').first
         if await f.count():
             await f.evaluate('e=>e.scrollTop=0')

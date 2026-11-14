@@ -2,7 +2,7 @@
 web, view, theme) can be reached at any width, on a phone too. Also Ctrl/⌘+B for the sidebar. Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import ROOT, OUT, launch_args, goto_app
+from common import ROOT, OUT, launch_args, goto_app, booted, frames
 
 MAP = {'marked.min.js': ROOT + 'marked/marked.min.js', 'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
        'highlight.min.js': ROOT + '@highlightjs/cdn-assets/highlight.min.js', 'tex-svg-full.js': ROOT + 'mathjax/es5/tex-svg-full.js'}
@@ -25,7 +25,7 @@ async def main():
                     if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript')
                 if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
                 await r.continue_()
-            await pg.route('**/*', route); await pg.add_init_script(FAKE); await goto_app(pg); await pg.wait_for_timeout(1500)
+            await pg.route('**/*', route); await pg.add_init_script(FAKE); await goto_app(pg); await booted(pg); await frames(pg)   # and the bar has been fitted (fitTop)
             sw, cw = await pg.evaluate("(()=>{const t=document.querySelector('.top');return [t.scrollWidth,t.clientWidth]})()")
             check(f'{w}px: nothing in the top bar is cut off', sw <= cw + 1, (sw, cw))
             reach = {}
@@ -36,23 +36,23 @@ async def main():
             more = await pg.locator('#moreB').is_visible()
             check(f'{w}px: the ⋯ button shows exactly when something is in the menu', more == ('menu' in reach.values()), (more, reach))
             if more:
-                await pg.locator('#moreB').click(); await pg.wait_for_timeout(200)
+                await pg.locator('#moreB').click(); await frames(pg)
                 check(f'{w}px: the menu opens', await pg.locator('.tmore.open').count() == 1)
                 if reach['#eSel'] == 'menu':
-                    await pg.select_option('.tmore #eSel', 'high'); await pg.wait_for_timeout(100)
+                    await pg.select_option('.tmore #eSel', 'high'); await frames(pg)
                     check(f'{w}px: effort can be set from the menu', await pg.evaluate("JSON.parse(localStorage.getItem('sq:settings')).effort") == 'high')
                 if reach['#themeB'] == 'menu':
-                    await pg.locator('.tmore #themeB').click(); await pg.wait_for_timeout(200)
-                    await pg.locator('.thmenu button[data-theme=sand]').click(); await pg.wait_for_timeout(200)
+                    await pg.locator('.tmore #themeB').click(); await frames(pg)
+                    await pg.locator('.thmenu button[data-theme=sand]').click(); await frames(pg)
                     check(f'{w}px: the theme can be picked from the menu', await pg.evaluate('document.documentElement.dataset.theme') == 'sand')
                 await pg.screenshot(path=f'{OUT}/topbar-{w}.png')
-                await pg.keyboard.press('Escape'); await pg.keyboard.press('Escape'); await pg.mouse.click(5, 700); await pg.wait_for_timeout(150)
+                await pg.keyboard.press('Escape'); await pg.keyboard.press('Escape'); await pg.mouse.click(5, 700); await frames(pg)
                 check(f'{w}px: it closes', await pg.locator('.tmore.open').count() == 0)
             if w == 1500:
                 side = "document.getElementById('app').classList.contains('noside')"
-                await pg.keyboard.press('Control+b'); await pg.wait_for_timeout(150)
+                await pg.keyboard.press('Control+b'); await frames(pg)
                 hidden = await pg.evaluate(side)
-                await pg.locator('.pane[data-tid=main] textarea').click(); await pg.keyboard.press('Control+b'); await pg.wait_for_timeout(150)
+                await pg.locator('.pane[data-tid=main] textarea').click(); await pg.keyboard.press('Control+b'); await frames(pg)
                 check('Ctrl+B hides the sidebar, and again (even while typing) brings it back', hidden and not await pg.evaluate(side))
             check(f'{w}px: no page errors', not errs, errs[:3])
             await ctx.close()

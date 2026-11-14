@@ -1,7 +1,7 @@
 import asyncio, sys, os
 from playwright.async_api import async_playwright
 
-from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app
+from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app, booted, answered, drawn, frames, calm
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -60,49 +60,47 @@ async def main():
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
         await goto_app(pg)
-        await pg.wait_for_timeout(1200)
+        await booted(pg)
         await pg.select_option('#mSel','claude-opus-5-5')
         ta = pg.locator('.pane[data-tid="main"] textarea')
-        await ta.fill('Explain self-attention'); await ta.press('Enter')
-        await pg.wait_for_timeout(2500)
+        await ta.fill('Explain self-attention'); await answered(pg, ta.press('Enter')); await drawn(pg)
         SEL = """([pi, word]) => { const panes=document.querySelectorAll('.pane'); const body=panes[pi].querySelector('.msg.assistant .body');
           const w=document.createTreeWalker(body,NodeFilter.SHOW_TEXT); let n;
           while((n=w.nextNode())){const i=n.nodeValue.indexOf(word); if(i>=0){const r=document.createRange(); r.setStart(n,i); r.setEnd(n,i+word.length);
             const s=getSelection(); s.removeAllRanges(); s.addRange(r); break;}}
           document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true})); }"""
-        await pg.evaluate(SEL, [0,'soft dictionary lookup']); await pg.wait_for_timeout(150)
-        await pg.locator('#popIn').fill('Why lookup?'); await pg.locator('#popIn').press('Enter'); await pg.wait_for_timeout(2500)
-        await pg.evaluate(SEL, [0,'query']); await pg.wait_for_timeout(150)
-        await pg.locator('#popChips .chip').nth(1).click(); await pg.wait_for_timeout(2500)
+        await pg.evaluate(SEL, [0,'soft dictionary lookup'])
+        await pg.locator('#popIn').fill('Why lookup?'); await answered(pg, pg.locator('#popIn').press('Enter')); await drawn(pg)
+        await pg.evaluate(SEL, [0,'query'])
+        await answered(pg, pg.locator('#popChips .chip').nth(1).click()); await drawn(pg)
         print('opts', await pg.evaluate('JSON.stringify({m:window.__opts.model,e:window.__opts.effort})'))
         print('panes', await pg.evaluate("[...document.querySelectorAll('.pane')].map(p=>p.querySelector('.ph-title').textContent)"))
         print('markers', await pg.evaluate("[...document.querySelectorAll('.pane[data-tid=main] sup.fn')].map(s=>s.textContent)"), 'chips', await pg.locator('.pane[data-tid=main] .bchip').count())
         print('model label', await pg.locator('.pane[data-tid=main] .model').first.text_content())
         # collapse middle pane
-        await pg.locator('.pane').nth(1).locator('[data-act=collapse]').click(); await pg.wait_for_timeout(300)
+        await pg.locator('.pane').nth(1).locator('[data-act=collapse]').click(); await calm(pg)
         print('rails', await pg.locator('.pane.rail').count())
         await pg.screenshot(path=OUT + '/v1.png')
         # takeaway from last branch
         last = pg.locator('.pane').nth(2)
-        await last.locator('[data-act=take]').first.click(); await last.locator('.tk input').fill('the key idea'); await last.locator('.tk .go').click()
-        await pg.wait_for_timeout(2500)
+        await last.locator('[data-act=take]').first.click(); await last.locator('.tk input').fill('the key idea'); await answered(pg, last.locator('.tk .go').click())
         print('notes in main', await pg.locator('.pane[data-tid=main] .msg.note').count())
         ctx = await pg.evaluate("JSON.stringify(window.__calls[window.__calls.length-1].slice(-1))")
         print('takeaway prompt tail', ctx[-260:])
         # back from last branch
-        await last.locator('[data-act=back]').click(); await pg.wait_for_timeout(600)
+        await last.locator('[data-act=back]').click(); await calm(pg)
         print('flashing anchors', await pg.locator('.anchor.flash').count())
         await pg.screenshot(path=OUT + '/v2.png')
         # canvas
-        await pg.locator('[data-v=canvas]').click(); await pg.wait_for_timeout(600)
+        await pg.locator('[data-v=canvas]').click(); await pg.locator('.cnode.main').wait_for(); await calm(pg)
         print('canvas nodes', await pg.locator('.cnode').count(), 'edges', await pg.locator('#edges path').count())
         await pg.screenshot(path=OUT + '/v3.png')
-        await pg.locator('.cnode').nth(2).locator('[data-cact=panes]').click(); await pg.wait_for_timeout(500)
+        await pg.locator('.cnode').nth(2).locator('[data-cact=panes]').click(); await calm(pg)
         print('after canvas click view', await pg.evaluate("document.getElementById('stage').className"))
         # delete branch via chip
         d = pg.locator('.pane[data-tid=main] [data-delb]').first
         await pg.locator('.pane[data-tid=main] .bchip').first.hover()
-        await d.click(); await pg.wait_for_timeout(200); await pg.locator('#mOk').click(); await pg.wait_for_timeout(400)
+        await d.click(); await pg.locator('#mOk').click(); await pg.wait_for_function("!document.querySelector('#modal.show')"); await calm(pg)
         print('after delete markers', await pg.evaluate("[...document.querySelectorAll('.pane[data-tid=main] sup.fn')].map(s=>s.textContent)"), 'panes', await pg.locator('.pane').count())
         print('\n'.join(errs[:20]) or 'no errors')
         await b.close()

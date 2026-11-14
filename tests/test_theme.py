@@ -6,7 +6,7 @@ asking it to link the pages it found with web search. Asserts and exits non-zero
 """
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import ROOT, launch_args, goto_app
+from common import ROOT, launch_args, goto_app, booted, answered, frames
 
 MAP = {'marked.min.js': ROOT + 'marked/marked.min.js', 'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
        'highlight.min.js': ROOT + '@highlightjs/cdn-assets/highlight.min.js', 'tex-svg-full.js': ROOT + 'mathjax/es5/tex-svg-full.js'}
@@ -30,29 +30,29 @@ async def main():
                 if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript')
             if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
             await r.continue_()
-        await pg.route('**/*', route); await pg.add_init_script(FAKE); await goto_app(pg); await pg.wait_for_timeout(1200)
+        await pg.route('**/*', route); await pg.add_init_script(FAKE); await goto_app(pg); await booted(pg)
         var = lambda n: pg.evaluate(f"getComputedStyle(document.documentElement).getPropertyValue('{n}').trim()")
         theme = lambda: pg.evaluate('document.documentElement.dataset.theme')
 
         check('starts matching the device (light here)', await theme() == 'light' and await var('--bg') == '#f5f3ee', await theme())
-        await pg.locator('#themeB').click(); await pg.wait_for_timeout(200)
+        await pg.locator('#themeB').click(); await frames(pg)
         names = await pg.locator('.thmenu button').all_text_contents()
         check('the menu lists every theme', len(names) == 10 and any('Shades of Purple' in n for n in names) and any('Sand' in n for n in names), names)
-        await pg.locator('.thmenu button[data-theme=gruvbox]').hover(); await pg.wait_for_timeout(150)
+        await pg.locator('.thmenu button[data-theme=gruvbox]').hover(); await frames(pg)
         check('hovering a theme previews it', await theme() == 'gruvbox' and await var('--bg') == '#1d2021')
-        await pg.mouse.move(5, 400); await pg.wait_for_timeout(150)
+        await pg.mouse.move(5, 400); await frames(pg)
         check('…and leaving the menu puts the kept one back', await theme() == 'light')
-        await pg.locator('.thmenu button[data-theme=purple]').click(); await pg.wait_for_timeout(150)
+        await pg.locator('.thmenu button[data-theme=purple]').click(); await frames(pg)
         check('clicking keeps it, and it is dark', await theme() == 'purple' and await pg.evaluate('document.documentElement.dataset.mode') == 'dark'
               and await pg.locator('.thmenu button[data-theme=purple]').get_attribute('aria-checked') == 'true')
         sw = await pg.locator('.thmenu button[data-theme=sand] .thsw').evaluate("e=>getComputedStyle(e).backgroundColor")
         check('each swatch shows its own theme’s colors, not the current one', sw == 'rgb(233, 224, 207)', sw)
-        await pg.keyboard.press('Escape'); await pg.wait_for_timeout(150)
+        await pg.keyboard.press('Escape'); await frames(pg)
         check('Escape closes the menu', await pg.locator('.thmenu.open').count() == 0 and await theme() == 'purple')
-        await pg.reload(); await pg.wait_for_timeout(1200)
+        await pg.reload(); await booted(pg)
         check('the theme stays after a reload', await theme() == 'purple' and await var('--panel') == '#2d2b55')
 
-        ta = pg.locator('.pane[data-tid="main"] textarea'); await ta.fill('hello'); await ta.press('Enter'); await pg.wait_for_timeout(1200)
+        ta = pg.locator('.pane[data-tid="main"] textarea'); await ta.fill('hello'); await answered(pg, ta.press('Enter'))
         sys_ = await pg.evaluate('window.__sys[0]')
         want = await pg.evaluate('PROMPTS.system')
         check('the system prompt comes from web/prompts.js', sys_ == want and sys_.startswith('You are a patient, precise tutor'), (sys_ or '')[:200])

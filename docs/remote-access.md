@@ -57,7 +57,7 @@ npm run chatgpt -- login --no-browser     # on the server; open the printed link
 
 Open the `ts.net` address in your phone's browser. The layout adapts to a narrow screen, and the views work with touch:
 
-- **Columns / Rows:** drag the gap between two panes with a finger to resize them.
+- **Columns / Rows:** drag the gap between two panes with a finger to resize them, and the dotted grip at the left of a pane's header to move it.
 - **Canvas:** drag the background to pan, pinch to zoom, drag a card by its title to move it, and scroll inside a card without moving the canvas.
 - Select text the usual way (long-press and drag the handles) and the branch box appears; no mouse needed.
 

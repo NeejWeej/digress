@@ -1,6 +1,6 @@
 import asyncio, json
 from playwright.async_api import async_playwright
-from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app
+from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app, booted, answered, soon, calm
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -37,21 +37,21 @@ async def main():
             await r.continue_()
         await pg.route('**/*', route)
         await pg.add_init_script(FAKE)
-        await goto_app(pg); await pg.wait_for_timeout(1500)
-        ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Explain attention'); await ta.press('Enter'); await pg.wait_for_timeout(1800)
+        await goto_app(pg); await booted(pg)
+        ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Explain attention'); await answered(pg, ta.press('Enter'))
         await pg.screenshot(path=OUT + '/m1.png')
         # touch-style selection: no mouseup, only selectionchange
         await pg.evaluate("""() => { const b=document.querySelector('.pane[data-tid=main] .msg.assistant .body'); const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT); let n;
           while((n=w.nextNode())){const i=n.nodeValue.indexOf('soft dictionary'); if(i>=0){const r=document.createRange(); r.setStart(n,i); r.setEnd(n,i+15); const s=getSelection(); s.removeAllRanges(); s.addRange(r); break}} }""")
-        await pg.wait_for_timeout(900)
+        await soon(pg, "() => !!document.querySelector('#pop.show')")
         print('popup after touch selection:', await pg.locator('#pop.show').count())
         await pg.screenshot(path=OUT + '/m2.png')
         if await pg.locator('#pop.show').count():
-            await pg.locator('#popIn').fill('Why?'); await pg.locator('#popIn').press('Enter'); await pg.wait_for_timeout(1800)
+            await pg.locator('#popIn').fill('Why?'); await answered(pg, pg.locator('#popIn').press('Enter'))
             await pg.screenshot(path=OUT + '/m3.png')
-        await pg.locator('[data-v=rows]').click(); await pg.wait_for_timeout(500)
+        await pg.locator('[data-v=rows]').click(); await calm(pg)
         await pg.screenshot(path=OUT + '/m4.png')
-        await pg.locator('#tSide').click(); await pg.wait_for_timeout(400)
+        await pg.locator('#tSide').click(); await calm(pg)
         await pg.screenshot(path=OUT + '/m5.png')
         print('top bar overflows:', await pg.evaluate("(()=>{const t=document.querySelector('.top');return t.scrollWidth>t.clientWidth+2})()"))
         print('\n'.join(errs[:15]) or 'no errors')

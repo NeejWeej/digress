@@ -8,7 +8,7 @@ deleted conversation 410. Per-device layouts, and uploaded files nothing uses an
 Asserts and exits non-zero."""
 import http.client, json, os, shutil, sys, tempfile, time
 sys.path.insert(0, os.path.dirname(__file__))
-from test_server import start, req, check, FAKES
+from test_server import start, req, check, FAKES, wait_until
 
 def stream(base, method, path, body=None, take=None):
     """-> (connection, response, lines read). take: stop after that many lines (the connection stays open)."""
@@ -29,7 +29,7 @@ killed = lambda: open(log).read().count('KILLED') if os.path.exists(log) else 0
 try:
     ask = lambda q, **kw: {'messages': [{'role': 'user', 'content': q}], **kw}
     # reconnecting: the model kept going while nobody was connected
-    c, r, first = stream(base, 'POST', '/api/chat', ask('SLOWISH', chat='1' * 32), take=3); c.close(); time.sleep(0.8)
+    c, r, first = stream(base, 'POST', '/api/chat', ask('SLOWISH', chat='1' * 32), take=3); c.close(); time.sleep(0.8)   # deliberate: a while with nobody connected
     c, r, rest = stream(base, 'GET', '/api/chat/run/' + '1' * 32 + '?from=3'); c.close()
     text = ''.join(l.get('d', '') for l in first + rest)
     check(text == 'tick ' * 30 and rest[-1].get('done'), f'a dropped connection reconnects from the line it had and gets the rest ({len(text)} chars)')
@@ -43,7 +43,8 @@ try:
     st, b = req(base, 'PUT', '/api/store/convs/c9', conv({'q1': {'id': 'q1', 'role': 'user', 'thread': 'main', 'content': 'hi'},
                                                           'a1': {'id': 'a1', 'role': 'assistant', 'thread': 'main', 'content': '', 'run': '2' * 32}}))
     rev0 = json.loads(b)['rev']
-    c, r, _ = stream(base, 'POST', '/api/chat', ask('SLOWISH', chat='2' * 32, save={'conv': 'c9', 'msg': 'a1'}), take=1); c.close(); time.sleep(4.5)
+    c, r, _ = stream(base, 'POST', '/api/chat', ask('SLOWISH', chat='2' * 32, save={'conv': 'c9', 'msg': 'a1'}), take=1); c.close()
+    wait_until(lambda: 'run' not in json.loads(req(base, 'GET', '/api/store/convs/c9')[1])['msgs']['a1'], timeout=15)   # the server wrote it in
     d = json.loads(req(base, 'GET', '/api/store/convs/c9')[1])
     check(d['msgs']['a1']['content'] == 'tick ' * 30 and 'run' not in d['msgs']['a1'] and d['msgs']['a1'].get('model'), f'a reply that finished with no page connected is saved into its message {d["msgs"]["a1"]}')
     check(d['rev'] == rev0 + 1, '…as a new version, so open tabs catch up')
@@ -52,7 +53,8 @@ try:
     d['msgs']['a2'] = {'id': 'a2', 'role': 'assistant', 'thread': 'main', 'content': '', 'run': '3' * 32}; d['order']['main'].append('a2')
     req(base, 'PUT', '/api/store/convs/c9', d)
     k0 = killed()
-    c, r, _ = stream(base, 'POST', '/api/chat', ask('SLOW', chat='3' * 32, save={'conv': 'c9', 'msg': 'a2'}), take=2); c.close(); time.sleep(6)
+    c, r, _ = stream(base, 'POST', '/api/chat', ask('SLOW', chat='3' * 32, save={'conv': 'c9', 'msg': 'a2'}), take=2); c.close()
+    wait_until(lambda: killed() > k0 and 'run' not in json.loads(req(base, 'GET', '/api/store/convs/c9')[1])['msgs']['a2'], timeout=20)   # stopped after RUN_DETACH_MS (4 s) and saved
     d = json.loads(req(base, 'GET', '/api/store/convs/c9')[1]); a2 = d['msgs']['a2']
     check(killed() == k0 + 1, 'a reply nobody came back to is stopped')
     check(a2.get('cut') and a2.get('error') and a2['content'].startswith('tick') and 'run' not in a2, f'…and saved as cut off, with what it had written {a2}')
@@ -60,7 +62,7 @@ try:
     # Stop
     c, r, _ = stream(base, 'POST', '/api/chat', ask('SLOW', chat='4' * 32), take=1)
     k0 = killed(); req(base, 'POST', '/api/chat/stop', {'chat': '4' * 32})
-    rest = r.read(); c.close(); time.sleep(0.8)
+    rest = r.read(); c.close(); wait_until(lambda: killed() > k0)
     check(killed() == k0 + 1, 'Stop stops the model, and the stream ends')
 
     # heartbeats keep a quiet stream alive and are told apart from content

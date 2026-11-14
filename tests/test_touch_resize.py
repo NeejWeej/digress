@@ -2,7 +2,7 @@
 narrower than the default phone width, instead of scrolling the page. Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import PAGE, OUT, launch_args, goto_app
+from common import PAGE, OUT, launch_args, goto_app, booted, answered, saved, frames, calm
 from test_pane_zoom import MAP, FAKE
 
 fails = []
@@ -24,13 +24,12 @@ async def main():
             if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
             await r.continue_()
         await pg.route('**/*', route); await pg.add_init_script(FAKE)
-        await goto_app(pg); await pg.wait_for_timeout(1200)
-        ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('What is attention?'); await ta.press('Enter'); await pg.wait_for_timeout(900)
+        await goto_app(pg); await booted(pg)
+        ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('What is attention?'); await answered(pg, ta.press('Enter'))
         await pg.evaluate('''() => { const body=document.querySelector('.pane[data-tid=main] .msg.assistant .body');
           const w=document.createTreeWalker(body,NodeFilter.SHOW_TEXT); const n=w.nextNode(); const r=document.createRange(); r.setStart(n,15); r.setEnd(n,19);
           const s=getSelection(); s.removeAllRanges(); s.addRange(r); document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true})); }''')
-        await pg.wait_for_timeout(150)
-        await pg.locator('#popIn').fill('Why soft?'); await pg.locator('#popIn').press('Enter'); await pg.wait_for_timeout(1200)
+        await pg.locator('#popIn').fill('Why soft?'); await answered(pg, pg.locator('#popIn').press('Enter')); await calm(pg)   # the strip scrolls the new pane into view
         main = pg.locator('.pane[data-tid=main]')
         fit = await pg.evaluate("[getComputedStyle(document.querySelector('.app')).height, innerHeight, document.scrollingElement.scrollHeight, getComputedStyle(document.body).overflow]")
         check('on a phone the app fits the visible screen and the page itself never scrolls (top bar stays put)', abs(float(fit[0][:-2]) - fit[1]) < 1 and fit[2] <= fit[1] and fit[3] == 'hidden', str(fit))
@@ -43,14 +42,14 @@ async def main():
             await cdp.send('Input.dispatchTouchEvent', {'type': t, 'touchPoints': [] if t == 'touchEnd' else [{'x': px, 'y': y}]})
         await touch('touchStart', x)
         for i in range(1, 13): await touch('touchMove', x - 130 * i / 12); await pg.wait_for_timeout(20)
-        await touch('touchEnd', x - 130); await pg.wait_for_timeout(1200)
+        await touch('touchEnd', x - 130); await frames(pg)
         w1 = await main.evaluate('e=>e.getBoundingClientRect().width')
         sl = await pg.evaluate("document.querySelector('#panes').scrollLeft")
         check('a finger drag on the grip narrows the pane (below the default phone width)', w1 < w0 - 100, f'{w0:.0f} -> {w1:.0f}')
         check('and does not scroll the panes sideways instead', sl == 0, str(sl))
         both = await pg.evaluate("[...document.querySelectorAll('.pane')].every(p=>{const r=p.getBoundingClientRect();return r.right<=innerWidth+150})")
         await pg.screenshot(path=OUT + '/touch_resize.png')
-        await pg.reload(); await pg.wait_for_timeout(1500)
+        await saved(pg, layout=True); await pg.reload(); await booted(pg)
         w2 = await pg.locator('.pane[data-tid=main]').evaluate('e=>e.getBoundingClientRect().width')
         check('the size is kept after a reload', abs(w2 - w1) < 3, f'{w2:.0f}')
         check('no page errors', not errs, '; '.join(errs[:3]))

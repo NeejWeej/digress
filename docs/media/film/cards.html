@@ -1,0 +1,125 @@
+<!doctype html>
+<!-- The film's title and illustration cards. make_film.py loads this page at 1920x1080 and calls
+     show(scene, t) for every frame, so each frame is a pure function of time (no clocks, no CSS animation).
+     Scenes: open, think, close; and caption(text) for the lines above the app window. -->
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;1,8..60,400&display=block" rel="stylesheet">
+<style>
+:root{--bg:#f4f0e7;--ink:#1f1d19;--muted:#6d695f;--faint:#a29d92;--accent:#c4643c;--line:#2a2723}
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:var(--bg);color:var(--ink)}
+body.clear{background:transparent}
+.scene{position:absolute;inset:0;display:none}
+.scene.on{display:block}
+svg{position:absolute;overflow:visible}
+.serif{font-family:'Source Serif 4',Georgia,'DejaVu Serif',serif}
+.sans{font-family:'Inter',system-ui,sans-serif}
+.word{position:absolute;left:0;right:0;text-align:center;font-size:112px;letter-spacing:-.5px;font-weight:400}
+.sub{position:absolute;left:0;right:0;text-align:center;font-size:36px;color:var(--muted);font-style:italic}
+.cue{position:absolute;left:0;right:0;text-align:center;font-size:22px;color:var(--muted);letter-spacing:.3px}
+.cap{position:absolute;left:0;right:0;text-align:center;font-size:48px;line-height:1.25}
+#caption{position:absolute;left:0;top:0;width:1920px;height:160px;display:flex;align-items:center;justify-content:center;font-size:44px;color:var(--ink)}
+#caption .pm{display:inline-block;width:52px;height:52px;margin-right:18px;position:relative;top:4px}
+#caption .mu{color:var(--muted);font-style:italic;margin-left:14px;font-size:36px}
+#caption .play{font-family:'Inter',system-ui,sans-serif;font-size:22px;color:#fffdf9;background:var(--accent);border-radius:999px;padding:9px 20px 9px 16px;margin-left:34px;display:inline-flex;align-items:center;gap:10px;position:relative;top:2px}
+#caption .play svg{position:static;width:16px;height:16px}
+#caption kbd{font-family:'Inter',system-ui,sans-serif;font-size:30px;border:1.5px solid #cfc7b8;border-bottom-width:3px;border-radius:9px;padding:2px 12px;margin:0 6px;background:#fffdf9;position:relative;top:-3px}
+.twig path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+</style></head>
+<body>
+
+
+<div class="scene" id="open">
+  <svg id="openTwig" width="1920" height="1080" viewBox="0 0 1920 1080"><g transform="translate(852 280) scale(9)" stroke-width="1.75"></g></svg>
+  <div class="word serif" style="top:505px">Digress</div>
+  <div class="sub serif" style="top:655px">A branching chat for learning</div>
+</div>
+
+<div class="scene" id="think">
+  <svg width="1920" height="1080" viewBox="0 0 1920 1080">
+    <g transform="translate(700 210)" stroke="#2a2723" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <!-- a head in profile, one unbroken line -->
+      <path id="head" d="M150 560 C152 520 140 492 118 466 C 70 410 66 300 118 236 C 176 164 300 150 360 212 C 392 246 400 284 394 312 C 412 336 432 362 432 376 C 432 388 414 392 402 394 C 408 406 406 418 398 424 C 404 432 404 444 394 450 C 398 466 392 482 372 488 C 348 494 318 496 300 504 C 290 522 292 544 298 560"/>
+      <!-- the thought: rises from the head and branches like the twig -->
+      <path id="t0" d="M300 196 C 330 150 352 112 372 72 C 392 32 404 -6 410 -40"/>
+      <path id="t1" stroke="#c4643c" d="M366 84 C 410 78 452 84 500 108"/>
+      <path id="t2" stroke="#c4643c" d="M420 84 C 436 58 460 40 494 30"/>
+      <path id="t3" stroke="#c4643c" d="M392 26 C 360 0 330 -14 300 -18"/>
+    </g>
+    <g transform="translate(700 210)">
+      <circle id="c0" cx="410" cy="-46" r="11" fill="#2a2723"/>
+      <circle id="c1" cx="508" cy="112" r="10" fill="#c4643c"/>
+      <circle id="c2" cx="502" cy="27" r="8.5" fill="#c4643c"/>
+      <circle id="c3" cx="292" cy="-19" r="8.5" fill="#c4643c"/>
+    </g>
+  </svg>
+  <div class="cap serif" id="thinkA" style="top:880px">Every good answer raises new questions.</div>
+  <div class="cap serif" id="thinkB" style="top:880px">Follow them, without losing your place.</div>
+</div>
+
+<div class="scene" id="close">
+  <svg id="closeTwig" width="1920" height="1080" viewBox="0 0 1920 1080"><g transform="translate(882 226) scale(6.5)" stroke-width="1.85"></g></svg>
+  <div class="word serif" style="top:400px">Digress</div>
+  <div class="sub serif" style="top:550px">Follow the tangent. Keep the thread.</div>
+  <div class="cue sans" style="top:700px">Open source &nbsp;·&nbsp; github.com/NeejWeej/digress</div>
+</div>
+
+<div id="caption" class="serif" style="display:none"></div>
+
+<script>
+// the twig, as in web/icon.svg
+const tw = `<g class="twig">
+  <path class="s0" stroke="#2a2723" d="M3.5 20.5C8 16 12 12 15 4.8"/>
+  <path class="s1" stroke="#c4643c" d="M10.6 13.7c3-.4 5.7.3 8.9 2"/>
+  <path class="s2" stroke="#c4643c" d="M15.2 14c1.1-1.6 2.7-2.6 5-3.1"/>
+  <circle class="d0" fill="#2a2723" cx="15.2" cy="4.3" r="1.9"/>
+  <circle class="d1" fill="#c4643c" cx="19.8" cy="15.9" r="1.7"/>
+  <circle class="d2" fill="#c4643c" cx="20.4" cy="10.5" r="1.4"/>
+</g>`;
+document.querySelector('#openTwig g').innerHTML = tw;
+document.querySelector('#closeTwig g').innerHTML = tw;
+const clamp = (x) => Math.max(0, Math.min(1, x));
+const ease = (u) => { u = clamp(u); return u * u * u * (u * (u * 6 - 15) + 10); };
+const outBack = (u) => { u = clamp(u); const c = 1.4; return 1 + (c + 1) * Math.pow(u - 1, 3) + c * Math.pow(u - 1, 2); };
+const span = (t, a, b) => clamp((t - a) / (b - a));
+function draw(el, p) { const L = el.getTotalLength(); el.style.strokeDasharray = L + ' ' + (L + 1); el.style.strokeDashoffset = L * (1 - ease(p)); }
+function pop(el, p) { const s = outBack(p); const b = el.getBBox(); const cx = b.x + b.width / 2, cy = b.y + b.height / 2;
+  el.setAttribute('transform', `translate(${cx} ${cy}) scale(${Math.max(0, s)}) translate(${-cx} ${-cy})`); el.style.opacity = clamp(p * 3); }
+function fadeUp(el, p, dy = 18) { const e = ease(p); el.style.opacity = e; el.style.transform = `translateY(${(1 - e) * dy}px)`; }
+function fadeOut(el, p, dy = -10) { const e = ease(p); el.style.opacity = 1 - e; el.style.transform = `translateY(${e * dy}px)`; }
+function twig(root, t, t0, k = 1) {
+  const q = (s) => root.querySelector(s);
+  draw(q('.s0'), span(t, t0, t0 + 1.1 * k)); pop(q('.d0'), span(t, t0 + 0.95 * k, t0 + 1.45 * k));
+  draw(q('.s1'), span(t, t0 + 0.55 * k, t0 + 1.35 * k)); pop(q('.d1'), span(t, t0 + 1.2 * k, t0 + 1.7 * k));
+  draw(q('.s2'), span(t, t0 + 0.95 * k, t0 + 1.6 * k)); pop(q('.d2'), span(t, t0 + 1.45 * k, t0 + 1.95 * k));
+}
+window.show = function (scene, t) {
+  document.querySelectorAll('.scene').forEach((s) => s.classList.toggle('on', s.id === scene));
+  const S = document.getElementById(scene);
+  if (scene === 'open') {
+    twig(S, t, 0.35);
+    fadeUp(S.querySelector('.word'), span(t, 1.5, 2.6));
+    fadeUp(S.querySelector('.sub'), span(t, 2.2, 3.3), 12);
+  } else if (scene === 'think') {
+    const q = (s) => document.getElementById(s);
+    draw(q('head'), span(t, 0.1, 1.8));
+    draw(q('t0'), span(t, 1.5, 2.6)); pop(q('c0'), span(t, 2.45, 2.95));
+    draw(q('t1'), span(t, 2.0, 2.9)); pop(q('c1'), span(t, 2.75, 3.25));
+    draw(q('t2'), span(t, 2.45, 3.2)); pop(q('c2'), span(t, 3.05, 3.55));
+    draw(q('t3'), span(t, 2.3, 3.1)); pop(q('c3'), span(t, 2.95, 3.45));
+    const A = q('thinkA'), B = q('thinkB');
+    if (t < 3.0) { fadeUp(A, span(t, 0.5, 1.4)); B.style.opacity = 0; }
+    else { fadeOut(A, span(t, 3.0, 3.4)); fadeUp(B, span(t, 3.45, 4.2)); }
+  } else if (scene === 'close') {
+    twig(S, t, 0.1, 0.9);
+    fadeUp(S.querySelector('.word'), span(t, 0.6, 1.6));
+    fadeUp(S.querySelector('.sub'), span(t, 1.2, 2.2), 12);
+    fadeUp(S.querySelector('.cue'), span(t, 1.9, 2.9), 8);
+  }
+};
+window.caption = function (html) {
+  document.querySelectorAll('.scene').forEach((s) => s.classList.remove('on'));
+  document.body.classList.add('clear');
+  const c = document.getElementById('caption'); c.style.display = 'flex'; c.innerHTML = html;
+};
+</script>
+</body></html>
