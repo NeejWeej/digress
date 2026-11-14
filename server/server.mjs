@@ -612,6 +612,11 @@ async function route(req, res) {
     res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache' });
     return createReadStream(path.join(ROOT, 'web', url.pathname.slice(1))).pipe(res);
   }
+  // the logo: the browser tab icon (follows light/dark) and the phone home-screen icon
+  if (req.method === 'GET' && ['/icon.svg', '/apple-touch-icon.png'].includes(url.pathname)) {
+    res.writeHead(200, { 'content-type': url.pathname.endsWith('.svg') ? 'image/svg+xml' : 'image/png', 'cache-control': 'public, max-age=86400', 'x-content-type-options': 'nosniff' });
+    return createReadStream(path.join(ROOT, 'web', url.pathname.slice(1))).pipe(res);
+  }
   if (DEV && url.pathname === '/__dev/events') return devEvents(req, res);
   if (parts[0] !== 'api') return fail(res, 404, 'Not found');
 
