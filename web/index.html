@@ -259,6 +259,10 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .ph.oexp .pox .i{transform:rotate(180deg)}
 .ph-origin q{font-family:var(--serif);font-style:italic;quotes:"\201C" "\201D";cursor:pointer}
 .ph-origin .crumb{cursor:pointer}
+.ph-origin .pgn{font:inherit;color:inherit;padding:0;border-bottom:1px dotted var(--faint);cursor:pointer}
+.ph-origin .pgn:hover{color:var(--ink);border-bottom-color:var(--ink)}
+.ph-origin .pgin{font:inherit;color:var(--ink);width:6ch;padding:0 3px;border:1px solid var(--line2);border-radius:5px;background:var(--panel);outline:none}
+.ph-origin .pgin:focus{border-color:var(--accent)}
 .cnode .cthumb{height:170px;overflow:hidden;border-bottom:1px solid var(--line);background:#fff;cursor:pointer;position:relative}
 .cnode .cthumb img{width:100%;display:block}
 .cnode .cthumb::after{content:"";position:absolute;inset:auto 0 0 0;height:28px;background:linear-gradient(transparent,var(--panel))}
@@ -3190,9 +3194,12 @@ function updateDocHeader(){
   const el=paneEls.get('doc');if(!el||!conv.doc)return;
   el.querySelector('.ph-title').textContent=conv.doc.name;
   const o=el.querySelector('.ph-origin'),nb=docBranches().length,bl=`${nb} branch${nb===1?'':'es'}`;
+  if(o.querySelector('.pgin'))return;   // typing a page number: don't redraw it out from under you
   if(!docState||(!docState.loaded&&!docState.error))o.textContent=docState&&docState.progress?`Reading ${docState.progress} of ${docState.n} pages…`:'Loading…';
   else if(docState.error)o.textContent='Couldn\'t load the document';
-  else o.textContent=docState.kind==='pdf'?`Page ${docView.current} of ${docState.n} · ${bl}`:bl;
+  else if(docState.kind==='pdf'){
+    o.innerHTML=`<button type="button" class="pgn" data-gopage="1" title="Go to a page">Page ${docView.current}</button> of ${docState.n} · ${bl}`;
+  }else o.textContent=bl;
   // opened from a link: show where it came from
   const src=conv.doc.source;if(src&&/^https?:\/\//i.test(src)&&docState&&docState.loaded){try{const a=document.createElement('a');a.href=src;a.target='_blank';a.rel='noopener noreferrer';a.className='docsrc';a.textContent=new URL(src).hostname;a.title=src;o.append(' · ',a)}catch(e){}}
   const f=el.querySelector('[data-act="focus"]');const on=isFocused('doc');f.innerHTML=ic(on?'unfocus':'focus');f.title=on?'Show all panes (Esc)':'Focus: collapse every other pane';f.classList.toggle('on',on);
@@ -4625,6 +4632,13 @@ document.addEventListener('click',e=>{
   const vc=e.target.closest('[data-vers]');if(vc){e.stopPropagation();openVersions(vc.dataset.vers);return}
   const mf=e.target.closest('[data-mmfix]');if(mf){const box=mf.closest('.mermaid-box'),pane=mf.closest('.pane[data-tid]'),ta=pane&&pane.querySelector('.composer textarea');
     if(ta){ta.value=`The diagram that starts “${trunc((box.dataset.src||'').trim().split('\n')[0],40)}” has a syntax error and can’t be drawn:\n${box.dataset.err||''}\nPlease send a corrected version of just that diagram.`;autosize(ta);updateComposer(pane.dataset.tid);ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}return}
+  // the PDF's "Page N": click to type a page and jump there (Enter), Esc or clicking away to leave it
+  const gp=e.target.closest('[data-gopage]');if(gp){e.stopPropagation();
+    const inp=document.createElement('input');inp.className='pgin';inp.type='number';inp.min=1;inp.max=docState.n;inp.value=docView.current;inp.setAttribute('aria-label','Page number');
+    const lbl=document.createTextNode('Page ');gp.replaceWith(lbl,inp);inp.focus();inp.select();
+    let done=false;const end=go=>{if(done)return;done=true;const n=Math.round(+inp.value);inp.remove();lbl.remove();updateDocHeader();if(go&&n>=1)goToPage(Math.min(n,docState.n))};
+    inp.addEventListener('keydown',ev=>{ev.stopPropagation();if(ev.key==='Enter'){ev.preventDefault();end(true)}else if(ev.key==='Escape'){ev.preventDefault();end(false)}});
+    inp.addEventListener('blur',()=>end(false));return}
   const kb=e.target.closest('[data-cardsconv]');if(kb){e.stopPropagation();const id=kb.dataset.cardsconv;(async()=>{if(!conv||conv.id!==id)await openConv(id);if(conv&&conv.id===id){if(innerWidth<760)$('#app').classList.remove('sideopen');openCards('conv')}})();return}
   const ci=e.target.closest('[data-conv]');if(ci&&ci.classList.contains('renaming'))return;if(ci){BACK.length=0;renderBack();openConv(ci.dataset.conv);if(innerWidth<760)$('#app').classList.remove('sideopen');return}
 });
