@@ -1120,6 +1120,7 @@ function serverLlm(info){
         else if(ev.toolDone){onTool&&onTool(ev.toolDone,true)}
         else if(ev.error){st.error=String(ev.error);st.end=true}
         else if(ev.done){st.model=ev.model||null;st.truncated=!!ev.truncated;st.end=true}
+        else if(ev.stopped){st.stopped=String(ev.stopped);st.end=true}   // the server stopped it: Stop ('stop'), or no page came back in time ('away')
       };
       // read one connection until the reply ends ('end') or the connection goes ('lost'). A connection that's
       // silent past the heartbeats is taken as dead (phones can leave one hanging after they wake up).
@@ -1156,6 +1157,7 @@ function serverLlm(info){
         state=await read(g);
       }
       if(st.error)throw fail({message:st.error});
+      if(st.stopped)throw fail(st.stopped==='away'?{message:'no page was connected to it for too long, so the server stopped it.',cut:true}:{message:'Stopped.',stopped:true});
       return {text:st.text,truncated:st.truncated,model:st.model,searches:st.searches,sources:st.sources};
     },
     stop:(run)=>fetch('api/chat/stop',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({chat:run})}).catch(()=>{})};
@@ -1678,7 +1680,7 @@ async function generate(m,ctx,lockTid,o={}){
     if(e&&e.text!==undefined)m.content=prefix+e.text;
     if(e&&e.searches&&e.searches.length)m.searches=[...e.searches];if(e&&e.sources&&e.sources.length)m.sources=e.sources.slice(0,30);
     if(e&&e.cut&&!st.stopped){m.cut=true;m.error='Cut off before it finished: '+e.message}
-    else m.error=st.stopped||ctrl.signal.aborted?'Stopped.':(e&&e.code==='rate_limited'?'Rate limited. Wait a moment and retry.':(e&&e.message)||'Something went wrong.');
+    else m.error=st.stopped||ctrl.signal.aborted||(e&&e.stopped)?'Stopped.':(e&&e.code==='rate_limited'?'Rate limited. Wait a moment and retry.':(e&&e.message)||'Something went wrong.');
   }
   clearInterval(tick);
   if(conv!==st.conv)return;

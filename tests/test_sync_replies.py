@@ -1,4 +1,4 @@
-"""Replies that outlive their page (the real server, fake Claude Code, RUN_DETACH_MS 2.5 s).
+"""Replies that outlive their page (the real server, fake Claude Code, RUN_DETACH_MS 6 s).
 
   - A reply carries on when its page goes to another conversation, reloads, or loses its connection, and
     one that nobody came back to in time is saved as cut off, with Continue.
@@ -20,7 +20,7 @@ async def main():
 
         # a reply carries on when its page goes elsewhere, and is there on return.
         # The fake writes 30 ticks 100 ms apart (3 s) and the server stops a reply nobody is attached to after
-        # 2.5 s, so the page stays for 7 ticks (0.7 s) first: the reply then finishes inside that window.
+        # 6 s, so it finishes well inside that window. The window also has to cover a reload (below) on a busy machine.
         await ask(A, 'SLOWISH one', wait=False); await ticks(A, 7)
         await A.locator('#newConv').click()
         last = await poll(lambda: (lambda m: m if m['content'] == 'tick ' * 30 and 'run' not in m else None)(last_saved()))
@@ -46,6 +46,17 @@ async def main():
         await idle(A)
         body = await A.locator('.pane[data-tid="main"] .msg.assistant .body').last.inner_text()
         check(body.count('tick') == 30, 'after the network drops for a moment, the reply finishes', [body.count('tick'), body[-200:]])
+
+        # Stop on one device ends the reply on another device watching it (the server's last line says so; the
+        # stream used to just end, and the other page took that for a dropped connection and kept reconnecting)
+        B = await s.device(); await B.locator(f'[data-conv="{cid}"]').first.click(); await soon(B, "id=>__digress.conv.id===id", cid)
+        await ask(A, 'SLOW stop me', wait=False); await ticks(A)
+        watching = await s.back(B, f"()=>{{const m={LAST_MAIN};return m.role==='assistant'&&m.pending&&(m.content||'').includes('tick')}}")
+        check(watching, 'the other device picks up the reply being written')
+        await A.locator('.pane[data-tid="main"] .sendb').click()
+        ended = await soon(B, f"()=>{{const m={LAST_MAIN};return !m.pending&&m.error==='Stopped.'}}", timeout=8000)
+        check(ended, 'Stop on one device ends it on the other, as Stopped.', await B.evaluate(f"(()=>{{const m={LAST_MAIN};return [m.pending,m.error,(m.content||'').length]}})()"))
+        await idle(A); await B.context.close()
 
         # nobody comes back in time: cut off, kept, with Continue
         await ask(A, 'SLOW and long', wait=False); await ticks(A)

@@ -58,12 +58,17 @@ try:
     d = json.loads(req(base, 'GET', '/api/store/convs/c9')[1]); a2 = d['msgs']['a2']
     check(killed() == k0 + 1, 'a reply nobody came back to is stopped')
     check(a2.get('cut') and a2.get('error') and a2['content'].startswith('tick') and 'run' not in a2, f'…and saved as cut off, with what it had written {a2}')
+    c, r, late = stream(base, 'GET', '/api/chat/run/' + '3' * 32 + '?from=0'); c.close()
+    check(late and late[-1] == {'stopped': 'away'}, f'…and a page that attaches afterwards is told it ended ({{stopped:"away"}}), not left reconnecting {late[-1:]}')
 
     # Stop
     c, r, _ = stream(base, 'POST', '/api/chat', ask('SLOW', chat='4' * 32), take=1)
     k0 = killed(); req(base, 'POST', '/api/chat/stop', {'chat': '4' * 32})
     rest = r.read(); c.close(); wait_until(lambda: killed() > k0)
     check(killed() == k0 + 1, 'Stop stops the model, and the stream ends')
+    check(json.loads(rest.decode().strip().splitlines()[-1]) == {'stopped': 'stop'}, f'…with {{stopped:"stop"}} as its last line {rest[-80:]}')
+    c, r, late = stream(base, 'GET', '/api/chat/run/' + '4' * 32 + '?from=0'); c.close()
+    check(late and late[-1] == {'stopped': 'stop'}, '…which another page attaching to it gets too')
 
     # heartbeats keep a quiet stream alive and are told apart from content
     c = http.client.HTTPConnection(base.split('//')[1], timeout=30)

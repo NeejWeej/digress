@@ -16,7 +16,9 @@
 //
 // Lines are counted without the heartbeats ({hb:1}, sent to each page every HB_MS so it can tell a live but
 // quiet stream from a dead one). A document tool call that was already answered is replayed as {toolDone}
-// so a page that reloads doesn't run it again.
+// so a page that reloads doesn't run it again. A run the server stops ends with {stopped:'stop'} (Stop was
+// pressed) or {stopped:'away'} (no page for DETACH_MS), so a page that is attached, or attaches later, knows it
+// ended and doesn't take the end for a dropped connection and keep reconnecting.
 
 export const DETACH_MS = Number(process.env.RUN_DETACH_MS || 10 * 60_000);
 const KEEP_MS = Number(process.env.RUN_KEEP_MS || 10 * 60_000);
@@ -107,14 +109,15 @@ export function createRun(id, { session, onOrphan } = {}) {
   function detached() {
     if (session && session.setAttached) session.setAttached(false);
     clearTimeout(run.detachTimer);
-    run.detachTimer = setTimeout(() => { if (!run.clients.size && !run.ended) run.cancel(); }, DETACH_MS);
+    run.detachTimer = setTimeout(() => { if (!run.clients.size && !run.ended) run.cancel('away'); }, DETACH_MS);
   }
   // Stop, or nobody came back in time: stop the model and keep what it wrote
-  run.cancel = () => {
+  run.cancel = (why = 'stop') => {
     if (run.ended) return;
     run.cancelled = true;
     if (run.status === null) run.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store' });
     fireClose();
+    if (run.status === 200) run.write(JSON.stringify({ stopped: why }) + '\n');   // the end line, for pages attached now or later
     run.end();
   };
   runs.set(id, run);

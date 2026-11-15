@@ -16,7 +16,7 @@ def check(ok, what, detail=''):
 async def setup():
     """-> an object with base, convs(), device(w), ask(pg, q, tid, wait), idle(pg), back(pg, until), texts(pg, tid), errs."""
     tmp = tempfile.mkdtemp(); data = os.path.join(tmp, 'data'); log = os.path.join(tmp, 'claude.log')
-    proc, base = start({'LLM_PROVIDER': 'claude-code', 'CLAUDE_BIN': os.path.join(FAKES, 'fake-claude.mjs'), 'DATA_DIR': data, 'FAKE_LOG': log, 'RUN_DETACH_MS': '2500'})
+    proc, base = start({'LLM_PROVIDER': 'claude-code', 'CLAUDE_BIN': os.path.join(FAKES, 'fake-claude.mjs'), 'DATA_DIR': data, 'FAKE_LOG': log, 'RUN_DETACH_MS': '6000'})
     try:
         async with async_playwright() as p:
             b = await p.chromium.launch(**launch_args())
