@@ -6,6 +6,7 @@
 //   GET  /api/health                   {app:'digress', llm:bool, provider, web:bool, why}
 //   GET  /api/models                   {models:[[id,label]], defaultLabel, default, chosen}
 //   GET|PUT /api/prefs                 {defaultModel}: preferences shared by every device
+//   GET  /api/guide                    {docs:[{name,file,text}]}: Digress's own documentation (Ask about Digress)
 //   POST /api/chat                     {system, messages, model, effort, web} -> streamed lines: {d}, {search}, {sources},
 //                                      then {done,model,truncated} or {error}  (see PROVIDERS)
 //   GET  /api/store/:coll              [{id, data}]          (coll: convs | index)
@@ -29,6 +30,9 @@ import { createRun, getRun, DETACH_MS } from './runs.mjs';
 import { openSession, deliverResult, handleMcp, toolsForAnthropic, resultForAnthropic, CLAUDE_CODE_TOOL_NAMES, MAX_TOOL_ROUNDS } from './doctools.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// what "Ask about Digress" knows (GET /api/guide): what the app does, then how it's set up, then how it works inside
+const GUIDE_DOCS = [['README.md', 'What Digress does (README)'], ['docs/setup.md', 'Setting it up'], ['docs/remote-access.md', 'Using it from your phone and other devices'],
+  ['docs/flashcards.md', 'Flashcards'], ['docs/development.md', 'Developing Digress'], ['AGENTS.md', 'How it works inside (notes for developers)'], ['docs/future.md', 'Ideas that are NOT built yet']];
 
 // ---- config ---------------------------------------------------------------
 function loadDotEnv(file) {
@@ -679,6 +683,13 @@ async function route(req, res) {
     const models = await listModels(), def = await defaultModel();
     const d = models.find((m) => m[0] === def);
     return send(res, 200, { models, defaultLabel: d ? d[1] : def, default: def, chosen: (await getPrefs()).defaultModel || null });
+  }
+  // GET /api/guide: Digress's own documentation, for "Ask about Digress" (the page puts it in a one-off chat's
+  // system prompt). A fixed list of files from this repository, read fresh each time so it's as current as they are.
+  if (parts[1] === 'guide' && req.method === 'GET') {
+    const docs = [];
+    for (const [file, name] of GUIDE_DOCS) { try { docs.push({ name, file, text: await fs.readFile(path.join(ROOT, file), 'utf8') }); } catch { /* not in this copy */ } }
+    return send(res, 200, { docs });
   }
   // PUT /api/prefs {defaultModel: id | null}: the model "Default" means, on every device (null: back to the built-in one)
   if (parts[1] === 'prefs' && parts.length === 2) {

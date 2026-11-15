@@ -224,6 +224,21 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 ::highlight(digress-hit){background-color:color-mix(in srgb,var(--accent) 32%,transparent);color:inherit}
 .help summary{list-style:none;display:flex;align-items:center;gap:6px;cursor:pointer;margin:0 -8px;padding:4px 8px;border-radius:8px}
 .help summary::-webkit-details-marker{display:none}
+.help summary .gq{margin-left:auto;width:22px;height:22px;border-radius:50%;border:1px solid var(--line2);background:var(--panel);color:var(--muted);font:600 12px var(--sans);display:inline-flex;align-items:center;justify-content:center}
+.help summary .gq:hover{color:var(--ink);border-color:var(--faint)}
+/* Ask about Digress: a one-off chat beside everything, never saved */
+.guide{position:fixed;right:0;top:48px;bottom:0;width:min(440px,100vw);z-index:42;display:none;flex-direction:column;background:var(--panel);border-left:1px solid var(--line2);box-shadow:var(--shadow)}
+.guide.open{display:flex}.app.zen~.guide{top:0}
+.guide .gh{display:flex;align-items:center;gap:6px;padding:10px 10px 8px 16px;border-bottom:1px solid var(--line)}
+.guide .gh .gt{flex:1;min-width:0}.guide .gh b{font-size:14px}.guide .gh .gs{display:block;font-size:11.5px;color:var(--faint)}
+.guide .gb{flex:1;overflow:auto;padding:4px 18px 16px}
+.guide .gm.u{display:flex;justify-content:flex-end;margin-top:16px}.guide .gm.u div{background:var(--user-bg);border-radius:14px;padding:8px 13px;max-width:88%;white-space:pre-wrap;font-size:14px;line-height:1.5}
+.guide .gm.a{margin-top:10px;font-family:var(--serif);font-size:15px;line-height:1.62;overflow-wrap:break-word}
+.guide .gm.a.err{font-family:var(--sans);font-size:13px;color:var(--muted)}
+.guide .gm.a.wait::after{content:'…';color:var(--faint)}
+.guide .gchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.guide .gempty{margin-top:14px;font-size:13px;color:var(--muted);line-height:1.5}
+.guide .gc{padding:8px 10px 12px}.guide .cbox{max-width:none}
 .help summary:hover{background:var(--user-bg)}
 .help .chev{display:inline-flex;transition:transform .15s;color:var(--faint)}
 .help[open] .chev{transform:rotate(90deg)}
@@ -728,6 +743,17 @@ sup.fn.res{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px va
 .docwrap{display:flex;flex-direction:column;align-items:safe center;gap:14px;padding-bottom:20px}
 .dpage{position:relative;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.04);border-radius:2px;flex:none}
 .dpage canvas{position:absolute;inset:0;border-radius:2px}
+/* the reading mark: a ribbon in the left margin and a faint line across the page where you got up to */
+.dmark{position:absolute;left:-14px;right:0;height:0;z-index:4;pointer-events:none}
+.dmark::after{content:'';position:absolute;left:14px;right:0;top:0;border-top:1.5px dashed var(--accent);opacity:.45}
+.docbody .dmark{left:-1px}.docbody .dmark::after{left:15px}
+.dmark .rib{position:absolute;left:0;top:-11px;width:14px;height:22px;padding:0;border:0;background:none;color:var(--accent);cursor:grab;pointer-events:auto;touch-action:none}
+.dmark .rib svg{width:14px;height:22px;fill:var(--accent);stroke:none}
+.dmark.drag .rib{cursor:grabbing}.dmark.drag::after{opacity:.8}
+.dmark .mx{position:absolute;left:16px;top:-10px;width:18px;height:18px;border-radius:50%;border:1px solid var(--line2);background:var(--panel);color:var(--muted);font-size:12px;line-height:15px;padding:0;pointer-events:auto;opacity:0;transition:opacity .15s}
+.dmark:hover .mx,.dmark .rib:hover+.mx,.dmark .mx:hover,.dmark .mx:focus-visible{opacity:1}
+.dmark.flash::after{animation:mkflash 1.1s ease 2}@keyframes mkflash{50%{opacity:1;border-top-width:3px}}
+.jump .jm{display:none}.docpane .jump .jm{display:inline-flex}.docpane.marked .jump .jm{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 50%,var(--line2))}
 .dpage .pnum{position:absolute;left:-2px;bottom:-16px;font-size:10.5px;color:var(--faint)}
 .dpage .pask{position:absolute;right:-2px;bottom:-19px;border:0;background:none;padding:1px 3px;font:11px var(--sans);color:var(--faint);cursor:pointer;opacity:0;transition:opacity .15s;z-index:3}
 .dpage:hover .pask,.dpage .pask:focus-visible{opacity:1}.dpage .pask:hover{color:var(--ink)}
@@ -760,7 +786,7 @@ sup.fn.res{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px va
 .aimg.loaded{border-style:solid;background:none;padding:6px}.aimg .aview{border:0;padding:0;background:none;cursor:zoom-in;display:block}.aimg .aview img{display:block;max-width:100%;max-height:520px;border-radius:6px;margin:0 auto}
 .abar{max-width:760px;margin:0 auto 10px;display:flex;align-items:center;gap:8px;font:12.5px var(--sans);color:var(--muted);padding:0 4px;flex-wrap:wrap}.abar .i{width:14px;height:14px}.abar span{flex:1;min-width:200px}
 :root{--imgico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='16' rx='2'/%3E%3Ccircle cx='9' cy='10' r='2'/%3E%3Cpath d='M21 16l-5-5-9 9'/%3E%3C/svg%3E")}
-.docbody{max-width:760px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 28px 18px;font-family:var(--serif);font-size:16px;line-height:1.66;width:100%}
+.docbody{position:relative;max-width:760px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 28px 18px;font-family:var(--serif);font-size:16px;line-height:1.66;width:100%}
 .docload,.docerr{color:var(--muted);padding:40px 10px;text-align:center;line-height:1.6}
 .docerr input{margin-top:10px}
 a.pref{color:var(--accent);cursor:pointer;text-decoration:none;border-bottom:1px dotted currentColor;font-family:var(--sans);font-size:.86em;white-space:nowrap}
@@ -792,7 +818,7 @@ a.pref:hover{border-bottom-style:solid}
   .panes{padding:8px}.pb{padding:6px 14px 8px}.composer{padding:6px 8px 10px}.ph{padding:10px 6px 8px 15px}
   .pop{width:auto;left:8px !important;right:8px}.pal{padding-top:8vh}.cvhint{display:none}}
 /* touch screens have no hover: show the controls that otherwise appear on hover */
-@media (hover:none){.zenx{opacity:.85;height:20px;line-height:18px}.msg.user .uact{opacity:1}.mnode .macts{position:static;opacity:1;pointer-events:auto;background:none;padding:0}.mnode .mpin{display:none}}
+@media (hover:none){.dmark .mx{opacity:1}.zenx{opacity:.85;height:20px;line-height:18px}.msg.user .uact{opacity:1}.mnode .macts{position:static;opacity:1;pointer-events:auto;background:none;padding:0}.mnode .mpin{display:none}}
 @media (hover:none){.citem .acts{position:static;transform:none;background:none;padding:0;pointer-events:auto}.citem .acts,.mnode .mp,.mnode .mx,.bchip .bx,.del,.mfoot .ib,.mfoot .tb,.cnode .ch .ib{opacity:1 !important}.tipbox{display:none !important}}
 </style>
 </head>
@@ -832,7 +858,7 @@ a.pref:hover{border-bottom-style:solid}
     <div class="sh">Branches<button class="shbtn" id="treeAll"></button></div>
     <div class="tree" id="tree"></div>
     <details class="help" id="help">
-      <summary><span class="chev"></span><b>How it works</b></summary>
+      <summary><span class="chev"></span><b>How it works</b><button class="gq" id="guideB" type="button" title="Ask how Digress works: a chat that knows its documentation (not saved)">?</button></summary>
       <ul>
         <li>Highlight any text in a reply and ask about it. The answer opens in a new pane next to the one it came from.</li>
         <li>Numbered markers in the text show where each branch starts. Click one to open it.</li>
@@ -861,6 +887,7 @@ a.pref:hover{border-bottom-style:solid}
   <div class="chips" id="popChips"></div>
   <div class="hint" id="popHint"></div>
 </div>
+<div class="guide" id="guide" role="dialog" aria-label="Ask about Digress"><div class="gh"><div class="gt"><b>Ask about Digress</b><span class="gs">Answers from Digress’s own documentation. Not saved.</span></div><button class="ib" id="guideNew" title="Start over"></button><button class="ib" id="guideX" title="Close (Esc)"></button></div><div class="gb" id="guideMsgs"></div><div class="gc"><div class="cbox"><textarea id="guideIn" rows="1" placeholder="How do I…?"></textarea><button class="sendb" id="guideSend" title="Send"></button></div></div></div>
 <div class="toast" id="toast"></div>
 <div class="tipbox" id="tipbox"></div>
 <div class="pal" id="pal"><div class="pbox" role="dialog" aria-modal="true" aria-label="Search"><div class="pin"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="palIn" placeholder="Search conversations, highlights, takeaways, documents…" autocomplete="off" spellcheck="false"></div><div class="pscope" id="palScope"></div><div class="pres" id="palRes"></div><div class="pfoot"><span id="palFoot"></span><span class="sp"></span><span><kbd class="k">↑</kbd> <kbd class="k">↓</kbd> move</span><span><kbd class="k">Tab</kbd> where</span><span><kbd class="k">Enter</kbd> open</span><span><kbd class="k"><span class="kmod">⌘</span>Enter</kbd> open, keep searching</span><span><kbd class="k">Esc</kbd> close</span></div></div></div>
@@ -936,6 +963,7 @@ const I={
  img:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
 };
 I.zen='<path d="M18.4 8.2A7 7 0 1 0 19 12"/>';
+I.mark='<path d="M7 4h10v16l-5-3.6L7 20z"/>';
 const ic=(n)=>`<svg class="i" viewBox="0 0 24 24">${I[n]}</svg>`;
 const $=(s,r=document)=>r.querySelector(s);
 const rid=()=>Math.random().toString(36).slice(2,10);
@@ -3273,7 +3301,7 @@ function docPaneEl(){
   el.innerHTML=`<div class="ph"><span class="pgrip" title="Drag to reorder panes"></span><span class="docico">${ic('doc')}</span><div class="ph-main"><div class="ph-title"></div><div class="ph-orow"><div class="ph-origin"></div><button class="pox" data-act="oexp" title="Show the whole line"></button></div></div>
     <div class="ph-act"><button class="ib" data-act="snip" title="Snip: drag a box over part of a page (a figure, a table, an equation) to ask about it. Esc cancels.">${ic('snip')}</button><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button><button class="ib pzf" data-act="zfit">${ic('fit')}</button></div><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it.">${ic('collapse')}</button><button class="ib" data-act="focus"></button></div></div>
     <div class="pb"><div class="docwrap"></div></div>
-    <div class="jumpw"><div class="jump"><button class="ib js" data-act="jsearch" title="Search this document">${ic('search')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button></div></div>
+    <div class="jumpw"><div class="jump"><button class="ib js" data-act="jsearch" title="Search this document">${ic('search')}</button><button class="ib jm" data-act="jmark" title="Mark where you got up to">${ic('mark')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button></div></div>
     <div class="rail-label"><span class="docico">${ic('doc')}</span><span class="rl"></span></div>`;
   const pb=el.querySelector('.pb');
   pb.addEventListener('scroll',()=>{wiresSoon();updateJump(el);trackDocPage()},{passive:true});
@@ -3329,6 +3357,9 @@ function renderDocPane(force){
     renderRich(b,docState.text,true);articleFigures(b);applyDocAnchorsText(b);renderMermaid(b);
     articleBar(wrap,b);
     el.querySelector('.pb').scrollTop=st;
+    placeMark();setTimeout(offerMark,300);
+    // the text reflows with the pane's width: put the mark back on its character
+    let mt=0;new ResizeObserver(()=>{clearTimeout(mt);mt=setTimeout(()=>{if(b.isConnected&&docMark())placeMark()},150)}).observe(b);
   }
   updateDocHeader();wiresSoon();
 }
@@ -3345,6 +3376,7 @@ async function buildPdfPages(el,wrap){
     pg.style.width=Math.round(v1.width*docView.scale)+'px';pg.style.height=Math.round(v1.height*docView.scale)+'px';
     pg.innerHTML=`<div class="pnum">${i}</div><button class="pask" data-pask="${i}" title="Open a side branch about this whole page; Claude gets an image of it">Ask about this page</button>`;wrap.appendChild(pg);docView.obs.observe(pg);
   }
+  placeMark();setTimeout(offerMark,300);
 }
 async function makeTextLayer(page,vp){
   const tl=document.createElement('div');tl.className='textLayer';tl.style.setProperty('--scale-factor',vp.scale);
@@ -3438,6 +3470,120 @@ async function scrollDocToPage(n,flash=true){
   const pg=el.querySelector(`.dpage[data-page="${n}"]`);if(!pg)return;
   pb.scrollTop+=pg.getBoundingClientRect().top-pb.getBoundingClientRect().top-10;
   if(flash){pg.classList.remove('flash');void pg.offsetWidth;pg.classList.add('flash')}
+}
+/* ---------- reading mark: where you got up to in the document (conv.doc.mark, synced) ----------
+   ['p', page, y] in a PDF (y: 0-1 down the page), ['o', offset] in a text document (characters, ignoring
+   whitespace, counted like anchors). An array, so a merge takes one device's mark whole, never half of each.
+   Set and moved with the ribbon button in the pane's corner (or by dragging the ribbon); the line it leaves
+   across the page is drawn in the margin and never touches the text. */
+const READ_LINE=0.15;   // the mark goes, and is brought back to, this far down the pane
+const docMark=()=>{const m=conv&&conv.doc&&conv.doc.mark;return Array.isArray(m)&&(m[0]==='p'&&m[1]>=1||m[0]==='o'&&m[1]>=0)?m:null};
+const markLabel=(m)=>{if(m[0]==='p')return `p. ${m[1]}`;const n=docState&&docState.text?nonWs(docState.text):0;return n?`${Math.min(99,Math.round(m[1]/n*100))}% in`:'in the text'};
+function docBodyEl(){const el=paneEls.get('doc');return el&&el.querySelector('.docbody')}
+// the text node and offset at nonWs character k of root (k past the end: the end)
+function charAt(root,k){const w=textWalker(root);let n,c=0,last=null;
+  while((n=w.nextNode())){last=n;const s=n.nodeValue;for(let i=0;i<s.length;i++){if(/\s/.test(s[i]))continue;if(c===k)return [n,i];c++}}
+  return last?[last,last.nodeValue.length]:null}
+// where the reading line is now, as a mark
+function readingSpot(){
+  const el=paneEls.get('doc');if(!el||!docState||!docState.loaded)return null;
+  const pb=el.querySelector('.pb'),r0=pb.getBoundingClientRect(),y=r0.top+pb.clientHeight*READ_LINE;
+  if(docState.kind==='pdf'){
+    let best=null;for(const pg of el.querySelectorAll('.dpage')){const r=pg.getBoundingClientRect();if(r.bottom>=y){best=[pg,r];break}}
+    if(!best)return null;const [pg,r]=best;
+    return ['p',+pg.dataset.page,Math.round(Math.min(1,Math.max(0,(y-r.top)/r.height))*1000)/1000];
+  }
+  const b=docBodyEl();if(!b)return null;
+  // the first line of text at or below the reading line
+  const w=textWalker(b);let n;const rg=document.createRange();
+  while((n=w.nextNode())){if(!n.nodeValue.trim())continue;rg.selectNodeContents(n);const rs=[...rg.getClientRects()];
+    if(rs.some(q=>q.bottom>=y)){
+      // which character on it: the first whose box reaches the line
+      let off=0;for(let i=0;i<n.nodeValue.length;i++){if(/\s/.test(n.nodeValue[i]))continue;rg.setStart(n,i);rg.setEnd(n,i+1);const q=rg.getBoundingClientRect();if(q.bottom>=y){off=i;break}}
+      return ['o',charPos(b,n,off)];
+    }}
+  return null;
+}
+// the mark's box: the element it's drawn in and how far down it (a fraction)
+function markSpot(m){
+  const el=paneEls.get('doc');if(!el)return null;
+  if(m[0]==='p'){const pg=el.querySelector(`.dpage[data-page="${m[1]}"]`);return pg?{host:pg,f:Math.min(1,Math.max(0,+m[2]||0))}:null}
+  const b=docBodyEl();if(!b)return null;const at=charAt(b,m[1]);if(!at)return {host:b,f:0};
+  const rg=document.createRange();rg.setStart(at[0],at[1]);rg.setEnd(at[0],Math.min(at[0].nodeValue.length,at[1]+1));
+  const q=rg.getBoundingClientRect(),br=b.getBoundingClientRect();return {host:b,f:br.height?Math.min(1,Math.max(0,(q.top-br.top)/br.height)):0};
+}
+function placeMark(){
+  const el=paneEls.get('doc');if(!el)return;
+  el.querySelectorAll('.dmark').forEach(x=>x.remove());
+  const m=docMark();el.classList.toggle('marked',!!m);
+  const jm=el.querySelector('.jm');if(jm)jm.title=m?`Your mark (${markLabel(m)}): go back to it, move it here or remove it`:'Mark where you got up to';
+  if(!m||!docState||!docState.loaded)return;
+  const sp=markSpot(m);if(!sp)return;
+  const d=document.createElement('div');d.className='dmark';d.style.top=(sp.f*100)+'%';
+  d.innerHTML=`<button class="rib" type="button" title="Where you got up to. Drag to move it."><svg viewBox="0 0 14 22" aria-hidden="true"><path d="M0 0h14v22l-7-5-7 5z"/></svg></button><button class="mx" type="button" title="Remove the mark">×</button>`;
+  d.querySelector('.mx').onclick=(e)=>{e.stopPropagation();setMark(null)};
+  dragMark(d.querySelector('.rib'));
+  sp.host.appendChild(d);
+}
+function setMark(m,quiet){
+  if(!conv||!conv.doc)return;
+  if(m)conv.doc.mark=m;else delete conv.doc.mark;
+  placeMark();save();
+  if(!quiet)toast(m?`Marked where you got up to (${markLabel(m)}). The ribbon button in the corner brings you back.`:'Mark removed.');
+}
+async function goToMark(){
+  const m=docMark();if(!m)return;openDocPane();await docReady();
+  const el=paneEls.get('doc');if(!el)return;const pb=el.querySelector('.pb');
+  const d=el.querySelector('.dmark');if(!d)return;
+  rememberSpot(el);
+  pb.scrollTop+=d.getBoundingClientRect().top-pb.getBoundingClientRect().top-pb.clientHeight*READ_LINE;
+  d.classList.remove('flash');void d.offsetWidth;d.classList.add('flash');
+}
+// the corner button: no mark yet -> mark here; otherwise a small menu (go back to it, move it here, remove it)
+function markButton(btn){
+  if(!docState||!docState.loaded)return;
+  const m=docMark();if(!m){const h=readingSpot();if(h)setMark(h);return}
+  let menu=$('#markMenu');if(!menu){menu=document.createElement('div');menu.className='thmenu';menu.id='markMenu';menu.setAttribute('role','menu');document.body.appendChild(menu);
+    document.addEventListener('pointerdown',e=>{if(menu.classList.contains('open')&&!menu.contains(e.target)&&!e.target.closest('[data-act=jmark]'))menu.classList.remove('open')},true);
+    addEventListener('keydown',e=>{if(e.key==='Escape')menu.classList.remove('open')})}
+  if(menu.classList.contains('open')){menu.classList.remove('open');return}
+  const h=readingSpot(),same=h&&h[0]===m[0]&&h[1]===m[1]&&(m[0]==='o'||Math.abs(h[2]-m[2])<0.05);
+  menu.innerHTML=`<div class="thh">Where you got up to</div><button data-mk="go">${ic('mark')}Go back to it (${esc(markLabel(m))})</button>`+(h&&!same?`<button data-mk="here">${ic('jend')}Move it here${h[0]==='p'?` (p. ${h[1]})`:''}</button>`:'')+`<button data-mk="rm">${ic('x')}Remove it</button>`;
+  menu.onclick=(e)=>{const b=e.target.closest('[data-mk]');if(!b)return;menu.classList.remove('open');
+    if(b.dataset.mk==='go')goToMark();else if(b.dataset.mk==='here')setMark(h);else setMark(null)};   // here: where you were when you opened the menu
+  menu.classList.add('open');const r=btn.getBoundingClientRect();
+  menu.style.left=Math.max(8,Math.min(innerWidth-menu.offsetWidth-8,r.left-menu.offsetWidth-8))+'px';menu.style.top=Math.max(8,Math.min(innerHeight-menu.offsetHeight-8,r.bottom-menu.offsetHeight))+'px';
+  menu.querySelector('button').focus();
+}
+// drag the ribbon to move the mark (to another page too)
+function dragMark(rib){
+  rib.addEventListener('pointerdown',e=>{
+    if(e.button)return;e.preventDefault();e.stopPropagation();
+    // listened for on the window: the ribbon moves to another page's element as it goes, which would end a pointer capture
+    const el=paneEls.get('doc'),d=rib.closest('.dmark');d.classList.add('drag');let moved=null;
+    const at=(y)=>{
+      if(docState.kind==='pdf'){for(const pg of el.querySelectorAll('.dpage')){const r=pg.getBoundingClientRect();if(y<=r.bottom+7)return {host:pg,f:Math.min(1,Math.max(0,(y-r.top)/r.height)),m:['p',+pg.dataset.page,Math.round(Math.min(1,Math.max(0,(y-r.top)/r.height))*1000)/1000]}}return null}
+      const b=docBodyEl(),r=b.getBoundingClientRect();return {host:b,f:Math.min(1,Math.max(0,(y-r.top)/r.height)),y};
+    };
+    const mv=(ev)=>{const t=at(ev.clientY);if(!t)return;moved=t;if(d.parentNode!==t.host)t.host.appendChild(d);d.style.top=(t.f*100)+'%'};
+    const up=()=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up);removeEventListener('pointercancel',up);d.classList.remove('drag');
+      if(!moved)return;
+      if(moved.m)setMark(moved.m,true);
+      else{   // a text document: the character nearest the line it was dropped on
+        const pb=el.querySelector('.pb'),off=READ_LINE*pb.clientHeight,keep=pb.scrollTop;
+        pb.scrollTop+=moved.y-(pb.getBoundingClientRect().top+off);   // put the drop line on the reading line, measure, put it back
+        const n=readingSpot();pb.scrollTop=keep;if(n)setMark(n,true);else placeMark();
+      }};
+    addEventListener('pointermove',mv);addEventListener('pointerup',up);addEventListener('pointercancel',up);
+  });
+}
+// opening a document you left a mark in: offer to go back to it (once per visit)
+function offerMark(){
+  const m=docMark();if(!m||!docState||!docState.loaded||docState.markOffered)return;docState.markOffered=true;
+  const el=paneEls.get('doc'),d=el&&el.querySelector('.dmark');if(!d)return;
+  const pb=el.querySelector('.pb'),r=d.getBoundingClientRect(),pr=pb.getBoundingClientRect();
+  if(r.top>pr.top&&r.top<pr.bottom)return;   // already in view
+  toast(`You left a mark ${m[0]==='p'?'at ':''}${markLabel(m)}.`,{label:'Go back to it',fn:goToMark});
 }
 async function goToPage(n){
   openDocPane();await docReady();if(!docState||!docState.loaded)return;
@@ -4472,7 +4618,7 @@ function refreshAfterSync(){
   for(const [tid,el] of paneEls)if(!ui.open.includes(tid)){el.remove();paneEls.delete(tid)}
   layout();for(const id of ui.open)if(id!=='doc'&&T(id))renderPane(id);
   renderTitle();renderMap();renderConvList();syncCardsUI();syncViewsUI();if(ui.view==='canvas')renderCanvas();
-  resumeRuns();
+  placeMark();resumeRuns();
 }
 // this page's version, as its own conversation (when it couldn't be combined with another device's)
 function keepCopy(c,mine,why){
@@ -4726,6 +4872,7 @@ document.addEventListener('click',e=>{
       case 'back':revealAnchor(tid);break;
       case 'jend':{const pb=pane.querySelector('.pb');pb.scrollTo({top:pb.scrollHeight,behavior:'smooth'});break}
       case 'jsearch':openPalette('','thread',tid);break;
+      case 'jmark':markButton(act);break;
       case 'jlast':{const pb=pane.querySelector('.pb');const ms=pane.querySelectorAll('.msgs>.msg');let m=ms[ms.length-1];if(m&&m.classList.contains('assistant')&&ms.length>1&&ms[ms.length-2].classList.contains('user'))m=ms[ms.length-2];if(m)pb.scrollTo({top:pb.scrollTop+m.getBoundingClientRect().top-pb.getBoundingClientRect().top-12,behavior:'smooth'});break}
       case 'jprev':{const pb=pane.querySelector('.pb');if(pane.__prev!=null)pb.scrollTo({top:pane.__prev,behavior:'smooth'});pane.__prev=null;pane.classList.remove('hasprev');break}
       case 'zin':stepPaneZoom(tid,1);break;
@@ -4880,6 +5027,64 @@ function setZen(on){
   closeMore();if(themeMenu.classList.contains('open'))themeMenu.classList.remove('open');
 }
 $('#zenB').innerHTML=ic('zen')+'<b class="mlbl">Zen</b>';$('#zenB').onclick=()=>setZen(!zen);$('#zenX').onclick=()=>setZen(false);
+/* Ask about Digress (the ? beside How it works): a one-off chat with Digress's own documentation in its system
+   prompt (GET api/guide, the files listed in GUIDE_DOCS in server.mjs). Kept only in this page's memory: never
+   saved, never in a conversation, gone on reload. It uses the model picked in the top bar. */
+const GUIDE={msgs:[],docs:null,busy:null};
+function openGuide(){
+  const g=$('#guide');g.classList.add('open');renderGuide();setTimeout(()=>$('#guideIn').focus(),30);
+}
+function closeGuide(){$('#guide').classList.remove('open');if(GUIDE.busy)GUIDE.busy.stop()}
+function renderGuide(){
+  const box=$('#guideMsgs');box.innerHTML='';
+  if(!GUIDE.msgs.length){
+    const e=document.createElement('div');e.className='gempty';e.textContent='Ask anything about how Digress works: branches, documents, search, flashcards, phones, where things are saved.';box.appendChild(e);
+    const c=document.createElement('div');c.className='gchips';
+    for(const q of PROMPTS.guide.chips){const b=document.createElement('button');b.className='chip';b.textContent=q;b.onclick=()=>askGuide(q);c.appendChild(b)}
+    box.appendChild(c);
+  }
+  for(const m of GUIDE.msgs){
+    const d=document.createElement('div');d.className='gm '+(m.role==='user'?'u':'a')+(m.error?' err':'')+(m.pending&&!m.content?' wait':'');
+    if(m.role==='user'){const t=document.createElement('div');t.textContent=m.content;d.appendChild(t)}
+    else if(m.error)d.textContent=(m.content?m.content+'\n\n':'')+m.error;
+    else renderRich(d,m.content||'',!m.pending);
+    box.appendChild(d);m.el=d;
+  }
+  syncGuideSend();
+}
+function syncGuideSend(){const b=$('#guideSend');b.innerHTML=GUIDE.busy?ic('stop'):ic('send');b.title=GUIDE.busy?'Stop':'Send';b.disabled=!GUIDE.busy&&!$('#guideIn').value.trim()}
+async function askGuide(q){
+  q=(q||'').trim();if(!q||GUIDE.busy)return;
+  await io.ready;
+  if(!io.llm||!io.llm.ready||!(await io.llm.ready().catch(()=>false))){toast('Ask about Digress needs a model, and none is connected.');return}
+  const ta=$('#guideIn');ta.value='';autosize(ta);
+  const box=$('#guideMsgs'),stick=()=>{box.scrollTop=box.scrollHeight};
+  GUIDE.msgs.push({role:'user',content:q});const a={role:'assistant',content:'',pending:true};GUIDE.msgs.push(a);
+  const ctrl=new AbortController(),run=runId();let stopped=false;
+  GUIDE.busy={stop:()=>{stopped=true;io.llm.stop&&io.llm.stop(run).catch(()=>{});ctrl.abort()}};
+  renderGuide();stick();
+  try{
+    if(!GUIDE.docs){const r=await fetch('api/guide');if(!r.ok)throw {message:'Couldn’t load Digress’s documentation from the server.'};GUIDE.docs=(await r.json()).docs||[]}
+    let raf=0;
+    const r=await io.llm.complete({system:PROMPTS.guide.system(GUIDE.docs),
+      messages:GUIDE.msgs.filter(m=>m!==a&&!m.error).map(m=>({role:m.role,content:m.content})),
+      model:settings.model,effort:'low',web:false,signal:ctrl.signal,run,
+      onText:(t)=>{a.content=t;if(!raf)raf=requestAnimationFrame(()=>{raf=0;if(a.el&&a.el.isConnected){a.el.classList.remove('wait');renderRich(a.el,a.content,false);stick()}})}});
+    a.content=r.text;
+  }catch(e){
+    if(e&&e.text)a.content=e.text;
+    a.error=stopped||ctrl.signal.aborted?'Stopped.':(e&&e.message)||'Something went wrong.';
+  }
+  a.pending=false;GUIDE.busy=null;
+  if($('#guide').classList.contains('open')){renderGuide();stick()}
+}
+$('#guideB').onclick=(e)=>{e.preventDefault();e.stopPropagation();$('#guide').classList.contains('open')?closeGuide():openGuide()};
+$('#guideX').innerHTML=ic('x');$('#guideX').onclick=closeGuide;
+$('#guideNew').innerHTML=ic('retry');$('#guideNew').onclick=()=>{if(GUIDE.busy)GUIDE.busy.stop();GUIDE.msgs=[];renderGuide();$('#guideIn').focus()};
+$('#guideIn').addEventListener('input',()=>{autosize($('#guideIn'));syncGuideSend()});
+$('#guideIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();askGuide($('#guideIn').value)}});
+$('#guideSend').onclick=()=>{if(GUIDE.busy)GUIDE.busy.stop();else askGuide($('#guideIn').value)};
+$('#guide').addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();closeGuide()}});
 const themeB=$('#themeB');themeB.innerHTML=ic('palette')+'<b class="mlbl">Theme</b>';
 const themeMenu=document.createElement('div');themeMenu.className='thmenu';themeMenu.setAttribute('role','menu');themeMenu.innerHTML='<div class="thh">Theme</div>';
 const sw=(id)=>`<span class="thsw" data-theme="${id}"><i></i><i></i><i></i></span>`;

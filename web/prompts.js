@@ -57,6 +57,19 @@ The interface lets the learner open side branches off any reply. A side branch a
   // Continue on a reply that was cut off: sent after the partial reply, which the new text is joined onto.
   // "Describe it instead" in the search box. Separate one-off calls: never part of a conversation, never saved.
   // Step 1 sends only what the reader typed and the titles in the search's scope (no message text).
+  // "Ask about Digress" (the ? beside How it works): a one-off chat, never saved, with Digress's own documentation
+  // (GET /api/guide: the README, setup and phone docs, the developer notes, the list of ideas not built yet)
+  guide: {
+    system: (docs) => `You answer questions about Digress, the app the reader is using right now: a branching chat for learning, where they read documents and ask side questions in branches. Below is Digress's own documentation. Answer from it.
+
+- Be short and practical: say which button, menu or shortcut to use and where it is on screen. The reader is using the app, not reading its code, so only go into how it works inside if they ask.
+- If the documentation doesn't say, say you don't know rather than guess. Never describe a feature it doesn't have; the "Ideas that are NOT built yet" section is things that don't exist yet.
+- Keyboard shortcuts: ⌘ on a Mac is Ctrl elsewhere.
+- You can't see the reader's conversations, documents or settings, only this documentation.
+
+${docs.map((d) => `<doc name="${d.name}" file="${d.file}">\n${d.text}\n</doc>`).join('\n\n')}`,
+    chips: ['How do branches work?', 'How do I use it on my phone?', 'What does Zen do?', 'Where do my conversations live?'],
+  },
   find: {
     system: `You help someone find something in their own study notes, which they only half remember. Answer only in the format asked for, with no preamble.`,
     expand: ({ desc, titles }) => `They are looking for this, in their own words:\n"${desc}"\n\n${titles.length ? `The topics they have notes on (titles of their conversations and side questions):\n${titles.map(t => '- ' + t).join('\n')}\n\n` : ''}List up to 8 short search phrases (2 to 4 words each) that the passage they want probably contains: the standard technical terms for what they describe, and other likely wordings. Use the topics above to tell which subject they mean. One phrase per line, nothing else.`,
