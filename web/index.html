@@ -89,6 +89,12 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .app.noside .sgrip{display:none}
 .app.sizing{cursor:col-resize;user-select:none}
 .app.noside{grid-template-columns:0 1fr}
+/* Zen: only the panes (no top bar, sidebar or wires); the tab at the top of the screen, or ⌘/Ctrl+., brings them back */
+.app.zen{grid-template-rows:0 1fr;grid-template-columns:0 1fr}
+.app.zen .top,.app.zen .side,.app.zen .sgrip,.app.zen #wires{display:none !important}
+.zenx{display:none;position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:45;height:15px;padding:0 16px;border:1px solid var(--line2);border-top:0;border-radius:0 0 9px 9px;background:var(--panel);color:var(--faint);opacity:.5;font-size:10.5px;line-height:13px;letter-spacing:.04em}
+.app.zen .zenx{display:block}
+.zenx:hover,.zenx:focus-visible{opacity:1;color:var(--ink);outline:none}
 .side{grid-column:1;grid-row:2}
 .stage{grid-column:2;grid-row:2}
 .top{grid-column:1/3;display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:1px solid var(--line);background:var(--panel);min-width:0;overflow:hidden}
@@ -98,8 +104,8 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .tmore .sel{justify-content:space-between;padding:3px 3px 3px 10px}.tmore .sel span{display:inline !important}.tmore .sel select{max-width:none !important}
 .tmore .seg{justify-content:stretch}.tmore .seg button{flex:1;justify-content:center}.tmore .lbl{display:inline !important}
 .tmore .webt{justify-content:center;padding:7px 9px}
-.tmore #themeB{width:auto;height:32px;justify-content:center;gap:6px;background:var(--user-bg);color:var(--ink)}
-#themeB .mlbl{display:none;font-weight:inherit;font-size:13px}.tmore #themeB .mlbl{display:inline}
+.tmore #themeB,.tmore #zenB{width:auto;height:32px;justify-content:center;gap:6px;background:var(--user-bg);color:var(--ink)}
+#themeB .mlbl,#zenB .mlbl{display:none;font-weight:inherit;font-size:13px}.tmore #themeB .mlbl,.tmore #zenB .mlbl{display:inline}
 .brand{font-weight:600;letter-spacing:-.01em;margin:0 6px 0 4px;display:flex;align-items:center;gap:7px;white-space:nowrap}
 .brand .logo{width:20px;height:20px;color:var(--ink);stroke-width:2}
 .brand .logo .a{stroke:var(--accent)}.brand .logo .fi{fill:currentColor;stroke:none}.brand .logo .fa{fill:var(--accent);stroke:none}
@@ -373,6 +379,7 @@ mjx-assistive-mml{position:absolute!important;top:0;left:0;clip:rect(1px,1px,1px
 .mfoot .ib,.mfoot .tb{opacity:.6}
 .msg:hover .mfoot .ib,.msg:hover .mfoot .tb{opacity:1}
 .mfoot .model{font-size:11px;color:var(--faint);margin-left:2px}
+.mfoot .model+.ctxu::before{content:'·';margin-right:5px}
 .bchips{display:flex;flex-wrap:wrap;gap:5px;width:100%;margin-top:4px}
 .bchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 4px 2px 3px;max-width:280px;cursor:pointer;background:var(--panel)}
 .bchip .n{min-width:18px;height:18px;border-radius:9px;background:var(--c);color:#fff;font-size:10.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;padding:0 4px;flex:none}
@@ -785,7 +792,7 @@ a.pref:hover{border-bottom-style:solid}
   .panes{padding:8px}.pb{padding:6px 14px 8px}.composer{padding:6px 8px 10px}.ph{padding:10px 6px 8px 15px}
   .pop{width:auto;left:8px !important;right:8px}.pal{padding-top:8vh}.cvhint{display:none}}
 /* touch screens have no hover: show the controls that otherwise appear on hover */
-@media (hover:none){.msg.user .uact{opacity:1}.mnode .macts{position:static;opacity:1;pointer-events:auto;background:none;padding:0}.mnode .mpin{display:none}}
+@media (hover:none){.zenx{opacity:.85;height:20px;line-height:18px}.msg.user .uact{opacity:1}.mnode .macts{position:static;opacity:1;pointer-events:auto;background:none;padding:0}.mnode .mpin{display:none}}
 @media (hover:none){.citem .acts{position:static;transform:none;background:none;padding:0;pointer-events:auto}.citem .acts,.mnode .mp,.mnode .mx,.bchip .bx,.del,.mfoot .ib,.mfoot .tb,.cnode .ch .ib{opacity:1 !important}.tipbox{display:none !important}}
 </style>
 </head>
@@ -802,6 +809,7 @@ a.pref:hover{border-bottom-style:solid}
     <label class="sel" title="How much the model thinks before answering. Higher is slower but more careful."><span>Effort</span><select id="eSel"></select></label>
     <button class="webt" id="webT" aria-pressed="false" style="display:none" title="Web search: let new replies look things up online. Only search queries leave; your chats and documents stay on this server. You can switch this any time."><span class="wi"></span><span class="lbl">Web</span></button>
     <button class="webt" id="resetOrder" style="display:none" title="Put the panes back in branching order: each branch right after the thread it came from">Reset order</button>
+    <button class="ib" id="zenB" title="Zen: hide everything but the panes, for reading (⌘. / Ctrl+.)" aria-pressed="false"><b class="mlbl">Zen</b></button>
     <button class="ib" id="themeB" title="Theme" aria-haspopup="true" aria-expanded="false"><b class="mlbl">Theme</b></button>
     <div class="seg" id="viewSeg">
       <button data-v="cols" title="Show threads as panes side by side"><span></span><b class="lbl" style="font-weight:inherit">Columns</b></button>
@@ -810,6 +818,7 @@ a.pref:hover{border-bottom-style:solid}
     </div>
     <button class="ib" id="moreB" title="More: the settings that don’t fit up here" aria-haspopup="true" aria-expanded="false" style="display:none"></button>
   </div>
+  <button class="zenx" id="zenX" title="Leave Zen: show the top bar and sidebar again (⌘. / Ctrl+.)">Zen</button>
   <div class="sgrip" id="sgrip" title="Drag to resize the sidebar. Double-click to reset."></div>
   <aside class="side" id="side">
     <label class="sbox" title="Search every conversation, highlight, takeaway and document"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="sboxIn" placeholder="Search" autocomplete="off"><kbd class="k"><span class="kmod">⌘</span>K</kbd></label>
@@ -829,6 +838,7 @@ a.pref:hover{border-bottom-style:solid}
         <li>Numbered markers in the text show where each branch starts. Click one to open it.</li>
         <li>In a branch, <b>Back</b> returns you to the exact spot it came from, and <b>Takeaway</b> adds a short summary to the parent.</li>
         <li><b><span class="kmod">⌘</span>B</b> shows or hides this sidebar.</li>
+        <li><b><span class="kmod">⌘</span>.</b> is Zen: just the panes, for reading. Press it again, or the tab at the top, to come back.</li>
         <li><b><span class="kmod">⌘</span>K</b> searches everything: questions, answers, highlights, takeaways and documents. Typos are fine.</li>
         <li>Collapse any pane to a thin strip and click the strip to expand it again. <b>Focus</b> collapses everything else.</li>
       </ul>
@@ -925,6 +935,7 @@ const I={
  views:'<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
  img:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
 };
+I.zen='<path d="M18.4 8.2A7 7 0 1 0 19 12"/>';
 const ic=(n)=>`<svg class="i" viewBox="0 0 24 24">${I[n]}</svg>`;
 const $=(s,r=document)=>r.querySelector(s);
 const rid=()=>Math.random().toString(36).slice(2,10);
@@ -1145,7 +1156,7 @@ function serverLlm(info){
         else if(ev.tool){if(useTools||resume){onTool&&onTool(ev.tool,false);if(tools)answer(ev.tool)}}   // not awaited: keep reading the stream meanwhile
         else if(ev.toolDone){onTool&&onTool(ev.toolDone,true)}
         else if(ev.error){st.error=String(ev.error);st.end=true}
-        else if(ev.done){st.model=ev.model||null;st.truncated=!!ev.truncated;st.end=true}
+        else if(ev.done){st.model=ev.model||null;st.truncated=!!ev.truncated;st.usage=ev.usage&&typeof ev.usage==='object'?ev.usage:null;st.end=true}
         else if(ev.stopped){st.stopped=String(ev.stopped);st.end=true}   // the server stopped it: Stop ('stop'), or no page came back in time ('away')
       };
       // read one connection until the reply ends ('end') or the connection goes ('lost'). A connection that's
@@ -1184,7 +1195,7 @@ function serverLlm(info){
       }
       if(st.error)throw fail({message:st.error});
       if(st.stopped)throw fail(st.stopped==='away'?{message:'no page was connected to it for too long, so the server stopped it.',cut:true}:{message:'Stopped.',stopped:true});
-      return {text:st.text,truncated:st.truncated,model:st.model,searches:st.searches,sources:st.sources};
+      return {text:st.text,truncated:st.truncated,model:st.model,usage:st.usage,searches:st.searches,sources:st.sources};
     },
     stop:(run)=>fetch('api/chat/stop',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({chat:run})}).catch(()=>{})};
   return llm;
@@ -1699,7 +1710,7 @@ async function generate(m,ctx,lockTid,o={}){
       r=await io.llm.complete({system:rc.system,messages:rc.messages,model:settings.model,effort:settings.effort,web,signal:ctrl.signal,run,save:{conv:conv.id,msg:m.id},
         onText,onSearch:(x)=>{keepSearch(x);queueStream(m.id)},onTool,tools});
     }
-    m.content=prefix+r.text;if(r.model)m.model=r.model;keepSearch(r);
+    m.content=prefix+r.text;if(r.model)m.model=r.model;if(r.usage)m.usage=r.usage;keepSearch(r);
     if(r.truncated)m.error='Reply was cut off (length limit).';
   }catch(e){
     if(st.detached){clearInterval(tick);return}   // the page moved to another conversation: the reply carries on without it
@@ -1822,7 +1833,7 @@ async function redo(mid){
   const why=redoBlock(mid);
   if(why){const q=questionOf(mid);if(why==='busy'||!q){toast(`This reply can’t be redone: ${REDO_WHY[why]}.`);return}return newVersion(q.id,q.content)}
   const m=conv.msgs[mid];
-  m.content='';for(const k of ['error','model','effort','docSeen','reads','searches','sources','web'])delete m[k];
+  m.content='';for(const k of ['error','model','effort','usage','docSeen','reads','searches','sources','web'])delete m[k];
   m.pending=true;m.ver++;renderPane(m.thread);renderMap();
   await docReady();
   await generate(m,buildContext(m.thread,m.id),m.thread);
@@ -2145,8 +2156,19 @@ function msgEl(m){
   }
   msgCache.set(m.id,{key,el});return el;
 }
+// Under a reply: how full the context was when it ended ("52k / 1M context"), from the provider's own count.
+// The hover gives the exact numbers; the window is left out when the provider didn't say it.
+const ktok=(n)=>n<1000?String(n):n<1e6?(n<1e4?(Math.round(n/100)/10)+'k':Math.round(n/1000)+'k'):(Math.round(n/1e5)/10)+'M';
+function ctxLabel(u){
+  const ctx=u&&+u.ctx;if(!ctx||!isFinite(ctx))return '';
+  const w=+u.window>0?+u.window:0,cached=+u.cached||0,out=+u.out||0,rounds=+u.rounds||1,n=(x)=>Math.round(x).toLocaleString();
+  const tip=`Context when this reply ended: ${n(ctx)} tokens`+(w?` of the model’s ${n(w)} (${Math.max(ctx/w*100,0.1).toFixed(ctx/w<0.1?1:0)}%)`:'')+'.'
+    +(cached?` ${n(cached)} of them came from the cache.`:'')+(out?` It wrote ${n(out)} tokens.`:'')
+    +(rounds>1?` That took ${rounds} requests (reading the document or searching), each sending the whole context again.`:'');
+  return `<span class="model ctxu" title="${esc(tip)}">${ktok(ctx)}${w?` / ${ktok(w)}`:''} context</span>`;
+}
 function buildFoot(f,m){
-  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(m.cut?`<button class="tb" data-act="continue" title="Ask the model to carry on from where it stopped">${ic('send')}Continue</button>`:'')+(m.error?`<button class="ib" data-act="retry" title="${m.cut?'Ask again from the start':'Retry'}">${ic('retry')}</button>`:m.role==='assistant'&&redoBlock(m.id)!=='busy'&&questionOf(m.id)?`<button class="ib" data-act="redo" title="${redoBlock(m.id)?'Redo as another version: asks again with the model and effort selected now, next to this one. Nothing here changes.':'Redo: ask again with the model and effort selected now (replaces this reply)'}">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}${m.effort?` · ${esc(effortLabel(m.effort))}`:''}</span>`:'');
+  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(m.cut?`<button class="tb" data-act="continue" title="Ask the model to carry on from where it stopped">${ic('send')}Continue</button>`:'')+(m.error?`<button class="ib" data-act="retry" title="${m.cut?'Ask again from the start':'Retry'}">${ic('retry')}</button>`:m.role==='assistant'&&redoBlock(m.id)!=='busy'&&questionOf(m.id)?`<button class="ib" data-act="redo" title="${redoBlock(m.id)?'Redo as another version: asks again with the model and effort selected now, next to this one. Nothing here changes.':'Redo: ask again with the model and effort selected now (replaces this reply)'}">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}${m.effort?` · ${esc(effortLabel(m.effort))}`:''}</span>`:'')+ctxLabel(m.usage);
   const bs=shownOn(m.id);
   if(bs.length){
     const wrap=document.createElement('div');wrap.className='bchips';
@@ -4175,6 +4197,7 @@ async function goBack(){
   const sb=$('#sboxIn');
   sb.addEventListener('focus',()=>{const v=sb.value;sb.value='';sb.blur();openPalette(v)});
   // ⌘B / Ctrl+B: show or hide the sidebar (as in VS Code), from anywhere, even while typing
+  document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&e.key==='.'){e.preventDefault();setZen(!zen)}},true);
   document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='b'){e.preventDefault();$('#tSide').click()}});
   document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='k'){e.preventDefault();if($('#pal').classList.contains('show'))closePalette();else openPalette('')}},true);
   const mac=/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent);
@@ -4848,6 +4871,15 @@ function fillModelPicker(){
 }
 webT.querySelector('.wi').outerHTML=ic('globe');
 /* theme menu: hovering a theme previews it, clicking keeps it (the menu stays open to try others) */
+// Zen (per window, kept across reloads in sessionStorage): only the panes. Selecting, branching and Back work as
+// usual; the tab at the top of the screen (#zenX), the Zen button or ⌘/Ctrl+. switch it.
+let zen=false;
+function setZen(on){
+  zen=!!on;$('#app').classList.toggle('zen',zen);$('#zenB').setAttribute('aria-pressed',String(zen));$('#zenB').classList.toggle('on',zen);
+  try{if(zen)sessionStorage.setItem('digress:zen','1');else sessionStorage.removeItem('digress:zen')}catch(e){}
+  closeMore();if(themeMenu.classList.contains('open'))themeMenu.classList.remove('open');
+}
+$('#zenB').innerHTML=ic('zen')+'<b class="mlbl">Zen</b>';$('#zenB').onclick=()=>setZen(!zen);$('#zenX').onclick=()=>setZen(false);
 const themeB=$('#themeB');themeB.innerHTML=ic('palette')+'<b class="mlbl">Theme</b>';
 const themeMenu=document.createElement('div');themeMenu.className='thmenu';themeMenu.setAttribute('role','menu');themeMenu.innerHTML='<div class="thh">Theme</div>';
 const sw=(id)=>`<span class="thsw" data-theme="${id}"><i></i><i></i><i></i></span>`;
@@ -4877,8 +4909,8 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(set
    moved, not copied, so they keep working the same way. Rechecked whenever the bar's size or contents change. */
 const topBar=$('.top'),moreB=$('#moreB'),moreMenu=document.createElement('div');moreMenu.className='tmore';moreMenu.setAttribute('role','menu');document.body.appendChild(moreMenu);
 moreB.innerHTML=ic('dots');
-const TOP_MOVABLE=[$('#resetOrder'),themeB,webT,eSel.closest('.sel'),$('#viewSeg'),mSel.closest('.sel')];
-const MENU_ORDER=new Map([[mSel.closest('.sel'),0],[eSel.closest('.sel'),1],[webT,2],[$('#viewSeg'),3],[themeB,4],[$('#resetOrder'),5]]);
+const TOP_MOVABLE=[$('#resetOrder'),$('#zenB'),themeB,webT,eSel.closest('.sel'),$('#viewSeg'),mSel.closest('.sel')];
+const MENU_ORDER=new Map([[mSel.closest('.sel'),0],[eSel.closest('.sel'),1],[webT,2],[$('#viewSeg'),3],[themeB,4],[$('#zenB'),5],[$('#resetOrder'),6]]);
 for(const el of TOP_MOVABLE){el.__home=document.createComment('');el.before(el.__home)}
 let fitting=false;
 function fitTop(){
@@ -4950,6 +4982,7 @@ window.__mathReady=()=>{
   if(conv)for(const tid of conv.ui.open){try{renderPane(tid)}catch(e){console.warn(e)}}
   if(conv&&conv.doc&&docState&&docState.loaded&&docState.kind!=='pdf')renderDocPane(true);
 };
+try{if(sessionStorage.getItem('digress:zen')==='1')setZen(true)}catch(e){}
 setConv(newConv());
 if(window.MathJax&&MathJax.tex2svg)window.__mathReady();
 setTimeout(()=>{const ta=paneEls.get('main')&&paneEls.get('main').querySelector('textarea');ta&&ta.focus()},50);

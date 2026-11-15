@@ -63,7 +63,7 @@ Switch views from the top bar at any time; the conversation is the same.
 
 With a document, its card's **Expand** button (or dragging the card to an edge) docks the document itself beside the canvas: pages at full sharpness, and highlighting, snips and page jumps work as in Columns. **Canvas views** save an arrangement of the canvas under a name (the **Views** button in its corner), so you can switch between setups and open the same one on another device. Without them, each device keeps its own canvas and pane layout, since what fits on a laptop doesn't fit on a phone.
 
-Answers render Markdown, code with syntax highlighting, LaTeX math and Mermaid diagrams. Panes collapse to thin strips, **Focus** hides everything else, and each pane keeps its own zoom. On a narrow window or a phone, whatever doesn't fit in the top bar moves into a ⋯ menu. The palette button switches themes: light and dark (or match your device), plus Sand, Sea glass, Rosé Pine Dawn, Gruvbox, Shades of Purple and Nord.
+Answers render Markdown, code with syntax highlighting, LaTeX math and Mermaid diagrams. Panes collapse to thin strips, **Focus** hides everything else, and each pane keeps its own zoom. **Zen** (<kbd>⌘.</kbd> / <kbd>Ctrl+.</kbd>) hides the top bar and sidebar too, for reading a paper with nothing else on screen; branching works as usual. Under each reply, a quiet line says how full the model's context was when it answered ("52k / 1M context"), from the provider's own count. On a narrow window or a phone, whatever doesn't fit in the top bar moves into a ⋯ menu. The palette button switches themes: light and dark (or match your device), plus Sand, Sea glass, Rosé Pine Dawn, Gruvbox, Shades of Purple and Nord.
 
 ## Search everything
 

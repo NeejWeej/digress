@@ -63,7 +63,7 @@ http.createServer((req, res) => {
     }
     const auth = (req.headers.authorization || '').replace(/^Bearer /, '');
     if (u.pathname.startsWith('/v1/') && !access.has(auth)) return json(401, { error: { code: 'subscription_sharing_invalid_user', message: 'bad token' } });
-    if (u.pathname === '/v1/models') return json(200, { models: [{ slug: 'gpt-test-1', display_name: 'GPT Test', visibility: 'list' }, { slug: 'gpt-hidden', display_name: 'Hidden', visibility: 'hide' }] });
+    if (u.pathname === '/v1/models') return json(200, { models: [{ slug: 'gpt-test-1', display_name: 'GPT Test', visibility: 'list', context_window: 272000 }, { slug: 'gpt-hidden', display_name: 'Hidden', visibility: 'hide' }] });
     if (u.pathname !== '/v1/responses') return json(404, {});
 
     const j = JSON.parse(body);

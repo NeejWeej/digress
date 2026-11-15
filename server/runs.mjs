@@ -80,7 +80,7 @@ export function createRun(id, { session, onOrphan } = {}) {
   }
   // what the reply came to, read back from its own lines (the same lines the page reads)
   function summary() {
-    const out = { text: '', searches: [], sources: [], model: null, truncated: false, error: null, cut: run.cancelled };
+    const out = { text: '', searches: [], sources: [], model: null, truncated: false, error: null, cut: run.cancelled, usage: null };
     if (run.status !== 200) { try { out.error = JSON.parse(run.tail).error || 'The model request failed.'; } catch { out.error = 'The model request failed.'; } return out; }
     for (const l of run.lines) {
       let o; try { o = JSON.parse(l.s); } catch { continue; }
@@ -88,7 +88,7 @@ export function createRun(id, { session, onOrphan } = {}) {
       else if (o.search) out.searches.push(String(o.search));
       else if (Array.isArray(o.sources)) { for (const x of o.sources) if (x && !out.sources.some((y) => y.url === x.url)) out.sources.push(x); }
       else if (o.error) out.error = String(o.error);
-      else if (o.done) { out.model = o.model || null; out.truncated = !!o.truncated; }
+      else if (o.done) { out.model = o.model || null; out.truncated = !!o.truncated; out.usage = o.usage || null; }
     }
     return out;
   }

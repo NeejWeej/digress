@@ -128,12 +128,17 @@ export const WHY = 'ChatGPT is not connected. Run `npm run chatgpt -- login` onc
 
 // ---- models available to your account -----------------------------------------------------
 let modelCache = null;
+const windows = new Map();   // model slug -> context window (the model list's context_window)
 export async function listModels() {
   if (modelCache && Date.now() - modelCache.at < 10 * 60 * 1000) return modelCache.list;
   let list = [];
   try {
     const r = await fetch(API + '/models', { headers: { authorization: 'Bearer ' + (await accessToken()) } });
-    if (r.ok) list = ((await r.json()).models || []).filter((m) => m && m.visibility === 'list' && m.slug).map((m) => [String(m.slug), String(m.display_name || m.slug)]);
+    if (r.ok) {
+      const ms = ((await r.json()).models || []).filter((m) => m && m.visibility === 'list' && m.slug);
+      list = ms.map((m) => [String(m.slug), String(m.display_name || m.slug)]);
+      for (const m of ms) if (Number.isFinite(m.context_window)) windows.set(String(m.slug), m.context_window);
+    }
     else console.warn('ChatGPT model list failed: HTTP', r.status);
   } catch (e) { console.warn('ChatGPT model list failed:', e.message); }
   if (list.length) modelCache = { at: Date.now(), list };
@@ -218,6 +223,13 @@ export async function chat(payload, res, h) {
   }
 
   const out = h.startStream(res), st = { model: null, any: false, sep: false, end: null, items: [] };
+  // token counts: ctx is the last request's input (it includes what came from the cache), out is written across
+  // all requests, rounds how many (each document tool round resends everything, so their inputs aren't added up)
+  const useRound = (u) => {
+    if (!u) return;
+    const g = st.usage || (st.usage = { ctx: 0, cached: 0, out: 0, rounds: 0 });
+    g.rounds++; g.ctx = u.input_tokens || 0; g.cached = (u.input_tokens_details || {}).cached_tokens || 0; g.out += u.output_tokens || 0;
+  };
   if (payload.session) payload.session.out = out;
   const sources = (list) => { const s = h.sourcesLine(list); if (s) out(s); };
   const onEvent = (ev) => {
@@ -241,10 +253,8 @@ export async function chat(payload, res, h) {
         sources((it.content || []).flatMap((c) => (c.annotations || []).filter((x) => x.type === 'url_citation')));
       }
     } else if (ev.type === 'response.completed') {
-      st.end = { done: true, truncated: false };
-      const u = r && r.usage;
-      if (u) console.log(`[chatgpt] ${st.model}: input ${u.input_tokens} (cached ${(u.input_tokens_details || {}).cached_tokens || 0}), output ${u.output_tokens}`);
-    } else if (ev.type === 'response.incomplete') st.end = { done: true, truncated: true };
+      st.end = { done: true, truncated: false }; useRound(r && r.usage);
+    } else if (ev.type === 'response.incomplete') { st.end = { done: true, truncated: true }; useRound(r && r.usage); }
     else if (ev.type === 'response.failed') st.end = { error: errorMessage(r && r.error, 200, payload.web) };
     else if (ev.type === 'error') st.end = { error: errorMessage(ev.error || ev, 200, payload.web) };
   };
@@ -286,7 +296,11 @@ export async function chat(payload, res, h) {
     if (!up.ok) { const txt = await up.text(); let j = null; try { j = JSON.parse(txt); } catch { /* */ } st.end = { error: errorMessage(j, up.status, payload.web) }; break; }
   }
   if (st.end && st.end.error) out({ error: st.end.error });
-  else if (st.end) out({ done: true, model: st.model || payload.model, truncated: st.end.truncated });
+  else if (st.end) {
+    if (!windows.size) await listModels().catch(() => {});
+    const w = windows.get(st.model) || windows.get(payload.model), u = st.usage;
+    out({ done: true, model: st.model || payload.model, truncated: st.end.truncated, ...(u ? { usage: { ctx: u.ctx, cached: u.cached, out: u.out, rounds: u.rounds, ...(w ? { window: w } : {}) } } : {}) });
+  }
   else out({ error: 'The connection to ChatGPT dropped before the reply finished.' });
   res.end();
 }

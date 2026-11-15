@@ -248,13 +248,14 @@ async function providerFor(model) {
   return /^claude/i.test(model) && on.includes(CLAUDE_SIDE) ? CLAUDE_SIDE : on[0];
 }
 let anthropicCache = null;
+const apiWindows = new Map();   // model id -> context window (max_input_tokens, from the Models API)
 async function anthropicModels() {
   if (anthropicCache && Date.now() - anthropicCache.at < 10 * 60 * 1000) return anthropicCache.list;
   let list = [];
   if (API_KEY) {
     try {
       const r = await fetch(API_BASE + '/v1/models?limit=100', { headers: { 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' } });
-      if (r.ok) list = ((await r.json()).data || []).map((m) => [m.id, m.display_name || m.id]);
+      if (r.ok) { const data = (await r.json()).data || []; list = data.map((m) => [m.id, m.display_name || m.id]); for (const m of data) if (Number.isFinite(m.max_input_tokens)) apiWindows.set(m.id, m.max_input_tokens); }
     } catch (e) { console.warn('model list failed:', e.message); }
   }
   if (!list.length) list = [[DEFAULT_MODEL, DEFAULT_MODEL]];
@@ -300,6 +301,7 @@ async function saveOrphan({ conv, msg }, runId, r) {
     if (!m || m.run !== runId) return false;
     m.content = r.text;
     if (r.model) m.model = r.model;
+    if (r.usage) m.usage = r.usage;
     if (r.searches.length) m.searches = r.searches;
     if (r.sources.length) m.sources = r.sources.slice(0, 30);
     if (r.error) m.error = r.error;
@@ -326,8 +328,26 @@ function sourcesLine(list) {
   }
   return out.length ? { sources: out.slice(0, 20) } : null;
 }
+// Token counts, from each request's message_start / message_delta (the API and Claude Code's stream events alike).
+// usage.ctx is the last request's whole input (new + written to cache + read from cache): how full the context
+// was when the reply ended. With document tools or a paused search a reply is several requests, each resending
+// everything, so adding them up would overstate it. out is everything written across them; rounds, how many.
+function useRound(st, u, first) {
+  if (!u) return;
+  const ctx = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+  const g = st.usage || (st.usage = { ctx: 0, cached: 0, out: 0, rounds: 0 });
+  if (first) { g.rounds++; g.lastOut = 0; }
+  if (ctx) { g.ctx = ctx; g.cached = u.cache_read_input_tokens || 0; }
+  if (typeof u.output_tokens === 'number') { g.out += u.output_tokens - (g.lastOut || 0); g.lastOut = u.output_tokens; }   // a request's output count only grows
+}
+// the {usage} on a reply's done line, with the model's context window when the provider says it
+function usageLine(st, window) {
+  if (!st.usage || !st.usage.ctx) return {};
+  const { ctx, cached, out, rounds } = st.usage;
+  return { usage: { ctx, cached, out, rounds, ...(window ? { window } : {}) } };
+}
 function relayEvent(ev, out, st) {
-  if (ev.type === 'message_start') { st.model = ev.message && ev.message.model; st.blocks = []; }
+  if (ev.type === 'message_start') { st.model = ev.message && ev.message.model; st.blocks = []; useRound(st, ev.message && ev.message.usage, true); }
   else if (ev.type === 'content_block_start' && ev.content_block) {
     const b = { ...ev.content_block };
     (st.blocks || (st.blocks = []))[ev.index] = b;
@@ -354,6 +374,7 @@ function relayEvent(ev, out, st) {
       if (SEARCH_TOOLS.has(b.name) && b.input && b.input.query) out({ search: String(b.input.query).slice(0, 500) });
     }
   } else if (ev.type === 'message_delta' && ev.delta) {
+    useRound(st, ev.usage, false);
     st.stop = ev.delta.stop_reason;
     if (st.stop === 'max_tokens') st.truncated = true;
   } else if (ev.type === 'error') { st.failed = true; out({ error: (ev.error && ev.error.message) || 'The model returned an error.' }); }
@@ -421,7 +442,13 @@ async function chatViaClaudeCode(payload, res) {
           const end = txt.indexOf('\n', at), raw = txt.slice(at + 7, end < 0 ? undefined : end);
           try { const s = sourcesLine(JSON.parse(raw)); if (s) out(s); } catch { /* not the shape we know: skip the sources */ }
         }
-      } else if (m.type === 'result' && m.is_error) resultErr = String(m.result || m.subtype || 'The model returned an error.');
+      } else if (m.type === 'result') {
+        if (m.is_error) resultErr = String(m.result || m.subtype || 'The model returned an error.');
+        // the context window of the model that answered (the CLI reports it per model it used)
+        const mu = m.modelUsage && typeof m.modelUsage === 'object' ? m.modelUsage : {};
+        const e = mu[st.model] || Object.values(mu).find((x) => x && x.contextWindow);
+        if (e && Number.isFinite(e.contextWindow)) st.window = e.contextWindow;
+      }
     }
   });
   await new Promise((resolve) => child.on('close', resolve).on('error', (e) => { stderr += e.message; resolve(); }));
@@ -431,7 +458,7 @@ async function chatViaClaudeCode(payload, res) {
     let msg = resultErr || stderr.trim().split('\n').pop() || 'Claude Code exited with code ' + child.exitCode;
     if (/log ?in|auth|credential|api key/i.test(msg)) msg += ' — run `claude` on the server once and sign in with your Claude account.';
     out({ error: msg });
-  } else if (!st.failed) out({ done: true, model: st.model, truncated: st.truncated });
+  } else if (!st.failed) out({ done: true, model: st.model, truncated: st.truncated, ...usageLine(st, st.window) });
   res.end();
 }
 
@@ -500,7 +527,10 @@ async function chatViaApi(payload, res) {
       }
       break;
     }
-    if (!st.failed) out({ done: true, model: st.model, truncated: st.truncated });
+    if (!st.failed) {
+      if (!apiWindows.size) await anthropicModels().catch(() => {});
+      out({ done: true, model: st.model, truncated: st.truncated, ...usageLine(st, apiWindows.get(st.model) || apiWindows.get(pickModel(payload.model))) });
+    }
   } catch (e) {
     if (!ctrl.signal.aborted) out({ error: 'The connection to the model was interrupted.' });
   }

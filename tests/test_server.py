@@ -115,6 +115,9 @@ async def browser_checks(base, data_dir):
         body = await pg.locator('.pane[data-tid="main"] .msg.assistant .body').first.text_content()
         check('model=claude-opus-5-5' in body, 'reply streamed into the app with the chosen model')
         await settled(pg, 1)
+        cu = pg.locator('.pane[data-tid="main"] .msg.assistant .ctxu').first
+        cu_text, cu_tip = (await cu.text_content() or '') if await cu.count() else '', await cu.get_attribute('title') if await cu.count() else ''
+        check(cu_text.endswith(' / 1M context') and 'tokens of the model’s 1,000,000' in (cu_tip or ''), f'a reply says how full its context was, out of the model’s window: {cu_text!r} {cu_tip!r}')
         title = await pg.locator('#cTitle').text_content()
         await pg.screenshot(path=OUT + '/server_chat.png')
 
@@ -134,6 +137,7 @@ async def browser_checks(base, data_dir):
         await pg.reload(); await booted(pg)
         check(await pg.get_attribute('#webT', 'aria-pressed') == 'true', 'web toggle remembered after reload')
         check(await pg.locator('.pane[data-tid="main"] .msg.assistant .wsrc').count() >= 1, 'search record saved with the reply')
+        check(await pg.locator('.pane[data-tid="main"] .msg.assistant .ctxu').count() >= 2, '…and that is saved with the reply (shown after a reload)')
         await pg.locator('#webT').click()
         check(await pg.get_attribute('#webT', 'aria-pressed') == 'false', 'web toggle turns back off')
 
@@ -315,7 +319,9 @@ def chatgpt_checks(tmp, fake_claude, log, procs):
     last = lambda: json.loads(open(log).read().strip().splitlines()[-1])
     hist = [{'role': 'user', 'content': 'hi'}, {'role': 'assistant', 'content': 'hello'}, {'role': 'user', 'content': 'and now?'}]
     stc, text, lines = chat(base, {'system': 'D' * 5000, 'model': 'gpt-test-1', 'effort': 'high', 'messages': hist})
-    check(stc == 200 and text == 'gpt reply effort=high tools=0 dev=5000 n=4' and lines[-1] == {'done': True, 'model': 'gpt-test-1-2026', 'truncated': False}, f'ChatGPT: streams a reply with effort, system prompt and history {text!r} {lines[-1]}')
+    check(stc == 200 and text == 'gpt reply effort=high tools=0 dev=5000 n=4' and {k: v for k, v in lines[-1].items() if k != 'usage'} == {'done': True, 'model': 'gpt-test-1-2026', 'truncated': False}, f'ChatGPT: streams a reply with effort, system prompt and history {text!r} {lines[-1]}')
+    check(lines[-1].get('usage') == {'ctx': 1200, 'cached': 1024, 'out': 20, 'rounds': 1, 'window': 272000},
+          f'ChatGPT: the done line carries the token counts and the model’s context window (from its model list) {lines[-1]}')
     b = last()
     check(b['store'] is False and b['stream'] is True and 'tools' not in b and 'max_output_tokens' not in b and b['token'] == rec['access_token'], 'ChatGPT: store:false, stream:true, no tools at all when web is off')
     check([m['role'] for m in b['input']] == ['developer', 'user', 'assistant', 'user'] and b['input'][-1]['content'] == 'and now?', 'ChatGPT: system prompt first as a developer message, then the history as separate turns (cacheable prefix)')
@@ -432,6 +438,10 @@ def main():
         req(base, 'DELETE', '/api/files/' + fid)
         check(req(base, 'GET', '/api/files/' + fid)[0] == 404, 'files: delete')
 
+        st, text, lines = chat(base, {'system': 'S' * 400, 'messages': [{'role': 'user', 'content': 'hello'}]})
+        u = lines[-1].get('usage') or {}
+        check(u.get('ctx', 0) >= 100 and u.get('rounds') == 1 and u.get('out') == 7 and u.get('window') == 1000000,
+              f'Claude Code: the done line carries the token counts and the context window (from the result’s modelUsage) {u}')
         doc_link_checks(base, site)
         asyncio.run(browser_checks(base, data))
 
@@ -445,12 +455,19 @@ def main():
         check(h['provider'] == 'anthropic' and h['llm'] and h['web'], 'API key present: the Anthropic API is used')
         models = json.loads(req(base2, 'GET', '/api/models')[1])['models']
         check(['claude-test-1', 'Test One'] in models, 'API: model list comes from the API')
-        st, text, _ = chat(base2, {'system': 'sys', 'model': 'claude-test-1', 'effort': 'high', 'messages': [{'role': 'user', 'content': 'x'}]})
+        st, text, lines = chat(base2, {'system': 'sys', 'model': 'claude-test-1', 'effort': 'high', 'messages': [{'role': 'user', 'content': 'x'}]})
         check('web=false effort=high cached=true n=1' in text, f'API: effort sent, system prompt cached, no tools: {text}')
+        u = lines[-1].get('usage') or {}
+        check(u.get('ctx', 0) > 5 and u.get('rounds') == 1 and u.get('out') == 9 and u.get('window') == 200000,
+              f'API: the done line carries the token counts and the context window (max_input_tokens from the Models API) {u}')
         st, text, lines = chat(base2, {'web': True, 'model': 'claude-test-1', 'messages': [{'role': 'user', 'content': 'SEARCHME'}]})
         check([l.get('search') for l in lines if 'search' in l] == ['api search'], f'API: web_search query relayed {lines}')
         check(any(l.get('sources') == [{'title': 'API source', 'url': 'https://example.org/b'}] for l in lines), 'API: search results relayed as sources')
         check('resumed with server_tool_use,web_search_tool_result query=api search' in text and lines[-1].get('done'), f'API: a paused search turn is resumed with its blocks {text!r}')
+        u = lines[-1].get('usage') or {}
+        check(u.get('rounds') == 2 and u.get('out') == 18 and u.get('ctx', 0) > 5, f'API: a reply of two requests counts both, with the context of the last {u}')
+        st, text, lines = chat(base2, {'model': 'claude-noeffort', 'messages': [{'role': 'user', 'content': 'x'}]})
+        check((lines[-1].get('usage') or {}).get('ctx') and 'window' not in lines[-1]['usage'], f'API: no window when the Models API doesn’t give one {lines[-1]}')
         st, text, _ = chat(base2, {'model': 'claude-noeffort', 'effort': 'high', 'messages': [{'role': 'user', 'content': 'x'}]})
         check('effort=none' in text, 'API: retries without effort when a model rejects it')
         proc3, base3 = start({'ANTHROPIC_API_KEY': 'wrong', 'ANTHROPIC_BASE_URL': f'http://127.0.0.1:{api_port}', 'DATA_DIR': os.path.join(tmp, 'data3')})
