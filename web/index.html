@@ -2008,10 +2008,14 @@ async function renderMermaid(root){
   const boxes=[...root.querySelectorAll('.mermaid-box:not([data-done])')];if(!boxes.length)return;
   await loadMermaid();
   for(const box of boxes){
-    box.dataset.done='1';
+    if(box.dataset.done)continue;box.dataset.done='1';   // another call may have taken it while mermaid loaded
     if(!mermaidOk){showMermaidSrc(box,'The diagram library couldn’t load, so this is its source.');continue}
-    try{const {svg}=await mermaid.render('mm'+rid(),box.dataset.src);box.classList.remove('mm-bad');box.innerHTML=svg}
-    catch(e){showMermaidSrc(box,'This diagram has a syntax error, so it can’t be drawn. Its source is below.',(e&&e.message||String(e)).split('\n').slice(0,3).join('\n'));document.querySelectorAll('body>[id^="dmm"],body>svg[id^="mm"]').forEach(n=>n.remove())}
+    const id='mm'+rid();
+    try{const {svg}=await mermaid.render(id,box.dataset.src);box.classList.remove('mm-bad');box.innerHTML=svg}
+    catch(e){showMermaidSrc(box,'This diagram has a syntax error, so it can’t be drawn. Its source is below.',(e&&e.message||String(e)).split('\n').slice(0,3).join('\n'));
+      // mermaid can leave this diagram's scratch elements in <body>. Remove only those: mermaid queues renders,
+      // and the next one (another message's diagram) has already put its own there; removing it breaks that one.
+      for(const x of [id,'d'+id,'i'+id]){const n=document.getElementById(x);if(n&&n.parentElement===document.body)n.remove()}}
   }
   wiresSoon();
 }

@@ -3,7 +3,7 @@ inside a state-diagram label) says why it can't be drawn, shows the error and it
 "Ask for a fix", which fills in this thread's question box (without sending). Asserts and exits non-zero."""
 import asyncio, json, sys
 from playwright.async_api import async_playwright
-from common import ROOT, OUT, launch_args, goto_app, booted, soon
+from common import ROOT, OUT, launch_args, goto_app, booted, soon, answered
 
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
@@ -49,6 +49,17 @@ async def main():
         v = await ta.input_value()
         check('Ask for a fix fills in the question, with the error', 'syntax error' in v and 'Parse error' in v and 'stateDiagram-v2' in v, v)
         check('…without sending it', await pg.evaluate('window.__asked') == asked)
+
+        # several messages' diagrams drawn at once (the canvas does that): a broken one must not break the others.
+        # Its cleanup used to remove every diagram's scratch elements, including the next one mermaid was drawing.
+        await ta.fill('And again'); await answered(pg, ta.press('Enter'))
+        await pg.locator('#viewSeg [data-v=canvas]').click()
+        await pg.locator('#cv .cnode[data-ctid=main] [data-cact=exp]').first.click()
+        await pg.wait_for_function("document.querySelectorAll('#cv .mermaid-box').length===4&&[...document.querySelectorAll('#cv .mermaid-box')].every(b=>b.dataset.done&&(b.querySelector(':scope>svg')||b.classList.contains('mm-bad')))", timeout=20000)
+        st = await pg.evaluate("[...document.querySelectorAll('.mermaid-box')].map(b=>b.querySelector(':scope>svg')?'svg':(b.dataset.err||'').split('\\n')[0])")
+        check('with several messages drawn at once, each valid diagram is drawn and each broken one shows its own parse error',
+              st.count('svg') == len(st) // 2 and all(x == 'svg' or x.startswith('Parse error') for x in st), st)
+        check('…and no scratch elements are left in the page', not await pg.evaluate("document.querySelectorAll('body>[id^=dmm],body>svg[id^=mm],body>iframe[id^=imm]').length"))
         check('no page errors', not errs, errs[:3])
         await b.close()
     print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')
