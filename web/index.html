@@ -303,9 +303,10 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .gut::after{content:"";position:absolute;top:30%;bottom:30%;left:4px;width:2px;border-radius:2px;background:transparent;transition:background .15s}
 .gut:hover::after,.gut.drag::after{background:var(--line2)}
 .panes.rows .gut{cursor:row-resize}
+.panes.cols:has(>.gut.glast){padding-right:2px}.panes.rows:has(>.gut.glast){padding-bottom:2px}   /* the last pane's handle takes the place of the end padding, so it adds no width */
 .panes.rows .gut::after{left:40%;right:40%;top:4px;bottom:auto;height:2px;width:auto}
 .pane.sized{min-width:0}.panes.rows .pane.sized{min-height:0}   /* a size you dragged to wins over the default minimum (which is wide on phones) */
-@media (pointer:coarse){.gut::before{content:"";position:absolute;inset:0 -10px;z-index:3}.panes.rows .gut::before{inset:-10px 0}.gut::after{background:var(--line2)}}   /* a finger-sized grip, always shown */
+@media (pointer:coarse){.gut::before{content:"";position:absolute;inset:0 -10px;z-index:3}.panes.rows .gut::before{inset:-10px 0}.panes.cols .gut.glast::before{right:0}.panes.rows .gut.glast::before{bottom:0}.gut::after{background:var(--line2)}}   /* a finger-sized grip, always shown */
 
 .origin{margin:14px 0 6px;padding:10px 14px;border-left:3px solid var(--c);background:color-mix(in srgb,var(--c) 8%,transparent);border-radius:0 10px 10px 0}
 .origin .ol{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);margin-bottom:4px}
@@ -487,6 +488,8 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .pop .hint{font-size:11px;color:var(--faint);margin:8px 4px 0}
 .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:8px 14px;border-radius:10px;font-size:13px;z-index:80;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
+.toast.act.show{pointer-events:auto}
+.toast .tact{background:none;border:0;padding:0;font:inherit;font-weight:600;color:inherit;text-decoration:underline;cursor:pointer}
 .banner{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:20;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:8px 14px;font-size:13px;color:var(--muted);box-shadow:var(--shadow);display:none;max-width:90%}
 
 .tipbox{position:fixed;z-index:95;max-width:260px;background:var(--ink);color:var(--panel);font:12px/1.4 var(--sans);padding:6px 9px;border-radius:7px;pointer-events:none;opacity:0;transition:opacity .12s;white-space:normal}
@@ -1880,9 +1883,15 @@ function openThread(tid,from){
 function closeThread(tid){
   if(tid==='main')return;
   const t=T(tid),ui=conv.ui;
-  ui.open=ui.open.filter(x=>x!==tid&&!isDesc(x,tid));ui.collapsed=ui.collapsed.filter(x=>ui.open.includes(x));
+  const kids=ui.open.filter(x=>isDesc(x,tid));   // open branches under it stay open (each one's crumb reopens this pane)
+  ui.open=ui.open.filter(x=>x!==tid);ui.collapsed=ui.collapsed.filter(x=>ui.open.includes(x));
+  if(!ui.open.some(x=>!isCollapsed(x)))ui.collapsed=[];   // never leave only strips
   layout();renderMap();save();
   revealAnchor(tid,true);
+  const c0=conv,name=(t.title||'branch').length>40?(t.title.slice(0,38)+'…'):(t.title||'branch');
+  if(kids.length)toast(`Closed “${name}”, ${kids.length} branch${kids.length>1?'es':''} under it still open`,
+    {label:'Close them too',fn:()=>{if(conv!==c0)return;const u=conv.ui;u.open=u.open.filter(x=>!kids.includes(x));u.collapsed=u.collapsed.filter(x=>u.open.includes(x));
+      if(!u.open.length)u.open=['main'];layout();renderMap();save()}});
 }
 function toggleCollapse(tid){
   const ui=conv.ui;
@@ -2173,7 +2182,7 @@ function paneEl(tid){
   el=document.createElement('section');el.className='pane'+(isMain?' main':'');el.dataset.tid=tid;
   el.innerHTML=`<div class="ph"><span class="pgrip" title="Drag to reorder panes"></span>${isMain?'<span class="dot"></span>':`<span class="sdot" data-resolve="${tid}"></span>`}<div class="ph-main"><div class="ph-title" spellcheck="false"></div><div class="ph-orow"><div class="ph-origin"></div><button class="pox" data-act="oexp" title="Show the whole line"></button></div></div>
     <div class="ph-act"><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button></div>${isMain?'':`<button class="tb" data-act="back" title="Go back to where this branched from">${ic('back')}<span class="tl">Back</span></button><button class="tb" data-act="take" title="Add a short takeaway from this branch to its parent">${ic('take')}<span class="tl">Takeaway</span></button><button class="tb kmk" data-act="mkcards" title="Have the model draft flashcards from this branch into your inbox">${ic('cards')}<span class="tl">Cards</span></button>`}${isMain?`<button class="ib kicon" data-act="cards" title="Flashcards for this conversation">${ic('cards')}</button>`:''}
-    <button class="ib" data-act="pin"></button><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it.">${ic('collapse')}</button><button class="ib" data-act="focus"></button>${isMain?'':`<button class="ib dz" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button><button class="ib" data-act="close" title="Close this pane and jump back to where it branched from. The branch stays saved.">${ic('x')}</button>`}</div></div>
+    <button class="ib" data-act="pin"></button><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it.">${ic('collapse')}</button><button class="ib" data-act="focus"></button>${isMain?'':`<button class="ib dz" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button><button class="ib" data-act="close" title="Close this pane and jump back to where it branched from. Branches open under it stay open; the branch stays saved.">${ic('x')}</button>`}</div></div>
     <div class="pb"><div class="msgs"></div></div>
     ${isMain?'':`<div class="tk"><div class="tkb"><span class="tkl">Takeaway to parent</span><input placeholder="Optional: what to focus on" autocomplete="off"><button class="go" title="Generate 2–4 takeaway bullets and add them to the end of the parent thread">Add</button><button class="ib" data-act="take" title="Cancel">${ic('x')}</button></div></div>`}
     <div class="jumpw"><div class="jump"><button class="ib js" data-act="jsearch" title="Search this thread">${ic('search')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button><button class="ib jl" data-act="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib je" data-act="jend" title="Jump to the very bottom">${ic('jend')}</button></div></div>
@@ -2328,7 +2337,7 @@ function gutEl(tid){
   let g=gutEls.get(tid);if(g)return g;
   g=document.createElement('div');g.className='gut';g.dataset.left=tid;g.title='Drag to resize, double-click to reset';
   g.addEventListener('pointerdown',e=>startDrag(e,g));
-  g.addEventListener('dblclick',()=>{delete conv.ui.sizes[g.dataset.left];layout();save()});
+  g.addEventListener('dblclick',()=>{const t=gutTarget(g);if(t){delete conv.ui.sizes[t.tid];layout();save()}});
   gutEls.set(tid,g);return g;
 }
 // the document is docked on the canvas (and the canvas is showing): its pane lives in that card, not in #panes
@@ -2354,7 +2363,7 @@ function layout(){
     el.title=rail?'Click to expand':'';
     const sz=ui.sizes[tid];el.style.flex=(sz&&!rail)?`0 0 ${sz}px`:'';el.classList.toggle('sized',!!(sz&&!rail));
     seq.push(el);if(isNew)fresh.push(tid);else updateHeader(tid);
-    if(i<ui.open.length-1)seq.push(gutEl(tid));
+    if(i<ui.open.length-1||!rail){const g=gutEl(tid);g.classList.toggle('glast',i===ui.open.length-1);seq.push(g)}   // the last pane gets one too, so its size can be changed
   });
   for(const [tid,g] of gutEls)if(!seq.includes(g))g.remove();
   seq.forEach((n,i)=>{if(wrap.children[i]!==n)wrap.insertBefore(n,wrap.children[i]||null)});
@@ -2400,12 +2409,20 @@ function layout(){
   $('#panes').addEventListener('contextmenu',e=>{if(st&&st.touch)e.preventDefault()});
 })();
 let drag=null;
+// Which pane a handle resizes: the one before it, or, when that one is a collapsed strip, the one after it
+// (dragging then works the other way round: toward that pane makes it smaller).
+function gutTarget(g){
+  const el=paneEls.get(g.dataset.left);if(!el)return null;
+  if(!el.classList.contains('rail'))return {tid:g.dataset.left,el,sign:1};
+  const nx=g.nextElementSibling;if(!nx||!nx.classList.contains('pane')||nx.classList.contains('rail'))return null;
+  return {tid:nx.dataset.tid,el:nx,sign:-1};
+}
 function startDrag(e,g){
-  const tid=g.dataset.left,el=paneEls.get(tid);if(!el||el.classList.contains('rail'))return;
+  const tg=gutTarget(g);if(!tg)return;const {tid,el,sign}=tg;
   const cols=conv.ui.layout==='cols';const r=el.getBoundingClientRect();
-  drag={tid,el,cols,start:cols?e.clientX:e.clientY,size:cols?r.width:r.height,g};g.classList.add('drag');(()=>{try{g.setPointerCapture(e.pointerId)}catch(_){}})();
+  drag={tid,el,cols,sign,start:cols?e.clientX:e.clientY,size:cols?r.width:r.height,g};g.classList.add('drag');(()=>{try{g.setPointerCapture(e.pointerId)}catch(_){}})();
   drag.el.classList.add('sized');const min=drag.cols?(innerWidth<=760?220:360):200;   // phones: narrow enough for two side by side
-  g.onpointermove=ev=>{const d=(drag.cols?ev.clientX:ev.clientY)-drag.start;const s=Math.max(min,drag.size+d);drag.el.style.flex=`0 0 ${s}px`;conv.ui.sizes[drag.tid]=Math.round(s);wiresSoon()};
+  g.onpointermove=ev=>{const d=((drag.cols?ev.clientX:ev.clientY)-drag.start)*drag.sign;const s=Math.max(min,drag.size+d);drag.el.style.flex=`0 0 ${s}px`;conv.ui.sizes[drag.tid]=Math.round(s);wiresSoon()};
   g.onpointerup=g.onpointercancel=()=>{g.classList.remove('drag');g.onpointermove=g.onpointerup=g.onpointercancel=null;drag=null;save()};
 }
 
@@ -4499,7 +4516,11 @@ function setConv(c){
 }
 function setStatus(s){const el=$('#status');el.textContent=s;el.style.visibility='';if(s)requestAnimationFrame(()=>{if(el.scrollWidth>el.clientWidth+1)el.style.visibility='hidden'});   // whole or not at all, never "Sa…"
 clearTimeout(setStatus.t);setStatus.t=setTimeout(()=>el.textContent='',2500)}
-function toast(s){const el=$('#toast');el.textContent=s;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),3000)}
+// toast(text) shows a note for 3 s; toast(text,{label,fn}) adds a button and stays 6 s (the button hides it)
+function toast(s,act){const el=$('#toast');el.textContent=s;el.classList.toggle('act',!!act);
+  if(act){const b=document.createElement('button');b.className='tact';b.textContent=act.label;
+    b.onclick=()=>{el.classList.remove('show');clearTimeout(toast.t);act.fn()};el.append(' · ',b)}
+  el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),act?6000:3000)}
 
 /* ---------- selection popover ---------- */
 const pop=$('#pop'),popIn=$('#popIn');
