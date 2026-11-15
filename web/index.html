@@ -683,6 +683,12 @@ kbd.k{font:11px var(--mono);border:1px solid var(--line2);border-bottom-width:2p
 .cv:has(#dock .cnode) .cvhint{display:none}
 #dock .cnode{pointer-events:auto;box-shadow:0 14px 44px rgba(0,0,0,.18)}
 .cnode.docked{display:flex;flex-direction:column}
+/* the card's own bar is just a slim drag strip: the document pane below has the title and the controls */
+.docpanecard>.ch{padding:2px 6px 2px 10px;min-height:0;border-bottom:1px solid var(--line);cursor:grab;background:var(--panel-2)}
+.docpanecard>.ch .ct,.docpanecard>.ch .docico{visibility:hidden}
+.docpanecard>.ch .ib{width:22px;height:22px}
+.docpanecard .cdocpane{flex:1;min-height:0;display:flex}
+.docpanecard .cdocpane>.pane{flex:1;min-width:0;border:0;border-radius:0}
 .cnode.docked .cfull{flex:1;min-height:0;max-height:none !important;height:auto !important}
 .cnode.docked .cfull>*{max-width:780px;margin-left:auto;margin-right:auto}
 .cnode>.ch,.cnode>.cq,.cnode>.crs,.cnode>.cfull,.cnode>.cjump,.cnode>.cask{zoom:var(--cz,1)}
@@ -2325,12 +2331,24 @@ function gutEl(tid){
   g.addEventListener('dblclick',()=>{delete conv.ui.sizes[g.dataset.left];layout();save()});
   gutEls.set(tid,g);return g;
 }
+// the document is docked on the canvas (and the canvas is showing): its pane lives in that card, not in #panes
+const docInDock=()=>!!(conv&&conv.doc&&conv.ui.view==='canvas'&&conv.ui.cv&&conv.ui.cv.dock&&conv.ui.cv.dock.doc);
+function placeDocPane(){
+  if(!docInDock())return;
+  const slot=$('#dock .docpanecard .cdocpane');if(!slot)return;
+  if(!conv.ui.open.includes('doc')){conv.ui.open.unshift('doc');conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!=='doc')}
+  const el=paneEl('doc');el.classList.remove('rail');
+  if(el.parentNode!==slot)slot.appendChild(el);
+  renderDocPane();
+}
 function layout(){
   const wrap=$('#panes'),ui=conv.ui;
   wrap.className='panes '+ui.layout;
   for(const [tid,el] of paneEls)if(!ui.open.includes(tid)||(!T(tid)&&!(tid==='doc'&&conv.doc))){el.remove();paneEls.delete(tid);gutEls.get(tid)&&gutEls.get(tid).remove();gutEls.delete(tid)}
   const seq=[],fresh=[];
+  const inDock=docInDock();
   ui.open.forEach((tid,i)=>{
+    if(inDock&&tid==='doc'){if(!paneEls.has(tid))fresh.push(tid);paneEl(tid);return}   // it's in its canvas card
     const isNew=!paneEls.has(tid);const el=paneEl(tid);
     const rail=isCollapsed(tid);el.classList.toggle('rail',rail);
     el.title=rail?'Click to expand':'';
@@ -2344,6 +2362,7 @@ function layout(){
   fresh.forEach(tid=>renderPane(tid,true));
   syncViewSeg();
   wiresSoon();
+  if(inDock)placeDocPane();
 }
 /* Reorder panes by dragging the grip at the left of a pane's header (Columns / Rows). The drag starts after a
    few pixels, so a click on the grip does nothing. Only the grip drags: the header's crumbs, quote, title and
@@ -2466,7 +2485,7 @@ function statusDot(t){
 }
 function renderCanvas(){
   const S=cvState(),world=$('#world'),dock=$('#dock');S.dock=S.dock||{};S.cz=S.cz||{};
-  for(const id of Object.keys(S.dock))if(!(conv.threads[id]))delete S.dock[id];
+  for(const id of Object.keys(S.dock))if(!(conv.threads[id]||(id==='doc'&&conv.doc)))delete S.dock[id];
   const keep={};
   $('#cv').querySelectorAll('.cnode').forEach(n=>{const f=n.querySelector('.cfull'),i=n.querySelector('.cask textarea');keep[n.dataset.ctid]={st:f?f.scrollTop:0,v:i?i.value:'',focus:i&&document.activeElement===i}});
   $('#cv').querySelectorAll('.cnode').forEach(n=>n.remove());
@@ -2518,11 +2537,19 @@ function renderCanvas(){
     addSizing(n,t.id,exp,S);
     (docked?dock:world).appendChild(n);nodes[t.id]=n;
   }
-  if(conv.doc){
+  if(conv.doc&&S.dock.doc){
+    // stuck to the screen: the real document pane (the one Columns shows) sits in it, at reading size, so
+    // pages stay sharp and highlighting, snips, zoom and page jumps all work as in the pane (placeDocPane)
+    const n=document.createElement('div');n.className='cnode main docnode docked docpanecard';n.dataset.ctid='doc';n.style.setProperty('--c','var(--faint)');
+    n.innerHTML=`<div class="ch" title="Drag to move it, or to another edge. Double-click to open the document in the pane view."><span class="docico">${ic('doc')}</span><span class="ct"></span><button class="ib" data-cact="restore" title="Put it back on the canvas as a card (Esc)">${ic('unfocus')}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="cdocpane"></div>`;
+    n.querySelector('.ct').textContent=conv.doc.name;
+    addSizing(n,'doc',true,S);
+    dock.appendChild(n);nodes.doc=n;
+  }else if(conv.doc){
     const n=document.createElement('div');n.className='cnode main docnode';n.dataset.ctid='doc';n.style.setProperty('--c','var(--faint)');
     const nb=docBranches(),folded=S.fold.includes('doc'),nd=descendants('doc').length;
     const hasThumb=docState&&docState.loaded&&docState.kind==='pdf'&&docState.pdf;
-    n.innerHTML=`<div class="ch" title="Drag to move. Double-click to open the document."><span class="docico">${ic('doc')}</span><span class="ct"></span><button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} everything below the document">${folded?'+'+nd:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+(nb.length+1)}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="crs"></div>`;
+    n.innerHTML=`<div class="ch" title="Drag to move. Double-click to open the document."><span class="docico">${ic('doc')}</span><span class="ct"></span><button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} everything below the document">${folded?'+'+nd:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+(nb.length+1)}</button><button class="ib" data-cact="docdock" title="Read the document here, beside the canvas (or drag this card to an edge)">${ic('focus')}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="crs"></div>`;
     n.querySelector('.ct').textContent=conv.doc.name;
     const rows=n.querySelector('.crs');
     if(hasThumb){   // first page preview; fixed height, so the layout doesn't shift when the image arrives
@@ -2570,7 +2597,7 @@ function renderCanvas(){
   applyStack();
   drawEdges();
   if(!camFitted){fitCanvas();camFitted=true}else applyCam();
-  markHere();
+  markHere();placeDocPane();
 }
 let edgeRAF=0;
 function drawEdgesSoon(){if(!edgeRAF)edgeRAF=requestAnimationFrame(()=>{edgeRAF=0;drawEdges()})}
@@ -2811,6 +2838,7 @@ function canvasAction(act,tid,btn){
   }
   else if(act==='stick'){if(cvState().dock&&cvState().dock[tid])unstickCard(tid);else stickCard(tid)}
   else if(act==='restore'){restoreCard(tid)}
+  else if(act==='docdock'){dockCard('doc',REGIONS.left)}
   else if(act==='zin'){setCardZoom(tid,cardZoom(tid)*1.15)}
   else if(act==='zout'){setCardZoom(tid,cardZoom(tid)/1.15)}
   else if(act==='zedit'){editZoom(btn,cardZoom(tid),z=>setCardZoom(tid,z))}
@@ -2944,7 +2972,7 @@ function canvasAction(act,tid,btn){
   cv.addEventListener('wheel',e=>{
     const zc=e.altKey&&e.target.closest('.cnode');
     if(zc){e.preventDefault();if(cvState().sel!==zc.dataset.ctid)raiseCard(zc.dataset.ctid);setCardZoom(zc.dataset.ctid,cardZoom(zc.dataset.ctid)*Math.exp(-e.deltaY*0.002));return}
-    if(e.target.closest('.cq,.cfull')&&!e.ctrlKey)return;
+    if(e.target.closest('.cq,.cfull,.cdocpane')&&!e.ctrlKey)return;   // scroll the card's content (or the docked document), not the canvas
     e.preventDefault();const r=cv.getBoundingClientRect();
     if(e.ctrlKey||Math.abs(e.deltaY)>=Math.abs(e.deltaX))zoomAt(Math.exp(-e.deltaY*(e.ctrlKey?0.01:0.0015)),e.clientX-r.left,e.clientY-r.top);
     else{cam.x-=e.deltaX;applyCam()}
@@ -3325,7 +3353,7 @@ async function refreshDocAnchors(page){
 }
 function openDocPane(){
   if(!conv.doc)return;
-  if(conv.ui.view==='canvas')setView(conv.ui.layout);
+  if(conv.ui.view==='canvas'&&!docInDock())setView(conv.ui.layout);
   if(!conv.ui.open.includes('doc'))conv.ui.open.unshift('doc');
   conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!=='doc');
   layout();renderMap();save();
@@ -4571,7 +4599,11 @@ document.addEventListener('click',e=>{
   const tf=e.target.closest('[data-tfold]');if(tf){e.stopPropagation();toggleTreeFold(tf.dataset.tfold);return}
   const md=e.target.closest('[data-mapdoc]');if(md){if(conv.ui.view==='canvas')focusCard('doc');else{openDocPane();revealPane('doc')}return}
   const rs=e.target.closest('[data-resolve]');if(rs){e.stopPropagation();toggleResolved(rs.dataset.resolve);return}
-  const cnode=e.target.closest('.cnode');
+  let cnode=e.target.closest('.cnode');
+  if(cnode&&e.target.closest('.cdocpane')){   // the document pane docked in a card: branch links go to their cards; the rest is the pane's own
+    const fn=e.target.closest('sup.fn,.anchor');if(fn&&window.getSelection().isCollapsed){focusCard(fn.dataset.tid);return}
+    cnode=null;
+  }
   if(cnode){
     const tid=cnode.dataset.ctid;
     const ca=e.target.closest('[data-cact]');if(ca){canvasAction(ca.dataset.cact,tid,ca);return}

@@ -61,7 +61,7 @@ Switch views from the top bar at any time; the conversation is the same.
 
 <img src="docs/media/canvas.png" alt="The same conversation as cards on a canvas in the dark theme, one card expanded to read in place, connected by lines from each highlight to its branch" width="700">
 
-**Canvas views** save an arrangement of the canvas under a name (the **Views** button in its corner), so you can switch between setups and open the same one on another device. Without them, each device keeps its own canvas and pane layout, since what fits on a laptop doesn't fit on a phone.
+With a document, its card's **Expand** button (or dragging the card to an edge) docks the document itself beside the canvas: pages at full sharpness, and highlighting, snips and page jumps work as in Columns. **Canvas views** save an arrangement of the canvas under a name (the **Views** button in its corner), so you can switch between setups and open the same one on another device. Without them, each device keeps its own canvas and pane layout, since what fits on a laptop doesn't fit on a phone.
 
 Answers render Markdown, code with syntax highlighting, LaTeX math and Mermaid diagrams. Panes collapse to thin strips, **Focus** hides everything else, and each pane keeps its own zoom. On a narrow window or a phone, whatever doesn't fit in the top bar moves into a ⋯ menu. The palette button switches themes: light and dark (or match your device), plus Sand, Sea glass, Rosé Pine Dawn, Gruvbox, Shades of Purple and Nord.
 
