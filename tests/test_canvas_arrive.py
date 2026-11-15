@@ -85,6 +85,11 @@ async def main():
         check('…which glides back to the card, and the mark stays', back and await pg.locator('#cv .cnode.here').count() == 1)
         await pg.locator('#cv .cnode[data-ctid="main"] .ch .ct').click(); await pg.wait_for_timeout(200)
         check('it lasts the whole visit: clicking a card keeps it', await pg.locator('#cv .cnode.here').count() == 1 and await btn.is_visible())
+        # drag the marked card: the label goes with it
+        hh = pg.locator('#cv .cnode.here .ch .ct'); hb = await hh.bounding_box()
+        await pg.mouse.move(hb['x'] + 10, hb['y'] + 5); await pg.mouse.down(); await pg.mouse.move(hb['x'] + 130, hb['y'] + 95, steps=8); await pg.mouse.up(); await pg.wait_for_timeout(300)
+        gap = await pg.evaluate("(()=>{const c=document.querySelector('#cv .cnode.here').getBoundingClientRect(),t=document.getElementById('cvHereTag').getBoundingClientRect();return [Math.round(t.left-c.left),Math.round(c.top-t.bottom)]})()")
+        check('dragging the marked card moves its label with it', 0 <= gap[0] <= 20 and 0 <= gap[1] <= 12 and await pg.locator('#cv .cnode.here').count() == 1, gap)
         await pg.locator('#zHereX').click(); await pg.wait_for_timeout(150)
         check('× beside the button removes the mark (and the button)', await pg.locator('#cv .cnode.here').count() == 0 and await pg.locator('#cvHereTag').count() == 0 and not await btn.is_visible())
         await view('cols'); await calm(pg); await view('canvas'); await calm(pg)   # a new visit marks again

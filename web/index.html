@@ -2646,11 +2646,15 @@ function markHere(){
   const n=cvHere&&$('#cv').querySelector(`.cnode[data-ctid="${cvHere}"]`);let tag=$('#cvHereTag');
   if(n)n.classList.add('here');
   $('#zHereW').style.display=n?'':'none';
+  if(hereObs){hereObs.disconnect();hereObs=null}
   if(!n||n.classList.contains('docked')){tag&&tag.remove();return}   // a card stuck to the screen gets the ring only
   if(!tag){tag=document.createElement('div');tag.id='cvHereTag';tag.textContent='You were here'}
   if(tag.parentNode!==$('#world'))$('#world').appendChild(tag);
-  tag.style.left=(n.offsetLeft+10)+'px';tag.style.top=n.offsetTop+'px';tag.style.color=getComputedStyle(n).getPropertyValue('--c');
+  const place=()=>{tag.style.left=(n.offsetLeft+10)+'px';tag.style.top=n.offsetTop+'px'};
+  place();tag.style.color=getComputedStyle(n).getPropertyValue('--c');
+  hereObs=new MutationObserver(place);hereObs.observe(n,{attributes:true,attributeFilter:['style']});   // the label follows the card wherever it's moved
 }
+let hereObs=null;
 function clearHere(){if(cvHere){cvHere=null;markHere()}}
 // glide the camera so a card is in view (its top in sight); a card stuck to the screen is already there
 function panToCard(n){
