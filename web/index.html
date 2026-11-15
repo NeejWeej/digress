@@ -3110,7 +3110,11 @@ function setView(v){
   }
   syncViewSeg();save();
 }
-function syncViewSeg(){const v=conv.ui.view==='canvas'?'canvas':conv.ui.layout;document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+// Tab name: window number and view ("Digress 2 · Canvas"), never the conversation's title: titles would end up
+// in browser history (synced off this machine by some browsers), screen shares and the OS window switcher.
+function tabName(){const v=conv.ui.view==='canvas'?'Canvas':conv.ui.layout==='rows'?'Rows':'Columns';
+  WINDOW.then(n=>{const t=`Digress ${n} · ${v}`;if(document.title!==t)document.title=t})}
+function syncViewSeg(){tabName();const v=conv.ui.view==='canvas'?'canvas':conv.ui.layout;document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   $('#resetOrder').style.display=conv.ui.view!=='canvas'&&conv.ui.open.join()!==branchOrder().join()?'':'none'}
 // the order panes open in: the document, then main, each branch right after the thread it came from (oldest first)
 function branchOrder(){
