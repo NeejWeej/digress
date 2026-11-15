@@ -1054,10 +1054,36 @@ function serverStore(coll,label){
 }
 // per-device layout of each conversation (server: api/layout)
 const DEVICE=(()=>{try{let d=localStorage.getItem('digress:device');if(!d){d='d'+rid()+rid();localStorage.setItem('digress:device',d)}return d}catch(e){return 'd'+rid()+rid()}})();
+// Several windows on one machine share DEVICE, so each window also takes a number: the lowest one no other open
+// window holds (a Web Lock, which the browser lets go when the window closes), the same one again after a reload
+// (sessionStorage). Window 1 keeps its layouts under DEVICE, window n under DEVICE+'w'+n, so a canvas on one
+// monitor and columns on another don't overwrite each other's layout. Without Web Locks (plain http), every window is 1.
+const WINDOW=(async()=>{
+  try{
+    if(!(navigator.locks&&navigator.locks.request))return 1;
+    let want=0;try{want=+sessionStorage.getItem('digress:window')||0}catch(e){}
+    const take=n=>new Promise(ok=>{navigator.locks.request('digress:window:'+n,{ifAvailable:true},lock=>{ok(!!lock);if(lock)return new Promise(()=>{})}).catch(()=>ok(false))});
+    let n=want>0&&await take(want)?want:0;
+    for(let i=1;!n&&i<=50;i++)if(await take(i))n=i;
+    n=n||1;try{sessionStorage.setItem('digress:window',String(n))}catch(e){}
+    return n;
+  }catch(e){return 1}
+})();
+const layoutKey=async()=>{const n=await WINDOW;return n>1?DEVICE+'w'+n:DEVICE};
 function serverLayout(){
   const u=(id)=>'api/layout/'+encodeURIComponent(id);
   return {get:async(id)=>(await okOrThrow(await fetch(u(id),{cache:'no-store'}))).json(),
-    put:async(id,ui)=>{await okOrThrow(await fetch(u(id)+'?device='+DEVICE,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(ui)}))}};
+    put:async(id,ui)=>{await okOrThrow(await fetch(u(id)+'?device='+encodeURIComponent(await layoutKey()),{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(ui)}))}};
+}
+// Other windows of this browser hear about every saved change at once. A window on another monitor stays visible
+// and never gets focus, so without this it would show old content until clicked (catchUp runs on focus/visibility).
+const WINDOWS=(()=>{try{return new BroadcastChannel('digress')}catch(e){return null}})();
+function tellWindows(id){try{WINDOWS&&WINDOWS.postMessage({conv:id})}catch(e){}}
+function toldWindows(st){
+  const w={...st};
+  for(const k of ['put','update','remove'])w[k]=async(id,...a)=>{const r=await st[k](id,...a);tellWindows(id);return r};
+  w.save=async(id,...a)=>{const r=await st.save(id,...a);if(r&&r.rev)tellWindows(id);return r};
+  return w;
 }
 function serverFiles(){
   return {kind:'server',canUpload:true,
@@ -1166,7 +1192,7 @@ function serverLlm(info){
 async function initConnectors(){
   const srv=await findServer();
   if(srv){
-    io.llm=serverLlm(srv);io.store=serverStore('convs','Saved');io.layout=serverLayout();io.index=serverStore('index');io.cards=offlineCards(serverStore('cards'));io.files=serverFiles();
+    io.llm=serverLlm(srv);io.store=toldWindows(serverStore('convs','Saved'));io.layout=serverLayout();io.index=serverStore('index');io.cards=offlineCards(serverStore('cards'));io.files=serverFiles();
     await io.llm.loadModels();
     if(!srv.llm)showBanner(true,io.llm.why);
     return;
@@ -4369,7 +4395,7 @@ async function saveContent(c,content){
   for(let tries=0;tries<4;tries++){
     const mine=sync.id===c.id;
     const r=await io.store.save(c.id,content,mine?(sync.rev||null):(c.rev||null));
-    if(r.rev){c.rev=r.rev;if(mine&&c===conv){sync.rev=r.rev;sync.base=content;sync.sent=contentKey(content)}return true}
+    if(r.rev){c.rev=r.rev;if(mine&&c===conv){sync.rev=r.rev;sync.base=content;sync.sent=contentKey(content);showInUrl()}return true}
     if(r.deleted){deletedElsewhere(c,content);return false}
     if(!r.current)throw new Error('unexpected answer from the store');
     const next=mergeRemote(c,r.current,content);
@@ -4446,7 +4472,7 @@ async function saveLayout(c){
 let catching=null,lastCatch=0;
 function catchUp(force){
   if(!conv||!io.store||!io.store.rev||document.visibilityState==='hidden')return Promise.resolve();
-  if(catching)return catching;
+  if(catching){if(force)catchUp.again=true;return catching}
   if(!force&&Date.now()-lastCatch<1500)return Promise.resolve();
   lastCatch=Date.now();
   catching=(async()=>{
@@ -4462,11 +4488,13 @@ function catchUp(force){
       const next=mergeRemote(c,cur,contentOf(c));
       if(next&&contentKey(next)!==sync.sent)save();
     }catch(e){console.warn('catching up failed',e)}
-  })().finally(()=>{catching=null});
+  })().finally(()=>{catching=null;if(catchUp.again){catchUp.again=false;catchUp(true)}});
   return catching;
 }
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')catchUp()});
-addEventListener('focus',()=>catchUp());addEventListener('online',()=>catchUp(true));addEventListener('pageshow',e=>{if(e.persisted)catchUp(true)});
+addEventListener('focus',()=>catchUp());
+if(WINDOWS)WINDOWS.onmessage=e=>{const id=e.data&&e.data.conv;if(!id||!conv)return;
+  if(id===conv.id)catchUp(true);else{clearTimeout(WINDOWS.t);WINDOWS.t=setTimeout(loadList,300)}};   // another window savedaddEventListener('online',()=>catchUp(true));addEventListener('pageshow',e=>{if(e.persisted)catchUp(true)});
 async function loadList(){
   await io.ready;
   try{
@@ -4484,8 +4512,8 @@ async function openConv(id){
     data=await io.store.get(id);
   }catch(e){console.warn(e)}
   if(!data){toast('Couldn\'t open that conversation.');return}
-  // this device's layout for it; the first time here, the one last used on another device
-  if(io.layout){try{const d=(await io.layout.get(id)).devices||{},pick=d[DEVICE]||Object.values(d).sort((a,b)=>(b.at||0)-(a.at||0))[0];if(pick&&pick.ui)data.ui=pick.ui}catch(e){console.warn('layout not loaded',e)}}
+  // this window's layout for it; the first time here, the one last used on another device or window
+  if(io.layout){try{const d=(await io.layout.get(id)).devices||{},pick=d[await layoutKey()]||Object.values(d).sort((a,b)=>(b.at||0)-(a.at||0))[0];if(pick&&pick.ui)data.ui=pick.ui}catch(e){console.warn('layout not loaded',e)}}
   if(conv&&conv.id===id)return;
   setConv(data);
 }
@@ -4518,8 +4546,20 @@ function setConv(c){
   $('#stage').classList.toggle('canvas',ui.view==='canvas');if(ui.view==='canvas')renderCanvas();
   syncViewSeg();
   syncReset(conv);dirty=false;closeViews();syncViewsUI();
-  resumeRuns();
+  showInUrl();resumeRuns();
 }
+// The address names the open conversation (#c=ID) once it's saved, so a window can be opened, reloaded or
+// bookmarked straight to it. replaceState: switching conversations doesn't add Back steps.
+const urlConv=()=>{const m=/^#c=([^&]+)/.exec(location.hash);try{return m?decodeURIComponent(m[1]):null}catch(e){return null}};
+let urlOn=false;   // not until startup has read the address (maybeOpenLatest)
+function showInUrl(){
+  if(!urlOn)return;
+  const h=conv&&conv.rev?'#c='+encodeURIComponent(conv.id):'';
+  if(location.hash!==h)try{history.replaceState(history.state,'',location.pathname+location.search+h)}catch(e){}
+}
+addEventListener('hashchange',()=>{const id=urlConv();if(!id||(conv&&conv.id===id))return;
+  if(!convList.some(x=>x.id===id)){toast('That conversation isn’t here (it may have been deleted).');showInUrl();return}
+  BACK.length=0;renderBack();openConv(id)});
 function setStatus(s){const el=$('#status');el.textContent=s;el.style.visibility='';if(s)requestAnimationFrame(()=>{if(el.scrollWidth>el.clientWidth+1)el.style.visibility='hidden'});   // whole or not at all, never "Sa…"
 clearTimeout(setStatus.t);setStatus.t=setTimeout(()=>el.textContent='',2500)}
 // toast(text) shows a note for 3 s; toast(text,{label,fn}) adds a button and stays 6 s (the button hides it)
@@ -4703,8 +4743,13 @@ document.addEventListener('click',e=>{
     inp.addEventListener('keydown',ev=>{ev.stopPropagation();if(ev.key==='Enter'){ev.preventDefault();end(true)}else if(ev.key==='Escape'){ev.preventDefault();end(false)}});
     inp.addEventListener('blur',()=>end(false));return}
   const kb=e.target.closest('[data-cardsconv]');if(kb){e.stopPropagation();const id=kb.dataset.cardsconv;(async()=>{if(!conv||conv.id!==id)await openConv(id);if(conv&&conv.id===id){if(innerWidth<760)$('#app').classList.remove('sideopen');openCards('conv')}})();return}
-  const ci=e.target.closest('[data-conv]');if(ci&&ci.classList.contains('renaming'))return;if(ci){BACK.length=0;renderBack();openConv(ci.dataset.conv);if(innerWidth<760)$('#app').classList.remove('sideopen');return}
+  const ci=e.target.closest('[data-conv]');if(ci&&ci.classList.contains('renaming'))return;
+  if(ci&&(e.ctrlKey||e.metaKey)&&ci.matches('.citem')&&!e.target.closest('.acts')){openWindow(ci.dataset.conv);return}
+  if(ci){BACK.length=0;renderBack();openConv(ci.dataset.conv);if(innerWidth<760)$('#app').classList.remove('sideopen');return}
 });
+// ⌘/Ctrl-click or middle-click a conversation in the sidebar: open it in a new window (#c=ID)
+function openWindow(id){window.open(location.pathname+location.search+'#c='+encodeURIComponent(id),'_blank','noopener')}
+document.addEventListener('auxclick',e=>{const ci=e.button===1&&!e.target.closest('.acts')&&e.target.closest('.citem[data-conv]');if(ci&&!ci.classList.contains('renaming')){e.preventDefault();openWindow(ci.dataset.conv)}});
 document.addEventListener('mouseover',e=>{
   document.querySelectorAll('.pane.hl').forEach(p=>p.classList.remove('hl'));
   document.querySelectorAll('.anchor.hot,sup.fn.hot').forEach(p=>p.classList.remove('hot'));
@@ -4909,8 +4954,13 @@ if('serviceWorker' in navigator&&window.isSecureContext&&/^https?:$/.test(locati
 io.ready=initConnectors().catch(e=>{console.warn('connector setup failed',e);noServer()});
 io.ready.then(async()=>{fillModelPicker();await loadList();await maybeOpenLatest();loadCards()});
 async function maybeOpenLatest(){
-  if(conv.order.main.length||!convList.length)return;
-  await openConv(convList[0].id);
+  try{
+    if(conv.order.main.length||!convList.length)return;
+    const want=urlConv();
+    if(want&&convList.some(x=>x.id===want))return await openConv(want);
+    if(want)toast('That conversation isn’t here (it may have been deleted), so here’s the latest.');
+    await openConv(convList[0].id);
+  }finally{urlOn=true;showInUrl()}
 }
 function showBanner(on,msg){const b=$('#banner');b.textContent=msg||NO_SERVER;b.style.display=on?'block':'none'}
 })();

@@ -1,10 +1,10 @@
-"""Replies that outlive their page (the real server, fake Claude Code, RUN_DETACH_MS 6 s).
+"""Replies that outlive their page (the real server, fake Claude Code, RUN_DETACH_MS 15 s).
 
   - A reply carries on when its page goes to another conversation, reloads, or loses its connection, and
     one that nobody came back to in time is saved as cut off, with Continue.
 Two devices editing the same conversation are in test_sync_devices.py.
 Asserts and exits non-zero."""
-import asyncio, os, sys
+import asyncio, os, sys, time
 sys.path.insert(0, os.path.dirname(__file__))
 from common import poll, soon
 from sync_common import setup, check, fails, ticks, LAST_MAIN
@@ -20,7 +20,7 @@ async def main():
 
         # a reply carries on when its page goes elsewhere, and is there on return.
         # The fake writes 30 ticks 100 ms apart (3 s) and the server stops a reply nobody is attached to after
-        # 6 s, so it finishes well inside that window. The window also has to cover a reload (below) on a busy machine.
+        # 15 s, so it finishes well inside that window. The window also has to cover a reload (below) on a busy machine.
         await ask(A, 'SLOWISH one', wait=False); await ticks(A, 7)
         await A.locator('#newConv').click()
         last = await poll(lambda: (lambda m: m if m['content'] == 'tick ' * 30 and 'run' not in m else None)(last_saved()))
@@ -31,14 +31,18 @@ async def main():
         body = await A.locator('.pane[data-tid="main"] .msg.assistant .body').last.inner_text()
         check(body.strip().startswith('tick tick') and body.count('tick') == 30, 'and it’s there on coming back', body[:120])
 
-        # …and survives a reload in the middle
-        await ask(A, 'SLOWMID two', wait=False); await ticks(A)
-        await A.reload()
-        await soon(A, f"(()=>{{const m=window.__digress&&__digress.conv&&{LAST_MAIN};return !!(m&&m.pending&&m.run)}})()")
-        check(await A.evaluate(f"(()=>{{const m={LAST_MAIN};return !!(m.pending&&m.run)}})()"), 'after a reload mid-reply, it reconnects and is still writing')
-        await idle(A)
+        # …and survives a reload in the middle (HOLD: the fake keeps writing until released, however long the
+        # reload takes; with the whole suite running, a reload here can take several seconds)
+        await ask(A, 'HOLD two', wait=False); await ticks(A)
+        t0 = time.time(); await A.reload()
+        back = await soon(A, f"(()=>{{const m=window.__digress&&__digress.conv&&{LAST_MAIN};return !!(m&&m.pending&&m.run)}})()", timeout=14000)
+        print(f'     (reload and reconnect took {time.time() - t0:.1f} s)')
+        check(back, 'after a reload mid-reply, it reconnects and is still writing')
+        s.release(); await idle(A)
         body = await A.locator('.pane[data-tid="main"] .msg.assistant .body').last.inner_text()
-        check(body.count('tick') == 80 and 'error' not in body.lower(), 'the whole reply, once, after the reload', [body.count('tick'), body[-200:]])
+        whole = last_saved()['content']
+        check(body.strip() == whole.strip() and whole.endswith('done.') and whole.count('tick') > 3 and 'error' not in body.lower(),
+              'the whole reply, once, after the reload (as the server saved it)', [body.count('tick'), whole.count('tick'), body[-120:]])
 
         # …and a dropped connection (the server is still there): reconnects and finishes
         await ask(A, 'SLOWISH three', wait=False); await ticks(A)
@@ -61,7 +65,7 @@ async def main():
         # nobody comes back in time: cut off, kept, with Continue
         await ask(A, 'SLOW and long', wait=False); await ticks(A)
         await A.close()
-        await poll(lambda: (lambda m: m.get('cut') and 'run' not in m)(last_saved()))   # stopped after RUN_DETACH_MS and saved by the server
+        await poll(lambda: (lambda m: m.get('cut') and 'run' not in m)(last_saved()), timeout=45)   # stopped after RUN_DETACH_MS and saved by the server
         A = await s.device(); await A.locator(f'[data-conv="{cid}"]').first.click()
         await soon(A, "id=>__digress.conv.id===id&&!![...document.querySelectorAll('.pane[data-tid=main] .msg.assistant')].at(-1)?.querySelector('[data-act=continue]')", cid)
         last = A.locator('.pane[data-tid="main"] .msg.assistant').last

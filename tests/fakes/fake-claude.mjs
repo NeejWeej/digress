@@ -112,11 +112,18 @@ process.stdin.on('end', async () => {
   const reply = `Fake reply. model=${model} effort=${effort} system=${system.length} turns=${(prompt.match(/<user>/g) || []).length + 1}\n\nThe gradient of $x^2$ is $2x$.`;
   emit({ type: 'system', subtype: 'init', model });
   emit({ type: 'stream_event', event: { type: 'message_start', message: { model } } });
-  // SLOW in the latest question: 200 ticks, 100 ms apart (SLOWISH: 30, SLOWMID: 80)
-  const latest = prompt.slice(prompt.lastIndexOf('</user>') + 1), slow = latest.includes('SLOW');
-  const parts = slow ? Array(latest.includes('SLOWISH') ? 30 : latest.includes('SLOWMID') ? 80 : 200).fill('tick ') : reply.match(/[\s\S]{1,12}/g);
-  for (const p of parts) {
-    emit({ type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: p } } });
+  // SLOW in the latest question: 200 ticks, 100 ms apart (SLOWISH: 30). HOLD: a tick every 100 ms until the file
+  // FAKE_LOG + '.release' exists, then 'done.' (for tests that need a reply still running however slow the machine is)
+  const latest = prompt.slice(prompt.lastIndexOf('</user>') + 1), hold = latest.includes('HOLD'), slow = hold || latest.includes('SLOW');
+  const parts = hold ? [] : slow ? Array(latest.includes('SLOWISH') ? 30 : 200).fill('tick ') : reply.match(/[\s\S]{1,12}/g);
+  const delta = (p) => emit({ type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: p } } });
+  if (hold) {
+    const released = () => { try { fs.accessSync(process.env.FAKE_LOG + '.release'); return true; } catch { return false; } };
+    while (!released()) { delta('tick '); parts.push('tick '); await new Promise((r) => setTimeout(r, 100)); }
+    delta('done.'); parts.push('done.');
+  }
+  for (const p of hold ? [] : parts) {
+    delta(p);
     await new Promise((r) => setTimeout(r, slow ? 100 : 5));
   }
   emit({ type: 'stream_event', event: { type: 'message_delta', delta: { stop_reason: 'end_turn' } } });

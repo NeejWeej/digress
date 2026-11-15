@@ -14,13 +14,13 @@ def check(ok, what, detail=''):
 
 @asynccontextmanager
 async def setup():
-    """-> an object with base, convs(), device(w), ask(pg, q, tid, wait), idle(pg), back(pg, until), texts(pg, tid), errs."""
+    """-> an object with base, convs(), release(), device(w), window(ctx, path), ask(pg, q, tid, wait), idle(pg), back(pg, until), texts(pg, tid), errs."""
     tmp = tempfile.mkdtemp(); data = os.path.join(tmp, 'data'); log = os.path.join(tmp, 'claude.log')
-    proc, base = start({'LLM_PROVIDER': 'claude-code', 'CLAUDE_BIN': os.path.join(FAKES, 'fake-claude.mjs'), 'DATA_DIR': data, 'FAKE_LOG': log, 'RUN_DETACH_MS': '6000'})
+    proc, base = start({'LLM_PROVIDER': 'claude-code', 'CLAUDE_BIN': os.path.join(FAKES, 'fake-claude.mjs'), 'DATA_DIR': data, 'FAKE_LOG': log, 'RUN_DETACH_MS': '15000'})
     try:
         async with async_playwright() as p:
             b = await p.chromium.launch(**launch_args())
-            s = Env(b, base)
+            s = Env(b, base); s.log = log
             yield s
             await b.close()
     finally:
@@ -31,6 +31,10 @@ class Env:
     def __init__(self, browser, base):
         self.b, self.base, self.errs = browser, base, []
 
+    def release(self):
+        """Let a HOLD reply from the fake finish (it ticks until this; the file stays, so later HOLDs finish at once)."""
+        open(self.log + '.release', 'w').close()
+
     def convs(self):
         return {d['id']: d['data'] for d in json.loads(req(self.base, 'GET', '/api/store/convs')[1])}
 
@@ -39,7 +43,12 @@ class Env:
         return json.loads(body)['rev'] if st == 200 else None
 
     async def device(self, w=1400):
-        ctx = await self.b.new_context(viewport={'width': w, 'height': 900}); pg = await ctx.new_page()
+        ctx = await self.b.new_context(viewport={'width': w, 'height': 900})
+        return await self.window(ctx)
+
+    async def window(self, ctx, path='/'):
+        """Another window of the same browser profile (same device), opened at path."""
+        pg = await ctx.new_page()
         pg.on('pageerror', lambda e: self.errs.append(str(e)))
         async def route(r):
             u = r.request.url
@@ -48,7 +57,7 @@ class Env:
             if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
             await r.continue_()
         await pg.route('**/*', route); await pg.add_init_script(BOOT_WATCH)
-        await pg.goto(self.base + '/'); await booted(pg)
+        await pg.goto(self.base + path); await booted(pg)
         return pg
 
     async def ask(self, pg, q, tid='main', wait=True):
