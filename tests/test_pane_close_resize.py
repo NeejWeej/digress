@@ -81,11 +81,13 @@ async def main():
         # ✕ only closes: the parent stays where you'd scrolled it, even far from where the branch came from (that's Back)
         for i in range(8): await ask('main', f'And then what happens, part {i + 1}?')
         await pg.evaluate(f"__digress.conv.ui.open.push('{b1}')"); await relayout(); await soon(pg, f"!!document.querySelector('.pane[data-tid=\"{b1}\"]')")
+        # (scrolled to the end: closing widens the parent and its text reflows, so compare what's in view, not pixels)
         pb = pg.locator('.pane[data-tid="main"] .pb'); await pb.evaluate('e=>e.scrollTop=e.scrollHeight'); await calm(pg)
-        y0 = await pb.evaluate('e=>e.scrollTop')
+        at_end = "e=>[Math.round(e.scrollTop), e.scrollHeight-e.clientHeight-e.scrollTop<4]"
+        y0 = await pb.evaluate(at_end)
         await pg.locator(f'.pane[data-tid="{b1}"] [data-act=close]').click(); await calm(pg)
-        y1 = await pb.evaluate('e=>e.scrollTop')
-        check('✕ leaves the parent scrolled where it was (no jump to where the branch came from)', y0 > 300 and abs(y1 - y0) < 2, [y0, y1])
+        y1 = await pb.evaluate(at_end)
+        check('✕ leaves the parent showing what it showed (its end), not where the branch came from', y0[0] > 300 and y0[1] and y1[1], [y0, y1])
 
         # the rightmost pane can be resized
         await pg.evaluate(f"(()=>{{const u=__digress.conv.ui;u.open=['main','{b1}','{b1a}'];u.collapsed=[];u.sizes={{}}}})()")

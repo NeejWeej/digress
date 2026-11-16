@@ -42,7 +42,10 @@ async def main():
             errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
             await goto_site(pg, site); await booted(pg); await pg.wait_for_function(PDF_DRAWN_JS)
             conv = await pg.evaluate("(()=>{const c=__digress.conv;return {title:c.title,threads:Object.keys(c.threads).length,msgs:Object.keys(c.msgs).length,doc:!!c.doc}})()")
-            check('a first visit opens the sample conversation, with its document and branches', conv['title'].startswith('Bayes') and conv['doc'] and conv['threads'] == 3, conv)
+            check('a first visit opens the sample conversation, with its document and branches', conv['title'].startswith('Bayes') and conv['doc'] and conv['threads'] == 4, conv)
+            snip = await pg.evaluate("""(()=>{const c=__digress.conv,t=Object.values(c.threads).find(t=>t.anchorRegion);if(!t)return null;
+              const a=(c.order[t.id]||[]).map(id=>c.msgs[id]).find(m=>m.role==='assistant');return {page:t.anchorPage,text:t.regionText||'',reply:a?(a.content||a.text||''):''}})()""")
+            check('…one of them a snip of Figure 1 (the tree), answered with a written reply', snip and snip['page'] == 0 and '990 healthy' in snip['text'] and snip['reply'].startswith('Read it from the top down'), snip and {k: str(v)[:80] for k, v in snip.items()})
             n0 = conv['msgs']
             check('…and the conversation without a document is in the sidebar too', await pg.locator('#side .citem[data-conv]').count() == 2)
             check('flashcards are off, as they are unless you turn them on', not await pg.locator('#reviewBtn').is_visible())

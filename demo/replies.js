@@ -74,6 +74,21 @@ A positive result puts you in the top row, and that row is mostly healthy people
 
 You can see how much the base rate drives this by changing it. If 1 in 10 people had the disease, the top row would be 90 ill against 81 healthy, and a positive would mean about 53%. Same test, same 9%, very different meaning.`,
 
+    // asked about a snip of Figure 1 (the tree of 1,000 people)
+    'how do i read this tree': `Read it from the top down, as the same 1,000 people being sorted twice.
+
+1. **First split, by whether they're ill.** The disease affects 1 in 100, so the 1,000 people become **10 ill** (pink) and **990 healthy** (blue).
+2. **Second split, by the test result.** Each group is split again by what the test says:
+   - of the 10 ill, the test catches 90%: **9 positive**, 1 negative;
+   - of the 990 healthy, it wrongly flags 9%: **89 positive**, 901 negative.
+3. **The red outlines are everyone who tested positive:** 9 + 89 = **98 people**.
+
+Your question, "I tested positive, am I ill?", only concerns the red boxes. Of those 98 people, 9 are ill:
+
+$$P(\\text{ill} \\mid \\text{positive}) = \\frac{9}{9 + 89} \\approx 9.2\\%$$
+
+The picture makes the reason visible: the right-hand red box (89) is ten times the left-hand one (9), even though the test is quite good, because it sits under the much bigger healthy branch [p. 1].`,
+
     'why is the odds form easier': `Because it turns updating into **one multiplication**, and the number you multiply by belongs to the test alone.
 
 With probabilities you have to compute $P(E)$ every time, adding up the true and the false positives [p. 2]. With odds, the base rate and the test are kept apart:

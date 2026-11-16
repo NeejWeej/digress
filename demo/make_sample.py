@@ -27,7 +27,13 @@ SELECT_PDF = """([page, phrase]) => { const tl = document.querySelector(`.dpage[
   const at = (k) => { let best = nodes[0]; for (const x of nodes) if (x[1] <= k) best = x; return [best[0], k - best[1]]; };
   const r = document.createRange(); r.setStart(...at(i)); r.setEnd(...at(i + phrase.length));
   const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.dispatchEvent(new MouseEvent('mouseup', {bubbles: true})); return 'ok'; }"""
-PAGES = "()=>[...document.querySelectorAll('.dpage .textLayer')].map(t=>t.textContent.replace(/\\s+/g,' ').slice(0,90))"
+# Figure 1 on p. 1, on screen: from its top label ("1,000 people", alone in its span) to the end of its caption, padded
+FIGURE = """() => { const spans=[...document.querySelectorAll('.pane[data-tid=doc] .dpage[data-page="1"] .textLayer span')];
+  const a=spans.find(s=>s.textContent.trim()==='1,000 people'), z=spans.find(s=>s.textContent.includes('outlined in red'));
+  if(!a||!z) return null; const p=document.querySelector('.pane[data-tid=doc] .dpage[data-page="1"]').getBoundingClientRect();
+  const ra=a.getBoundingClientRect(), rz=z.getBoundingClientRect(), pad=p.width*0.03;
+  return {left:p.left+p.width*0.12, right:p.right-p.width*0.12, top:ra.top-pad, bottom:rz.bottom+pad}; }"""
+PAGES ="()=>[...document.querySelectorAll('.dpage .textLayer')].map(t=>t.textContent.replace(/\\s+/g,' ').slice(0,90))"
 SELECT_REPLY = """([tid, phrase]) => { const body = document.querySelector(`.pane[data-tid="${tid}"] .msg.assistant .body`);
   const w = document.createTreeWalker(body, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode())) { const i = n.nodeValue.indexOf(phrase);
   if (i >= 0) { const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + phrase.length); const s = getSelection(); s.removeAllRanges(); s.addRange(r);
@@ -95,6 +101,18 @@ async def main():
             await pg.locator('#popIn').fill('Why does such a small false-positive rate matter so much?'); await answered(pg, pg.locator('#popIn').press('Enter'))
             br = pg.locator('.pane:not([data-tid=main]):not([data-tid=doc])').last
             await br.locator('.ph [data-act=take]').click(); await answered(pg, br.locator('.tk .go').click())
+
+            # a snip: a box drawn around Figure 1 (from its top label to the end of its caption), asked about as a picture
+            fig = await pg.evaluate(FIGURE)
+            must(fig, 'Figure 1 not found on p. 1')
+            await pg.evaluate(f"(()=>{{const pb=document.querySelector('.pane[data-tid=doc] .pb');pb.scrollTop+={fig['top']}-pb.getBoundingClientRect().top-80}})()"); await frames(pg, 3)
+            fig = await pg.evaluate(FIGURE)
+            await pg.locator('.pane[data-tid=doc] [data-act=snip]').click(); await frames(pg)
+            await pg.mouse.move(fig['left'], fig['top']); await pg.mouse.down(); await pg.mouse.move(fig['right'], fig['bottom'], steps=10); await pg.mouse.up()
+            await soon(pg, "()=>{const i=document.querySelector('#pop.show .pimg');return i&&i.complete&&i.naturalWidth>200}")
+            await pg.locator('#popIn').fill('How do I read this tree?'); await answered(pg, pg.locator('#popIn').press('Enter'))
+            snip = await pg.evaluate("Object.values(__digress.conv.threads).find(t=>t.anchorRegion).id")
+            await pg.locator(f'.pane[data-tid="{snip}"] .ph [data-act=close]').click(); await frames(pg)
 
             must(await pg.evaluate(SELECT_REPLY, ['main', 'likelihood ratio']) == 'ok', '"likelihood ratio" not in the overview')
             await pg.locator('#pop.show').wait_for()

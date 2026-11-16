@@ -628,10 +628,11 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .mnode .mp{width:22px;height:22px;margin-left:2px}
 .mnode .mp svg.i{width:13px;height:13px}
 /* canvas: quote jumps to its source, floating jump buttons */
-.cnode .cq{cursor:pointer}
+.cnode .cq{cursor:pointer}.cnode .cq.cqw{font-style:normal;font-family:var(--sans);font-size:12px}
 .cnode .cq:hover{color:var(--ink);background:color-mix(in srgb,var(--c) 7%,transparent)}
 .cnode .cjump{position:absolute;right:14px;bottom:60px;display:flex;flex-direction:column;gap:4px;opacity:0;pointer-events:none;transform:translateY(4px);transition:opacity .15s,transform .15s;z-index:3}
-.cnode.away .cjump{opacity:.9;pointer-events:auto;transform:none}
+.cnode.away .cjump,.cnode.hasprev .cjump{opacity:.9;pointer-events:auto;transform:none}
+.cnode .cjump .cjp{display:none}.cnode.hasprev .cjump .cjp{display:inline-flex}
 .cnode .cjump .ib{width:28px;height:28px;border-radius:50%;background:var(--panel);border:1px solid var(--line2);box-shadow:0 2px 8px rgba(0,0,0,.08);color:var(--muted);opacity:1}
 .cnode .cjump .ib:hover{color:var(--ink);border-color:var(--faint)}
 .cnode .cfull .anchor.flash,.cnode .cfull sup.fn{scroll-margin:40px}
@@ -2617,9 +2618,11 @@ function renderCanvas(){
       (docked?`<button class="ib" data-cact="restore" title="Put it back where it was on the canvas (↓ or Esc)">${ic('unfocus')}</button>`:`<button class="ib" data-cact="exp" title="${exp?'Shrink back to a summary':'Expand to read the full thread here'}">${ic(exp?'unfocus':'focus')}</button>`)+
       `<button class="ib" data-cact="panes" title="Open this thread in the pane view">${ic('cols')}</button>`+
       (t.parent?`<button class="ib dz" data-delb="${t.id}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`:'')+`</div>`+
-      (t.anchorText?'<div class="cq"></div>':'');
+      (t.anchorText||(t.parent&&t.anchorMsg&&!isDocBranch(t))?'<div class="cq"></div>':'');   // a whole-reply branch has a line too, to jump to its reply
     n.querySelector('.ct').textContent=t.parent?t.title:(conv.title||'Main thread');
-    if(t.anchorText){const q=n.querySelector('.cq');q.textContent=t.anchorText;q.title='Jump to this passage in the card it came from'}
+    const cq=n.querySelector('.cq');
+    if(cq&&t.anchorText){cq.textContent=t.anchorText;cq.title='Jump to this passage in the card it came from'}
+    else if(cq){cq.textContent='The whole reply';cq.classList.add('cqw');cq.title='Jump to the reply this branch is about, in the card it came from'}
     const mids=(conv.order[t.id]||[]).filter(id=>conv.msgs[id]);
     if(exp){
       const full=document.createElement('div');full.className='cfull';
@@ -2627,14 +2630,16 @@ function renderCanvas(){
       for(const mid of mids)full.appendChild(canvasMsgEl(conv.msgs[mid]));
       n.appendChild(full);
       const cj=document.createElement('div');cj.className='cjump';
-      cj.innerHTML=`<button class="ib" data-cact="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib" data-cact="jend" title="Jump to the very bottom">${ic('jend')}</button>`;
+      cj.innerHTML=`<button class="ib cjp" data-cact="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button><button class="ib" data-cact="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib" data-cact="jend" title="Jump to the very bottom">${ic('jend')}</button>`;
       n.appendChild(cj);
       const ask=document.createElement('div');ask.className='cask';
       ask.innerHTML=`<textarea rows="1" placeholder="${t.parent?'Ask a follow-up in this branch…':'Ask anything…'}"></textarea><button class="sendb" data-cact="ask" title="Send (Enter). Shift+Enter adds a new line.">${ic('send')}</button>`;
       n.appendChild(ask);if((pendingImgs.get(t.id)||[]).length)queueMicrotask(()=>renderPending(t.id));
       const cta=ask.querySelector('textarea');cta.addEventListener('input',()=>{autosizeCask(cta)});
       const k=keep[t.id];if(k&&k.v){cta.value=k.v;requestAnimationFrame(()=>autosizeCask(cta))}
-      const upd=()=>n.classList.toggle('away',full.scrollHeight-full.scrollTop-full.clientHeight>100);
+      const upd=()=>{n.classList.toggle('away',full.scrollHeight-full.scrollTop-full.clientHeight>100);
+        const k=cvPrevKey(t.id),p=cvPrev.get(k);if(p&&!p.jumping&&Math.abs(full.scrollTop-p.top)<40){cvPrev.delete(k);n.classList.remove('hasprev')}};
+      if(cvPrev.has(cvPrevKey(t.id)))n.classList.add('hasprev');   // survives the card being redrawn
       full.addEventListener('scroll',()=>{drawEdgesSoon();upd()},{passive:true});requestAnimationFrame(upd);
     }else{
       const rows=document.createElement('div');rows.className='crs';
@@ -2927,15 +2932,20 @@ function applyStack(){
   const S=cvState(),z=S.z||[];
   $('#cv').querySelectorAll('.cnode').forEach(n=>{const i=z.indexOf(n.dataset.ctid);n.style.zIndex=i<0?1:i+2;n.classList.toggle('picked',S.sel===n.dataset.ctid)});
 }
+// where a card was being read before "jump to the passage" moved it ({top, jumping}), per conversation and card,
+// outside the card's element because the canvas redraws cards; the card's Return button (cjp) goes back to it
+const cvPrev=new Map(),cvPrevKey=tid=>conv.id+'|'+tid;
 function canvasRevealSource(tid){
   const t=T(tid);if(!t||!t.parent)return;
   if(isDocBranch(t)&&docInDock()){focusCard('doc');revealDocAnchor(t);return}   // the document is open beside the canvas: scroll it to the passage, as Show in source does in Columns
   if(isDocBranch(t)){focusCard('doc');requestAnimationFrame(()=>{const r=$('#cv').querySelector(`[data-cdocrow="${tid}"]`);if(r){r.style.setProperty('--c',color(t));r.classList.remove('flash');void r.offsetWidth;r.classList.add('flash')}});return}
   const S=cvState();
+  const was=S.open.includes(t.parent)&&$('#cv').querySelector(`.cnode[data-ctid="${t.parent}"] .cfull`);
   if(!S.open.includes(t.parent)){S.open.push(t.parent);renderCanvas();save()}
   focusCard(t.parent);
   requestAnimationFrame(()=>{
     const n=$('#cv').querySelector(`.cnode[data-ctid="${t.parent}"]`);if(!n)return;const f=n.querySelector('.cfull');if(!f)return;
+    if(was){const k=cvPrevKey(t.parent),p={top:was.scrollTop,jumping:true};cvPrev.set(k,p);n.classList.add('hasprev');setTimeout(()=>{p.jumping=false},900)}   // the card's Return button goes back here
     const a=f.querySelector(`.anchor[data-tid="${tid}"]`)||f.querySelector(`sup.fn[data-tid="${tid}"]`)||f.querySelector(`.msg[data-mid="${t.anchorMsg}"]`);if(!a)return;
     // scroll inside the card so the passage sits a third of the way down (scroll distances are in the card's own, unzoomed pixels)
     const sc=contentScale(n),fr=f.getBoundingClientRect();
@@ -2958,6 +2968,10 @@ function canvasAction(act,tid,btn){
   if(act==='exp'){S.open=S.open.includes(tid)?S.open.filter(x=>x!==tid):[...S.open,tid];renderCanvas();save()}
   else if(act==='fold'){S.fold=S.fold.includes(tid)?S.fold.filter(x=>x!==tid):[...S.fold,tid];renderCanvas();save()}
   else if(act==='panes'){if(tid==='doc')openDocPane();else openFromCanvas(tid)}
+  else if(act==='jprev'){
+    const n=btn.closest('.cnode'),f=n.querySelector('.cfull'),k=cvPrevKey(tid),p=cvPrev.get(k);
+    if(f&&p)f.scrollTo({top:p.top,behavior:'smooth'});cvPrev.delete(k);n.classList.remove('hasprev');
+  }
   else if(act==='jend'||act==='jlast'){
     const f=btn.closest('.cnode').querySelector('.cfull');if(!f)return;
     if(act==='jend'){f.scrollTo({top:f.scrollHeight,behavior:'smooth'});return}
