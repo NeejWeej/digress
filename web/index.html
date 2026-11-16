@@ -740,7 +740,7 @@ sup.fn.res{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px va
 .docpane .pb{background:var(--panel-2);padding:14px 30px 14px 14px;scrollbar-gutter:stable}  /* right padding: room for the branch badges beside each page */
 .docico{display:inline-flex;color:var(--muted)}
 .docico svg.i{width:16px;height:16px}
-.docwrap{display:flex;flex-direction:column;align-items:safe center;gap:14px;padding-bottom:20px}
+.docwrap{display:flex;flex-direction:column;align-items:safe center;gap:22px;padding-bottom:20px}
 .dpage{position:relative;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.04);border-radius:2px;flex:none}
 .dpage canvas{position:absolute;inset:0;border-radius:2px}
 /* the reading mark: a ribbon in the left margin and a faint line across the page where you got up to */
@@ -754,10 +754,14 @@ sup.fn.res{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px va
 .dmark:hover .mx,.dmark .rib:hover+.mx,.dmark .mx:hover,.dmark .mx:focus-visible{opacity:1}
 .dmark.flash::after{animation:mkflash 1.1s ease 2}@keyframes mkflash{50%{opacity:1;border-top-width:3px}}
 .jump .jm{display:none}.docpane .jump .jm{display:inline-flex}.docpane.marked .jump .jm{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 50%,var(--line2))}
-.dpage .pnum{position:absolute;left:-2px;bottom:-16px;font-size:10.5px;color:var(--faint)}
-.dpage .pask{position:absolute;right:-2px;bottom:-19px;border:0;background:none;padding:1px 3px;font:11px var(--sans);color:var(--faint);cursor:pointer;opacity:0;transition:opacity .15s;z-index:3}
-.dpage:hover .pask,.dpage .pask:focus-visible{opacity:1}.dpage .pask:hover{color:var(--ink)}
-@media (hover:none){.dpage .pask{opacity:1}}
+.dpage .pnum{position:absolute;left:0;top:calc(100% + 3px);font-size:10.5px;line-height:1;color:var(--faint)}
+/* "Ask about p. N": inside its page's top-right corner (not in the gap between two pages, where it was unclear which
+   page it meant), shown on hover; hovering it outlines the page it means */
+.dpage .pask{position:absolute;right:6px;top:6px;border:1px solid var(--line2);border-radius:999px;background:var(--panel);box-shadow:0 1px 3px rgba(0,0,0,.12);padding:2px 9px;font:11.5px var(--sans);color:var(--muted);cursor:pointer;opacity:0;transition:opacity .15s;z-index:3}
+.dpage:hover .pask,.dpage .pask:focus-visible{opacity:1}.dpage .pask:hover{color:var(--ink);border-color:var(--accent)}
+.dpage:has(.pask:hover){box-shadow:0 0 0 2px var(--accent),0 1px 3px rgba(0,0,0,.12)}
+.docpane.snipping .dpage .pask{display:none}
+@media (hover:none){.dpage .pask{opacity:.85}}
 .docpane.snipping .dpage{cursor:crosshair;touch-action:none}
 .docpane.snipping .textLayer,.docpane.snipping .dpage sup.fn{pointer-events:none}
 .snipbox{position:absolute;z-index:4;pointer-events:none;border:2px solid var(--accent,#3f8fd2);background:color-mix(in srgb,var(--accent,#3f8fd2) 12%,transparent);border-radius:3px}
@@ -3374,7 +3378,7 @@ async function buildPdfPages(el,wrap){
   for(let i=1;i<=pdf.numPages;i++){
     const pg=document.createElement('div');pg.className='dpage';pg.dataset.page=i;
     pg.style.width=Math.round(v1.width*docView.scale)+'px';pg.style.height=Math.round(v1.height*docView.scale)+'px';
-    pg.innerHTML=`<div class="pnum">${i}</div><button class="pask" data-pask="${i}" title="Open a side branch about this whole page; Claude gets an image of it">Ask about this page</button>`;wrap.appendChild(pg);docView.obs.observe(pg);
+    pg.innerHTML=`<div class="pnum">${i}</div><button class="pask" data-pask="${i}" title="Open a side branch about this whole page; Claude gets an image of it">Ask about p. ${i}</button>`;wrap.appendChild(pg);docView.obs.observe(pg);
   }
   placeMark();setTimeout(offerMark,300);
 }
