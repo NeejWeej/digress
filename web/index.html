@@ -4552,7 +4552,7 @@ async function openPinnedBranch(cid,tid){
    can't be combined, this page's version is kept as a separate conversation. Coming back to the tab (catchUp)
    fetches whatever changed elsewhere, so switching devices finds everything where it was left. */
 let saveTimer=0,saving=false,dirty=false;
-const sync={id:null,rev:0,base:null,sent:'',ui:''};   // for the open conversation: its version, content as last saved/loaded, what that was
+const sync={id:null,rev:0,base:null,sent:'',ui:'',uiSaving:0};   // for the open conversation: its version, content as last saved/loaded, what that was
 function save(){if(!conv)return;dirty=true;if(typeof IDX!=='undefined')IDX.dirty=true;clearTimeout(saveTimer);saveTimer=setTimeout(flush,700)}
 const LOCAL_MSG=['pending','ver','live','t0','toolNow'];   // per page, never saved
 const plainMsg=(m)=>{const x={...m};for(const f of LOCAL_MSG)delete x[f];return x};
@@ -4662,7 +4662,8 @@ function deletedElsewhere(c,content){
 async function saveLayout(c){
   if(!io.layout||c!==conv||!c.rev)return;
   const k=JSON.stringify(c.ui);if(k===sync.ui)return;
-  sync.ui=k;try{await io.layout.put(c.id,c.ui)}catch(e){sync.ui='';console.warn('layout not saved',e)}
+  sync.ui=k;sync.uiSaving++;   // set before it's sent, so a second change doesn't send it twice; uiSaving: still on its way
+  try{await io.layout.put(c.id,c.ui)}catch(e){sync.ui='';console.warn('layout not saved',e)}finally{sync.uiSaving--}
 }
 // Back to this tab (or online again): whatever changed on other devices
 let catching=null,lastCatch=0;

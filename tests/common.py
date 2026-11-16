@@ -103,7 +103,7 @@ SAVED_JS = """(() => { const d = window.__digress, c = d && d.conv; if (!c || !d
 
 async def saved(pg, layout=False, timeout=30000):
     """Wait until the open conversation has been saved as it is now (and its layout too, with layout=True)."""
-    js = SAVED_JS if not layout else f"{SAVED_JS} && JSON.stringify(__digress.conv.ui) === __digress.sync.ui"
+    js = SAVED_JS if not layout else f"{SAVED_JS} && JSON.stringify(__digress.conv.ui) === __digress.sync.ui && !__digress.sync.uiSaving"   # and arrived
     await pg.wait_for_function(js, timeout=timeout)
 
 

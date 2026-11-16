@@ -1,0 +1,15 @@
+# Keeps the GitHub Actions in .github/workflows up to date with pull requests, once a month.
+#
+# npm is left out on purpose: the page loads its libraries from CDN URLs with the version written into
+# web/index.html, and package.json only mirrors those versions for the tests. A pull request bumping package.json
+# alone would test a different version than the page runs. Dependabot alerts still report any known
+# vulnerability in them; update both places together by hand.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']
