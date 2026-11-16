@@ -77,6 +77,14 @@ async def main():
           c=document.getElementById('cv').getBoundingClientRect();return [n.left>=d.right-1||n.right<=d.left+1, n.left>=c.left&&n.right<=c.right&&n.top>=c.top&&n.top<c.bottom-40]}})()""")
         check('…and that card is in view, not behind the docked document', all(seen), seen)
 
+        # a branch card's quote (where it came from) scrolls the docked document to the passage and flashes it
+        await pg.locator('#dock .docpane .pb').evaluate('e=>e.scrollTop=e.scrollHeight'); await pg.wait_for_timeout(300)
+        await pg.evaluate(f"document.querySelector('#world .cnode[data-ctid=\"{bt}\"] .cq').scrollIntoView({{block:'center'}})")
+        await pg.locator(f'#world .cnode[data-ctid="{bt}"] .cq').click(); await pg.wait_for_timeout(900)
+        src = await pg.evaluate(f"""(()=>{{const pb=document.querySelector('#dock .docpane .pb'),a=pb.querySelector('.anchor[data-tid="{bt}"]'),r=a.getBoundingClientRect(),p=pb.getBoundingClientRect();
+          return [r.top>=p.top&&r.bottom<=p.bottom,a.classList.contains('flash')]}})()""")
+        check('a branch card’s quote scrolls the docked document to its passage, and flashes it', all(src), src)
+
         # dragging the canvas (to pan) across the docked document, or across a card, selects nothing and asks nothing
         await pg.evaluate("getSelection().removeAllRanges()")
         d = await host.bounding_box(); cvb = await pg.locator('#cv').bounding_box(); y = d['y'] + d['height'] * 0.4

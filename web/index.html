@@ -2917,6 +2917,7 @@ function applyStack(){
 }
 function canvasRevealSource(tid){
   const t=T(tid);if(!t||!t.parent)return;
+  if(isDocBranch(t)&&docInDock()){focusCard('doc');revealDocAnchor(t);return}   // the document is open beside the canvas: scroll it to the passage, as Show in source does in Columns
   if(isDocBranch(t)){focusCard('doc');requestAnimationFrame(()=>{const r=$('#cv').querySelector(`[data-cdocrow="${tid}"]`);if(r){r.style.setProperty('--c',color(t));r.classList.remove('flash');void r.offsetWidth;r.classList.add('flash')}});return}
   const S=cvState();
   if(!S.open.includes(t.parent)){S.open.push(t.parent);renderCanvas();save()}

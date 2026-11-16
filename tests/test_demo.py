@@ -8,7 +8,7 @@ Built fresh from web/ here, so a change to the page that breaks the demo fails t
   - Search, and Ask about Digress (from the documentation built into the site), work.
   - Everything stays in this browser across a reload; "Start over" brings back the sample as it was.
 Asserts and exits non-zero."""
-import asyncio, os, sys, tempfile
+import asyncio, json, os, sys, tempfile
 from playwright.async_api import async_playwright
 from common import OUT, launch_args, build_site, goto_site, booted, answered, soon, frames, PDF_DRAWN_JS
 
@@ -108,6 +108,15 @@ async def main():
             await pg.reload(); await booted(pg)
             await soon(pg, "()=>__digress.conv&&__digress.conv.title.startsWith('Bayes')")
             check('what you did is still there after a reload', await pg.evaluate("Object.keys(__digress.conv.msgs).length") == n1 and n1 > n0, [n0, n1])
+
+            # a newer sample (a new seed published): it replaces the old one, with every card made from it
+            cards = await pg.evaluate("fetch('api/store/cards').then(r=>r.json()).then(l=>l.length)")
+            seed_path = os.path.join(site, 'demo', 'seed.json'); seed = json.load(open(seed_path))
+            seed['v'] += '-newer'; json.dump(seed, open(seed_path, 'w'))
+            await pg.reload(); await booted(pg); await soon(pg, "()=>__digress.conv&&__digress.conv.title.startsWith('Bayes')")
+            left = await pg.evaluate("fetch('api/store/cards').then(r=>r.json()).then(l=>l.length)")
+            check('a newer sample replaces the old, and the cards made from it go too (none left pointing at nothing)', cards > 0 and left == 0 and not await pg.locator('#reviewBtn').is_visible(), [cards, left])
+            n0 = await pg.evaluate("Object.keys(__digress.conv.msgs).length")
 
             # Start over: back to the sample as it was
             pg.once('dialog', lambda d: asyncio.ensure_future(d.accept()))

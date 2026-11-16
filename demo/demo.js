@@ -36,7 +36,11 @@
   const seed = () => seeding || (seeding = (async () => {
     let s; try { s = await (await realFetch('demo/seed.json', { cache: 'no-cache' })).json(); } catch (e) { console.warn('demo: no sample conversation', e); return; }
     if ((await kv.get('seeded')) === s.v) return;
-    for (const k of (await kv.get('seededKeys')) || []) await kv.del(k);   // a newer sample replaces the old one
+    // a newer sample replaces the old one: its conversations, and every card made from them (not only the cards it
+    // came with), since a card whose conversation is gone has nothing to open
+    const old = (await kv.get('seededKeys')) || [], gone = new Set(old.filter((k) => k.startsWith('convs/')).map((k) => k.slice(6)));
+    for (const k of old) await kv.del(k);
+    for (const [id, c] of await kv.list('cards/')) if (c && gone.has(c.conv)) await kv.del('cards/' + id);
     for (const [id, f] of Object.entries(s.files || {})) {
       const blob = await (await realFetch(f.src)).blob();
       await kv.put('file/' + id, { type: f.type, blob });
