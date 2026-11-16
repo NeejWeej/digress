@@ -37,11 +37,14 @@ async def main():
         t0 = time.time(); await A.reload()
         back = await soon(A, f"(()=>{{const m=window.__digress&&__digress.conv&&{LAST_MAIN};return !!(m&&m.pending&&m.run)}})()", timeout=14000)
         print(f'     (reload and reconnect took {time.time() - t0:.1f} s)')
+        # still writing: new ticks arrive after the reconnect (a fast machine reloads in 0.2 s, a busy one in 8)
+        n = await A.evaluate(f"(({LAST_MAIN}).content||'').split('tick').length-1")
+        await ticks(A, n + 3)
         check(back, 'after a reload mid-reply, it reconnects and is still writing')
         s.release(); await idle(A)
         body = await A.locator('.pane[data-tid="main"] .msg.assistant .body').last.inner_text()
         whole = last_saved()['content']
-        check(body.strip() == whole.strip() and whole.endswith('done.') and whole.count('tick') > 3 and 'error' not in body.lower(),
+        check(body.strip() == whole.strip() and whole.endswith('done.') and whole.count('tick') >= n + 3 and 'error' not in body.lower(),
               'the whole reply, once, after the reload (as the server saved it)', [body.count('tick'), whole.count('tick'), body[-120:]])
 
         # …and a dropped connection (the server is still there): reconnects and finishes

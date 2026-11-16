@@ -77,8 +77,11 @@ async def main():
         # 7a: takeaway header stays on one line in a narrow pane
         await pg.locator(f'.pane[data-tid="{b1}"] .ph [data-act=take]').click(); await answered(pg, pg.locator(f'.pane[data-tid="{b1}"] .tk .go').click()); await calm(pg)
         nh = pg.locator('.pane[data-tid="main"] .msg.note .nh').first
-        h = await nh.evaluate("e=>{const r=document.createRange();r.selectNodeContents(e);const tops=new Set([...r.getClientRects()].filter(x=>x.width>2&&x.height<20).map(x=>Math.round(x.top/4)));return tops.size}")
-        check('7. a takeaway header’s text stays on one line', h == 1, h)
+        # wrapped = some of its text starts below where the first line ends (the title is a button, whose text can sit
+        # a few pixels off the plain text with some fonts, so don't compare tops exactly)
+        h = await nh.evaluate("""e=>{const r=document.createRange();r.selectNodeContents(e);const rs=[...r.getClientRects()].filter(x=>x.width>2&&x.height<20);
+          const end=Math.min(...rs.map(x=>x.bottom));return {pieces:rs.length,below:rs.filter(x=>x.top>=end-1).length}}""")
+        check('7. a takeaway header’s text stays on one line', h['pieces'] > 0 and h['below'] == 0, h)
 
         # 5: closing a branch leaves no back button in the parent
         await pg.locator(f'.pane[data-tid="{b2}"] [data-act=close]').click(); await calm(pg)

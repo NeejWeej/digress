@@ -35,4 +35,5 @@ jobs:
         with:
           name: test-artifacts
           path: tests/.artifacts/
+          include-hidden-files: true   # .artifacts starts with a dot
           retention-days: 7
