@@ -3013,7 +3013,7 @@ function canvasAction(act,tid,btn){
   const S=cvState();
   if(act==='exp'){S.open=S.open.includes(tid)?S.open.filter(x=>x!==tid):[...S.open,tid];renderCanvas();save()}
   else if(act==='fold'){S.fold=S.fold.includes(tid)?S.fold.filter(x=>x!==tid):[...S.fold,tid];renderCanvas();save()}
-  else if(act==='panes'){if(tid==='doc')openDocPane();else openFromCanvas(tid)}
+  else if(act==='panes'){if(tid==='doc'){setView(conv.ui.layout);openDocPane();revealPane('doc')}else openFromCanvas(tid)}   // docked or not: to Columns/Rows, document open
   else if(act==='jprev'){
     const n=btn.closest('.cnode'),f=n.querySelector('.cfull'),k=cvPrevKey(tid),p=cvPrev.get(k);
     if(f&&p)f.scrollTo({top:p.top,behavior:'smooth'});cvPrev.delete(k);n.classList.remove('hasprev');

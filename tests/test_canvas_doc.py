@@ -106,6 +106,13 @@ async def main():
         await pg.evaluate("document.querySelector('#zTidy').click()"); await pg.wait_for_timeout(500)
         check('it survives the canvas redrawing', await host.locator('.pane.docpane .dpage canvas').count() > 0)
 
+        # its "open in the pane view" button goes to Columns with the document open (it used to do nothing while docked)
+        await host.locator('[data-cact=panes]').click(); await pg.wait_for_timeout(600)
+        check('docked, its “open in the pane view” button switches to Columns with the document open',
+              await pg.evaluate("__digress.conv.ui.view") == 'panes' and await pg.locator('#panes .pane.docpane .dpage canvas').count() > 0, await pg.evaluate("__digress.conv.ui.view"))
+        await pg.evaluate("document.querySelector('#viewSeg button[data-v=canvas]').click()")
+        await pg.wait_for_function("!!document.querySelector('#dock .docpanecard .cdocpane > .pane.docpane')", timeout=5000)
+
         await pg.evaluate("document.querySelector('#viewSeg button[data-v=cols]').click()"); await pg.wait_for_timeout(600)
         back = await pg.evaluate("[...document.querySelectorAll('#panes>.pane')].map(p=>p.dataset.tid)")
         check('back in Columns, the pane is where it was', back == cols_order and await pg.locator('#panes .pane.docpane .dpage canvas').count() > 0, [cols_order, back])
