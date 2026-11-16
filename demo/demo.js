@@ -48,6 +48,7 @@
 
   // ---- replies: demo/replies.js writes them; streamed in small pieces like a real reply ----
   const runs = new Map();
+  let resetting = false;   // "Start over" was pressed (see note())
   function chat(body) {
     const enc = new TextEncoder(), ctrl = new AbortController();
     if (body.chat) runs.set(body.chat, ctrl);
@@ -76,6 +77,7 @@
     if (url.origin !== location.origin || !url.pathname.startsWith(API)) return realFetch(input, init);
     await seed().catch((e) => console.warn('demo: the sample couldn’t be loaded', e));
     const method = (init.method || 'GET').toUpperCase();
+    if (resetting && method !== 'GET') return json({ error: 'Starting over' }, 503);
     const p = url.pathname.slice(API.length).split('/').filter(Boolean).map(decodeURIComponent);
     const body = async () => JSON.parse(init.body);
     if (p[0] === 'health') return json({ app: 'digress', llm: true, provider: 'demo', providers: ['demo'], web: false, why: '' });
@@ -139,6 +141,7 @@
       const a = e.target.closest('[data-demo]'); if (!a) return;
       if (a.dataset.demo === 'reset') {
         if (!confirm('Start the demo over? This removes everything you did here and brings back the sample.')) return;
+        resetting = true;   // from here on this page saves nothing (a last save while it unloads would undo the reset)
         await kv.clear(); try { localStorage.clear(); } catch (err) { /* no storage */ }
         location.hash = ''; location.reload(); return;
       }

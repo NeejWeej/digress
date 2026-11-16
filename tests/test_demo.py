@@ -89,7 +89,8 @@ async def main():
 
             # Start over: back to the sample as it was
             pg.once('dialog', lambda d: asyncio.ensure_future(d.accept()))
-            await note.locator('[data-demo=reset]').first.click()
+            async with pg.expect_navigation():   # the reload, not the page before it (which also passes the check below)
+                await note.locator('[data-demo=reset]').first.click()
             await pg.wait_for_function("!!window.__booted&&!!window.__digress&&!!__digress.conv&&__digress.conv.title.startsWith('Bayes')", timeout=30000)
             got = [await pg.evaluate("Object.keys(__digress.conv.msgs).length"), await pg.evaluate("document.querySelectorAll('#side .citem[data-conv]').length")]
             check('Start over brings back the sample as it was', got == [n0, 1], [got, n0])
