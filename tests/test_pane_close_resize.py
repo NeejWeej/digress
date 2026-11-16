@@ -78,6 +78,15 @@ async def main():
         await pg.locator(f'.pane[data-tid="{b1}"] [data-act=close]').click(); await calm(pg)
         check('no "Close them too" when nothing is open under it', not await pg.locator('#toast.show .tact').count())
 
+        # ✕ only closes: the parent stays where you'd scrolled it, even far from where the branch came from (that's Back)
+        for i in range(8): await ask('main', f'And then what happens, part {i + 1}?')
+        await pg.evaluate(f"__digress.conv.ui.open.push('{b1}')"); await relayout(); await soon(pg, f"!!document.querySelector('.pane[data-tid=\"{b1}\"]')")
+        pb = pg.locator('.pane[data-tid="main"] .pb'); await pb.evaluate('e=>e.scrollTop=e.scrollHeight'); await calm(pg)
+        y0 = await pb.evaluate('e=>e.scrollTop')
+        await pg.locator(f'.pane[data-tid="{b1}"] [data-act=close]').click(); await calm(pg)
+        y1 = await pb.evaluate('e=>e.scrollTop')
+        check('✕ leaves the parent scrolled where it was (no jump to where the branch came from)', y0 > 300 and abs(y1 - y0) < 2, [y0, y1])
+
         # the rightmost pane can be resized
         await pg.evaluate(f"(()=>{{const u=__digress.conv.ui;u.open=['main','{b1}','{b1a}'];u.collapsed=[];u.sizes={{}}}})()")
         await relayout(); await calm(pg)

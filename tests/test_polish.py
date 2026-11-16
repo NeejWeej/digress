@@ -3,7 +3,7 @@
   2. sidebar branch rows: the hover buttons overlay the row, so titles don't wrap a word per line
   3. canvas: no hint text lies over the cards (the tips are in How it works)
   4. canvas card previews: no Markdown list markers; a heading reads as a sentence
-  5. closing a branch doesn't leave a "back to where you were" button in its parent
+  5. closing a branch only closes it: its parent doesn't scroll, and no "back to where you were" button is left
   6. a connecting line that crosses another pane is faint over it (masked), full strength elsewhere
   7. takeaway headers stay on one line; "Saved" is never cut to "Sa…"; math is typeset while a reply streams
 Asserts and exits non-zero."""
@@ -84,9 +84,12 @@ async def main():
           const end=Math.min(...rs.map(x=>x.bottom));return {pieces:rs.length,below:rs.filter(x=>x.top>=end-1).length}}""")
         check('7. a takeaway header’s text stays on one line', h['pieces'] > 0 and h['below'] == 0, h)
 
-        # 5: closing a branch leaves no back button in the parent
+        # 5: closing a branch only closes it: the parent stays where you had it, with no back button
+        pb = pg.locator('.pane[data-tid="main"] .pb'); await pb.evaluate('e=>e.scrollTop=e.scrollHeight'); await calm(pg)
+        y0 = await pb.evaluate('e=>e.scrollTop')
         await pg.locator(f'.pane[data-tid="{b2}"] [data-act=close]').click(); await calm(pg)
-        check('5. closing a branch doesn’t leave a “back to where you were” button in the parent', await pg.locator('.pane[data-tid="main"].hasprev').count() == 0)
+        check('5. closing a branch leaves its parent scrolled where it was', abs(await pb.evaluate('e=>e.scrollTop') - y0) < 2, [y0, await pb.evaluate('e=>e.scrollTop')])
+        check('5. …and leaves no “back to where you were” button in it', await pg.locator('.pane[data-tid="main"].hasprev').count() == 0)
 
         # 7b: Saved is whole or hidden
         await pg.set_viewport_size({'width': 1120, 'height': 860}); await calm(pg)
