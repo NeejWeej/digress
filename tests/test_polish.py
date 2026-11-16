@@ -1,7 +1,7 @@
 """Layout polish, each checked where it used to go wrong:
   1. narrow branch panes: the header buttons wrap under the title instead of squeezing it to a letter
   2. sidebar branch rows: the hover buttons overlay the row, so titles don't wrap a word per line
-  3. canvas: the hint never runs under the zoom tools
+  3. canvas: no hint text lies over the cards (the tips are in How it works)
   4. canvas card previews: no Markdown list markers; a heading reads as a sentence
   5. closing a branch doesn't leave a "back to where you were" button in its parent
   6. a connecting line that crosses another pane is faint over it (masked), full strength elsewhere
@@ -103,8 +103,7 @@ async def main():
 
         # 3, 4: canvas
         await pg.evaluate("document.querySelector('#viewSeg button[data-v=canvas]').click()"); await pg.locator('#cv .cnode[data-ctid="main"]').wait_for(); await calm(pg)
-        ov = await pg.evaluate("(()=>{const h=document.querySelector('.cvhint').getBoundingClientRect(),t=document.querySelector('.cvtools').getBoundingClientRect();return getComputedStyle(document.querySelector('.cvhint')).display==='none'||h.right<=t.left})()")
-        check('3. the canvas hint ends before the zoom tools', ov)
+        check('3. no hint text lies over the canvas (its tips are in How it works)', await pg.locator('#cv .cvhint').count() == 0)
         prev = await pg.evaluate("""(()=>{const n=document.querySelector('#cv .cnode[data-ctid="main"]');return [...n.querySelectorAll('.cprev,.cr,.cq,.ca,div,span')].map(e=>e.textContent).find(t=>t.includes('Three roles'))||n.textContent})()""")
         check('4. a card preview has no “- ” list markers, and the heading ends like a sentence', 'Three roles. Each token' in prev and ' - ' not in prev and '- a query' not in prev, prev[:200])
         await pg.screenshot(path=OUT + '/polish_canvas.png')

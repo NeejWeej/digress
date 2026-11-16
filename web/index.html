@@ -88,6 +88,7 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .sgrip:hover::after,.sgrip.on::after{background:var(--accent)}
 .app.noside .sgrip{display:none}
 .app.sizing{cursor:col-resize;user-select:none}
+.cvnosel,.cvnosel *{user-select:none !important;-webkit-user-select:none !important}
 .app.noside{grid-template-columns:0 1fr}
 /* Zen: only the panes (no top bar, sidebar or wires); the tab at the top of the screen, or ⌘/Ctrl+., brings them back */
 .app.zen{grid-template-rows:0 1fr;grid-template-columns:0 1fr}
@@ -602,9 +603,7 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .cvviews input{flex:1;min-width:0;font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--ink)}
 .cvviews form .tb{flex:none;width:auto;padding:5px 10px;justify-content:center;background:var(--user-bg)}
 .cvviews .vrow .ib{width:26px}
-.cvhint{position:absolute;left:14px;bottom:14px;font-size:12px;line-height:1.45;color:var(--faint);z-index:3;pointer-events:none;max-width:calc(100% - 580px)}
 .cv{container-type:size}
-@container (max-width:900px){.cvhint{display:none}}
 /* pins and archive */
 .ib.pinned{color:var(--accent)}
 .citem{position:relative}
@@ -705,7 +704,6 @@ kbd.k{font:11px var(--mono);border:1px solid var(--line2);border-bottom-width:2p
 .mnode .hid{font-size:10.5px;color:var(--faint);border:1px solid var(--line2);border-radius:999px;padding:0 6px;margin-left:4px;white-space:nowrap}
 /* stuck-to-screen cards, snap preview, per-card zoom */
 #dock{position:absolute;inset:0;pointer-events:none;z-index:2}
-.cv:has(#dock .cnode) .cvhint{display:none}
 #dock .cnode{pointer-events:auto;box-shadow:0 14px 44px rgba(0,0,0,.18)}
 .cnode.docked{display:flex;flex-direction:column}
 /* the card's own bar is just a slim drag strip: the document pane below has the title and the controls */
@@ -714,6 +712,8 @@ kbd.k{font:11px var(--mono);border:1px solid var(--line2);border-bottom-width:2p
 .docpanecard>.ch .ib{width:22px;height:22px}
 .docpanecard .cdocpane{flex:1;min-height:0;display:flex}
 .docpanecard .cdocpane>.pane{flex:1;min-width:0;border:0;border-radius:0}
+/* docked on the canvas there are no panes to reorder, collapse into or focus among: those buttons go */
+.docpanecard .cdocpane .ph .pgrip,.docpanecard .cdocpane .ph [data-act=collapse],.docpanecard .cdocpane .ph [data-act=focus]{display:none}
 .cnode.docked .cfull{flex:1;min-height:0;max-height:none !important;height:auto !important}
 .cnode.docked .cfull>*{max-width:780px;margin-left:auto;margin-right:auto}
 .cnode>.ch,.cnode>.cq,.cnode>.crs,.cnode>.cfull,.cnode>.cjump,.cnode>.cask{zoom:var(--cz,1)}
@@ -820,7 +820,7 @@ a.pref:hover{border-bottom-style:solid}
   .top{gap:4px;padding:0 6px}.brand{font-size:0;gap:0;margin:0 2px}.ctitle,.status{display:none}
   .sel{padding:2px}.sel select{max-width:110px;font-size:12.5px}.seg button{padding:5px 8px}
   .panes{padding:8px}.pb{padding:6px 14px 8px}.composer{padding:6px 8px 10px}.ph{padding:10px 6px 8px 15px}
-  .pop{width:auto;left:8px !important;right:8px}.pal{padding-top:8vh}.cvhint{display:none}}
+  .pop{width:auto;left:8px !important;right:8px}.pal{padding-top:8vh}}
 /* touch screens have no hover: show the controls that otherwise appear on hover */
 @media (hover:none){.dmark .mx{opacity:1}.zenx{opacity:.85;height:20px;line-height:18px}.msg.user .uact{opacity:1}.mnode .macts{position:static;opacity:1;pointer-events:auto;background:none;padding:0}.mnode .mpin{display:none}}
 @media (hover:none){.citem .acts{position:static;transform:none;background:none;padding:0;pointer-events:auto}.citem .acts,.mnode .mp,.mnode .mx,.bchip .bx,.del,.mfoot .ib,.mfoot .tb,.cnode .ch .ib{opacity:1 !important}.tipbox{display:none !important}}
@@ -871,6 +871,7 @@ a.pref:hover{border-bottom-style:solid}
         <li><b><span class="kmod">⌘</span>.</b> is Zen: just the panes, for reading. Press it again, or the tab at the top, to come back.</li>
         <li><b><span class="kmod">⌘</span>K</b> searches everything: questions, answers, highlights, takeaways and documents. Typos are fine.</li>
         <li>Collapse any pane to a thin strip and click the strip to expand it again. <b>Focus</b> collapses everything else.</li>
+        <li><b>Canvas</b>: drag the background to pan and scroll to zoom; drag a card by its title to move it, or to an edge to dock it. <b>Alt</b>+scroll zooms one card, <b>Space</b> reads the selected card full screen.</li>
       </ul>
     </details>
   </aside>
@@ -878,7 +879,6 @@ a.pref:hover{border-bottom-style:solid}
     <div class="panes cols" id="panes"></div>
     <svg id="wires"></svg>
     <div class="cv" id="cv"><div id="world"><svg id="edges" width="1" height="1"></svg></div><div id="dock"></div><div id="snapPrev"></div>
-      <div class="cvhint">Drag the background to pan, scroll to zoom. Drag a card by its title to move it, or to an edge to snap it there. Alt+scroll zooms one card. Space reads the selected card full screen.</div>
       <div class="cvtools"><span class="zhere" id="zHereW" style="display:none"><button class="tb" id="zHere" title="Go back to the card you came from"></button><button class="tb zx" id="zHereX" title="Remove the “You were here” mark">×</button></span><button class="tb" id="zViews" title="Canvas views: saved arrangements of this canvas, shared with your other devices"></button><button class="tb" id="zTidy" title="Forget the positions you set and lay the tree out automatically"></button><button class="ib" id="zOut" title="Zoom out"></button><button class="ib" id="zFit" title="Fit the whole tree in view"></button><button class="ib" id="zIn" title="Zoom in"></button></div>
     </div>
     <div class="banner" id="banner"></div>
@@ -2749,9 +2749,7 @@ function focusCard(tid,mid){
   if(changed){renderCanvas();save()}
   const n=$('#cv').querySelector(`.cnode[data-ctid="${tid}"]`);if(!n)return;
   if(n.classList.contains('docked')){raiseCard(tid);n.classList.remove('flash');void n.offsetWidth;n.classList.add('flash');if(mid)requestAnimationFrame(()=>{const m=n.querySelector(`.cfull .msg[data-mid="${mid}"]`),f=n.querySelector('.cfull');if(m&&f)f.scrollTop=m.offsetTop-12});return}
-  const cv=$('#cv').getBoundingClientRect();
-  const tx=cv.width/2-(n.offsetLeft+n.offsetWidth/2)*cam.k,ty=Math.min(cv.height/2-(n.offsetTop+Math.min(n.offsetHeight,500)/2)*cam.k,60-n.offsetTop*cam.k+40);
-  animateCam(tx,ty);
+  panToCard(n);
   n.classList.remove('flash');void n.offsetWidth;n.classList.add('flash');
   if(mid)requestAnimationFrame(()=>{const m=n.querySelector(`.cfull .msg[data-mid="${mid}"]`),f=n.querySelector('.cfull');if(m&&f){f.scrollTop=m.offsetTop-12;drawEdgesSoon()}});
 }
@@ -2787,18 +2785,32 @@ function markHere(){
 let hereObs=null;
 function clearHere(){if(cvHere){cvHere=null;markHere()}}
 // glide the camera so a card is in view (its top in sight); a card stuck to the screen is already there
+/* The part of the canvas you can see past the docked cards (the document docked at a side, a card snapped to an
+   edge), relative to #cv: a card brought into view is centred there, not behind a docked card. A dock that would
+   leave too little room is ignored. */
+function cvFree(){
+  const cv=$('#cv').getBoundingClientRect();let l=0,r=cv.width,t=0,b=cv.height;
+  for(const d of $('#dock').querySelectorAll('.cnode')){
+    const x=d.getBoundingClientRect();if(!x.width||!x.height)continue;
+    const cx=(x.left+x.right)/2-cv.left,cy=(x.top+x.bottom)/2-cv.top;
+    if(x.height>cv.height*0.5){if(cx<cv.width/2)l=Math.max(l,x.right-cv.left);else r=Math.min(r,x.left-cv.left)}   // docked at a side
+    else if(x.width>cv.width*0.5){if(cy<cv.height/2)t=Math.max(t,x.bottom-cv.top);else b=Math.min(b,x.top-cv.top)}   // at the top or bottom
+  }
+  if(r-l<220){l=0;r=cv.width}if(b-t<160){t=0;b=cv.height}
+  return {l,r,t,b,cv};
+}
 function panToCard(n){
   if(n.classList.contains('docked'))return;
-  const cv=$('#cv').getBoundingClientRect();
-  animateCam(cv.width/2-(n.offsetLeft+n.offsetWidth/2)*cam.k,Math.min(cv.height/2-(n.offsetTop+Math.min(n.offsetHeight,500)/2)*cam.k,60-n.offsetTop*cam.k+40));
+  const f=cvFree();
+  animateCam((f.l+f.r)/2-(n.offsetLeft+n.offsetWidth/2)*cam.k,Math.min((f.t+f.b)/2-(n.offsetTop+Math.min(n.offsetHeight,500)/2)*cam.k,f.t+100-n.offsetTop*cam.k));
 }
 function cvArrive(tid){
   const box=$('#cv');let n=null;
   for(let id=tid;id&&!(n=box.querySelector(`.cnode[data-ctid="${id}"]`));id=visParentId(id));
   if(!n)return;
   cvHere=n.dataset.ctid;markHere();
-  const cv=box.getBoundingClientRect(),h=(n.querySelector('.ch')||n).getBoundingClientRect();
-  const seen=n.classList.contains('docked')||(h.left>=cv.left&&h.right<=cv.right&&h.top>=cv.top&&h.bottom<=cv.bottom);
+  const f=cvFree(),h=(n.querySelector('.ch')||n).getBoundingClientRect(),L=f.cv.left,T=f.cv.top;   // seen: its title bar is in view, not behind a docked card
+  const seen=n.classList.contains('docked')||(h.left>=L+f.l&&h.right<=L+f.r&&h.top>=T+f.t&&h.bottom<=T+f.b);
   if(!seen)panToCard(n);
   n.classList.remove('flash');void n.offsetWidth;n.classList.add('flash');
 }
@@ -2958,6 +2970,11 @@ function canvasAction(act,tid,btn){
     pan=null;dd=null;cv.classList.remove('drag');
     const g=two();pinch={...g,k:cam.k,x:cam.x,y:cam.y};
   };
+  // a canvas drag (pan, move or resize a card) owns its press: no text is selected anywhere while it lasts, not even
+  // in the docked document or a card it passes over, and checkSelection opens no branch popup from it (cvTook)
+  const cvTake=()=>{cvTook=true;document.documentElement.classList.add('cvnosel');const s=getSelection();if(s&&!s.isCollapsed)s.removeAllRanges()};
+  document.addEventListener('pointerdown',()=>{cvTook=false},true);   // a new press starts out nobody's
+  for(const t of ['pointerup','pointercancel'])document.addEventListener(t,()=>document.documentElement.classList.remove('cvnosel'),true);   // wherever it ends
   cv.addEventListener('pointerdown',e=>{
     if(e.pointerType==='touch'){
       if(e.isPrimary)pts.clear();   // first finger of a new gesture: forget any finger whose lift we missed
@@ -2972,21 +2989,21 @@ function canvasAction(act,tid,btn){
       const tid=n.dataset.ctid,z=cardZoom(tid),docked=n.classList.contains('docked');
       rs={n,tid,z,docked,exp:n.classList.contains('exp'),dir:hz.dataset.dir,sx:e.clientX,sy:e.clientY,x:n.offsetLeft,y:n.offsetTop,w:n.offsetWidth,f,
         h:docked?n.offsetHeight:(f?(parseFloat(f.style.height)||f.getBoundingClientRect().height/cam.k/z):0)};
-      n.classList.add('sizing');(()=>{try{hz.setPointerCapture(e.pointerId)}catch(_){}})();e.preventDefault();e.stopPropagation();return;
+      cvTake();n.classList.add('sizing');(()=>{try{hz.setPointerCapture(e.pointerId)}catch(_){}})();e.preventDefault();e.stopPropagation();return;
     }
     const h=e.target.closest('.cnode .ch');
     if(h&&!e.target.closest('button,[data-resolve],.czoom')&&h.closest('.cnode').classList.contains('docked')){
       const n=h.closest('.cnode'),r=n.getBoundingClientRect();
-      dd={n,tid:n.dataset.ctid,sx:e.clientX,sy:e.clientY,gx:(e.clientX-r.left)/r.width};e.preventDefault();return;
+      dd={n,tid:n.dataset.ctid,sx:e.clientX,sy:e.clientY,gx:(e.clientX-r.left)/r.width};cvTake();e.preventDefault();return;
     }
     if(h&&!e.target.closest('button,[data-resolve],.czoom')){
       const n=h.closest('.cnode'),tid=n.dataset.ctid,move=[tid,...(e.shiftKey?descendants(tid):[])];
       const start={};move.forEach(id=>{const el=$('#cv').querySelector(`.cnode[data-ctid="${id}"]`);if(el)start[id]={el,x:el.offsetLeft,y:el.offsetTop}});
-      cd={sx:e.clientX,sy:e.clientY,start,moved:false,n,tid,snap:!e.shiftKey,zone:null};(()=>{try{h.setPointerCapture(e.pointerId)}catch(_){}})();e.preventDefault();return;
+      cvTake();cd={sx:e.clientX,sy:e.clientY,start,moved:false,n,tid,snap:!e.shiftKey,zone:null};(()=>{try{h.setPointerCapture(e.pointerId)}catch(_){}})();e.preventDefault();return;
     }
     if(e.target.closest('.cnode,.cvtools'))return;
     {const S=cvState();if(S.sel){S.sel=null;applyStack()}}
-    pan={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y};cv.classList.add('drag');(()=>{try{cv.setPointerCapture(e.pointerId)}catch(_){}})();
+    cvTake();e.preventDefault();pan={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y};cv.classList.add('drag');(()=>{try{cv.setPointerCapture(e.pointerId)}catch(_){}})();
   });
   cv.addEventListener('pointermove',e=>{
     if(pts.has(e.pointerId))pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
@@ -3037,6 +3054,7 @@ function canvasAction(act,tid,btn){
     if(!pan)return;cam.x=pan.cx+e.clientX-pan.x;cam.y=pan.cy+e.clientY-pan.y;applyCam();
   });
   const end=e=>{
+    document.documentElement.classList.remove('cvnosel');
     if(e&&e.pointerType==='touch'){
       pts.delete(e.pointerId);
       if(pinch){
@@ -4749,7 +4767,9 @@ function toast(s,act){const el=$('#toast');el.textContent=s;el.classList.toggle(
 const pop=$('#pop'),popIn=$('#popIn');
 QUICK.forEach(([l,q])=>{const b=document.createElement('button');b.className='chip';b.textContent=l;b.dataset.q=q;b.title='Opens a branch asking: '+q;$('#popChips').appendChild(b)});
 $('#popGo').innerHTML=ic('send');
+let cvTook=false;   // the current press was taken by a canvas drag (see cvTake)
 function checkSelection(){
+  if(cvTook)return;   // the press was a canvas drag (pan, move, resize): whatever it swept over isn't a highlight
   const sel=window.getSelection();
   if(!sel||sel.isCollapsed||!sel.rangeCount)return;
   const raw=sel.toString().trim();const txt=raw.replace(/\s+/g,' ');if(txt.length<2)return;

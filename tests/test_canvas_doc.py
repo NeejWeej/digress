@@ -1,6 +1,7 @@
 """The document on the canvas: its card's Expand (or snapping it to an edge) docks the real document pane
 beside the canvas, at reading size: its pages are drawn sharp at that width, scrolling scrolls the PDF (not
-the canvas), its own buttons work (page jump), a branch marker in it goes to that branch's card, it survives
+the canvas), its own buttons work (page jump) and the pane-only ones (reorder, collapse, focus) are gone, a branch marker in it
+brings that branch's card into view beside it (not behind it), it survives
 the canvas redrawing, and switching back to Columns puts the pane back where it was. Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
@@ -64,9 +65,34 @@ async def main():
         await pg.wait_for_function("document.querySelector('#dock .docpane .ph-origin').textContent.startsWith('Page 2')", timeout=10000)
         check('its own buttons work (jump to page 2), and it stays on the canvas', await pg.evaluate("__digress.conv.ui.view") == 'canvas')
 
+        hidden = await host.evaluate("h=>['.pgrip','[data-act=collapse]','[data-act=focus]'].map(q=>{const e=h.querySelector('.ph '+q);return !e||e.getClientRects().length===0})")
+        check('docked, it has no buttons for panes (reorder, collapse, focus)', all(hidden), hidden)
+
+        # look elsewhere on the canvas, then follow a branch marker: its card comes into view beside the dock, not behind it
+        await pg.mouse.move(1300, 500); await pg.mouse.down(); await pg.mouse.move(1450, 850, steps=6); await pg.mouse.up(); await pg.wait_for_timeout(300)
         await pg.locator('#dock .docpane .pb').evaluate('e=>e.scrollTop=0'); await pg.wait_for_timeout(300)
         await host.locator(f'.dpage sup.fn[data-tid="{bt}"], .dpage .anchor[data-tid="{bt}"]').first.click(); await pg.wait_for_timeout(700)
         check('a branch marker in it goes to that branch’s card', await pg.locator(f'#cv .cnode[data-ctid="{bt}"].flash').count() == 1)
+        seen = await pg.evaluate(f"""(()=>{{const n=document.querySelector('#cv .cnode[data-ctid="{bt}"]').getBoundingClientRect(),d=document.querySelector('#dock .docpanecard').getBoundingClientRect(),
+          c=document.getElementById('cv').getBoundingClientRect();return [n.left>=d.right-1||n.right<=d.left+1, n.left>=c.left&&n.right<=c.right&&n.top>=c.top&&n.top<c.bottom-40]}})()""")
+        check('…and that card is in view, not behind the docked document', all(seen), seen)
+
+        # dragging the canvas (to pan) across the docked document, or across a card, selects nothing and asks nothing
+        await pg.evaluate("getSelection().removeAllRanges()")
+        d = await host.bounding_box(); cvb = await pg.locator('#cv').bounding_box(); y = d['y'] + d['height'] * 0.4
+        x0 = (d['x'] + d['width'] + cvb['x'] + cvb['width']) / 2   # on the canvas beside the dock
+        await pg.mouse.move(x0, cvb['y'] + 8); await pg.mouse.down()
+        for i in range(1, 16): await pg.mouse.move(x0 + (d['x'] + 60 - x0) * i / 15, cvb['y'] + 8 + (y - cvb['y'] - 8) * i / 15); await pg.wait_for_timeout(15)
+        off = await pg.evaluate("getComputedStyle(document.querySelector('#dock .docpane .textLayer span')).userSelect")
+        # a browser can still extend a selection under a captured pointer (reported in Brave): make one mid-drag, as it would
+        await pg.evaluate("""() => { const w=document.createTreeWalker(document.querySelector('#dock .docpane .textLayer'),NodeFilter.SHOW_TEXT); let t=w.nextNode(); while(t&&t.nodeValue.trim().length<12)t=w.nextNode();
+          const r=document.createRange(); r.setStart(t,0); r.setEnd(t,10); getSelection().removeAllRanges(); getSelection().addRange(r); }""")
+        await pg.mouse.up(); await pg.wait_for_timeout(300)
+        check('while the canvas is dragged, no text can be selected (not even in the docked document)', off == 'none', off)
+        check('…and letting go opens no branch popup, whatever got selected', not await pg.locator('#pop.show').count())
+        await pg.evaluate("getSelection().removeAllRanges()")
+        on = await pg.evaluate("getComputedStyle(document.querySelector('#dock .docpane .textLayer span')).userSelect")
+        check('…and afterwards the document’s text can be highlighted again', on != 'none', on)
 
         await pg.evaluate("document.querySelector('#zTidy').click()"); await pg.wait_for_timeout(500)
         check('it survives the canvas redrawing', await host.locator('.pane.docpane .dpage canvas').count() > 0)

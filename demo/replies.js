@@ -94,8 +94,80 @@ flowchart LR
 This is the rule of thumb on [p. 2]: from a small prior, even a ×10 test leaves you small. You need either a much bigger ratio or a few independent results.`,
   };
 
+  // the sample conversation without a document (how HTTPS works), keyed the same way
+  const PREPARED_CHAT = {
+    'how does https keep my connection private': `HTTPS is ordinary HTTP sent through an encrypted tunnel called **TLS**. Setting up the tunnel solves two problems before any of your data moves:
+
+1. **Who am I talking to?** The server proves it really is \`example.com\` with a **certificate**.
+2. **How do we get a shared secret key** when everything we send can be read by anyone on the network? With a **key exchange**.
+
+Once both sides hold the same secret key, everything else (your requests, cookies, passwords, the pages that come back) is encrypted with fast *symmetric* encryption such as AES.
+
+\`\`\`mermaid
+sequenceDiagram
+  participant B as Your browser
+  participant S as Server
+  B->>S: Hello, here are the ciphers I support
+  S->>B: My certificate, and my half of the key exchange
+  B->>S: My half of the key exchange
+  Note over B,S: Both compute the same secret key
+  B->>S: Encrypted request
+  S->>B: Encrypted response
+\`\`\`
+
+A few things this gives you, and one it doesn't:
+
+- **Privacy:** someone on the café Wi-Fi sees that you connected to \`example.com\`, and roughly how much data moved, but not which pages or what was in them.
+- **Integrity:** every encrypted record carries a check, so a change in transit is detected and the connection is dropped.
+- **Authenticity:** the certificate ties the key exchange to the real site, so nobody in the middle can quietly stand in for it.
+- **Not hidden:** the site's name usually still travels in the clear at the start, and the server itself sees everything you send it.
+
+The clever part is the key exchange: two machines that have never met agree on a secret while the whole conversation is overheard.`,
+
+    'how can two strangers agree on a secret while everyone is listening': `With a **Diffie–Hellman** exchange. Each side keeps one number private and sends something computed from it in public; combining your own private number with the other side's public value gives both of you the same result.
+
+Publicly agreed: a prime $p$ and a base $g$. Then:
+
+- You pick a secret $a$ and send $A = g^a \\bmod p$.
+- The server picks a secret $b$ and sends $B = g^b \\bmod p$.
+- You compute $B^a \\bmod p$; the server computes $A^b \\bmod p$. Both equal $g^{ab} \\bmod p$.
+
+A tiny example with $p = 23$, $g = 5$:
+
+| | secret | sends |
+|---|---|---|
+| you | $a = 6$ | $A = 5^6 \\bmod 23 = 8$ |
+| server | $b = 15$ | $B = 5^{15} \\bmod 23 = 19$ |
+
+You compute $19^6 \\bmod 23 = 2$, the server computes $8^{15} \\bmod 23 = 2$. The shared secret is **2**, and it never crossed the network.
+
+An eavesdropper sees $p$, $g$, $8$ and $19$. To get the secret they'd need $a$ or $b$, which means solving $5^a \\equiv 8 \\pmod{23}$ for $a$: the **discrete logarithm**. With numbers this small you can just try them all; with the sizes real TLS uses (or its elliptic-curve version), nobody knows a way to do it in any useful amount of time.
+
+Real connections also pick fresh secrets every time, so recording traffic today and stealing the server's long-term key later still doesn't unlock it. That property is called *forward secrecy*.`,
+
+    'what stops someone in the middle from pretending to be the server': `On its own, nothing: a key exchange gives you a secret shared with *whoever answered*. Someone in the middle could run one exchange with you and another with the real server, and pass everything along while reading it.
+
+The **certificate** closes that gap.
+
+1. The certificate says, in effect, "this public key belongs to \`example.com\`", and it is **signed by a certificate authority** (CA) that checked the site's owner controls that domain.
+2. Your browser or operating system ships with a list of CAs it trusts. It checks the signature chain from the site's certificate up to one of them, and that the name matches the site you asked for.
+3. During the handshake the server **signs the key exchange with the private key** matching that certificate. Someone in the middle doesn't have that key, so they can't produce the signature.
+
+So an attacker would need either the site's private key or a CA willing to sign a certificate for a domain they don't control. That's why your browser shows a full-page warning when a certificate doesn't check out: clicking through it gives up exactly this protection.`,
+
+    'who checks the certificate authorities': `Mostly the browser and operating system makers, plus a public record that anyone can watch.
+
+- **Root programs.** Apple, Google, Microsoft and Mozilla each decide which certificate authorities their software trusts. CAs have to pass regular audits and follow shared rules about how they check who owns a domain. A CA that breaks them can be removed, and that has happened: a CA that mis-issued certificates can find its new ones distrusted by every major browser.
+- **Certificate Transparency.** Browsers only accept a certificate if it has been recorded in public, append-only logs. Site owners (and researchers) monitor those logs, so a certificate issued for your domain without your knowledge shows up where you can see it.
+- **Revocation and short lifetimes.** A certificate that leaks can be revoked, but revocation checking has always been patchy. The bigger protection is that certificates now last months rather than years, so a bad one doesn't stay useful for long.
+
+None of this makes a rogue certificate impossible; it makes it quick to notice and expensive for the CA that signed it.`,
+  };
+
   // a takeaway for the prepared branch about false positives
-  const TAKEAWAYS = [[/false.?positive rate matter/i, `- A small false-positive rate applies to the *healthy* group, which is almost everyone, so it produces many false alarms (89 of 990) [p. 1].
+  const TAKEAWAYS = [[/agree on a secret while everyone is listening/i, `- Diffie–Hellman: each side sends $g^{\\text{secret}} \\bmod p$ in public, and both arrive at $g^{ab} \\bmod p$ without ever sending it.
+- An eavesdropper would have to solve a discrete logarithm, which is out of reach at real key sizes.
+- Fresh secrets for every connection give *forward secrecy*: a key stolen later doesn't unlock recorded traffic.`], [/false.?positive rate matter/i, `- A small false-positive rate applies to the *healthy* group, which is almost everyone, so it produces many false alarms (89 of 990) [p. 1].
 - What decides what a positive means is the **count** of false alarms against true positives (89 vs 9), not the error rate.
 - The base rate drives it: at 1 in 10 instead of 1 in 100, the same test's positive means about 53%.`]];
 
@@ -168,7 +240,12 @@ This is the rule of thumb on [p. 2]: from a small prior, even a ×10 test leaves
     if (/^Your reply above was cut off/.test(raw)) return '\n\n' + NOTE;
     if (isSample(doc) && PREPARED[key(q)]) return PREPARED[key(q)];
     if (!doc.pages.length) {
-      return `${NOTE.replace(' to explain it', ' to answer that')}\n\nThe demo is most fun with a document: open **${SAMPLE}** from the sidebar and try its suggested questions, or highlight any passage in it and ask about that. You can also open a PDF of your own with **New from a document**; it stays in this browser.`;
+      if (PREPARED_CHAT[key(q)]) return PREPARED_CHAT[key(q)];
+      // a conversation without a document: quote what its replies so far say that's closest (a branch sees them all)
+      const said = msgs.filter((m) => m.role === 'assistant').flatMap((m) => chunks(textOf(m.content).replace(/```[\s\S]*?```/g, '').replace(/^\|.*$/gm, '').replace(/\*[^*]*demo[^*]*\*/gi, '')).map((text) => ({ text, where: '' })));
+      const hits = closest(said, q, 2, quoted(raw));
+      if (hits.length) return `Here's what this conversation already says that's closest to your question:\n\n${hits.map((h) => quote(h.text)).join('\n\n')}\n\n${NOTE}`;
+      return `${NOTE.replace(' to explain it', ' to answer that')}\n\nTo see what an answer looks like, open one of the sample conversations in the sidebar and try a suggested question, or highlight a passage in a reply and ask about it. You can also open a PDF of your own with **New from a document**; it stays in this browser.`;
     }
     // what to look for: the question, plus what it's about (a highlighted passage, a snip's words, or the reply
     // a quick question like "Explain simpler" refers to)

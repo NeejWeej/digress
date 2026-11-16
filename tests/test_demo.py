@@ -1,8 +1,8 @@
 """The demo site (demo/build.mjs → GitHub Pages): the real page with demo/demo.js answering /api/* in the browser.
 Built fresh from web/ here, so a change to the page that breaks the demo fails this test.
   - The build adds only the demo's scripts to the page, and leaves out the service worker.
-  - A first visit opens the sample conversation: the PDF, its branches, its flashcards in the inbox, and a note
-    saying it's a demo.
+  - A first visit opens the sample reading: the PDF and its branches, a note saying it's a demo, and "Demo" in the
+    tab. A conversation without a document is there too. Flashcards are off, as by default; turning them on works.
   - The sample's suggested questions get the replies written for them, with page links.
   - Other questions get the closest passages of the document, saying it's the demo; so do highlight branches.
   - Search, and Ask about Digress (from the documentation built into the site), work.
@@ -44,7 +44,9 @@ async def main():
             conv = await pg.evaluate("(()=>{const c=__digress.conv;return {title:c.title,threads:Object.keys(c.threads).length,msgs:Object.keys(c.msgs).length,doc:!!c.doc}})()")
             check('a first visit opens the sample conversation, with its document and branches', conv['title'].startswith('Bayes') and conv['doc'] and conv['threads'] == 3, conv)
             n0 = conv['msgs']
-            check('…its flashcards wait in the inbox', await soon(pg, "()=>/in inbox/.test(document.querySelector('#reviewBtn').textContent)"), await pg.locator('#reviewBtn').text_content())
+            check('…and the conversation without a document is in the sidebar too', await pg.locator('#side .citem[data-conv]').count() == 2)
+            check('flashcards are off, as they are unless you turn them on', not await pg.locator('#reviewBtn').is_visible())
+            check('the tab says it’s the demo', (await pg.title()).startswith('Demo · Digress'), await pg.title())
             note = pg.locator('#demoNote')
             check('…and a note says it’s a demo, with Start over and a link to Digress', await note.is_visible() and 'demo of Digress' in await note.inner_text()
                   and await note.locator('[data-demo=reset]').first.is_visible() and await note.locator('a[href*="github.com"]').count() == 1)
@@ -79,6 +81,26 @@ async def main():
             check('Ask about Digress answers from the documentation built into the site', 'documentation' in ans and ('branch' in ans.lower()), ans[:300])
             await pg.keyboard.press('Escape')
 
+            # turning flashcards on drafts the sample's cards into the inbox
+            await pg.locator('.pane[data-tid=main] [data-act=cards]').click(); await pg.locator('#cardsModal.show').wait_for()
+            await pg.locator('[data-kact=on]').click(); await soon(pg, "()=>/new/.test(document.querySelector('[data-kact=make]').textContent)")
+            await pg.locator('[data-kact=make]').click()
+            await soon(pg, "()=>document.querySelector('[data-kact=make]').textContent.includes('Up to date')", timeout=20000)
+            await pg.keyboard.press('Escape')
+            check('turning flashcards on drafts cards into the inbox', await soon(pg, "()=>/in inbox/.test(document.querySelector('#reviewBtn').textContent)"), await pg.locator('#reviewBtn').text_content())
+
+            # the conversation without a document: its branches, a prepared reply, and quotes from itself otherwise
+            await pg.locator('#side .citem[data-conv]', has_text='HTTPS').first.click()
+            await soon(pg, "()=>__digress.conv.title.startsWith('How does HTTPS')")
+            nested = await pg.evaluate("(()=>{const T=__digress.conv.threads;return Object.values(T).some(t=>t.parent&&t.parent!=='main'&&T[t.parent])})()")
+            check('the conversation without a document has a branch of a branch', nested)
+            check('…and the tab follows the page’s own naming', await soon(pg, "()=>/^Demo · Digress \\d/.test(document.title)"), await pg.title())
+            await ta.fill('Why is symmetric encryption used for the data?'); await answered(pg, ta.press('Enter'))
+            last = await pg.evaluate(LAST)
+            check('another question there quotes what the conversation already says, and says it’s the demo', 'AES' in last and 'This is the demo' in last, last[:300])
+            await pg.locator('#side .citem[data-conv]', has_text='Bayes').first.click()
+            await soon(pg, "()=>__digress.conv.title.startsWith('Bayes')")
+
             # kept in this browser across a reload
             await soon(pg, "()=>__digress.sync.sent&&!document.querySelector('#status').textContent.includes('Saving')")
             await pg.wait_for_timeout(500)   # (deliberate: let the last save land)
@@ -93,7 +115,7 @@ async def main():
                 await note.locator('[data-demo=reset]').first.click()
             await pg.wait_for_function("!!window.__booted&&!!window.__digress&&!!__digress.conv&&__digress.conv.title.startsWith('Bayes')", timeout=30000)
             got = [await pg.evaluate("Object.keys(__digress.conv.msgs).length"), await pg.evaluate("document.querySelectorAll('#side .citem[data-conv]').length")]
-            check('Start over brings back the sample as it was', got == [n0, 1], [got, n0])
+            check('Start over brings back the sample as it was', got == [n0, 2] and not await pg.locator('#reviewBtn').is_visible(), [got, n0])
 
             # a phone: the note can be made small
             ph = await b.new_page(viewport={'width': 390, 'height': 800})

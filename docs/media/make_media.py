@@ -497,8 +497,6 @@ async def main():
             await pg.locator('[data-v=canvas]').click(); await pg.wait_for_timeout(1500)
             await pg.locator('.cnode', has_text=Q_SQRT).first.locator('[data-cact=exp]').click(); await pg.wait_for_timeout(800)
             await pg.locator('#zFit').click(); await pg.wait_for_timeout(900)
-            # the one-line hint runs under the zoom buttons at this width (cut off mid-word): leave it out
-            await pg.add_style_tag(content='.cvhint{display:none}')
             await shot(pg, 'canvas.png')
             await pg.locator('[data-v=cols]').click()
             if errs: print('page errors:', *errs[:5], sep='\n  ')

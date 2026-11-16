@@ -1,9 +1,10 @@
 """Makes the demo's sample: demo/sample.pdf (from demo/sample/bayes.html) and demo/seed.json (the conversation a
-visitor finds on their first visit).
+visitor finds on their first visit: the reading, and a conversation without a document).
 
 The conversation isn't written by hand: this builds the demo site and uses it the way a visitor would (opens the
-PDF, asks a suggested question, branches from a passage of the document and from a reply, carries a takeaway back,
-turns flashcards on), then saves what the page stored. So the seed is always in the format the current page writes.
+PDF, asks a suggested question, branches from a passage of the document and from a reply, carries a takeaway back;
+and a plain conversation with a branch of a branch), then saves what the page stored. Flashcards stay off, as they
+are by default. So the seed is always in the format the current page writes.
 Its replies are the prepared ones in demo/replies.js.
 
 Rerun it when the sample reading or the prepared replies change:
@@ -60,6 +61,28 @@ async def main():
             pg = await b.new_page(viewport={'width': 1500, 'height': 900})
             errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
             await goto_site(pg, site); await booted(pg)
+
+            # a conversation without a document: a question, a branch with a takeaway, and a branch of a branch
+            ta = pg.locator('.pane[data-tid=main] textarea')
+            await ta.fill('How does HTTPS keep my connection private?'); await answered(pg, ta.press('Enter'))
+            must(await pg.evaluate(SELECT_REPLY, ['main', 'key exchange']) == 'ok', '"key exchange" not in the HTTPS reply')
+            await pg.locator('#pop.show').wait_for()
+            await pg.locator('#popIn').fill('How can two strangers agree on a secret while everyone is listening?'); await answered(pg, pg.locator('#popIn').press('Enter'))
+            dh = pg.locator('.pane:not([data-tid=main])').last
+            await dh.locator('.ph [data-act=take]').click(); await answered(pg, dh.locator('.tk .go').click())
+            await dh.locator('.ph [data-act=close]').click(); await frames(pg)
+            must(await pg.evaluate(SELECT_REPLY, ['main', 'certificate']) == 'ok', '"certificate" not in the HTTPS reply')
+            await pg.locator('#pop.show').wait_for()
+            await pg.locator('#popIn').fill('What stops someone in the middle from pretending to be the server?'); await answered(pg, pg.locator('#popIn').press('Enter'))
+            cert = await pg.evaluate("Object.values(__digress.conv.msgs).find(m=>m.role==='user'&&/pretending to be the server/.test(m.text||m.content||'')).thread")
+            must(await pg.evaluate(SELECT_REPLY, [cert, 'certificate authority']) == 'ok', '"certificate authority" not in the certificate reply')
+            await pg.locator('#pop.show').wait_for()
+            await pg.locator('#popIn').fill('Who checks the certificate authorities?'); await answered(pg, pg.locator('#popIn').press('Enter'))
+            for t in await pg.evaluate("[...document.querySelectorAll('#panes .pane')].map(p=>p.dataset.tid)"):
+                await pg.locator(f'.pane[data-tid="{t}"] .pb').evaluate('e=>e.scrollTop=0')
+            await soon(pg, "()=>__digress.sync.sent&&!document.querySelector('#status').textContent.includes('Saving')")
+
+            # the reading (opened last, so it's the conversation a visitor sees first)
             await pg.locator('#newDoc').click()   # under the reading's name (the document pane shows the file's name)
             await pg.set_input_files('#docFile', files=[{'name': 'Bayes’ Rule and the Base-Rate Fallacy.pdf', 'mimeType': 'application/pdf', 'buffer': open(PDF, 'rb').read()}])
             await pg.locator('#docGo').click(); await pg.wait_for_function(PDF_DRAWN_JS)
@@ -77,11 +100,7 @@ async def main():
             await pg.locator('#pop.show').wait_for()
             await pg.locator('#popIn').fill('Why is the odds form easier?'); await answered(pg, pg.locator('#popIn').press('Enter'))
 
-            await pg.locator('.pane[data-tid=main] [data-act=cards]').click(); await pg.locator('#cardsModal.show').wait_for()
-            await pg.locator('[data-kact=on]').click(); await soon(pg, "()=>/new/.test(document.querySelector('[data-kact=make]').textContent)")
-            await pg.locator('[data-kact=make]').click()
-            await soon(pg, "()=>document.querySelector('[data-kact=make]').textContent.includes('Up to date')", timeout=20000)
-            await pg.keyboard.press('Escape'); await frames(pg)
+            # flashcards stay off, as they are unless you turn them on (the prepared cards are there for anyone who does)
             # leave the document, the main thread and the first branch open; the second is a click away (its chip)
             await pg.locator('.pane:not([data-tid=main]):not([data-tid=doc])').last.locator('.ph [data-act=close]').click(); await frames(pg)
             await pg.locator('.pane[data-tid=main] .pb').evaluate('e=>e.scrollTop=0'); await frames(pg)
@@ -90,13 +109,14 @@ async def main():
 
             store = await pg.evaluate(DUMP)
             convs = {k: v for k, v in store.items() if k.startswith('convs/')}
-            must(len(convs) == 1, f'expected one conversation, got {len(convs)}')
-            conv = next(iter(convs.values()))
-            must(conv.get('doc', {}).get('assetId'), 'the conversation has no document file')
-            print('conversation:', conv['title'], '|', len(conv['threads']), 'threads,', len(conv['msgs']), 'messages |',
-                  sum(k.startswith('cards/') for k in store), 'cards |', sum(k.startswith('index/') for k in store), 'index entries')
+            must(len(convs) == 2, f'expected two conversations, got {len(convs)}')
+            for c in convs.values(): print('conversation:', c['title'], '|', len(c['threads']), 'threads,', len(c['msgs']), 'messages')
+            print(sum(k.startswith('cards/') for k in store), 'cards |', sum(k.startswith('index/') for k in store), 'index entries')
+            conv = next(c for c in convs.values() if c.get('doc'))
+            must(conv['doc'].get('assetId'), 'the reading has no document file')
             must(not errs, f'page errors: {errs[:3]}')
-            seed = {'v': conv['id'] + '.' + str(conv['rev']), 'store': store, 'files': {conv['doc']['assetId']: {'type': 'application/pdf', 'src': 'demo/sample.pdf'}}}
+            v = '.'.join(f"{c['id']}.{c['rev']}" for c in sorted(convs.values(), key=lambda c: c['id']))
+            seed = {'v': v, 'store': store, 'files': {conv['doc']['assetId']: {'type': 'application/pdf', 'src': 'demo/sample.pdf'}}}
             with open(SEED, 'w') as f: json.dump(seed, f, ensure_ascii=False, separators=(',', ':'))
             print('wrote', SEED, os.path.getsize(SEED), 'bytes')
         await b.close()

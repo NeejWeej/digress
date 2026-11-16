@@ -59,7 +59,7 @@ Switch views from the top bar at any time; the conversation is the same.
 
 - **Columns:** threads side by side, each pane next to the one it branched from, with a line connecting each branch to its source.
 - **Rows:** the same panes stacked top to bottom, each at full width.
-- **Canvas:** the whole tree as cards on an infinite canvas. Pan, zoom, move cards, snap them to an edge or keep one stuck to the screen while you move around. Works with touch, too.
+- **Canvas:** the whole tree as cards on an infinite canvas. Pan, zoom, move cards, snap them to an edge or keep one stuck to the screen while you move around. Works with touch, too. Drag the background to pan and scroll to zoom; drag a card by its title to move it, or to an edge of the screen to dock it there. **Alt**+scroll over a card zooms just that card, and **Space** reads the selected card full screen.
 
 <img src="docs/media/canvas.png" alt="The same conversation as cards on a canvas in the dark theme, one card expanded to read in place, connected by lines from each highlight to its branch" width="700">
 
