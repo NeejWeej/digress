@@ -3,7 +3,8 @@ Built fresh from web/ here, so a change to the page that breaks the demo fails t
   - The build adds only the demo's scripts to the page, and leaves out the service worker.
   - A first visit opens the sample reading: the PDF and its branches, a note saying it's a demo, and "Demo" in the
     tab. A conversation without a document is there too. Flashcards are off, as by default; turning them on works.
-  - The sample's suggested questions get the replies written for them, with page links.
+  - The sample's suggested questions get the replies written for them, with page links. Its branches include a snip
+    of the figure, and one that goes on after its takeaway (so it shows where the takeaway ends).
   - Other questions get the closest passages of the document, saying it's the demo; so do highlight branches.
   - Search, and Ask about Digress (from the documentation built into the site), work.
   - Everything stays in this browser across a reload; "Start over" brings back the sample as it was.
@@ -45,6 +46,12 @@ async def main():
             check('a first visit opens the sample conversation, with its document and branches', conv['title'].startswith('Bayes') and conv['doc'] and conv['threads'] == 4, conv)
             snip = await pg.evaluate("""(()=>{const c=__digress.conv,t=Object.values(c.threads).find(t=>t.anchorRegion);if(!t)return null;
               const a=(c.order[t.id]||[]).map(id=>c.msgs[id]).find(m=>m.role==='assistant');return {page:t.anchorPage,text:t.regionText||'',reply:a?(a.content||a.text||''):''}})()""")
+            fp = await pg.evaluate("""(()=>{const c=__digress.conv,t=Object.values(c.threads).find(t=>/false-positive rate/.test(t.title||''));if(!t)return null;
+              const last=c.order[t.id].map(id=>c.msgs[id]).filter(m=>m.role==='assistant').at(-1);return {id:t.id,last:(last.content||'').slice(0,60)}})()""")
+            await pg.locator('#tree .mnode', has_text='false-positive rate').first.click(); await pg.wait_for_timeout(800)
+            cut = pg.locator(f'.pane[data-tid="{fp["id"]}"] .tkcut') if fp else None
+            check('the false-positive branch goes on after its takeaway, and a line shows where the takeaway ends',
+                  fp and fp['last'].startswith('Then a positive result means') and await cut.count() == 1, fp)
             check('…one of them a snip of Figure 1 (the tree), answered with a written reply', snip and snip['page'] == 0 and '990 healthy' in snip['text'] and snip['reply'].startswith('Read it from the top down'), snip and {k: str(v)[:80] for k, v in snip.items()})
             n0 = conv['msgs']
             check('…and the conversation without a document is in the sidebar too', await pg.locator('#side .citem[data-conv]').count() == 2)

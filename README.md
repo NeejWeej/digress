@@ -27,7 +27,7 @@ Select any text in a reply and type a question (or pick a quick one: *Explain si
 
 ## Takeaways: carry it back
 
-When a branch has answered your question, press **Takeaway**. Digress writes two to four bullets of what you learned and adds them to the end of the parent thread, optionally focused on what you ask for. The main thread then builds on them, so your understanding accumulates instead of staying scattered across tangents.
+When a branch has answered your question, press **Takeaway**. Digress writes two to four bullets of what you learned and adds them to the end of the parent thread, optionally focused on what you ask for. The main thread then builds on them, so your understanding accumulates instead of staying scattered across tangents. The branch's name in a takeaway takes you to the last reply it saw; if you keep going in the branch afterwards, a line there marks where the takeaway ends, since what's below it isn't in the takeaway.
 
 ## Fix a reply: redo, edit, other versions
 

@@ -74,6 +74,20 @@ A positive result puts you in the top row, and that row is mostly healthy people
 
 You can see how much the base rate drives this by changing it. If 1 in 10 people had the disease, the top row would be 90 ill against 81 healthy, and a positive would mean about 53%. Same test, same 9%, very different meaning.`,
 
+    // a follow-up in the false-positive branch, asked after its takeaway (so the branch shows where the takeaway ends)
+    'what if the falsepositive rate were 1 instead': `Then a positive result means a lot more: about **47%**, up from 9%.
+
+Redo the count with the same 1,000 people:
+
+| | ill (10) | healthy (990) |
+|---|---|---|
+| test positive | 9 | about 10 |
+| test negative | 1 | about 980 |
+
+Now 9 of the 19 positives are real: $9 / 19 \\approx 47\\%$.
+
+In odds form, the likelihood ratio jumps from $0.90 / 0.09 = 10$ to $0.90 / 0.01 = 90$, so the prior odds of 1 : 99 become 90 : 99. Cutting false alarms is worth far more here than catching more of the ill: a perfect 100% sensitivity with the original 9% false-positive rate would only get you to about 10%.`,
+
     // asked about a snip of Figure 1 (the tree of 1,000 people)
     'how do i read this tree': `Read it from the top down, as the same 1,000 people being sorted twice.
 

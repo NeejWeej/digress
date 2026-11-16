@@ -101,6 +101,9 @@ async def main():
             await pg.locator('#popIn').fill('Why does such a small false-positive rate matter so much?'); await answered(pg, pg.locator('#popIn').press('Enter'))
             br = pg.locator('.pane:not([data-tid=main]):not([data-tid=doc])').last
             await br.locator('.ph [data-act=take]').click(); await answered(pg, br.locator('.tk .go').click())
+            # …and a question after the takeaway, so the branch shows where the takeaway's knowledge ends
+            await br.locator('textarea').fill('What if the false-positive rate were 1% instead?'); await answered(pg, br.locator('textarea').press('Enter'))
+            must(await br.locator('.tkcut').count() == 1, 'the branch shows no divider where its takeaway ends')
 
             # a snip: a box drawn around Figure 1 (from its top label to the end of its caption), asked about as a picture
             fig = await pg.evaluate(FIGURE)
