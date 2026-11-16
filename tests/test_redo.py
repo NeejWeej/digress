@@ -6,6 +6,7 @@ shimmering line, the time, the steps so far) and under it when done (model and e
 import asyncio, sys
 from playwright.async_api import async_playwright
 from common import ROOT, OUT, launch_args, goto_app, booted, answered, settled, saved, changed, soon, frames
+from common import CORS
 
 MAP = {'marked.min.js': ROOT + 'marked/marked.min.js', 'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
        'highlight.min.js': ROOT + '@highlightjs/cdn-assets/highlight.min.js', 'tex-svg-full.js': ROOT + 'mathjax/es5/tex-svg-full.js'}
@@ -34,7 +35,7 @@ async def main():
         async def route(r):
             u = r.request.url
             for k, v in MAP.items():
-                if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript')
+                if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript', headers=CORS)
             if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
             await r.continue_()
         await pg.route('**/*', route); await pg.add_init_script(FAKE); await goto_app(pg); await booted(pg)

@@ -92,6 +92,15 @@ function get(u, signal, accept) {
 }
 
 // -> {kind:'pdf'|'text'|'html'|'image', type, body:Buffer, name, url}  or throws LinkError (with .warnings to confirm)
+// Does this start like a web page (<!doctype html> or <html>, perhaps after comments)? A loop, not one regex with a
+// repeated group around the comments: that regex backtracked exponentially on a page that opens with many comments,
+// and the server would hang on such a link.
+export function looksLikeHtml(head) {
+  let s = head.trimStart();
+  while (s.startsWith('<!--')) { const end = s.indexOf('-->', 4); if (end < 0) return false; s = s.slice(end + 3).trimStart(); }
+  return /^<(!doctype html|html)/i.test(s);
+}
+
 export async function fetchDocument(link, { confirmed = [], maxBytes, signal, testAllow = '', want = 'doc' }) {
   const accept = want === 'image' ? 'image/png, image/jpeg, image/webp, image/gif;q=0.9' : 'application/pdf, text/markdown, text/html;q=0.9, text/plain;q=0.9, */*;q=0.1';
   let u;
@@ -134,7 +143,7 @@ export async function fetchDocument(link, { confirmed = [], maxBytes, signal, te
       return { kind: 'image', type, body, name, url: u.href };
     }
     if (body.subarray(0, 1024).includes('%PDF-')) return { kind: 'pdf', type: 'application/pdf', body, name, url: u.href };
-    if (/^text\/html|xhtml/.test(ctype) || /^\s*(<!--[\s\S]*?-->\s*)*<(!doctype html|html)/i.test(body.subarray(0, 2048).toString('latin1'))) {
+    if (/^text\/html|xhtml/.test(ctype) || looksLikeHtml(body.subarray(0, 2048).toString('latin1'))) {
       // a web page: decode it with the charset it declares (header, then <meta>), and hand it over as text
       const head = body.subarray(0, 4096).toString('latin1');
       const cs = (/charset=["']?([\w-]+)/i.exec(String(res.headers['content-type'] || '')) || /<meta[^>]+charset=["']?([\w-]+)/i.exec(head) || [])[1] || 'utf-8';

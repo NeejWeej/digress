@@ -4,6 +4,7 @@ inside a state-diagram label) says why it can't be drawn, shows the error and it
 import asyncio, json, sys
 from playwright.async_api import async_playwright
 from common import ROOT, OUT, launch_args, goto_app, booted, soon, answered
+from common import CORS
 
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
@@ -12,7 +13,8 @@ MAP = {
     'tex-svg-full.js': ROOT + 'mathjax/es5/tex-svg-full.js',
     'mermaid.min.js': ROOT + 'mermaid/dist/mermaid.min.js',
 }
-BAD = "\nstateDiagram-v2\n    [*] --> Follower\n    Follower --> Candidate: \"election timeout (no heartbeat)\"\n    Candidate --> Candidate: \"timeout, split vote: new election\"\n    Candidate --> Leader: \"wins majority of votes\"\n    Candidate --> Follower: \"discovers current leader or higher term\"\n    Leader --> Follower: \"discovers higher term\"\n\n"
+# broken on purpose: a double arrow (Mermaid 11.17 accepts the quoted labels that 11.4 rejected, so they no longer break it)
+BAD = "\nstateDiagram-v2\n    [*] --> Follower\n    Follower --> --> Candidate\n    Follower --> Candidate: \"election timeout (no heartbeat)\"\n    Candidate --> Candidate: \"timeout, split vote: new election\"\n    Candidate --> Leader: \"wins majority of votes\"\n    Candidate --> Follower: \"discovers current leader or higher term\"\n    Leader --> Follower: \"discovers higher term\"\n\n"
 GOOD = 'flowchart LR\n  A[Client] --> B[Leader]\n  B --> C[Follower]\n'
 REPLY = 'Roles:\n\n```mermaid\n' + BAD + '```\n\nAnd the flow:\n\n```mermaid\n' + GOOD + '```\n'
 FAKE = "window.__asked=0;window.fakeLLM={use:async(n)=>n!=='sample'?null:async(input,opts)=>{window.__asked++;const out=%s;opts.onText&&opts.onText({text:out});return {text:out,truncated:false}}};" % json.dumps(REPLY)
@@ -29,7 +31,7 @@ async def main():
         async def route(r):
             u = r.request.url
             for k, v in MAP.items():
-                if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript')
+                if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript', headers=CORS)
             if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
             await r.continue_()
         await pg.route('**/*', route); await pg.add_init_script(FAKE)

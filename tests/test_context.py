@@ -15,6 +15,7 @@ Asserts and exits non-zero on the first failure.
 import asyncio, base64, hashlib, json, os, shutil, subprocess, sys, tempfile, time
 from playwright.async_api import async_playwright
 from common import FIX, OUT, launch_args, BOOT_WATCH, booted, replies, settled, saved, soon, frames
+from common import CORS
 from test_server import FAKES, CDN, check, free_port, start, req, chat, wait_port
 
 sha = lambda b: hashlib.sha256(b).hexdigest()
@@ -219,7 +220,7 @@ async def app_checks(tmp, b):
         async def route(r):
             u = r.request.url
             for k, v in CDN.items():
-                if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript')
+                if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript', headers=CORS)
             if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
             await r.continue_()
         await pg.route('**/*', route)

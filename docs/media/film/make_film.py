@@ -40,6 +40,7 @@ straight to composing; delete DIR to capture again). Sub-steps for working on th
     make_film.py capture DIR | cards DIR | compose DIR OUT.mp4 | stills DIR OUTDIR t1 t2 ... | poster DIR OUT.png
 """
 import asyncio, base64, io, json, math, os, shutil, socket, subprocess, sys, tempfile, time, urllib.request
+CORS = {'access-control-allow-origin': '*'}   # the page loads libraries with integrity hashes, which need CORS
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
@@ -232,7 +233,7 @@ async def new_app_page(browser, url, mac=True):
     async def route(r):
         u = r.request.url
         for k, v in MAP.items():
-            if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript')
+            if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript', headers=CORS)
         await r.continue_()
     await pg.route('**/*', route)
     await pg.goto(url); await pg.wait_for_timeout(1500)

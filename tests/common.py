@@ -219,6 +219,9 @@ async def pdf_fitted(pg, timeout=30000):
 
 
 # ---------- the demo site (demo/build.mjs): a built folder served under a path, as GitHub Pages does ----------
+# what a CDN sends with a library: the page loads them with integrity hashes, which need CORS (crossorigin="anonymous")
+CORS = {'access-control-allow-origin': '*'}
+
 SITE_URL = 'http://digress.test/digress/'
 CDN = {   # every library the page loads from a CDN, from node_modules
     'highlight.js/11.9.0/highlight.min.js': '@highlightjs/cdn-assets/highlight.min.js',
@@ -250,7 +253,7 @@ async def goto_site(pg, site, path=''):
                 return await r.fulfill(body=html, content_type='text/html; charset=utf-8')
             return await r.fulfill(path=f, content_type=(mimetypes.guess_type(f)[0] or 'application/octet-stream'))
         for k, v in CDN.items():
-            if u.endswith(k): return await r.fulfill(path=ROOT + v, content_type='application/javascript')
+            if u.endswith(k): return await r.fulfill(path=ROOT + v, content_type='application/javascript', headers=CORS)
         if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
         await r.abort()   # the demo makes no other requests
     await pg.route('**/*', route)

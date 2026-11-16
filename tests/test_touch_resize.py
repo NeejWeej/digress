@@ -3,6 +3,7 @@ narrower than the default phone width, instead of scrolling the page. Asserts an
 import asyncio, sys
 from playwright.async_api import async_playwright
 from common import PAGE, OUT, launch_args, goto_app, booted, answered, saved, frames, calm
+from common import CORS
 from test_pane_zoom import MAP, FAKE
 
 fails = []
@@ -20,7 +21,7 @@ async def main():
         async def route(r):
             u = r.request.url
             for k, v in MAP.items():
-                if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript')
+                if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript', headers=CORS)
             if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
             await r.continue_()
         await pg.route('**/*', route); await pg.add_init_script(FAKE)

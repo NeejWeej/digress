@@ -5,7 +5,7 @@
 //  - Everything else under /api/ (conversations, chat, cards) always goes to the server; the page keeps
 //    its own offline copy of your cards and sends changes once the server is back.
 // Only runs on https or localhost (a browser rule), e.g. Tailscale Serve or 127.0.0.1.
-const CACHE = 'digress-v1';
+const CACHE = 'digress-v2';   // v2: libraries now load with integrity hashes (CORS); v1's opaque copies can't be checked
 const LIBS = /^https:\/\/(cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com)\//;
 
 self.addEventListener('install', () => self.skipWaiting());

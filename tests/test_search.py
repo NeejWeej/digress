@@ -1,6 +1,7 @@
 import asyncio, json
 from playwright.async_api import async_playwright
 from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app, booted, answered, saved, frames, calm, steady, changed, new_conv
+from common import CORS
 
 RES = "document.getElementById('palRes').innerHTML"
 INDEXED = "(()=>{const id=__digress.conv.id;return !!localStorage.getItem('fakesrv:index/'+id)})()"   # the open conversation's search entries are written
@@ -38,7 +39,7 @@ async def main():
         async def route(r):
             u = r.request.url
             for k, v in MAP.items():
-                if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript')
+                if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript', headers=CORS)
             if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
             await r.continue_()
         await pg.route('**/*', route)

@@ -2,6 +2,7 @@ import asyncio, sys, os
 from playwright.async_api import async_playwright
 
 from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app, booted, answered, drawn, frames, changed
+from common import CORS
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -58,7 +59,7 @@ async def main():
             u = r.request.url
             for k, v in MAP.items():
                 if u.endswith(k):
-                    return await r.fulfill(path=v, content_type='application/javascript')
+                    return await r.fulfill(path=v, content_type='application/javascript', headers=CORS)
             if 'fonts.g' in u:
                 return await r.fulfill(body='', content_type='text/css')
             await r.continue_()

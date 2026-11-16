@@ -14,6 +14,7 @@ the new endpoints refuse what they should. Asserts and exits non-zero.
 import asyncio, json, os, re, shutil, subprocess, sys, tempfile, time
 from playwright.async_api import async_playwright
 from common import FIX, OUT, launch_args, BOOT_WATCH, booted, replies, settled, saved
+from common import CORS
 from test_server import FAKES, CDN, free_port, start, req, wait_port
 
 fails = []
@@ -92,7 +93,7 @@ async def main():
                 async def route(r):
                     u = r.request.url
                     for k, v in CDN.items():
-                        if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript')
+                        if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript', headers=CORS)
                     if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
                     await r.continue_()
                 await pg.route('**/*', route)

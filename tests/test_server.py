@@ -6,6 +6,7 @@ then drives the real app in a browser against it. Exits non-zero on the first fa
 import asyncio, json, os, urllib.parse, shutil, socket, subprocess, sys, tempfile, threading, time, urllib.request, urllib.error, http.client, http.server
 from playwright.async_api import async_playwright
 from common import ROOT, REPO, FIX, OUT, launch_args, BOOT_WATCH, booted, settled, saved, soon, poll
+from common import CORS
 
 FAKES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fakes')
 SERVER = os.path.join(REPO, 'server', 'server.mjs')
@@ -97,7 +98,7 @@ async def browser_checks(base, data_dir):
             async def route(r):
                 u = r.request.url
                 for k, v in CDN.items():
-                    if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript')
+                    if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript', headers=CORS)
                 if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
                 await r.continue_()
             await pg.route('**/*', route)
@@ -205,6 +206,8 @@ def fake_site():
                 '/paper.pdf': (200, 'application/pdf', pdf), '/sneaky': (200, 'text/html', pdf),   # a PDF however it's labelled
                 '/notes.md': (200, 'text/markdown; charset=utf-8', '# Notes\n\nSoftmax turns scores into weights.'.encode()),
                 '/page.html': (200, 'text/html', b'<!doctype html><html><body>hi</body></html>'),
+                # labelled as nothing in particular, so the server has to look at it; opens with ~2 kB of comments
+                '/comments': (200, 'application/octet-stream', b'<!---->' * 290 + b'<html><body>hi</body></html>'),
                 '/app.exe': (200, 'application/octet-stream', b'MZ\x00\x01'),
                 '/big.pdf': (200, 'application/pdf', b'%PDF-1.4\n' + b'0' * (2 * 1024 * 1024)),
                 '/to-pdf': (302, f'/paper.pdf', b''),
@@ -242,6 +245,8 @@ def doc_link_checks(base, site):
     r = urllib.request.urlopen(urllib.request.Request(base + '/api/fetch-doc', data=json.dumps({'url': f'http://{site}/page.html', 'confirm': ok}).encode(), headers={'content-type': 'application/json'}))
     check(r.status == 200 and r.headers['x-doc-kind'] == 'html' and r.headers['content-type'].startswith('text/plain') and r.read().startswith(b'<!doctype html>'),
           'a web page comes back as plain text (never served as a page) for the browser to pull the article out of')
+    t0 = time.time(); st, body = fetch(f'http://{site}/comments', ok); took = time.time() - t0
+    check(st == 200 and body.endswith(b'</html>') and took < 3, f'a page that opens with hundreds of comments is still read as a page, at once (it used to hang the server): {took:.2f} s')
     st, body = fetch(f'http://{site}/notes.md', ok)
     check(st == 200 and body.startswith(b'# Notes'), 'a Markdown file downloads as text')
     for path, code, words, what in [

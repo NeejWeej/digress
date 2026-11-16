@@ -8,6 +8,7 @@ import asyncio, json, os, shutil, sys, tempfile
 from playwright.async_api import async_playwright
 sys.path.insert(0, os.path.dirname(__file__))
 from common import OUT, launch_args, BOOT_WATCH, booted, settled, replies, saved, soon, frames, steady, caught_up, CAM
+from common import CORS
 from test_server import start, req, CDN, FAKES
 
 fails = []
@@ -28,7 +29,7 @@ async def main():
                 async def route(r):
                     u = r.request.url
                     for k, v in CDN.items():
-                        if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript')
+                        if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript', headers=CORS)
                     if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
                     await r.continue_()
                 await pg.route('**/*', route); await pg.add_init_script(BOOT_WATCH); await pg.goto(base + '/'); await booted(pg)

@@ -19,6 +19,7 @@ What each shows:
 - canvas.png    the same conversation, with a branch of a branch, as cards on the canvas (dark theme)
 """
 import asyncio, base64, json, os, shutil, socket, subprocess, sys, tempfile, time, urllib.request, io
+CORS = {'access-control-allow-origin': '*'}   # the page loads libraries with integrity hashes, which need CORS
 
 from playwright.async_api import async_playwright
 
@@ -413,7 +414,7 @@ async def main():
             async def route(r):
                 u = r.request.url
                 for k, v in MAP.items():
-                    if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript')
+                    if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript', headers=CORS)
                 await r.continue_()
             await pg.route('**/*', route)
             await pg.goto(url); await pg.wait_for_timeout(1500)
