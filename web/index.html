@@ -1611,7 +1611,7 @@ document.addEventListener('keydown',e=>{
 });
 $('#reviewBtn').addEventListener('click',()=>openCards('all'));
 
-/* ---------- context for Claude ---------- */
+/* ---------- context for the model ---------- */
 function branchPrefix(t){
   const quote=(x)=>'> '+String(x||'').replace(/\n+/g,'\n> ');
   if(isDocBranch(t))return PROMPTS.branch.docPassage(quote(t.anchorText),conv.doc&&conv.doc.kind==='pdf'?t.anchorPage+1:0);
@@ -1738,7 +1738,7 @@ async function generate(m,ctx,lockTid,o={}){
     if(o.resume)r=await io.llm.complete({resume:true,run,signal:ctrl.signal,onText,onSearch:(x)=>{keepSearch(x);queueStream(m.id)},onTool,tools});
     else{
       const rc=await resolveContext(ctx,!!io.llm.supportsImages);
-      if(rc.skipped)toast('This connection can’t send images, so Claude only gets a note where each image was.');
+      if(rc.skipped)toast('This connection can’t send images, so the AI only gets a note where each image was.');
       r=await io.llm.complete({system:rc.system,messages:rc.messages,model:settings.model,effort:settings.effort,web,signal:ctrl.signal,run,save:{conv:conv.id,msg:m.id},
         onText,onSearch:(x)=>{keepSearch(x);queueStream(m.id)},onTool,tools});
     }
@@ -3378,7 +3378,7 @@ async function buildPdfPages(el,wrap){
   for(let i=1;i<=pdf.numPages;i++){
     const pg=document.createElement('div');pg.className='dpage';pg.dataset.page=i;
     pg.style.width=Math.round(v1.width*docView.scale)+'px';pg.style.height=Math.round(v1.height*docView.scale)+'px';
-    pg.innerHTML=`<div class="pnum">${i}</div><button class="pask" data-pask="${i}" title="Open a side branch about this whole page; Claude gets an image of it">Ask about p. ${i}</button>`;wrap.appendChild(pg);docView.obs.observe(pg);
+    pg.innerHTML=`<div class="pnum">${i}</div><button class="pask" data-pask="${i}" title="Open a side branch about this whole page; the AI gets an image of it">Ask about p. ${i}</button>`;wrap.appendChild(pg);docView.obs.observe(pg);
   }
   placeMark();setTimeout(offerMark,300);
 }
@@ -4769,7 +4769,7 @@ function checkSelection(){
     const s=charPos(b1,rng.startContainer,rng.startOffset),e2=charPos(b1,rng.endContainer,rng.endOffset);
     popState={mid,text:txt.slice(0,1500),range:s>=0&&e2>s?{s,e:e2}:null};
   }
-  $('#popQ').textContent=raw.slice(0,1500);$('#popHint').textContent='Opens a side branch. Claude sees the whole conversation so far, with this passage marked as your focus.';popIn.value='';popIn.style.height='';
+  $('#popQ').textContent=raw.slice(0,1500);$('#popHint').textContent='Opens a side branch. The AI sees the whole conversation so far, with this passage marked as your focus.';popIn.value='';popIn.style.height='';
   pop.style.setProperty('--c',PALETTE[conv.nextColor%PALETTE.length]);
   const r=sel.getRangeAt(0).getBoundingClientRect();
   showPopAt(r);
@@ -4781,14 +4781,14 @@ function showPopAt(r){
   let top=r.bottom+10;if(top+ph>innerHeight-8)top=Math.max(8,r.top-ph-10);
   pop.style.left=left+'px';pop.style.top=Math.max(8,top)+'px';
 }
-// the same popover, for a snip or a whole page: shows the image Claude will get
+// the same popover, for a snip or a whole page: shows the image the AI will get
 function openImagePop(pageNo,reg,anchorEl){
   const whole=isWholePage(reg),txt=whole?'':regionText(pageNo,reg);
   const label=whole?`Page ${pageNo}`:`Snip from p. ${pageNo}`+(txt?`: ${trunc(txt,60)}`:'');
   popState={doc:true,page:pageNo-1,region:reg,regionText:txt,text:label};
   const q=$('#popQ');q.innerHTML='<img class="pimg" alt=""><div class="pimgcap"></div>';q.querySelector('.pimgcap').textContent=whole?`The whole of page ${pageNo}`:`From page ${pageNo}`+(txt?` · “${trunc(txt,80)}”`:'');
   const im=q.querySelector('img');im.alt=label;
-  $('#popHint').textContent='Opens a side branch. Claude gets this image along with the conversation so far.';
+  $('#popHint').textContent='Opens a side branch. The AI gets this image along with the conversation so far.';
   popIn.value='';popIn.style.height='';
   pop.style.setProperty('--c',PALETTE[conv.nextColor%PALETTE.length]);
   imageURL({region:{page:pageNo,...reg}}).then(u=>{im.src=u;if(pop.classList.contains('show'))requestAnimationFrame(()=>showPopAt(anchorEl.getBoundingClientRect()))}).catch(e=>{q.querySelector('.pimgcap').textContent='The image couldn’t be drawn: '+((e&&e.message)||e)});

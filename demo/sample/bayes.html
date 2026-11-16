@@ -1,0 +1,88 @@
+<!doctype html>
+<!-- The demo's sample reading. demo/make_sample.py prints it to demo/sample.pdf with Chromium; written for the
+     demo, so there are no rights to worry about. If you change the text, rerun make_sample.py: the demo's
+     prepared replies (demo/replies.js) quote it. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bayes’ Rule and the Base-Rate Fallacy</title>
+<meta name="author" content="Digress demo">
+<style>
+  @page { size: Letter; margin: 0.75in 0.9in; }
+  body { font: 10.5pt/1.45 "Georgia", "DejaVu Serif", serif; color: #111; font-variant-ligatures: none; font-feature-settings: "liga" 0, "clig" 0; }  /* no ligatures: pdf.js would split “ff” into “f f” */
+  h1 { font-size: 20pt; margin: 0 0 4pt; line-height: 1.2; }
+  .sub { color: #555; font-style: italic; margin: 0 0 18pt; }
+  h2 { font-size: 13pt; margin: 14pt 0 4pt; break-after: avoid; }
+  p { margin: 0 0 8pt; text-align: justify; }
+  .eq { text-align: center; margin: 10pt 0; font-size: 12pt; }
+  .fig { text-align: center; margin: 12pt 0 6pt; }
+  .cap { text-align: center; font-size: 9.5pt; color: #444; margin: 0 0 10pt; }
+  .box { border: 1px solid #999; padding: 6pt 10pt; margin: 10pt 0; background: #f6f6f6; }
+  .fig, .box { break-inside: avoid; }
+  ul { margin: 0 0 8pt 16pt; padding: 0; } li { margin: 0 0 3pt; }
+</style>
+</head>
+<body>
+<h1>Bayes’ Rule and the Base-Rate Fallacy</h1>
+<p class="sub">A short reading: why a positive test usually means less than it seems to</p>
+
+<h2>1 A puzzle</h2>
+<p>A disease affects 1 in 100 people. A test for it catches 90% of the people who have it: its sensitivity is 90%. It also wrongly flags 9% of healthy people: its false-positive rate is 9%. You take the test and it comes back positive. How likely is it that you have the disease?</p>
+<p>Most people, including many doctors when this question is put to them, answer somewhere around 90%. The test is “90% accurate”, after all. The right answer is about 9%. Of everyone who tests positive, only about one in eleven is actually ill.</p>
+<p>The gap between those two numbers is the subject of this reading. It is not a trick of arithmetic. It comes from ignoring how rare the disease was to begin with, the base rate, and it shows up anywhere we reason from evidence back to causes.</p>
+
+<h2>2 Counting instead of calculating</h2>
+<p>The easiest way to see the answer is to stop thinking in percentages and count people. Imagine 1,000 people taking the test.</p>
+<ul>
+  <li>About 10 of them have the disease (1 in 100). The test catches 90% of those, so 9 test positive.</li>
+  <li>The other 990 are healthy. The test wrongly flags 9% of them, so about 89 test positive anyway.</li>
+</ul>
+<p>That makes 98 positive results, and only 9 of them belong to people who are ill: 9 out of 98 is about 9.2%. The healthy group is so much larger that even a small error rate in it produces far more false alarms than the sick group produces true ones. Psychologists call counts like these natural frequencies, and people get this kind of question right much more often when it is asked this way.</p>
+
+<div class="fig">
+<svg width="430" height="200" viewBox="0 0 430 200" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif" font-size="12">
+  <rect x="160" y="8" width="110" height="30" rx="4" fill="#fff" stroke="#333"/><text x="215" y="27" text-anchor="middle">1,000 people</text>
+  <line x1="200" y1="38" x2="95" y2="78" stroke="#333"/><line x1="230" y1="38" x2="335" y2="78" stroke="#333"/>
+  <rect x="40" y="78" width="110" height="30" rx="4" fill="#fde2e2" stroke="#333"/><text x="95" y="97" text-anchor="middle">10 ill</text>
+  <rect x="280" y="78" width="110" height="30" rx="4" fill="#e2effd" stroke="#333"/><text x="335" y="97" text-anchor="middle">990 healthy</text>
+  <line x1="80" y1="108" x2="45" y2="148" stroke="#333"/><line x1="110" y1="108" x2="145" y2="148" stroke="#333"/>
+  <line x1="320" y1="108" x2="285" y2="148" stroke="#333"/><line x1="350" y1="108" x2="385" y2="148" stroke="#333"/>
+  <rect x="5" y="148" width="80" height="40" rx="4" fill="#fff" stroke="#c00" stroke-width="2"/><text x="45" y="165" text-anchor="middle">9</text><text x="45" y="180" text-anchor="middle" font-size="10">positive</text>
+  <rect x="105" y="148" width="80" height="40" rx="4" fill="#fff" stroke="#333"/><text x="145" y="165" text-anchor="middle">1</text><text x="145" y="180" text-anchor="middle" font-size="10">negative</text>
+  <rect x="245" y="148" width="80" height="40" rx="4" fill="#fff" stroke="#c00" stroke-width="2"/><text x="285" y="165" text-anchor="middle">89</text><text x="285" y="180" text-anchor="middle" font-size="10">positive</text>
+  <rect x="345" y="148" width="80" height="40" rx="4" fill="#fff" stroke="#333"/><text x="385" y="165" text-anchor="middle">901</text><text x="385" y="180" text-anchor="middle" font-size="10">negative</text>
+</svg>
+<p class="cap">Figure 1. The same 1,000 people, split first by whether they are ill and then by their test result. The 98 positives are outlined in red.</p>
+</div>
+
+<h2>3 The rule itself</h2>
+<p>Bayes’ rule is the general form of the counting we just did. Write H for the hypothesis (you have the disease) and E for the evidence (a positive test). Then the probability of the hypothesis given the evidence is</p>
+<p class="eq">P(H | E) = P(E | H) · P(H) / P(E)</p>
+<p>and the probability of the evidence, P(E), adds up every way it can happen:</p>
+<p class="eq">P(E) = P(E | H) · P(H) + P(E | not H) · P(not H)</p>
+<p>Each piece has a name. P(H) is the prior: how likely the hypothesis was before the evidence, here the base rate of 1%. P(E | H) is the likelihood: how likely the evidence is if the hypothesis is true, here the sensitivity of 90%. P(H | E) is the posterior: what we should believe afterwards. Putting in the numbers, P(E) = 0.9 × 0.01 + 0.09 × 0.99 ≈ 0.098, and P(H | E) = 0.009 / 0.098 ≈ 0.092, the same 9.2% we counted.</p>
+
+<h2>4 The odds form</h2>
+<p>There is a shorter way to write the same rule that is easier to do in your head. Instead of probabilities, use odds: the chance something is true against the chance it is false.</p>
+<p class="eq">posterior odds = prior odds × likelihood ratio</p>
+<p>The likelihood ratio says how much more often the evidence turns up when the hypothesis is true than when it is false. For a positive test it is the sensitivity divided by the false-positive rate: 0.90 / 0.09 = 10. A positive result multiplies the odds by 10.</p>
+<p>The prior odds of being ill were 1 to 99. Multiplied by 10, they become 10 to 99, which is a probability of 10 / 109, or about 9.2% again. The odds form also makes it easy to take in more evidence: each independent piece multiplies the odds by its own likelihood ratio. A second, independent positive test takes 10 to 99 to 100 to 99, just over 50%.</p>
+
+<div class="box"><p style="margin:0"><b>Rule of thumb.</b> A test can only move you as far as its likelihood ratio allows. When the prior is small, even strong evidence leaves the posterior small. A rare condition needs either a very high likelihood ratio or several independent pieces of evidence before it becomes likely.</p></div>
+
+<h2>5 Why intuition gets this wrong</h2>
+<p>Two mistakes feed each other. The first is base-rate neglect: when we are given a vivid, specific piece of evidence, such as a test result, we tend to ignore the dull background fact of how common the thing was in the first place. The second is confusing the inverse: treating P(E | H), the chance of a positive test if you are ill, as if it were P(H | E), the chance you are ill if you test positive. The 90% in the puzzle is the first; the question asks for the second.</p>
+<p>In a courtroom the same confusion is called the prosecutor’s fallacy. “The chance of this match if the defendant were innocent is one in a million” is not the same as “the chance the defendant is innocent is one in a million”, especially when millions of people could have been tested.</p>
+
+<h2>6 Where it shows up</h2>
+<ul>
+  <li><b>Medical screening.</b> Screening a whole population for a rare condition produces many false positives, which is why a positive screen is usually followed by a second, more specific test rather than a diagnosis.</li>
+  <li><b>Spam filters.</b> A naive Bayes filter starts from the base rate of spam and multiplies in a likelihood ratio for each word in the message.</li>
+  <li><b>Experiments.</b> If most ideas you test don’t work, a “significant” result for a new idea is less convincing than its p-value suggests, for exactly the reason in section 2.</li>
+  <li><b>Debugging.</b> When a test fails right after your change, the prior that your change caused it is high. When a test that has been flaky for weeks fails, the same failure says much less.</li>
+</ul>
+
+<h2>7 Summary</h2>
+<p>Evidence does not tell you what to believe on its own; it tells you how much to change what you believed before. Bayes’ rule makes that precise: the posterior is the prior, reweighted by how much more likely the evidence is under one explanation than the other. When the prior is small, start by counting: imagine a thousand cases, split them up, and read the answer off the counts.</p>
+</body>
+</html>

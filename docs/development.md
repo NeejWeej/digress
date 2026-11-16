@@ -20,6 +20,18 @@ npm test                                 # or: python3 tests/run_all.py canvas
 
 `tests/test_server.py` runs the server against fake stand-ins for Claude Code, the Anthropic API and OpenAI (`tests/fakes/`), so it needs none of them. The other tests drive the UI from the file directly, with the CDN libraries served from `node_modules`. Screenshots and logs land in `tests/.artifacts/`. The test files run side by side (`-j N` to choose how many, `-j 1` for one at a time). Set `CHROME_PATH` to use your own Chrome.
 
+GitHub Actions runs the same tests on every push and pull request (`.github/workflows/tests.yml`); a failed run keeps `tests/.artifacts/` for a week.
+
+## The demo site
+
+```sh
+node demo/build.mjs                      # builds _site/: the real page plus an in-browser stand-in for the server
+python3 -m http.server -d _site 8000     # then open http://localhost:8000
+.venv/bin/python demo/make_sample.py     # remake the sample PDF and conversation (after changing either)
+```
+
+After Tests passes on main, `.github/workflows/demo.yml` builds it and publishes it to GitHub Pages, so the demo always matches the code. It has no model: the sample reading's suggested questions get replies written in `demo/replies.js`, and anything else gets the closest passages of the document. `tests/test_demo.py` checks it.
+
 ## README screenshots and GIF
 
 ```sh

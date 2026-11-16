@@ -216,3 +216,42 @@ async def pdf_fitted(pg, timeout=30000):
     await pg.wait_for_function("(()=>{const pb=document.querySelector('.pane[data-tid=doc] .pb'),d=pb&&pb.querySelector('.dpage');"
                                "return !!d&&Math.abs(d.offsetWidth-Math.max(260,pb.clientWidth-46))<=1})()", timeout=timeout)
     await pdf_drawn(pg, timeout)
+
+
+# ---------- the demo site (demo/build.mjs): a built folder served under a path, as GitHub Pages does ----------
+SITE_URL = 'http://digress.test/digress/'
+CDN = {   # every library the page loads from a CDN, from node_modules
+    'highlight.js/11.9.0/highlight.min.js': '@highlightjs/cdn-assets/highlight.min.js',
+    'pdf.js/3.11.174/pdf.min.js': 'pdfjs-dist/build/pdf.min.js', 'pdf.js/3.11.174/pdf.worker.min.js': 'pdfjs-dist/build/pdf.worker.min.js',
+    'purify.min.js': 'dompurify/dist/purify.min.js', 'marked.min.js': 'marked/marked.min.js', 'tex-svg-full.js': 'mathjax/es5/tex-svg-full.js',
+    'mermaid.min.js': 'mermaid/dist/mermaid.min.js', 'minisearch@7.1.0/dist/umd/index.js': 'minisearch/dist/umd/index.js',
+    'Readability.js': '@mozilla/readability/Readability.js', 'turndown@7.2.0/dist/turndown.js': 'turndown/dist/turndown.js',
+    'turndown-plugin-gfm.js': 'turndown-plugin-gfm/dist/turndown-plugin-gfm.js',
+}
+
+
+def build_site(out):
+    """Build the demo site into `out` with node demo/build.mjs."""
+    import subprocess
+    subprocess.run(['node', os.path.join(REPO, 'demo', 'build.mjs'), out], check=True, capture_output=True)
+
+
+async def goto_site(pg, site, path=''):
+    """Open the built demo site in `site` at SITE_URL + path, with CDN libraries from node_modules."""
+    import mimetypes
+    async def route(r):
+        u = r.request.url.split('#')[0].split('?')[0]
+        if u.startswith(SITE_URL):
+            f = os.path.join(site, u[len(SITE_URL):] or 'index.html')
+            if os.path.isdir(f): f = os.path.join(f, 'index.html')
+            if not os.path.isfile(f): return await r.fulfill(status=404, body='not found')
+            if f.endswith('index.html'):   # BOOT_WATCH after demo.js, so it sees the requests demo.js answers
+                html = open(f, encoding='utf-8').read().replace('<script src="demo/demo.js"></script>', '<script src="demo/demo.js"></script><script>' + BOOT_WATCH + '</script>', 1)
+                return await r.fulfill(body=html, content_type='text/html; charset=utf-8')
+            return await r.fulfill(path=f, content_type=(mimetypes.guess_type(f)[0] or 'application/octet-stream'))
+        for k, v in CDN.items():
+            if u.endswith(k): return await r.fulfill(path=ROOT + v, content_type='application/javascript')
+        if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
+        await r.abort()   # the demo makes no other requests
+    await pg.route('**/*', route)
+    await pg.goto(SITE_URL + path)

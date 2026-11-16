@@ -27,12 +27,10 @@ import * as chatgpt from './chatgpt.mjs';
 import { fetchDocument, WARNINGS } from './fetchdoc.mjs';
 import { normalizeMessages, toAnthropic, toClaudeCodeBlocks, IMAGE_TYPES, isImage } from './content.mjs';
 import { createRun, getRun, DETACH_MS } from './runs.mjs';
+import { GUIDE_DOCS } from './guide.mjs';
 import { openSession, deliverResult, handleMcp, toolsForAnthropic, resultForAnthropic, CLAUDE_CODE_TOOL_NAMES, MAX_TOOL_ROUNDS } from './doctools.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-// what "Ask about Digress" knows (GET /api/guide): what the app does, then how it's set up, then how it works inside
-const GUIDE_DOCS = [['README.md', 'What Digress does (README)'], ['docs/setup.md', 'Setting it up'], ['docs/remote-access.md', 'Using it from your phone and other devices'],
-  ['docs/flashcards.md', 'Flashcards'], ['docs/development.md', 'Developing Digress'], ['AGENTS.md', 'How it works inside (notes for developers)'], ['docs/future.md', 'Ideas that are NOT built yet']];
 
 // ---- config ---------------------------------------------------------------
 function loadDotEnv(file) {

@@ -4,6 +4,8 @@
 
 https://github.com/user-attachments/assets/4435b865-4ed3-46e9-b086-07de01d6515c
 
+**[Try the demo](https://neejweej.github.io/digress/)** in your browser, nothing to install. It's the real app with a sample reading and conversation, but no model behind it: the sample's replies were written in advance, other questions get the closest passages of the document, and everything you do stays in your browser. To ask real questions, [set it up](docs/setup.md) with your Claude or ChatGPT account.
+
 
 ## Why branch?
 
