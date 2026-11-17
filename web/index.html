@@ -251,6 +251,12 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .help .chev{display:inline-flex;transition:transform .15s;color:var(--faint)}
 .help[open] .chev{transform:rotate(90deg)}
 .help ul{margin:6px 0 0;padding-left:16px}
+.help .hkhead{margin:12px 0 4px;font-weight:600;color:var(--ink)}
+.help .keys{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:0 0 4px}
+.help .keys dt{font:500 11.5px var(--mono,ui-monospace,monospace);color:var(--ink);white-space:nowrap}
+.help .keys dd{margin:0}
+.help .keys .ksec{grid-column:1/-1;font:600 12px var(--sans);color:var(--faint);margin-top:6px}
+.help .keys .ksec+dd{display:none}
 .help li{margin:0 0 6px}
 
 .stage{position:relative;min-width:0;min-height:0}
@@ -856,9 +862,9 @@ a.pref:hover{border-bottom-style:solid}
     <button class="ib" id="zenB" title="Zen: hide everything but the panes, for reading (⌘. / Ctrl+.)" aria-pressed="false"><b class="mlbl">Zen</b></button>
     <button class="ib" id="themeB" title="Theme" aria-haspopup="true" aria-expanded="false"><b class="mlbl">Theme</b></button>
     <div class="seg" id="viewSeg">
-      <button data-v="cols" title="Show threads as panes side by side"><span></span><b class="lbl" style="font-weight:inherit">Columns</b></button>
-      <button data-v="rows" title="Show threads as panes stacked top to bottom"><span></span><b class="lbl" style="font-weight:inherit">Rows</b></button>
-      <button data-v="canvas" title="See the whole conversation tree as cards on a canvas"><span></span><b class="lbl" style="font-weight:inherit">Canvas</b></button>
+      <button data-v="cols" title="Show threads as panes side by side (⌘⇧' / Ctrl+Shift+' switches Columns and Rows)"><span></span><b class="lbl" style="font-weight:inherit">Columns</b></button>
+      <button data-v="rows" title="Show threads as panes stacked top to bottom (⌘⇧' / Ctrl+Shift+' switches Columns and Rows)"><span></span><b class="lbl" style="font-weight:inherit">Rows</b></button>
+      <button data-v="canvas" title="See the whole conversation tree as cards on a canvas (⌘' / Ctrl+' goes there and back)"><span></span><b class="lbl" style="font-weight:inherit">Canvas</b></button>
     </div>
     <button class="ib" id="moreB" title="More: the settings that don’t fit up here" aria-haspopup="true" aria-expanded="false" style="display:none"></button>
   </div>
@@ -882,12 +888,31 @@ a.pref:hover{border-bottom-style:solid}
         <li>Highlight any text in a reply and ask about it. The answer opens in a new pane next to the one it came from.</li>
         <li>Numbered markers in the text show where each branch starts. Click one to open it.</li>
         <li>In a branch, <b>Back</b> returns you to the exact spot it came from, and <b>Takeaway</b> adds a short summary to the parent.</li>
-        <li><b><span class="kmod">⌘</span>B</b> shows or hides this sidebar.</li>
-        <li><b><span class="kmod">⌘</span>.</b> is Zen: just the panes, for reading. Press it again, or the tab at the top, to come back.</li>
-        <li><b><span class="kmod">⌘</span>K</b> searches everything: questions, answers, highlights, takeaways and documents. Typos are fine.</li>
-        <li>Collapse any pane to a thin strip and click the strip to expand it again. <b>Focus</b> collapses everything else.</li>
-        <li><b>Canvas</b>: drag the background to pan and scroll to zoom; drag a card by its title to move it, or to an edge to dock it. <b>Alt</b>+scroll zooms one card, <b>Space</b> reads the selected card full screen.</li>
+        <li><b>Search</b> finds everything: questions, answers, highlights, takeaways and documents. Typos are fine.</li>
+        <li><b>Zen</b> is just the panes, for reading. The tab at the top brings the rest back.</li>
+        <li>Collapse any pane to a thin strip and click the strip to expand it again (drag a strip to move it). <b>Focus</b> collapses everything else.</li>
+        <li><b>Canvas</b>: drag the background to pan and scroll to zoom; drag a card by its title to move it, or to an edge to dock it.</li>
       </ul>
+      <div class="hkhead">Keyboard shortcuts</div>
+      <dl class="keys">
+        <dt><span class="kmod">⌘</span>K</dt><dd>Search</dd>
+        <dt><span class="kmod">⌘</span>B</dt><dd>Show or hide the sidebar</dd>
+        <dt><span class="kmod">⌘</span>.</dt><dd>Zen</dd>
+        <dt><span class="kmod">⌘</span>'</dt><dd>Canvas, or back to the panes</dd>
+        <dt><span class="kmod">⌘</span><span class="kshift">⇧</span>'</dt><dd>Columns or Rows</dd>
+        <dt>Enter</dt><dd>Send (<span class="kshift">⇧</span>Enter: a new line)</dd>
+        <dt>Esc</dt><dd>Close the question box; leave Focus</dd>
+        <dt class="ksec">In search</dt><dd></dd>
+        <dt>↑ ↓ Enter</dt><dd>Pick and open a result</dd>
+        <dt><span class="kmod">⌘</span>Enter</dt><dd>Open it, keep searching</dd>
+        <dt>Tab</dt><dd>Everywhere / this conversation / this pane</dd>
+        <dt class="ksec">On the canvas</dt><dd></dd>
+        <dt>Space</dt><dd>Read the selected card full screen (again or Esc: back)</dd>
+        <dt><span class="kmod">⌘</span><span class="kalt">⌥</span>← →</dt><dd>Dock it left or right</dd>
+        <dt><span class="kmod">⌘</span><span class="kalt">⌥</span>↑ ↓</dt><dd>Full screen; undock</dd>
+        <dt><span class="kalt">⌥</span>scroll</dt><dd>Zoom one card</dd>
+        <dt><span class="kmod">⌘</span>click</dt><dd>A conversation in the sidebar: open it in a new window</dd>
+      </dl>
     </details>
   </aside>
   <main class="stage" id="stage">
@@ -4454,8 +4479,14 @@ async function goBack(){
   document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&e.key==='.'){e.preventDefault();setZen(!zen)}},true);
   document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='b'){e.preventDefault();$('#tSide').click()}});
   document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='k'){e.preventDefault();if($('#pal').classList.contains('show'))closePalette();else openPalette('')}},true);
+  // ⌘' / Ctrl+': the canvas, or back to the panes (Columns or Rows, whichever you had); with Shift: Columns ⇄ Rows.
+  // e.code, so it's the same key with or without Shift on any layout. Works while typing, like the others.
+  document.addEventListener('keydown',e=>{if(!conv||!(e.metaKey||e.ctrlKey)||e.altKey||(e.code!=='Quote'&&e.key!=="'"))return;e.preventDefault();
+    if(e.shiftKey)setView(conv.ui.layout==='rows'?'cols':'rows');else setView(conv.ui.view==='canvas'?conv.ui.layout:'canvas')},true);
   const mac=/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent);
   document.querySelectorAll('.kmod').forEach(k=>k.textContent=mac?'⌘':'Ctrl+');
+  document.querySelectorAll('.kshift').forEach(k=>k.textContent=mac?'⇧':'Shift+');
+  document.querySelectorAll('.kalt').forEach(k=>k.textContent=mac?'⌥':'Alt+');
 })();
 
 /* ---------- sidebar ---------- */

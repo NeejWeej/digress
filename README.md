@@ -73,6 +73,26 @@ Not sure how something works? The **?** beside *How it works* in the sidebar ope
 
 <kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd> searches every conversation at once: questions, answers, highlights, takeaways and documents. It is a full-text index (BM25) that tolerates typos and takes you to the words it found, highlighted, inside the message or document page. A **Back** chip then returns you to where you were, even in another conversation. Press <kbd>Tab</kbd> in the search box to look only in this conversation or only in one thread, or click the magnifier at the bottom right of a pane to search just that thread. Half remember something but not the words? Choose **Describe it instead** under the results: the model suggests the words you probably used (it gets what you typed and your conversations' titles, never their text), and if that isn't enough you can let it pick from short snippets of the best matches. Pin the conversations and branches you keep coming back to, and archive the rest. Once you have a document conversation, **All · Docs · Chats** above the list shows just one kind. Double-click a title in the sidebar to rename it.
 
+## Keyboard shortcuts
+
+⌘ on a Mac, Ctrl elsewhere. The list is also under **How it works** in the sidebar.
+
+| Keys | What it does |
+| --- | --- |
+| <kbd>⌘K</kbd> | Search (in search: <kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd> open a result, <kbd>⌘Enter</kbd> opens it and keeps searching, <kbd>Tab</kbd> switches everywhere / this conversation / this pane) |
+| <kbd>⌘B</kbd> | Show or hide the sidebar (in Zen too, over the panes) |
+| <kbd>⌘.</kbd> | Zen |
+| <kbd>⌘'</kbd> | Canvas, or back to the panes (Columns or Rows, whichever you had) |
+| <kbd>⌘⇧'</kbd> | Switch Columns and Rows |
+| <kbd>Enter</kbd> / <kbd>⇧Enter</kbd> | Send / a new line |
+| <kbd>Esc</kbd> | Close the question box; leave Focus |
+| <kbd>Space</kbd> | On the canvas: read the selected card full screen (again or <kbd>Esc</kbd>: back) |
+| <kbd>⌘⌥←</kbd> <kbd>⌘⌥→</kbd> <kbd>⌘⌥↑</kbd> <kbd>⌘⌥↓</kbd> | On the canvas: dock the selected card left, right, full screen; undock it |
+| <kbd>⌥</kbd>+scroll | On the canvas: zoom one card |
+| <kbd>⌘</kbd>+click | A conversation in the sidebar: open it in a new window |
+
+The ⌘ shortcuts work while you're typing.
+
 ## Models: Claude and ChatGPT, on the plans you already pay for
 
 Digress needs no API key if you already have a subscription.
