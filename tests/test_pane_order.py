@@ -1,4 +1,4 @@
-"""Reordering panes by dragging their headers (Columns and Rows). A drag needs a few pixels of movement
+"""Reordering panes by dragging their grips, or a collapsed strip itself (Columns and Rows). A drag needs a few pixels of movement
 with a mouse and a press-and-hold on touch, so clicks, header buttons, double-click rename and swiping
 between panes keep working. The order is saved. Asserts and exits non-zero."""
 import asyncio, sys
@@ -73,7 +73,13 @@ async def main():
         # header buttons and rename still work
         await pg.locator('.pane:has(.ph-title:text-is("Why soft?")) [data-act=collapse]').click(); await frames(pg)
         check('header buttons still click', await pg.locator('.pane.rail').count() == 1)
+        before = await order(pg)
+        await drag(pg, pg.locator('.pane.rail'), 0, 0, to=(1580, 300))
+        after = await order(pg)
+        check('a collapsed strip drags too: to the end', after[-1] == 'Why soft?' and after != before, f'{before} -> {after}')
+        check('…and stays collapsed', await pg.locator('.pane.rail').count() == 1 and await pg.locator('.pdrag').count() == 0)
         await pg.locator('.pane.rail').click(); await frames(pg)
+        check('a click on a strip still expands it', await pg.locator('.pane.rail').count() == 0)
         t = pg.locator('.pane:has(.ph-title:text-is("Why the root?")) .ph-title')
         await t.dblclick(); await pg.keyboard.type('Renamed'); await pg.keyboard.press('Enter'); await frames(pg)
         check('double-click still renames a branch', 'Renamed' in await order(pg), str(await order(pg)))
@@ -97,6 +103,11 @@ async def main():
         await drag(pg, pg.locator('#panes>.pane').first.locator('.pgrip'), 0, 700)
         after = await order(pg)
         check('in Rows, dragging a grip down moves the pane down', after != before and after.index(before[0]) > 0, f'{before} -> {after}')
+        await pg.locator('#panes>.pane').first.locator('[data-act=collapse]').click(); await frames(pg)
+        before = await order(pg)
+        await drag(pg, pg.locator('.pane.rail'), 0, 700)
+        after = await order(pg)
+        check('in Rows, a collapsed strip drags down too', after != before and after.index(before[0]) > 0 and await pg.locator('.pane.rail').count() == 1, f'{before} -> {after}')
         check('no page errors', not errs, '; '.join(errs[:3]))
         await pg.close()
 

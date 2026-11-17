@@ -1,6 +1,7 @@
 """Zen: only the panes, for reading.
   - The Zen button (or ⌘/Ctrl+., even while typing) hides the top bar, sidebar and wires; the panes take the room.
   - Selecting text and branching works as usual in Zen; the branch opens beside it.
+  - The sidebar still comes out, over the panes: ⌘/Ctrl+B or the tab at the left edge; a click outside or Esc puts it away.
   - The tab at the top of the screen, or ⌘/Ctrl+. again, brings everything back.
   - It's per window and survives a reload; on a phone the Zen button is in the ⋯ menu.
 Asserts and exits non-zero."""
@@ -63,6 +64,22 @@ async def main():
         await frames(pg)
         check('branching from a selection works in Zen: the branch opens beside it', await pg.locator('#panes > .pane').count() == 2 and await pg.evaluate("document.querySelector('#app').classList.contains('zen')"))
         await pg.screenshot(path=OUT + '/zen_branch.png')
+
+        # the sidebar still comes out in Zen: ⌘/Ctrl+B or the tab at the left edge, over the panes
+        check('in Zen, a tab at the left edge offers the sidebar', await shown(pg, '#zenS'))
+        await pg.keyboard.press('ControlOrMeta+b'); await frames(pg)
+        check('⌘/Ctrl+B opens the sidebar in Zen', await shown(pg, '#side') and not await shown(pg, '.top'))
+        sr = await pg.evaluate("(()=>{const s=document.querySelector('#side').getBoundingClientRect();return [s.left,s.top,s.width]})()")
+        check('…over the panes, from the top', sr[0] == 0 and sr[1] < 1 and sr[2] > 150, sr)
+        await pg.screenshot(path=OUT + '/zen_side.png')
+        await pg.mouse.click(1200, 400); await frames(pg)
+        check('…and a click outside it puts it away (still in Zen)', not await shown(pg, '#side') and await shown(pg, '#zenX'))
+        await pg.locator('#zenS').click(); await frames(pg)
+        check('the left tab opens it too', await shown(pg, '#side'))
+        await pg.locator('#side .mnode[data-map=main]').click(); await frames(pg)
+        check('…and its tree works (it stays out while you use it)', await shown(pg, '#side'))
+        await pg.keyboard.press('Escape'); await frames(pg)
+        check('Esc puts it away', not await shown(pg, '#side'))
 
         # ⌘/Ctrl+. while typing leaves and enters
         bta = pg.locator('#panes > .pane').nth(1).locator('textarea'); await bta.focus()
