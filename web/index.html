@@ -269,6 +269,7 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .panes.rows .pane{min-width:0;min-height:340px}
 .pane::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--c);opacity:.9}
 .pane.main::before{opacity:0}
+.pane.cur{border-color:color-mix(in srgb,var(--c) 45%,var(--line2))}   /* the pane ⌘\ and ⌘⇧\ act on (only with 2+ panes) */
 .pane.hl{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,transparent)}
 .ph{display:flex;align-items:center;gap:8px;padding:12px 8px 10px 14px;border-bottom:1px solid var(--line);min-height:52px}
 .ph .dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
@@ -900,6 +901,8 @@ a.pref:hover{border-bottom-style:solid}
         <dt><span class="kmod">⌘</span>.</dt><dd>Zen</dd>
         <dt><span class="kmod">⌘</span>'</dt><dd>Canvas, or back to the panes</dd>
         <dt><span class="kmod">⌘</span><span class="kshift">⇧</span>'</dt><dd>Columns or Rows</dd>
+        <dt><span class="kmod">⌘</span>\</dt><dd>Collapse the pane you’re in, or expand it again</dd>
+        <dt><span class="kmod">⌘</span><span class="kshift">⇧</span>\</dt><dd>Close the pane you’re in (the toast can undo it)</dd>
         <dt>Enter</dt><dd>Send (<span class="kshift">⇧</span>Enter: a new line)</dd>
         <dt>Esc</dt><dd>Close the question box; leave Focus</dd>
         <dt class="ksec">In search</dt><dd></dd>
@@ -908,6 +911,7 @@ a.pref:hover{border-bottom-style:solid}
         <dt>Tab</dt><dd>Everywhere / this conversation / this pane</dd>
         <dt class="ksec">On the canvas</dt><dd></dd>
         <dt>Space</dt><dd>Read the selected card full screen (again or Esc: back)</dd>
+        <dt><span class="kmod">⌘</span>\</dt><dd>Expand the selected card, or shrink it</dd>
         <dt><span class="kmod">⌘</span><span class="kalt">⌥</span>← →</dt><dd>Dock it left or right</dd>
         <dt><span class="kmod">⌘</span><span class="kalt">⌥</span>↑ ↓</dt><dd>Full screen; undock</dd>
         <dt><span class="kalt">⌥</span>scroll</dt><dd>Zoom one card</dd>
@@ -2046,14 +2050,14 @@ function openThread(tid,from){
 }
 // Any pane can close, main and the document included, as long as another stays open. Main thread and the document
 // have rows in the sidebar's Branches that bring them back.
-function closeThread(tid){
+function closeThread(tid,o={}){
   const t=T(tid),ui=conv.ui;if(!ui.open.includes(tid))return;
   if(ui.open.length<2){toast('At least one pane stays open');return}
   const kids=tid==='main'||tid==='doc'?[]:ui.open.filter(x=>isDesc(x,tid));   // open branches under it stay open (each one's crumb reopens this pane)
   ui.open=ui.open.filter(x=>x!==tid);ui.collapsed=ui.collapsed.filter(x=>ui.open.includes(x));
   if(!ui.open.some(x=>!isCollapsed(x)))ui.collapsed=[];   // never leave only strips
   layout();renderMap();save();   // only closes: no scrolling to where it came from (that's Back, in the branch)
-  if(!kids.length)return;
+  if(!kids.length||o.quiet)return;
   const c0=conv,name=(t.title||'branch').length>40?(t.title.slice(0,38)+'…'):(t.title||'branch');
   toast(`Closed “${name}”, ${kids.length} branch${kids.length>1?'es':''} under it still open`,
     {label:'Close them too',fn:()=>{if(conv!==c0)return;const u=conv.ui;u.open=u.open.filter(x=>!kids.includes(x));u.collapsed=u.collapsed.filter(x=>u.open.includes(x));
@@ -2363,7 +2367,7 @@ function paneEl(tid){
   el=document.createElement('section');el.className='pane'+(isMain?' main':'');el.dataset.tid=tid;
   el.innerHTML=`<div class="ph"><span class="pgrip" title="Drag to reorder panes"></span>${isMain?'<span class="dot"></span>':`<span class="sdot" data-resolve="${tid}"></span>`}<div class="ph-main"><div class="ph-title" spellcheck="false"></div><div class="ph-orow"><div class="ph-origin"></div><button class="pox" data-act="oexp" title="Show the whole line"></button></div></div>
     <div class="ph-act"><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button></div>${isMain?'':`<button class="tb" data-act="back" title="Go back to where this branched from">${ic('back')}<span class="tl">Back</span></button><button class="tb" data-act="take" title="Add a short takeaway from this branch to its parent">${ic('take')}<span class="tl">Takeaway</span></button><button class="tb kmk" data-act="mkcards" title="Have the model draft flashcards from this branch into your inbox">${ic('cards')}<span class="tl">Cards</span></button>`}${isMain?`<button class="ib kicon" data-act="cards" title="Flashcards for this conversation">${ic('cards')}</button>`:''}
-    <button class="ib" data-act="pin"></button><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it.">${ic('collapse')}</button><button class="ib" data-act="focus"></button>${isMain?`<button class="ib" data-act="close" title="Close the main thread’s pane. Main thread, under Branches in the sidebar, brings it back.">${ic('x')}</button>`:`<button class="ib dz" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button><button class="ib" data-act="close" title="Close this pane. Branches open under it stay open; the branch stays saved. (Back goes to where it came from.)">${ic('x')}</button>`}</div></div>
+    <button class="ib" data-act="pin"></button><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it. (⌘\\ / Ctrl+\\ for the pane you’re in)">${ic('collapse')}</button><button class="ib" data-act="focus"></button>${isMain?`<button class="ib" data-act="close" title="Close the main thread’s pane. Main thread, under Branches in the sidebar, brings it back. (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`:`<button class="ib dz" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button><button class="ib" data-act="close" title="Close this pane. Branches open under it stay open; the branch stays saved. (Back goes to where it came from.) (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`}</div></div>
     <div class="pb"><div class="msgs"></div></div>
     ${isMain?'':`<div class="tk"><div class="tkb"><span class="tkl">Takeaway to parent</span><input placeholder="Optional: what to focus on" autocomplete="off"><button class="go" title="Generate 2–4 takeaway bullets and add them to the end of the parent thread">Add</button><button class="ib" data-act="take" title="Cancel">${ic('x')}</button></div></div>`}
     <div class="jumpw"><div class="jump"><button class="ib js" data-act="jsearch" title="Search this thread">${ic('search')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button><button class="ib jl" data-act="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib je" data-act="jend" title="Jump to the very bottom">${ic('jend')}</button></div></div>
@@ -2552,7 +2556,7 @@ function layout(){
   while(wrap.children.length>seq.length)wrap.lastChild.remove();
   fresh.forEach(tid=>renderPane(tid,true));
   syncViewSeg();
-  wiresSoon();
+  wiresSoon();markCur();
   if(inDock)placeDocPane();
 }
 /* Reorder panes by dragging the grip at the left of a pane's header, or a collapsed strip itself (Columns / Rows). The drag starts after a
@@ -2698,7 +2702,7 @@ function renderCanvas(){
       (kids.length?`<button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} the ${descendants(t.id).length} branch${descendants(t.id).length===1?'':'es'} below this card">${folded?'+'+descendants(t.id).length:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+kids.length}</button>`:'')+
       `<span class="czoom"><button class="ib" data-cact="zout" title="Make just this card smaller (or Alt+scroll over it)">−</button><span class="zl" data-cact="zedit" title="This card's own zoom. Click to type a zoom level.">100%</span><button class="ib" data-cact="zin" title="Make just this card bigger (or Alt+scroll over it)">+</button></span>`+
       `<button class="ib${docked?' stuck':''}" data-cact="stick" title="${docked?'Stuck to the screen: it stays put while you pan and zoom. Click to drop it onto the canvas where it is.':'Stick to the screen: keep this card in view at reading size while you pan and zoom around it.'}">${ic('pin')}</button>`+
-      (docked?`<button class="ib" data-cact="restore" title="Put it back where it was on the canvas (↓ or Esc)">${ic('unfocus')}</button>`:`<button class="ib" data-cact="exp" title="${exp?'Shrink back to a summary':'Expand to read the full thread here'}">${ic(exp?'unfocus':'focus')}</button>`)+
+      (docked?`<button class="ib" data-cact="restore" title="Put it back where it was on the canvas (↓ or Esc)">${ic('unfocus')}</button>`:`<button class="ib" data-cact="exp" title="${exp?'Shrink back to a summary':'Expand to read the full thread here'} (⌘\\ / Ctrl+\\ for the selected card)">${ic(exp?'unfocus':'focus')}</button>`)+
       `<button class="ib" data-cact="panes" title="Open this thread in the pane view">${ic('cols')}</button>`+
       (t.parent?`<button class="ib dz" data-delb="${t.id}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`:'')+`</div>`+
       (t.anchorText||(t.parent&&t.anchorMsg&&!isDocBranch(t))?'<div class="cq"></div>':'');   // a whole-reply branch has a line too, to jump to its reply
@@ -2915,7 +2919,26 @@ function cvArrive(tid){
   if(!seen)panToCard(n);
   n.classList.remove('flash');void n.offsetWidth;n.classList.add('flash');
 }
-for(const t of ['pointerdown','focusin','wheel'])$('#panes').addEventListener(t,e=>{const p=e.target.closest&&e.target.closest('.pane[data-tid]');if(p&&conv&&!p.classList.contains('rail'))lastPane={cid:conv.id,tid:p.dataset.tid}},{passive:true,capture:true});
+for(const t of ['pointerdown','focusin','wheel'])$('#panes').addEventListener(t,e=>{const p=e.target.closest&&e.target.closest('.pane[data-tid]');if(p&&conv&&(t==='pointerdown'||!p.classList.contains('rail'))){lastPane={cid:conv.id,tid:p.dataset.tid};markCur()}},{passive:true,capture:true});
+// The pane the keyboard acts on (⌘\ collapse, ⌘⇧\ close): the one last clicked, typed in or scrolled. A strip
+// counts, so ⌘\ again expands what it just collapsed. Outlined faintly (.cur) when there's more than one pane.
+function curPane(){
+  if(!conv||conv.ui.view==='canvas')return null;
+  if(lastPane&&lastPane.cid===conv.id&&conv.ui.open.includes(lastPane.tid)&&paneEls.has(lastPane.tid))return lastPane.tid;
+  return focusedPane();
+}
+function markCur(){const c=conv&&conv.ui.view!=='canvas'&&conv.ui.open.length>1?curPane():null;for(const [tid,el] of paneEls)el.classList.toggle('cur',tid===c)}
+// ⌘⇧\: close the current pane; the one after it (or before) becomes current. Undo puts it all back.
+function keyClose(tid){
+  const ui=conv.ui;if(ui.open.length<2){toast('At least one pane stays open');return}
+  const before={open:[...ui.open],collapsed:[...ui.collapsed]},i=ui.open.indexOf(tid),next=ui.open[i+1]||ui.open[i-1];
+  const name=tid==='doc'?'the document':tid==='main'?'the main thread':`“${trunc(T(tid).title||'branch',40)}”`;
+  closeThread(tid,{quiet:true});lastPane={cid:conv.id,tid:next};markCur();
+  const c0=conv;
+  toast(`Closed ${name}.`,{label:'Undo',fn:()=>{if(conv!==c0)return;const u=conv.ui;
+    u.open=before.open.filter(x=>x==='doc'?!!conv.doc:!!T(x));u.collapsed=before.collapsed.filter(x=>u.open.includes(x));
+    lastPane={cid:conv.id,tid};layout();renderMap();revealPane(tid);save();markCur()}});
+}
 let camAnim=0;
 function animateCam(tx,ty){
   const sx=cam.x,sy=cam.y,t0=performance.now(),me=++camAnim;
@@ -3432,7 +3455,7 @@ async function docReady(){if(conv&&conv.doc&&docState)await docState.ready}
 function docPaneEl(){
   const el=document.createElement('section');el.className='pane docpane';el.dataset.tid='doc';
   el.innerHTML=`<div class="ph"><span class="pgrip" title="Drag to reorder panes"></span><span class="docico">${ic('doc')}</span><div class="ph-main"><div class="ph-title"></div><div class="ph-orow"><div class="ph-origin"></div><button class="pox" data-act="oexp" title="Show the whole line"></button></div></div>
-    <div class="ph-act"><button class="ib" data-act="snip" title="Snip: drag a box over part of a page (a figure, a table, an equation) to ask about it. Esc cancels.">${ic('snip')}</button><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button><button class="ib pzf" data-act="zfit">${ic('fit')}</button></div><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it.">${ic('collapse')}</button><button class="ib" data-act="focus"></button><button class="ib" data-act="close" title="Close the document’s pane. Its row at the top of Branches in the sidebar brings it back (so do page links and Show in source).">${ic('x')}</button></div></div>
+    <div class="ph-act"><button class="ib" data-act="snip" title="Snip: drag a box over part of a page (a figure, a table, an equation) to ask about it. Esc cancels.">${ic('snip')}</button><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button><button class="ib pzf" data-act="zfit">${ic('fit')}</button></div><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it. (⌘\\ / Ctrl+\\ for the pane you’re in)">${ic('collapse')}</button><button class="ib" data-act="focus"></button><button class="ib" data-act="close" title="Close the document’s pane. Its row at the top of Branches in the sidebar brings it back (so do page links and Show in source). (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button></div></div>
     <div class="pb"><div class="docwrap"></div></div>
     <div class="jumpw"><div class="jump"><button class="ib js" data-act="jsearch" title="Search this document">${ic('search')}</button><button class="ib jm" data-act="jmark" title="Mark where you got up to">${ic('mark')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button></div></div>
     <div class="rail-label"><span class="docico">${ic('doc')}</span><span class="rl"></span></div>`;
@@ -4483,6 +4506,12 @@ async function goBack(){
   // e.code, so it's the same key with or without Shift on any layout. Works while typing, like the others.
   document.addEventListener('keydown',e=>{if(!conv||!(e.metaKey||e.ctrlKey)||e.altKey||(e.code!=='Quote'&&e.key!=="'"))return;e.preventDefault();
     if(e.shiftKey)setView(conv.ui.layout==='rows'?'cols':'rows');else setView(conv.ui.view==='canvas'?conv.ui.layout:'canvas')},true);
+  // ⌘\ / Ctrl+\: collapse the current pane to a strip, or expand it (on the canvas: shrink or expand the selected
+  // card); with Shift: close it. See curPane.
+  document.addEventListener('keydown',e=>{if(!conv||!(e.metaKey||e.ctrlKey)||e.altKey||(e.code!=='Backslash'&&e.key!=='\\'))return;e.preventDefault();
+    if(conv.ui.view==='canvas'){const sel=cvState().sel,b=!e.shiftKey&&sel&&$(`#cv .cnode[data-ctid="${sel}"] [data-cact=exp]`);if(b)b.click();return}
+    const tid=curPane();if(!tid)return;
+    if(e.shiftKey)keyClose(tid);else{toggleCollapse(tid);markCur()}},true);
   const mac=/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent);
   document.querySelectorAll('.kmod').forEach(k=>k.textContent=mac?'⌘':'Ctrl+');
   document.querySelectorAll('.kshift').forEach(k=>k.textContent=mac?'⇧':'Shift+');

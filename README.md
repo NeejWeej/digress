@@ -84,6 +84,8 @@ Not sure how something works? The **?** beside *How it works* in the sidebar ope
 | <kbd>⌘.</kbd> | Zen |
 | <kbd>⌘'</kbd> | Canvas, or back to the panes (Columns or Rows, whichever you had) |
 | <kbd>⌘⇧'</kbd> | Switch Columns and Rows |
+| <kbd>⌘\\</kbd> | Collapse the pane you're in to a strip, or expand it again (on the canvas: expand or shrink the selected card) |
+| <kbd>⌘⇧\\</kbd> | Close the pane you're in; the toast's **Undo** brings it back |
 | <kbd>Enter</kbd> / <kbd>⇧Enter</kbd> | Send / a new line |
 | <kbd>Esc</kbd> | Close the question box; leave Focus |
 | <kbd>Space</kbd> | On the canvas: read the selected card full screen (again or <kbd>Esc</kbd>: back) |
@@ -91,7 +93,7 @@ Not sure how something works? The **?** beside *How it works* in the sidebar ope
 | <kbd>⌥</kbd>+scroll | On the canvas: zoom one card |
 | <kbd>⌘</kbd>+click | A conversation in the sidebar: open it in a new window |
 
-The ⌘ shortcuts work while you're typing.
+The ⌘ shortcuts work while you're typing. "The pane you're in" is the one you last clicked, typed in or scrolled; with more than one pane open, it has a faint outline.
 
 ## Models: Claude and ChatGPT, on the plans you already pay for
 
