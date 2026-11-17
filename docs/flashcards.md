@@ -47,6 +47,9 @@ panel you can also pick **This conversation** or **All conversations**.
 2. Rate how it went: **Again**, **Hard**, **Good** or **Easy** (keys **1** to **4**). Each button shows
    when you'd see the card next with that rating.
 
+Not in the mood for a card? **Skip** (or **S**) goes on to the next one without rating it; the skipped card
+comes back at the end of the session. Nothing about it changes.
+
 The schedule is [FSRS](https://github.com/open-spaced-repetition/fsrs4anki) (version 4.5, default
 weights), the scheduler Anki uses: cards you know well come back less and less often, cards you miss come
 back soon.
@@ -66,6 +69,13 @@ Reviewing works without the server, as long as the page has been opened once ove
 (where browsers allow it to keep a copy). Your cards and their images are kept in the browser; ratings and
 edits made offline are sent, in order, when the server is reachable again. Only flashcards work offline;
 chatting needs the server.
+
+Reviewing never waits on the network: a rating is kept in the browser at once and the next card shows straight
+away, while the change is sent in the background (each try gives up after a few seconds, so a network that's
+there but goes nowhere can't stall it). If it can't get through, a toast says so once and the review shows how
+many changes are waiting on this device. They're sent when the connection comes back, when you return to the
+tab, or on the next try (every 30 seconds) and the note goes away. Opening the flashcards uses this device's copy
+if the server takes more than a couple of seconds to answer.
 
 ## Where they're stored
 

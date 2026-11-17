@@ -529,7 +529,7 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .pop .chips{margin-top:8px;gap:5px}
 .pop .chip{padding:4px 10px;font-size:12px}
 .pop .hint{font-size:11px;color:var(--faint);margin:8px 4px 0}
-.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:8px 14px;border-radius:10px;font-size:13px;z-index:80;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:8px 14px;border-radius:10px;font-size:13px;z-index:94;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 .toast.act.show{pointer-events:auto}
 .toast .tact{background:none;border:0;padding:0;font:inherit;font-weight:600;color:inherit;text-decoration:underline;cursor:pointer}
@@ -909,6 +909,11 @@ a.pref:hover{border-bottom-style:solid}
         <dt>↑ ↓ Enter</dt><dd>Pick and open a result</dd>
         <dt><span class="kmod">⌘</span>Enter</dt><dd>Open it, keep searching</dd>
         <dt>Tab</dt><dd>Everywhere / this conversation / this pane</dd>
+        <dt class="ksec">Reviewing flashcards</dt><dd></dd>
+        <dt>Space</dt><dd>Show the answer</dd>
+        <dt>1 2 3 4</dt><dd>Again, Hard, Good, Easy</dd>
+        <dt>S</dt><dd>Skip: it comes back at the end</dd>
+        <dt>O</dt><dd>Open where the card came from</dd>
         <dt class="ksec">On the canvas</dt><dd></dd>
         <dt>Space</dt><dd>Read the selected card full screen (again or Esc: back)</dd>
         <dt><span class="kmod">⌘</span>\</dt><dd>Expand the selected card, or shrink it</dd>
@@ -1108,8 +1113,12 @@ function offlineCards(base){
   const MK='digress:cards',QK='digress:cards-outbox';
   const rd=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}};
   const wr=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){console.warn('local copy of cards not saved',e)}};
-  let flushing=null;
-  const st={kind:'cards',
+  // A change is kept here (the local copy and the outbox) straight away, and sent in the background: nothing
+  // waits on the network, so reviewing offline (or on a network that goes nowhere) never stalls. Requests time
+  // out (serverStore's timeout); the outbox is retried when the connection comes back, when the tab is shown,
+  // and every 30 s while anything is waiting. st.stuck: the last try failed; onchange tells the page.
+  let flushing=null,retry=0;
+  const st={kind:'cards',stuck:false,onchange:null,
     pending:()=>rd(QK,[]).length,
     flush(){   // -> true when nothing is left to send
       if(!flushing)flushing=(async()=>{
@@ -1118,25 +1127,34 @@ function offlineCards(base){
           const now=rd(QK,[]);if(now.length&&now[0].id===op.id&&now[0].at===op.at)now.shift();wr(QK,now);
         }
         return true;
-      })().finally(()=>{flushing=null});
+      })().then(ok=>{const was=st.stuck;st.stuck=!ok;clearTimeout(retry);if(!ok)retry=setTimeout(()=>st.flush(),30000);
+        if(was!==st.stuck||ok)st.onchange&&st.onchange();return ok});
+      // a change queued just as the last send finished would otherwise wait for the next retry
+      flushing.finally(()=>{flushing=null;if(!st.stuck&&rd(QK,[]).length)st.flush()});
       return flushing;
     },
+    // the server's cards (after sending what's waiting), or this device's copy if the server is slow to answer
+    // (a couple of seconds) or can't be reached; a late answer still refreshes the copy for next time
     async list(){
-      try{
-        if(!await st.flush())throw new Error('offline');
-        const l=await base.list(),m={};for(const {id,data} of l)m[id]=data;wr(MK,m);return l;
-      }catch(e){return Object.entries(rd(MK,{})).map(([id,data])=>({id,data}))}
+      const m0=rd(MK,{}),local=()=>Object.entries(rd(MK,{})).map(([id,data])=>({id,data}));
+      const remote=(async()=>{if(!await st.flush())throw new Error('offline');const l=await base.list(),m={};for(const {id,data} of l)m[id]=data;wr(MK,m);return l})();
+      remote.catch(()=>{});
+      const slow=Object.keys(m0).length?new Promise(ok=>setTimeout(()=>ok(null),2500)):null;
+      try{return (await (slow?Promise.race([remote,slow]):remote))||local()}catch(e){return local()}
     },
     async get(id){return rd(MK,{})[id]||null},
     async put(id,d){const m=rd(MK,{});m[id]=d;wr(MK,m);await send({id,card:d})},
     async update(id,p){const m=rd(MK,{});if(!m[id])return;Object.assign(m[id],p);await st.put(id,m[id])},
     async remove(id){const m=rd(MK,{});delete m[id];wr(MK,m);await send({id,del:true})}};
-  async function send(op){op.at=Date.now()+Math.random();const q=rd(QK,[]).filter(o=>o.id!==op.id);q.push(op);wr(QK,q);await st.flush()}
+  async function send(op){op.at=Date.now()+Math.random();const q=rd(QK,[]).filter(o=>o.id!==op.id);q.push(op);wr(QK,q);st.flush()}   // not awaited
   addEventListener('online',()=>st.flush());
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&rd(QK,[]).length)st.flush()});
   return st;
 }
-function serverStore(coll,label){
+function serverStore(coll,label,o={}){
   const base='api/store/'+coll,u=(id)=>base+'/'+encodeURIComponent(id),json={'content-type':'application/json'};
+  // o.timeout: give up on a request after that long (cards: a network that's there but goes nowhere would hang)
+  const fetch=o.timeout?(url,opt={})=>window.fetch(url,{...opt,signal:AbortSignal.timeout(o.timeout)}):window.fetch.bind(window);
   return {kind:'server',label:label||'',
     list:async()=>(await okOrThrow(await fetch(base))).json(),
     get:async(id)=>{const r=await fetch(u(id));if(r.status===404)return null;return (await okOrThrow(r)).json()},
@@ -1292,7 +1310,7 @@ function serverLlm(info){
 async function initConnectors(){
   const srv=await findServer();
   if(srv){
-    io.llm=serverLlm(srv);io.store=toldWindows(serverStore('convs','Saved'));io.layout=serverLayout();io.index=serverStore('index');io.cards=offlineCards(serverStore('cards'));io.files=serverFiles();
+    io.llm=serverLlm(srv);io.store=toldWindows(serverStore('convs','Saved'));io.layout=serverLayout();io.index=serverStore('index');io.cards=offlineCards(serverStore('cards','',{timeout:8000}));io.cards.onchange=cardsSyncChanged;io.files=serverFiles();
     await io.llm.loadModels();
     if(!srv.llm)showBanner(true,io.llm.why);
     return;
@@ -1302,7 +1320,7 @@ async function initConnectors(){
 // served over http(s) but the server can't be reached: flashcards only, from this browser's copy
 const OFFLINE='You’re offline: the Digress server can’t be reached. Your flashcards still work (Review, in the sidebar); changes are sent once it’s back.';
 function offlineMode(){
-  io.offline=true;io.llm=noLlm(OFFLINE);io.store=memoryStore();io.index=memoryStore();io.cards=offlineCards(serverStore('cards'));io.files=serverFiles();
+  io.offline=true;io.llm=noLlm(OFFLINE);io.store=memoryStore();io.index=memoryStore();io.cards=offlineCards(serverStore('cards','',{timeout:8000}));io.cards.onchange=cardsSyncChanged;io.files=serverFiles();
   showBanner(true,OFFLINE);
   const tryBack=async()=>{if(!await findServer())return;clearInterval(t);await io.cards.flush();const b=$('#banner');b.textContent='Back online. Click here to reload and chat again.';b.style.cursor='pointer';b.onclick=()=>location.reload()};
   const t=setInterval(tryBack,15000);addEventListener('online',tryBack);
@@ -1465,7 +1483,14 @@ function loadCards(){if(!cardsLoaded)cardsLoaded=(async()=>{await io.ready;try{f
   if(!io.offline&&navigator.serviceWorker&&navigator.serviceWorker.controller)for(const c of CARDS.values())if(c.image&&c.image.asset)imageBlob(c.image).catch(()=>{});
 })();return cardsLoaded}
 let offlineNoted=false;
-async function putCard(c){c.updated=Date.now();CARDS.set(c.id,c);try{await io.cards.put(c.id,c)}catch(e){toast('Couldn’t save the card.')}if(io.cards.pending&&io.cards.pending()&&!offlineNoted){offlineNoted=true;toast('Saved on this device; it will sync when the server is back.')}syncCardsUI()}
+async function putCard(c){c.updated=Date.now();CARDS.set(c.id,c);try{await io.cards.put(c.id,c)}catch(e){toast('Couldn’t save the card.')}syncCardsUI()}
+// the cards' outbox couldn't reach the server (or just did): say so once, and keep the review bar's note current
+function cardsSyncChanged(){
+  if(io.cards.stuck&&!offlineNoted){offlineNoted=true;toast('Saved on this device; it will sync when the server is back.')}
+  if(!io.cards.stuck)offlineNoted=false;
+  const n=$('#cardsModal .kpend');if(n)n.textContent=pendNote();
+}
+const pendNote=()=>{const k=io.cards&&io.cards.stuck&&io.cards.pending?io.cards.pending():0;return k?`${k} change${k>1?'s':''} saved on this device, not synced yet`:''};
 async function dropCard(id){CARDS.delete(id);try{await io.cards.remove(id)}catch(e){console.warn(e)}syncCardsUI()}
 const cardsOn=()=>!!(conv&&conv.cards&&conv.cards.on);
 const dueCards=(scope)=>[...CARDS.values()].filter(c=>c.status==='active'&&(c.due||0)<=Date.now()&&inScope(c,scope)).sort((a,b)=>(a.due||0)-(b.due||0));
@@ -1539,17 +1564,19 @@ async function draftCards(c0,tid,o){
   if(!o.quiet||list.length)toast(list.length?`${list.length} card${list.length>1?'s':''} drafted into your inbox`:'Nothing new worth a card there.');
 }
 // --- the panel: Review / Inbox / All ---
-const KS={scope:'conv',tab:'review',shown:false,editing:null};
+const KS={scope:'conv',tab:'review',shown:false,editing:null,skipped:[]};
+// the cards to review, in order; ones you skipped go to the back (until the flashcards are closed)
+const reviewQueue=(scope)=>{const d=dueCards(scope),sk=KS.skipped;return [...d.filter(c=>!sk.includes(c.id)),...sk.map(id=>d.find(c=>c.id===id)).filter(Boolean)]};
 async function openCards(scope,tab){
   await loadCards();KS.scope=scope||'conv';if(KS.scope==='conv'&&!conv)KS.scope='all';
   KS.tab=tab||(dueCards(KS.scope).length?'review':[...CARDS.values()].some(c=>c.status==='inbox'&&inScope(c,KS.scope))?'inbox':'review');
-  KS.shown=false;KS.editing=null;hideBackToReview();$('#cardsModal').classList.add('show');renderCards();
+  KS.shown=false;KS.editing=null;KS.skipped=[];hideBackToReview();$('#cardsModal').classList.add('show');renderCards();
 }
 function closeCards(){$('#cardsModal').classList.remove('show')}
 const hideBackToReview=()=>{const b=$('#backReview');if(b)b.classList.remove('show')};
 function renderCards(){
   const box=$('#cardsModal .kbox'),scope=KS.scope,all=[...CARDS.values()].filter(c=>inScope(c,scope));
-  const due=dueCards(scope),inbox=all.filter(c=>c.status==='inbox'),kept=all.filter(c=>c.status!=='inbox');
+  const due=reviewQueue(scope),inbox=all.filter(c=>c.status==='inbox'),kept=all.filter(c=>c.status!=='inbox');
   // off with no cards: the explainer; off but with cards (turned off later): they're still there to review
   const off=scope==='conv'&&!cardsOn()&&!all.length,paused=scope==='conv'&&!cardsOn()&&all.length>0,nNew=scope==='conv'?newForCards().length:0;
   box.innerHTML=`<div class="khead"><span class="kt">Flashcards</span><select data-kscope aria-label="Which cards"><option value="conv">${conv?'“'+esc(trunc(conv.title||'New conversation',36))+'”':'This conversation'}</option><option value="all">All conversations</option></select><span class="sp"></span>${scope==='conv'&&cardsOn()?`<button class="mbtn" data-kact="make" ${nNew&&!drafting?'':'disabled'} title="Have the model draft cards from the threads that changed since cards were last made">${drafting?'Drafting…':nNew?`Make cards · ${nNew} new`:'Up to date'}</button>`:''}<button class="ib" data-kact="close" title="Close (Esc)">${ic('x')}</button></div>
@@ -1575,7 +1602,7 @@ function renderReview(body,due){
     body.innerHTML=`<div class="kempty">${next?`Nothing due right now. The next card is due in ${ivlText(next.due-Date.now())}.`:'No cards to review yet.'}${n?`<br><button class="mbtn" data-ktab="inbox">${n} card${n>1?'s':''} waiting in the inbox</button>`:''}</div>`;return;
   }
   const c=due[0],now=Date.now();
-  body.innerHTML=`<div class="kbar"><span>${due.length} due</span><span class="sp"></span><span class="kmeta"></span></div><div class="kcard"><div class="kfront"></div></div><div class="kfoot"><button data-kact="del" data-kid="${c.id}">Delete card</button><span class="sp"></span></div>`;
+  body.innerHTML=`<div class="kbar"><span>${due.length} due</span><span class="sp"></span><span class="kmeta"></span></div><div class="kcard"><div class="kfront"></div></div><div class="kfoot"><button data-kact="del" data-kid="${c.id}">Delete card</button><span class="kpend">${esc(pendNote())}</span><span class="sp"></span>${due.length>1?`<button data-kact="skip" data-kid="${c.id}" title="Not now: go on to the next card. This one comes back at the end. (S)">Skip</button>`:''}</div>`;
   body.querySelector('.kmeta').replaceWith(srcLink(c,KS.scope==='all'));
   const card=body.querySelector('.kcard');cardFace(card.querySelector('.kfront'),c.front,c.image);
   if(!KS.shown){const b=document.createElement('button');b.className='mbtn primary kshow';b.dataset.kact='show';b.textContent='Show answer';b.title='Space';card.after(b);return}
@@ -1608,6 +1635,7 @@ function renderAllCards(body,kept){
     body.appendChild(it);
   }
 }
+function skipCard(id){KS.skipped=[...KS.skipped.filter(x=>x!==id),id];KS.shown=false;renderCards()}
 async function rateCard(id,g){
   const c=CARDS.get(id);if(!c)return;const now=Date.now(),n=fsrsNext(c.fsrs,g,now);
   c.fsrs=n.fsrs;c.due=n.due;(c.reviews=c.reviews||[]).push({at:now,g});KS.shown=false;await putCard(c);
@@ -1646,6 +1674,7 @@ $('#cardsModal').addEventListener('click',async e=>{
   else if(a==='off'){conv.cards.on=false;save();syncCardsUI();renderCards()}
   else if(a==='make')makeNewCards();
   else if(a==='show'){KS.shown=true;renderCards()}
+  else if(a==='skip'&&c)skipCard(c.id);
   else if(a==='open'&&c)openCardSource(c);
   else if(a==='del'&&c)await dropCard(c.id);
   else if(a==='keep'&&c){const x=edited();if(!x.front){toast('A card needs a front.');return}Object.assign(c,x,{status:'active',due:Date.now()});await putCard(c)}
@@ -1661,8 +1690,9 @@ document.addEventListener('keydown',e=>{
   if(!$('#cardsModal').classList.contains('show'))return;
   if(e.key==='Escape'){e.preventDefault();closeCards();return}
   if(e.target.closest('textarea,input,select')||KS.tab!=='review')return;
-  const due=dueCards(KS.scope);if(!due.length)return;
+  const due=reviewQueue(KS.scope);if(!due.length)return;
   if(!KS.shown&&(e.key===' '||e.key==='Enter')){e.preventDefault();KS.shown=true;renderCards()}
+  else if((e.key==='s'||e.key==='S')&&due.length>1){e.preventDefault();skipCard(due[0].id)}
   else if(KS.shown&&/^[1-4]$/.test(e.key)){e.preventDefault();rateCard(due[0].id,+e.key)}
   else if(e.key==='o'||e.key==='O'){e.preventDefault();openCardSource(due[0])}
 });
