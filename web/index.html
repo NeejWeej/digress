@@ -1749,6 +1749,7 @@ async function generate(m,ctx,lockTid,o={}){
     if(!o.resume){
       web=!!(settings.web&&io.llm.supportsWeb);if(web)m.web=true;else delete m.web;delete m.searches;delete m.sources;delete m.reads;delete m.toolNow;delete m.cut;
       if(io.llm.supportsEffort)m.effort=settings.effort;else delete m.effort;
+      if(!Array.isArray(conv.llm))stickLlm();   // the conversation keeps the model it started with
       if(ctx.docSeen)m.docSeen=ctx.docSeen;else delete m.docSeen;
       m.run=run;save();await flushNow();   // saved with its run first, so the server can finish it into this message
     }
@@ -4725,7 +4726,7 @@ function refreshAfterSync(){
   for(const [tid,el] of paneEls)if(!ui.open.includes(tid)){el.remove();paneEls.delete(tid)}
   layout();for(const id of ui.open)if(id!=='doc'&&T(id))renderPane(id);
   renderTitle();renderMap();renderConvList();syncCardsUI();syncViewsUI();if(ui.view==='canvas')renderCanvas();
-  placeMark();resumeRuns();
+  placeMark();applyConvLlm();resumeRuns();
 }
 // this page's version, as its own conversation (when it couldn't be combined with another device's)
 function keepCopy(c,mine,why){
@@ -4827,7 +4828,7 @@ function setConv(c){
   $('#stage').classList.toggle('canvas',ui.view==='canvas');if(ui.view==='canvas')renderCanvas();
   syncViewSeg();
   syncReset(conv);dirty=false;closeViews();syncViewsUI();
-  showInUrl();resumeRuns();
+  applyConvLlm();showInUrl();resumeRuns();
 }
 // The address names the open conversation (#c=ID) once it's saved, so a window can be opened, reloaded or
 // bookmarked straight to it. replaceState: switching conversations doesn't add Back steps.
@@ -5125,8 +5126,7 @@ const mSel=$('#mSel'),eSel=$('#eSel'),webT=$('#webT');
 MODELS.forEach(([v,l])=>mSel.add(new Option(l,v)));EFFORTS.forEach(([v,l])=>eSel.add(new Option(l,v)));
 function fillModelPicker(){
   const list=io.llm?io.llm.models():MODELS;mSel.replaceChildren();list.forEach(([v,l])=>mSel.add(new Option(l,v)));
-  mSel.value=settings.model;if(!mSel.value)mSel.value=settings.model=list[0]?list[0][0]:'auto';
-  syncDefStar();
+  applyConvLlm();
   eSel.closest('.sel').style.display=io.llm&&io.llm.supportsEffort?'':'none';
   webT.style.display=io.llm&&io.llm.supportsWeb?'':'none';
 }
@@ -5261,7 +5261,44 @@ function showWeb(){webT.setAttribute('aria-pressed',settings.web?'true':'false')
 showWeb();
 webT.onclick=()=>{settings.web=!settings.web;saveSettings();showWeb();setStatus(settings.web?'Web search on for new replies':'Web search off')};
 mSel.value=settings.model;eSel.value=settings.effort;if(!mSel.value)mSel.value=settings.model='auto';if(!eSel.value)eSel.value=settings.effort='auto';
-mSel.onchange=()=>{settings.model=mSel.value;saveSettings();syncDefStar();setStatus('New replies use '+modelLabel(mSel.value))};
+/* Each conversation keeps its model and effort (conv.llm = [model, effort], synced; an array so a merge takes one
+   side's pair whole). It's the actual model, never "Default", so changing the default later doesn't switch old
+   conversations. Set by the first question, or by changing the picker while the conversation is open; opening it
+   puts the picker back to it. Older conversations use their latest reply's model. A new one starts at Default.
+   A model that isn't offered right now (signed out of ChatGPT) leaves the picker on Default without forgetting
+   it. Web is not kept: it's off until turned on, every time. */
+let llmMissing=null,llmMissSaid='';
+const modelsKnown=()=>!!io.llm&&io.llm.models().length>1;
+const resolvedModel=()=>settings.model!=='auto'?settings.model:(io.llm&&io.llm.defaultModel)||'auto';
+function convLlm(c){
+  if(Array.isArray(c.llm))return c.llm;
+  const last=Object.values(c.msgs).filter(m=>m.role==='assistant'&&m.model&&!m.pending).sort((a,b)=>(b.ts||0)-(a.ts||0))[0];
+  return last?[typeof last.model==='string'?last.model:'',last.effort||'auto',true]:null;
+}
+function applyConvLlm(){
+  if(!conv)return;
+  const want=convLlm(conv),ids=io.llm?io.llm.models().map(x=>x[0]):[];
+  let model='auto',effort='auto';llmMissing=null;
+  if(want){
+    if(ids.includes(want[0]))model=want[0];else if(!want[2]&&modelsKnown())llmMissing=want[0];   // only a model it was set to counts as missing
+    if(EFFORTS.some(e=>e[0]===want[1]))effort=want[1];
+  }
+  settings.model=model;settings.effort=effort;mSel.value=model;if(!mSel.value)mSel.value=settings.model='auto';eSel.value=effort;
+  syncDefStar();
+  const said=conv.id+'|'+llmMissing;
+  if(llmMissing&&llmMissSaid!==said){llmMissSaid=said;
+    toast(`This conversation uses ${modelLabel(llmMissing)}, which isn’t available right now, so new replies use the default. It switches back once ${modelLabel(llmMissing)} is available again.`)}
+}
+// the picker changed, or the first question is being sent: the conversation keeps what the picker says
+function stickLlm(){
+  const model=settings.model==='auto'&&llmMissing?llmMissing:resolvedModel();
+  if(model==='auto')return false;
+  const next=[model,settings.effort];if(JSON.stringify(conv.llm)===JSON.stringify(next))return false;
+  conv.llm=next;return true;
+}
+mSel.onchange=()=>{settings.model=mSel.value;llmMissing=null;syncDefStar();
+  if(stickLlm()&&Object.keys(conv.msgs).length)save();
+  setStatus('This conversation now uses '+modelLabel(resolvedModel()))};
 /* ☆ beside the picker: make the model picked here what "Default" means, on every device. It shows only when
    a specific model is picked (not "Default" itself); afterwards the picker goes back to following Default. */
 const mDef=$('#mDef');mDef.innerHTML=ic('star');
@@ -5271,10 +5308,11 @@ function syncDefStar(){
 }
 mDef.onclick=async(e)=>{e.preventDefault();e.stopPropagation();const id=settings.model,name=modelLabel(id);
   try{await io.llm.setDefault(id)}catch(err){toast('Couldn’t change the default: '+((err&&err.message)||'error'));return}
+  if(!Object.keys(conv.msgs).length)delete conv.llm;   // a conversation not started yet follows Default; one already going keeps its model
   settings.model='auto';saveSettings();fillModelPicker();setStatus(name+' is now the default');toast(`${name} is now the default model, on all your devices.`)};
 // another device may have changed the default: refresh the list when this tab comes back
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&io.llm&&io.llm.setDefault)io.llm.loadModels().then(fillModelPicker)});
-eSel.onchange=()=>{settings.effort=eSel.value;saveSettings()};
+eSel.onchange=()=>{settings.effort=eSel.value;if(stickLlm()&&Object.keys(conv.msgs).length)save()};
 $('#tSide').addEventListener('click',()=>{const app=$('#app');if(zen){app.classList.toggle('zenside');return}if(innerWidth<760){app.classList.toggle('sideopen')}else{app.classList.toggle('noside');try{localStorage.setItem('sq:noside',app.classList.contains('noside')?'1':'')}catch(e){}}setTimeout(()=>{wires();if(conv.ui.view==='canvas')applyCam()},50)});
 try{if(localStorage.getItem('sq:noside'))$('#app').classList.add('noside')}catch(e){}
 (()=>{

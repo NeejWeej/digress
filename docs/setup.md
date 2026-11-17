@@ -63,7 +63,9 @@ The API path streams directly, caches the system prompt (handy for long PDFs) an
 
 ### Which model is the default
 
-To change what **Default** means, pick a model and click the ☆ beside the picker: it becomes the default on all your devices (kept in `data/prefs.json`). Without that, when the picker says **Default**, Digress uses `DEFAULT_MODEL` if it's set (`claude-opus-5-5` out of the box), otherwise the first model of the default connection. `LLM_PROVIDER` picks that connection: `claude-code`, `anthropic` or `chatgpt`. It defaults to `anthropic` when there's an API key and `claude-code` otherwise.
+Each conversation keeps the model and effort it started with: its first question saves the actual model (even when the picker said Default), and opening it again, after a reload or on another device, puts the picker back to it. Changing the picker or the effort while a conversation is open changes that conversation's from then on. A new conversation starts at Default. If a conversation's model isn't available right now (say you signed out of ChatGPT), it says so and uses the default until it is, without forgetting it. Web search is never kept: it's off until you turn it on.
+
+The ☆ changes what a new conversation starts with. Pick a model and click the ☆ beside the picker, and it becomes the default on all your devices (kept in `data/prefs.json`). Without that, when the picker says **Default**, Digress uses `DEFAULT_MODEL` if it's set (`claude-opus-5-5` out of the box), otherwise the first model of the default connection. `LLM_PROVIDER` picks that connection: `claude-code`, `anthropic` or `chatgpt`. It defaults to `anthropic` when there's an API key and `claude-code` otherwise.
 
 ## Web search
 

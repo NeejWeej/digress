@@ -41,7 +41,7 @@ async def main():
                 check(f'{w}px: the menu opens', await pg.locator('.tmore.open').count() == 1)
                 if reach['#eSel'] == 'menu':
                     await pg.select_option('.tmore #eSel', 'high'); await frames(pg)
-                    check(f'{w}px: effort can be set from the menu', await pg.evaluate("JSON.parse(localStorage.getItem('sq:settings')).effort") == 'high')
+                    check(f'{w}px: effort can be set from the menu', await pg.evaluate("document.getElementById('eSel').value") == 'high')   # (it's kept per conversation now, not in localStorage)
                 if reach['#themeB'] == 'menu':
                     await pg.locator('.tmore #themeB').click(); await frames(pg)
                     await pg.locator('.thmenu button[data-theme=sand]').click(); await frames(pg)

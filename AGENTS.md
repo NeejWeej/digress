@@ -2,6 +2,8 @@
 
 Digress is a branching chat for learning. Read README.md for what it does. This file covers how the code fits together and the traps.
 
+If `AGENTS.local.md` exists, read it too: notes about this particular machine and how it's run here, kept out of git.
+
 ## Layout
 
 - `web/index.html`: the entire client (HTML, CSS, JS) in one file. No build step. Libraries come from CDNs: marked, DOMPurify, highlight.js, MathJax 3 (async), mermaid (lazy), pdf.js 3.11 (lazy), MiniSearch (lazy).
@@ -32,7 +34,7 @@ Server contract:
 
 ## Data model
 
-`conv = {id, title, created, updated, rev, threads, msgs, order, ui, nextColor, doc?, pinned?, archived?, views?}`; `doc.mark` is the reading mark (`['p', page, y]` in a PDF, `['o', offset]` in text, an array so a merge takes one side's whole); `ui` isn't saved with it (per window, `api/layout`); `views = {vid:{name, cv, cam, at}}` are the saved canvas views; `doc = {kind, name, assetId?, text?, source?}` (`source`: the link it was opened from)
+`conv = {id, title, created, updated, rev, threads, msgs, order, ui, nextColor, doc?, pinned?, archived?, views?, llm?}`; `llm = [model, effort]` is the model the conversation keeps (`applyConvLlm` sets the picker from it when it opens, `stickLlm` saves it on the first question or a picker change; the actual model id, never `auto`; without it, the latest reply's model); `tests/test_conv_model.py`; `doc.mark` is the reading mark (`['p', page, y]` in a PDF, `['o', offset]` in text, an array so a merge takes one side's whole); `ui` isn't saved with it (per window, `api/layout`); `views = {vid:{name, cv, cam, at}}` are the saved canvas views; `doc = {kind, name, assetId?, text?, source?}` (`source`: the link it was opened from)
 - Titles: the first question in `main` names the conversation unless `titleKept` (typed in the new-from-document dialog, renamed, or taken from the PDF's own title). A PDF conversation without a typed title starts with `autoTitle` (the file name); once pdf.js reads the metadata, `applyPdfTitle` swaps in `info.Title` / `dc:title` if `pdfTitleOk` finds it real and the title is still `autoTitle`, then drops `autoTitle`.
 - User messages can carry `images: [{asset|data, type, w, h}]` (pasted screenshots, stored via `io.files`, inline as a data URL where there's no file storage).
 - A snip or whole-page branch from a PDF has `anchorRegion: {x,y,w,h}` (fractions of page `anchorPage`; 0,0,1,1 = the whole page) and `regionText` (the PDF's words inside it); its `anchorText` is just a label. The image isn't stored: it's redrawn from the PDF when needed.

@@ -52,11 +52,13 @@ async def main():
             check(calls and calls[-1]['model'] == 'claude-sonnet-5-5', 'a reply asking for Default goes to the new default', calls[-1:] and calls[-1]['model'])
 
             B = await device()
+            auto = lambda pg: pg.evaluate("document.querySelector('#mSel option[value=auto]').textContent")
             v, l = await label(B)
-            check(v == 'auto' and l == 'Default (Sonnet 5.5)', 'another device sees the same default', [v, l])
+            check(await auto(B) == 'Default (Sonnet 5.5)', 'another device sees the same default', await auto(B))
+            check(v == 'claude-sonnet-5-5', '…and the conversation started with it shows the model it started with, by name', [v, l])
             await A.reload(); await booted(A)   # BOOT_WATCH is an init script, so it runs again
             await A.wait_for_function("document.querySelector('#mSel option[value=auto]')?.textContent.includes('(')")
-            check((await label(A))[1] == 'Default (Sonnet 5.5)', 'and it lasts across reloads')
+            check(await auto(A) == 'Default (Sonnet 5.5)' and (await label(A))[0] == 'claude-sonnet-5-5', 'and it lasts across reloads', [await auto(A), await label(A)])
 
             # changing it on B reaches A when A's tab comes back
             await B.locator('#mSel').select_option('claude-haiku-5-5'); await star(B).click()
