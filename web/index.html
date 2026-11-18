@@ -147,7 +147,9 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .app.noside{grid-template-columns:0 1fr}
 /* Zen: only the panes (no top bar, sidebar or wires); the tab at the top of the screen, or ⌘/Ctrl+., brings them back */
 .app.zen{grid-template-rows:0 1fr;grid-template-columns:0 1fr}
-.app.zen .top,.app.zen .side,.app.zen .sgrip,.app.zen #wires{display:none !important}
+.app.zen .top,.app.zen .side,.app.zen .sgrip{display:none !important}
+/* the lines between panes stay in Zen (they're the reading's shape, not the app's chrome); the palette menu's row turns them off */
+.app.nowires #wires{display:none !important}
 .zenx{display:none;position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:45;height:15px;padding:0 16px;border:1px solid var(--line2);border-top:0;border-radius:0 0 9px 9px;background:var(--panel);color:var(--faint);opacity:.5;font-size:10.5px;line-height:13px;letter-spacing:.04em}
 .app.zen .zenx{display:block}
 .zenx:hover,.zenx:focus-visible{opacity:1;color:var(--ink);outline:none}
@@ -209,6 +211,8 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .thmenu button:hover,.thmenu button:focus-visible{background:var(--user-bg);outline:none}
 .thmenu button .ck{margin-left:auto;color:var(--accent);visibility:hidden}
 .thmenu button[aria-checked=true] .ck{visibility:visible}
+.thmenu .thwire{margin-top:4px;border-top:1px solid var(--line);border-radius:0 0 8px 8px}
+.thmenu .thwire>.i{width:15px;height:15px;color:var(--muted);flex:none}
 .thsw{display:inline-flex;width:34px;height:20px;border-radius:6px;overflow:hidden;border:1px solid var(--line2);flex:none;background:var(--bg)}
 .thsw i{flex:1;background:var(--panel);border-left:1px solid var(--line)}
 .thsw i:first-child{flex:1.3;background:var(--bg);border:0;position:relative}
@@ -1153,7 +1157,7 @@ const plain=(md)=>String(md||'')
   .replace(/```mermaid[\s\S]*?(```|$)/g,' [diagram] ').replace(/```[\s\S]*?(```|$)/g,' [code] ').replace(/\$\$[\s\S]*?\$\$/g,' [equation] ').replace(/\$([^$\n]+)\$/g,(m,t)=>texText(t)).replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/[#*_`>|]/g,'').replace(/\s+/g,' ').trim();
 
 /* ---------- settings ---------- */
-const settings={model:'auto',effort:'auto',web:false,theme:'system',pdf:'original'};
+const settings={model:'auto',effort:'auto',web:false,theme:'system',pdf:'original',wires:true};
 try{Object.assign(settings,JSON.parse(localStorage.getItem('sq:settings')||'{}'))}catch(e){}
 function saveSettings(){try{localStorage.setItem('sq:settings',JSON.stringify(settings))}catch(e){}}
 const modelLabel=(v)=>{if(!v)return '';if(typeof v==='object')v=v.model||v.id||'';const list=(typeof io!=='undefined'&&io.llm&&io.llm.models())||MODELS;const m=list.find(x=>x[0]===v)||MODELS.find(x=>x[0]===v);return m?m[1]:String(v).replace(/^claude-/,'')};
@@ -5711,6 +5715,14 @@ for(const [id,name] of PDF_LOOKS){
   b.title={original:'As the PDF is printed',match:'Dark pages with a dark theme, as printed with a light one',dark:'Light text on dark pages (pictures look like negatives)',dim:'Less bright, colors unchanged',sepia:'Warm paper'}[id];
   b.innerHTML=`<span class="pdsw" data-p="${id}">Aa</span><span></span><span class="ck">${ic('check')}</span>`;b.children[1].textContent=name;pdfList.appendChild(b);
 }
+// one switch below the sections: the lines from a branch's pane to where it came from (Columns and Rows;
+// the canvas keeps its own lines). On unless turned off; kept on this device with the theme.
+const wireRow=document.createElement('button');wireRow.className='thwire';wireRow.dataset.wires='';wireRow.setAttribute('role','menuitemcheckbox');
+wireRow.title='The lines from each branch’s pane to where it came from, in Columns and Rows (the canvas always shows its own)';
+wireRow.innerHTML=`${ic('branch')}<span>Lines between panes</span><span class="ck">${ic('check')}</span>`;themeMenu.appendChild(wireRow);
+function setWires(on,keep){$('#app').classList.toggle('nowires',!on);wireRow.setAttribute('aria-checked',on?'true':'false');
+  if(keep){settings.wires=on;saveSettings()}if(on)wiresSoon()}
+setWires(settings.wires!==false);
 document.body.appendChild(themeMenu);
 // each folded header names the choice in it ("Nord"), so you can see what's picked without opening it
 function themeHeads(){
@@ -5747,6 +5759,7 @@ themeMenu.addEventListener('click',e=>{e.stopPropagation();
   const h=e.target.closest('.thgrp');
   if(h){h.setAttribute('aria-expanded',h.getAttribute('aria-expanded')==='true'?'false':'true');placeThemes();
     if(h.getAttribute('aria-expanded')==='true'){const l=h.nextElementSibling;if(l.getBoundingClientRect().bottom>themeMenu.getBoundingClientRect().bottom)h.scrollIntoView({block:'start',behavior:'smooth'})}return}
+  if(e.target.closest('button[data-wires]'))return setWires(settings.wires===false,true);
   const b=e.target.closest('button[data-theme],button[data-pdf]');if(!b)return;if(b.dataset.pdf)setPdfLook(b.dataset.pdf,true);else setTheme(b.dataset.theme,true)});
 document.addEventListener('click',closeThemes);
 addEventListener('keydown',e=>{if(e.key==='Escape'&&themeMenu.classList.contains('open')){e.stopPropagation();closeThemes()}},true);
