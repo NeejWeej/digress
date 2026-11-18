@@ -2513,17 +2513,20 @@ function ctxLabel(u){
 }
 function buildFoot(f,m){
   f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(m.cut&&!retryBlock(m.id)?`<button class="tb" data-act="continue" title="Ask the model to carry on from where it stopped">${ic('send')}Continue</button>`:'')+(m.error?`<button class="ib" data-act="retry" title="${m.role==='assistant'&&retryBlock(m.id)?'Ask again as another version, next to this one ('+REDO_WHY[retryBlock(m.id)]+'). Nothing here changes.':m.cut?'Ask again from the start':'Retry'}">${ic('retry')}</button>`:m.role==='assistant'&&redoBlock(m.id)!=='busy'&&questionOf(m.id)?`<button class="ib" data-act="redo" title="${redoBlock(m.id)?'Redo as another version: asks again with the model and effort selected now, next to this one. Nothing here changes.':'Redo: ask again with the model and effort selected now (replaces this reply)'}">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}${m.effort?` · ${esc(effortLabel(m.effort))}`:''}</span>`:'')+ctxLabel(m.usage);
-  const bs=shownOn(m.id);
-  if(bs.length){
-    const wrap=document.createElement('div');wrap.className='bchips';
-    for(const t of bs){
-      const b=document.createElement('span');b.className='bchip'+(t.resolved?' res':'');b.dataset.tid=t.id;b.style.setProperty('--c',color(t));
-      b.innerHTML=`<span class="n">${branchNum(t)}</span><span class="bt"></span><button class="bx" data-delb="${t.id}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`;
-      b.querySelector('.bt').textContent=t.title;b.title=`Open branch ${branchNum(t)}`+(t.anchorText?`, from “${trunc(t.anchorText,120)}”`:', about the whole reply');
-      wrap.appendChild(b);
-    }
-    f.appendChild(wrap);
+  const w=branchChips(m.id);if(w)f.appendChild(w);
+}
+// a chip under a reply for each branch off it (the only way into a branch about the whole reply, which has no
+// highlight to click); the same in a pane and in a canvas card
+function branchChips(mid){
+  const bs=shownOn(mid);if(!bs.length)return null;
+  const wrap=document.createElement('div');wrap.className='bchips';
+  for(const t of bs){
+    const b=document.createElement('span');b.className='bchip'+(t.resolved?' res':'');b.dataset.tid=t.id;b.style.setProperty('--c',color(t));
+    b.innerHTML=`<span class="n">${branchNum(t)}</span><span class="bt"></span><button class="bx" data-delb="${t.id}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`;
+    b.querySelector('.bt').textContent=t.title;b.title=`Open branch ${branchNum(t)}`+(t.anchorText?`, from “${trunc(t.anchorText,120)}”`:', about the whole reply');
+    wrap.appendChild(b);
   }
+  return wrap;
 }
 // While a reply is being written: a shimmering line saying what it's doing now (with the time so far) and,
 // before any text arrives, the steps so far (searches, pages read), the 10 most recent.
@@ -2950,7 +2953,8 @@ function canvasMsgEl(m){
   }else el.innerHTML='<div class="body"></div>';
   const body=el.querySelector('.body');
   if(m.pending)streamInto(body,m);
-  else{renderRich(body,m.content,true);if(m.role==='assistant')applyAnchors(body,m);renderMermaid(body).then(drawEdgesSoon)}
+  else{renderRich(body,m.content,true);if(m.role==='assistant')applyAnchors(body,m);renderMermaid(body).then(drawEdgesSoon);
+    const w=branchChips(m.id);if(w)el.appendChild(w)}
   return el;
 }
 function statusDot(t){
@@ -3092,7 +3096,7 @@ function drawEdges(){
     const pid=visParentId(t.id);if(!pid)continue;
     const cEl=$('#cv').querySelector(`.cnode[data-ctid="${t.id}"]`),pEl=$('#cv').querySelector(`.cnode[data-ctid="${pid}"]`);if(!cEl||!pEl)continue;
     const p=boxW(pEl,wr),c=boxW(cEl,wr);
-    const a=pid==='doc'?(t.id==='main'?null:pEl.querySelector(`[data-cdocrow="${t.id}"]`)):(pEl.querySelector(`.cfull sup.fn[data-tid="${t.id}"]`)||pEl.querySelector(`[data-cmid="${t.anchorMsg}"]`)||pEl.querySelector(`.cfull .msg[data-mid="${t.anchorMsg}"]`));
+    const a=pid==='doc'?(t.id==='main'?null:pEl.querySelector(`[data-cdocrow="${t.id}"]`)):(pEl.querySelector(`.cfull sup.fn[data-tid="${t.id}"]`)||pEl.querySelector(`.cfull .bchip[data-tid="${t.id}"]`)||pEl.querySelector(`[data-cmid="${t.anchorMsg}"]`)||pEl.querySelector(`.cfull .msg[data-mid="${t.anchorMsg}"]`));
     let ay;
     if(a){const r=(a.getClientRects()[0]||a.getBoundingClientRect());ay=(r.top+r.height/2-wr.top)/cam.k}else ay=p.offsetTop+p.offsetHeight/2;
     const top=p.offsetTop+30,bot=p.offsetTop+p.offsetHeight-12;const off=ay<top||ay>bot;ay=Math.min(Math.max(ay,top),bot);
@@ -5380,7 +5384,7 @@ document.addEventListener('click',e=>{
     const ca=e.target.closest('[data-cact]');if(ca){canvasAction(ca.dataset.cact,tid,ca);return}
     const tkf=e.target.closest('[data-tkfrom]');if(tkf){goToTakeawaySource(tkf.dataset.tkfrom);return}
     const tkc=e.target.closest('[data-tknote]');if(tkc){goToTakeaway(tkc.dataset.tknote);return}
-    const fn=e.target.closest('sup.fn,.anchor');if(fn&&window.getSelection().isCollapsed){focusCard(fn.dataset.tid);return}
+    const fn=e.target.closest('sup.fn,.anchor,.bchip');if(fn&&window.getSelection().isCollapsed){focusCard(fn.dataset.tid);return}
     const cq=e.target.closest('.cq');if(cq&&window.getSelection().isCollapsed){canvasRevealSource(tid);return}
     const drow=e.target.closest('[data-cdocrow]');if(drow){focusCard(drow.dataset.cdocrow);return}
     const row=e.target.closest('[data-cmid]');if(row){focusCard(tid,row.dataset.cmid);return}
