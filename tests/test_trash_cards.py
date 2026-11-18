@@ -33,7 +33,7 @@ now = int(time.time() * 1000)
 def card(i, conv, thread='main'):
     return {'id': f'k{conv}{i}', 'conv': conv, 'convTitle': 'x', 'thread': thread, 'at': {'thread': thread, 'msg': ''}, 'src': 'made',
             'where': 'Main' if thread == 'main' else 'a branch', 'front': f'Front {conv} {i}', 'back': 'Back', 'status': 'active',
-            'created': now + i, 'due': now - 10000, 'fsrs': None, 'reviews': []}
+            'created': now + i, 'due': now - 10000 - i, 'fsrs': None, 'reviews': []}
 
 async def seed_cards(pg, cards):
     await pg.evaluate("(cs)=>{for(const c of cs)localStorage.setItem('fakesrv:cards/'+c.id,JSON.stringify(c))}", cards)
