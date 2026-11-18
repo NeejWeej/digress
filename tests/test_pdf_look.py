@@ -19,6 +19,7 @@ MAP = {
     'pdf.js/3.11.174/pdf.min.js': ROOT + 'pdfjs-dist/build/pdf.min.js',
     'pdf.js/3.11.174/pdf.worker.min.js': ROOT + 'pdfjs-dist/build/pdf.worker.min.js',
 }
+UNFOLD = "document.querySelectorAll('.thmenu.open .thgrp[aria-expanded=false]').forEach(b=>b.click())"   # open every section of the theme menu
 fails = []
 def check(name, ok, detail=''):
     print(('ok   ' if ok else 'FAIL ') + name, '' if ok else str(detail)[:300])
@@ -60,7 +61,7 @@ async def main():
         check('Original to start with: no filter', await pg.evaluate(FILTER) == 'none', await pg.evaluate(FILTER))
         px0 = await pg.evaluate(PIXEL)
 
-        await pg.locator('#themeB').click()
+        await pg.locator('#themeB').click(); await pg.evaluate(UNFOLD)
         menu = pg.locator('.thmenu.open')
         check('the theme menu has a “PDF pages” section', 'PDF pages' in await menu.inner_text())
         await menu.locator('button[data-pdf=dark]').hover(); await frames(pg)
@@ -76,12 +77,12 @@ async def main():
         await pg.screenshot(path=OUT + '/pdf_dark.png')
 
         for look, want in [('dim', 'brightness'), ('sepia', 'sepia'), ('original', 'none')]:
-            await pg.locator('#themeB').click(); await pg.locator(f'.thmenu.open button[data-pdf={look}]').click(); await frames(pg)
+            await pg.locator('#themeB').click(); await pg.evaluate(UNFOLD); await pg.locator(f'.thmenu.open button[data-pdf={look}]').click(); await frames(pg)
             check(f'{look}: {want}', want in await pg.evaluate(FILTER), await pg.evaluate(FILTER))
             await pg.keyboard.press('Escape')
 
         # Match the theme
-        await pg.locator('#themeB').click(); await pg.locator('.thmenu.open button[data-pdf=match]').click()
+        await pg.locator('#themeB').click(); await pg.evaluate(UNFOLD); await pg.locator('.thmenu.open button[data-pdf=match]').click()
         await pg.locator('.thmenu.open button[data-theme=light]').click(); await frames(pg)
         check('Match the theme, light theme: as printed', await pg.evaluate(FILTER) == 'none', await pg.evaluate(FILTER))
         await pg.locator('.thmenu.open button[data-theme=kanagawa]').click(); await frames(pg)

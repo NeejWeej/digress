@@ -151,22 +151,30 @@ export async function listModels() {
 //  - the system prompt (with any document) goes first, as a developer message, and never changes
 //    within a conversation; the history follows as separate messages, oldest first, never rewritten.
 //  - prompt_cache_key keeps requests about the same document together on OpenAI's side.
-//  - tools and reasoning effort stay the same from message to message unless you change them
-//    (toggling Web or the effort costs one uncached reply, then caching resumes).
+//  - the tools stay the same from message to message: web_search is always listed where web access is
+//    allowed, and Web on or off only changes which tools may run (tool_choice allowed_tools), which OpenAI
+//    keeps out of the cached prefix: https://developers.openai.com/api/docs/guides/keep-prefix-unchanged
+//  - changing the reasoning effort costs one uncached reply, then caching resumes.
 // The plan route rejects `system` messages, max_output_tokens, temperature and previous_response_id,
 // and requires store:false + stream:true.
 // `more`: what this reply has added so far in a tool loop (the model's own output items, then the tool results).
-export function requestBody({ system, messages, model, effort, web, session }, withEffort, more = []) {
+export function requestBody({ system, messages, model, effort, web, webListed, session }, withEffort, more = []) {
   const input = [];
   if (system) input.push({ role: 'developer', content: system });
   input.push(...toOpenAI(messages), ...more); // messages arrive checked by server/content.mjs; images become input_image parts
   const body = { model, input, store: false, stream: true, prompt_cache_key: 'digress-' + crypto.createHash('sha256').update(system || '').digest('hex').slice(0, 32) };
   if (withEffort && effort) body.reasoning = { effort };
-  const tools = [...(web ? [{ type: 'web_search' }] : []), ...(session ? toolsForOpenAI() : [])];
+  const listed = webListed || web;
+  const tools = [...(listed ? [{ type: 'web_search' }] : []), ...(session ? toolsForOpenAI() : [])];
   // with store:false nothing is kept on OpenAI's side, so the model's reasoning comes back encrypted and is
   // sent again with the tool results, letting it carry on from where it stopped
-  const include = [...(web ? ['web_search_call.action.sources'] : []), ...(session ? ['reasoning.encrypted_content'] : [])];
-  if (tools.length) body.tools = tools;
+  const include = [...(listed ? ['web_search_call.action.sources'] : []), ...(session ? ['reasoning.encrypted_content'] : [])];
+  if (tools.length) {
+    body.tools = tools;
+    // which of them may run: web_search only when the reader turned Web on
+    const may = tools.filter((t) => web || t.type !== 'web_search').map((t) => (t.type === 'function' ? { type: 'function', name: t.name } : { type: t.type }));
+    body.tool_choice = may.length ? { type: 'allowed_tools', mode: 'auto', tools: may } : 'none';
+  }
   if (include.length) body.include = include;
   return body;
 }

@@ -6,7 +6,7 @@ asking it to link the pages it found with web search. Asserts and exits non-zero
 """
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import ROOT, launch_args, goto_app, booted, answered, frames
+from common import OUT, ROOT, launch_args, goto_app, booted, answered, frames
 from common import CORS
 
 MAP = {'marked.min.js': ROOT + 'marked/marked.min.js', 'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
@@ -15,6 +15,7 @@ FAKE = r"""
 window.__sys = [];
 window.fakeLLM = { use: async (n) => n === 'sample' ? async (input, opts) => { window.__sys.push(input[0].content.split('\n\n---\n\n')[0]); return {text: 'Hi.', truncated: false}; } : null };
 """
+UNFOLD = "document.querySelectorAll('.thmenu.open .thgrp[aria-expanded=false]').forEach(b=>b.click())"   # open every section of the theme menu
 fails = []
 def check(name, ok, detail=''):
     print(('ok   ' if ok else 'FAIL ') + name, '' if ok else str(detail)[:400])
@@ -39,6 +40,13 @@ async def main():
         await pg.locator('#themeB').click(); await frames(pg)
         names = await pg.locator('.thmenu button[data-theme]').all_text_contents()   # (the PDF pages looks follow: test_pdf_look.py)
         check('the menu lists every theme', len(names) == await pg.evaluate('THEMES.length') and any('Shades of Purple' in n for n in names) and any('Sand' in n for n in names), names)
+        check('…Flexoki among them, light and dark', any('Flexoki Light' in n for n in names) and any('Flexoki Dark' in n for n in names), names)
+        groups = await pg.evaluate("[...document.querySelectorAll('.thmenu.open .thgrp')].map(h=>[h.dataset.g,h.getAttribute('aria-expanded')])")
+        check('in sections: Light, Dark, PDF pages; only the one holding the current theme open', groups == [['light', 'true'], ['dark', 'false'], ['pdf', 'false']], groups)
+        check('…a folded one shows a dot per choice and its picked one', await pg.locator('.thgrp[data-g=dark] .thdot').count() == await pg.evaluate("THEMES.filter(t=>t[2]==='dark').length")
+              and await pg.locator('.thgrp[data-g=pdf] .thcur').inner_text() == 'Original' and not await pg.locator('.thmenu button[data-theme=gruvbox]').is_visible())
+        await pg.locator('.thgrp[data-g=dark]').click(); await frames(pg)
+        check('clicking a section’s header opens it', await pg.locator('.thmenu button[data-theme=gruvbox]').is_visible() and await pg.locator('.thmenu.open').count() == 1)
         await pg.locator('.thmenu button[data-theme=gruvbox]').hover(); await frames(pg)
         check('hovering a theme previews it', await theme() == 'gruvbox' and await var('--bg') == '#1d2021')
         await pg.mouse.move(5, 400); await frames(pg)
@@ -52,6 +60,21 @@ async def main():
         check('Escape closes the menu', await pg.locator('.thmenu.open').count() == 0 and await theme() == 'purple')
         await pg.reload(); await booted(pg)
         check('the theme stays after a reload', await theme() == 'purple' and await var('--panel') == '#2d2b55')
+        await pg.locator('#themeB').click(); await frames(pg)
+        check('opened again, the Dark section (holding Shades of Purple) is the open one', await pg.evaluate("[...document.querySelectorAll('.thmenu.open .thgrp[aria-expanded=true]')].map(h=>h.dataset.g)") == ['dark'])
+        await pg.keyboard.press('Escape')
+        # a short phone screen: the menu stays on screen and scrolls, everything open
+        await pg.set_viewport_size({'width': 390, 'height': 520}); await frames(pg)
+        tb = '.tmore #themeB' if not await pg.locator('.top #themeB').is_visible() else '#themeB'
+        if tb != '#themeB': await pg.locator('#moreB').click(); await frames(pg)
+        await pg.locator(tb).click(); await frames(pg); await pg.evaluate(UNFOLD); await frames(pg)
+        box = await pg.evaluate("(()=>{const m=document.querySelector('.thmenu.open'),r=m.getBoundingClientRect();return {top:r.top,bottom:r.bottom,vh:innerHeight,sh:m.scrollHeight,ch:m.clientHeight}})()")
+        check('on a short screen the open menu fits the screen', box['top'] >= 0 and box['bottom'] <= box['vh'], box)
+        check('…and scrolls to show the rest', box['sh'] > box['ch'], box)
+        await pg.locator('.thmenu.open button[data-pdf=sepia]').scroll_into_view_if_needed()
+        check('…down to the last choice', await pg.locator('.thmenu.open button[data-pdf=sepia]').is_visible())
+        await pg.screenshot(path=OUT + '/theme_menu_phone.png')
+        await pg.keyboard.press('Escape'); await pg.set_viewport_size({'width': 1300, 'height': 800}); await frames(pg)
 
         ta = pg.locator('.pane[data-tid="main"] textarea'); await ta.fill('hello'); await answered(pg, ta.press('Enter'))
         sys_ = await pg.evaluate('window.__sys[0]')

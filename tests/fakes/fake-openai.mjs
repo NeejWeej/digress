@@ -3,7 +3,7 @@
 // the plan route of the Responses API (/v1/models, streaming /v1/responses). It enforces the plan
 // route's rules (store:false, stream:true, no system messages, no max_output_tokens), so a request
 // that breaks them fails the test. Each /v1/responses body is appended to FAKE_LOG.
-// Messages containing SEARCHME search (when web_search is offered), LIMIT hit the plan limit,
+// Messages containing SEARCHME search (when web_search is offered and tool_choice allows it), LIMIT hit the plan limit,
 // DROP end without response.completed.
 import http from 'node:http';
 import crypto from 'node:crypto';
@@ -115,7 +115,7 @@ http.createServer((req, res) => {
       return res.end();
     }
     if (last.includes('DROP')) { say(0, 'Half a repl'); return res.end(); }
-    if (last.includes('SEARCHME') && (j.tools || []).length) {
+    if (last.includes('SEARCHME') && (j.tools || []).some((t) => t.type === 'web_search') && (!j.tool_choice || (j.tool_choice.tools || []).some((t) => t.type === 'web_search'))) {
       say(0, 'Let me check.');
       const sources = [{ type: 'url', url: 'https://example.net/c', title: 'Net source' }, { type: 'url', url: 'javascript:alert(1)' }];
       ev({ type: 'response.output_item.added', output_index: 1, item: { type: 'web_search_call', status: 'in_progress' } });

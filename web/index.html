@@ -5,11 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#fffdf9">
 <title>Digress</title>
 <script>
 /* Themes: [id, name, mode]. The colors are in the CSS (:root[data-theme=…]); 'system' follows the device's
    light or dark setting. Set here, before anything paints, so there's no flash of the wrong one. */
-window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['dark','Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['moon','Rosé Pine Moon','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark']];
+window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['dark','Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['moon','Rosé Pine Moon','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark']];
 /* How PDF pages look (pdf.js draws them as images, in the PDF's own colors): [id, name]. 'match' is dark pages with
    a dark theme. Only the page images are filtered (CSS), never what the model gets. */
 window.PDF_LOOKS=[['original','Original'],['match','Match the theme'],['dark','Dark'],['dim','Dim'],['sepia','Sepia']];
@@ -17,7 +19,11 @@ window.applyPdfLook=function(id){document.documentElement.dataset.pdf=PDF_LOOKS.
 window.applyTheme=function(id){
   var t=THEMES.find(function(x){return x[0]===id})||THEMES[0],dark=t[2]==='auto'?matchMedia('(prefers-color-scheme: dark)').matches:t[2]==='dark';
   var name=t[0]==='system'?(dark?'dark':'light'):t[0],r=document.documentElement;
-  r.dataset.theme=name;r.dataset.mode=dark?'dark':'light';return t[0];
+  r.dataset.theme=name;r.dataset.mode=dark?'dark':'light';
+  // the phone's status bar (and an installed app's title bar) takes the top bar's color
+  var tc=function(){var m=document.querySelector('meta[name=theme-color]'),c=getComputedStyle(r).getPropertyValue('--panel').trim();if(m&&c)m.content=c};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tc,{once:true});else tc();
+  return t[0];
 };
 (function(){var s={};try{s=JSON.parse(localStorage.getItem('sq:settings')||'{}')}catch(e){}applyTheme(s.theme||'system');applyPdfLook(s.pdf)})();
 </script>
@@ -88,6 +94,16 @@ window.applyTheme=function(id){
   --bg:#e6e9ef;--panel:#eff1f5;--panel-2:#eaedf2;--ink:#4c4f69;--muted:#6c6f85;--faint:#8c8fa1;
   --line:#dce0e8;--line2:#ccd0da;--user-bg:#dce0e8;--code-bg:#e6e9ef;--accent:#8839ef;--danger:#d20f39;
   --hk:#8839ef;--hs:#40a02b;--hn:#fe640b;--ht:#1e66f5;--hy:#df8e1d;--hm:#179299;
+}
+:root[data-theme=flexoki-light],.thsw[data-theme=flexoki-light]{   /* Flexoki Light (stephango.com/flexoki) */
+  --bg:#f2f0e5;--panel:#fffcf0;--panel-2:#f7f5ea;--ink:#1c1b1a;--muted:#6f6e69;--faint:#878580;
+  --line:#e6e4d9;--line2:#dad8ce;--user-bg:#e6e4d9;--code-bg:#f2f0e5;--accent:#24837b;--danger:#af3029;
+  --hk:#66800b;--hs:#24837b;--hn:#5e409d;--ht:#bc5215;--hy:#ad8301;--hm:#a02f6f;
+}
+:root[data-theme=flexoki],.thsw[data-theme=flexoki]{   /* Flexoki Dark */
+  --bg:#100f0f;--panel:#1c1b1a;--panel-2:#232221;--ink:#cecdc3;--muted:#878580;--faint:#6f6e69;
+  --line:#282726;--line2:#343331;--user-bg:#282726;--code-bg:#171616;--accent:#3aa99f;--danger:#d14d41;
+  --hk:#879a39;--hs:#3aa99f;--hn:#8b7ec8;--ht:#da702c;--hy:#d0a215;--hm:#ce5d97;
 }
 :root[data-theme=kanagawa],.thsw[data-theme=kanagawa]{   /* Kanagawa (wave) */
   --bg:#16161d;--panel:#1f1f28;--panel-2:#24242f;--ink:#dcd7ba;--muted:#a9a58f;--faint:#727169;
@@ -171,7 +187,21 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .thmenu.open{display:block}
 .thmenu .thh{padding:4px 8px 6px;font-size:11.5px;color:var(--faint)}
 .thmenu .thh.thsep{margin-top:6px;padding-top:10px;border-top:1px solid var(--line)}
-.thmenu{max-height:calc(100vh - 70px);overflow:auto}
+.thmenu{max-height:calc(100dvh - 16px);overflow:auto;overscroll-behavior:contain}
+/* the theme menu's sections (Light, Dark, PDF pages): a header that folds its list; folded, it shows a dot per choice */
+.thmenu .thgrp{margin-top:4px;font-size:12px;color:var(--muted);gap:8px}
+.thmenu .thgrp+.thlist+.thgrp,.thmenu button[data-theme=system]+.thgrp{border-top:1px solid var(--line);border-radius:0 0 8px 8px}
+.thmenu .thgrp .thgn{font-weight:600;color:var(--ink)}
+.thmenu .thgrp .thcur{color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.thmenu .thgrp .thmini{display:inline-flex;gap:3px;margin-left:auto;flex:none}
+.thmenu .thgrp[aria-expanded=true] .thmini{display:none}
+.thmenu .thgrp .chev{flex:none;display:inline-flex;color:var(--faint);transform:rotate(-90deg);transition:transform .15s}
+.thmenu .thgrp .chev svg.i{width:13px;height:13px}
+.thmenu .thgrp[aria-expanded=true] .chev{transform:none}
+.thmenu .thgrp[aria-expanded=true] .thcur{display:none}
+.thmenu .thgrp[aria-expanded=false]+.thlist{display:none}
+.thsw.thdot{width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--panel) 50%,var(--accent) 50%)}
+.pdsw.thdot{width:10px;height:10px;border-radius:50%;font-size:0}
 .pdsw{display:inline-flex;width:34px;height:20px;border-radius:4px;border:1px solid var(--line2);flex:none;align-items:center;justify-content:center;font:600 11px var(--serif);background:#fff;color:#222}
 .pdsw[data-p=dark]{background:#1c1c1c;color:#ddd}.pdsw[data-p=dim]{background:#c7c7c7;color:#1a1a1a}.pdsw[data-p=sepia]{background:#f3ead6;color:#3b2f1e}
 .pdsw[data-p=match]{background:linear-gradient(135deg,#fff 50%,#1c1c1c 50%);color:transparent}
@@ -388,6 +418,9 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .gut::after{content:"";position:absolute;top:30%;bottom:30%;left:4px;width:2px;border-radius:2px;background:transparent;transition:background .15s}
 .gut:hover::after,.gut.drag::after{background:var(--line2)}
 .panes.rows .gut{cursor:row-resize}
+.gut.snap::after{background:var(--accent);top:0;bottom:0;transition:none}.panes.rows .gut.snap::after{left:0;right:0}
+#snapTag{position:fixed;z-index:70;padding:4px 9px;border-radius:999px;background:var(--accent);color:var(--panel);font-size:12px;font-weight:600;pointer-events:none;white-space:nowrap;box-shadow:var(--shadow);opacity:0;transition:opacity .12s}
+#snapTag.on{opacity:1}
 .panes.cols:has(>.gut.glast){padding-right:2px}.panes.rows:has(>.gut.glast){padding-bottom:2px}   /* the last pane's handle takes the place of the end padding, so it adds no width */
 .panes.rows .gut::after{left:40%;right:40%;top:4px;bottom:auto;height:2px;width:auto}
 .pane.sized{min-width:0}.panes.rows .pane.sized{min-height:0}   /* a size you dragged to wins over the default minimum (which is wide on phones) */
@@ -1835,15 +1868,24 @@ function buildContext(tid,excludeMid,opts){
   const out=[];
   const push=(role,c)=>{const parts=typeof c==='string'?[{type:'text',text:c}]:c;const last=out[out.length-1];if(last&&last.role===role)last.parts.push({type:'text',text:'\n\n'},...parts);else out.push({role,parts:[...parts]})};
   // the messages on this thread's path, in order (threads.js: the same walk its checks use)
-  ThreadOps.walk(conv,tid,(m,pre)=>{
+  const seq=[];ThreadOps.walk(conv,tid,(m,pre)=>seq.push([m,pre]));
+  // Everything added to a question is worked out from what's saved with it (its reply's Web, the page it was asked
+  // on), never from how things are now, so earlier questions read the same in every request: the prompt cache
+  // depends on it. The question being answered (its reply is excludeMid) gets Web as it is now, as generate does.
+  const webFor=(i)=>{for(let j=i+1;j<seq.length;j++){const r=seq[j][0];if(r.role==='user')return false;
+    if(r.role==='assistant')return r.id===excludeMid?!!(settings.web&&io.llm&&io.llm.supportsWeb):!!r.web}return false};
+  let lastQ='';
+  seq.forEach(([m,pre],i)=>{
     if(m.id===excludeMid)return;
-    let c=m.content||'';
+    let c=m.content||'';if(m.role==='user')lastQ=c;
     if(m.role==='note'){if(c&&!m.pending)push('user',PROMPTS.takeawayNote(T(m.fromThread)?T(m.fromThread).title:(m.fromTitle||'(deleted)'),c));return}
     if(m.role==='assistant'&&(!c||m.pending))return;
     let parts=[{type:'text',text:c}];
     if(m.role==='user'){
       if(m.images&&m.images.length)parts=[...m.images.map((ref,k)=>({type:'image',ref,label:`image ${k+1} attached to “${trunc(c||'a message',40)}”`})),...(c?parts:[])];
       if(pre)parts=[...branchParts(pre,tools),...parts];
+      if(m.lookAt)parts.push({type:'text',text:PROMPTS.lookingAt(m.lookAt)});
+      if(webFor(i))parts.push({type:'text',text:PROMPTS.webOn});
     }
     push(m.role,parts);
   });
@@ -1851,8 +1893,7 @@ function buildContext(tid,excludeMid,opts){
   let system=SYS;lastDocSeen=null;
   if(out.length&&conv.doc){
     const last=out[out.length-1];
-    system=SYS+'\n\n'+docPreamble(tid,last.role==='user'?partsText(last.parts):'',tools);
-    if(tid==='main'&&docState&&docState.kind==='pdf'&&conv.ui.open.includes('doc')&&!isCollapsed('doc')&&last.role==='user')last.parts.push({type:'text',text:PROMPTS.lookingAt(docView.current)});
+    system=SYS+'\n\n'+docPreamble(tid,last.role==='user'?lastQ:'',tools);
   }
   return {system,messages:out.map(o=>({role:o.role,content:joinParts(o.parts)})),docSeen:lastDocSeen,tools:tools&&!!(conv.doc&&docState&&docState.loaded)};
 }
@@ -1888,6 +1929,8 @@ async function send(tid,text,imgs){
   if(imgs.length){streaming.set(tid,{mid:null,ctrl:new AbortController()});try{extra={images:await storeImages(imgs)}}finally{streaming.delete(tid)}}
   if(tid==='main'&&!conv.titleKept&&!conv.order.main.some(id=>conv.msgs[id].role==='user')){conv.title=trunc(text||'Question about an image',120);delete conv.autoTitle;renderTitle()}
   if(t.autoTitle&&!conv.order[tid].length){t.title=trunc(text||'About an image',48);delete t.autoTitle;refreshAnchorsFor(tid)}
+  // asked in main with the PDF open beside it: the question keeps the page it was asked on (PROMPTS.lookingAt)
+  if(tid==='main'&&docState&&docState.kind==='pdf'&&conv.ui.open.includes('doc')&&!isCollapsed('doc')&&docView.current)extra={...extra,lookAt:docView.current};
   addMsg(tid,'user',text,extra);
   const am=addMsg(tid,'assistant','');am.pending=true;
   renderPane(tid,true);renderMap();save();
@@ -2778,29 +2821,65 @@ function gutTarget(g){
 }
 /* Resizing a pane by its handle. Held near the far edge of the panes area (right in Columns, bottom in Rows) the pane
    keeps growing on its own and the row scrolls with it, so the handle stays under the pointer: a pane at the end can
-   grow past the screen. Faster the closer to the edge, capped (EDGE_GROW). */
-const EDGE_ZONE=44,EDGE_GROW=700,EDGE_WAIT=250;   // px from the edge where it starts; px per second at most; ms held there first (a drag that merely ends near the edge doesn't grow)
+   grow past the screen. Faster the closer to the edge, capped (EDGE_GROW), and easing in (EDGE_EASE).
+   The snap: whenever the pane comes up to the size that exactly fills the panes area, by hand or growing at the edge,
+   it stops there ("Fits the window": the handle lights up, a phone buzzes). Let go and that's its size. It lets go
+   when the pointer moves SNAP_PULL past where it stopped, or, held at the edge, after SNAP_HOLD (then it carries on
+   growing, easing in again). Back below the size by SNAP_REARM and it's ready to snap again. */
+const EDGE_ZONE=44,EDGE_GROW=700,EDGE_WAIT=400,EDGE_EASE=600,SNAP_HOLD=700,SNAP_PULL=40,SNAP_REARM=24;   // px from the edge where it starts; px per second at most; ms held there first (a drag that merely ends near the edge doesn't grow); ms to reach full speed; ms the snap holds at the edge; px of pointer that pull it out of the snap by hand; px below it that make it ready again
+function snapTag(on,x,y,cols){
+  let t=$('#snapTag');if(!t){if(!on)return;t=document.createElement('div');t.id='snapTag';t.textContent='Fits the window';document.body.appendChild(t)}
+  if(on){const w=t.offsetWidth;t.style.left=Math.max(8,cols?x-w-14:x-w/2)+'px';t.style.top=Math.max(8,cols?y-14:y-40)+'px'}
+  t.classList.toggle('on',!!on);
+}
 function startDrag(e,g){
   const tg=gutTarget(g);if(!tg)return;const {tid,el,sign}=tg;
   const cols=conv.ui.layout==='cols';const r=el.getBoundingClientRect();
   drag={tid,el,cols,sign,start:cols?e.clientX:e.clientY,size:cols?r.width:r.height,g,at:cols?e.clientX:e.clientY,raf:0,t:0};g.classList.add('drag');(()=>{try{g.setPointerCapture(e.pointerId)}catch(_){}})();
   drag.el.classList.add('sized');const min=drag.cols?(innerWidth<=760?220:360):200;   // phones: narrow enough for two side by side
   const d0=drag,box=$('#panes');
-  const apply=()=>{const s=Math.max(min,d0.size+(d0.at-d0.start)*d0.sign);d0.el.style.flex=`0 0 ${s}px`;conv.ui.sizes[d0.tid]=Math.round(s);wiresSoon();return s};
+  const raw=()=>Math.max(min,d0.size+(d0.at-d0.start)*d0.sign);   // where the pointer puts the handle
+  const set=s=>{d0.el.style.flex=`0 0 ${s}px`;conv.ui.sizes[d0.tid]=Math.round(s);wiresSoon();return s};
   const edgeDist=()=>{const b=box.getBoundingClientRect();return (d0.cols?Math.min(b.right,innerWidth):Math.min(b.bottom,innerHeight))-d0.at};
+  // the size at which the pane fills the panes area (less its padding and this handle)
+  const fit=()=>{const cs=getComputedStyle(box);return d0.cols?box.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight)-g.offsetWidth:box.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom)-g.offsetHeight};
+  const mark=on=>{if(on===!!d0.marked)return;d0.marked=on;g.classList.toggle('snap',on);
+    snapTag(on,d0.cols?d0.at:d0.y,d0.cols?d0.y:d0.at,d0.cols);if(on)try{navigator.vibrate&&navigator.vibrate(12)}catch(_){}};
+  // the snap: armed (ready), stuck (the pointer position where it stopped, and when), prev (the last size from the pointer)
+  d0.armed=true;d0.stuck=null;d0.prev=raw();
+  const size=()=>{
+    const r=raw(),f=fit();
+    if(d0.stuck!=null){
+      if(Math.abs(d0.at-d0.stuck)<=SNAP_PULL){d0.prev=r;return f}
+      d0.stuck=null;mark(false);   // pulled out of it
+    }
+    if(r<f-SNAP_REARM)d0.armed=true;
+    if(d0.armed&&d0.prev<f&&r>=f){d0.armed=false;d0.stuck=d0.at;d0.since=performance.now();mark(true);d0.prev=r;return f}
+    if(r>f)d0.armed=false;
+    d0.prev=r;return r;
+  };
   const tick=t=>{
     d0.raf=0;if(drag!==d0)return;
     const dist=edgeDist();if(d0.sign!==1||dist>=EDGE_ZONE){d0.t=0;d0.in=0;return}
     if(!d0.in)d0.in=t;if(t-d0.in<EDGE_WAIT){d0.raf=requestAnimationFrame(tick);return}
+    if(d0.stuck!=null){
+      if(t-Math.max(d0.since,d0.in+EDGE_WAIT)<SNAP_HOLD){d0.t=0;d0.raf=requestAnimationFrame(tick);return}
+      // held past the snap: carry on from it, the handle where the pointer is, easing in again
+      d0.start=d0.at-(fit()-d0.size);d0.prev=raw();d0.stuck=null;mark(false);d0.go=t;
+    }
+    if(!d0.go)d0.go=t;
     const dt=d0.t?Math.min(.05,(t-d0.t)/1000):1/60;d0.t=t;
-    const grow=EDGE_GROW*Math.min(1,(EDGE_ZONE-dist)/EDGE_ZONE)*dt;
-    d0.start-=grow;apply();
-    if(d0.cols)box.scrollLeft+=grow;else box.scrollTop+=grow;
+    const grow=EDGE_GROW*Math.min(1,(EDGE_ZONE-dist)/EDGE_ZONE)*Math.min(1,.15+(t-d0.go)/EDGE_EASE)*dt;
+    const was=parseFloat(d0.el.style.flex.split(' ')[2])||raw();
+    d0.start-=grow;const now=set(size());
+    if(d0.stuck!=null)d0.start=d0.at-(now-d0.size);   // stopped at the snap: no overshoot kept for later
+    const moved=now-was;if(moved>0){if(d0.cols)box.scrollLeft+=moved;else box.scrollTop+=moved}
     d0.raf=requestAnimationFrame(tick);
   };
-  const edge=()=>{if(!d0.raf&&d0.sign===1&&edgeDist()<EDGE_ZONE){d0.t=0;d0.in=0;d0.raf=requestAnimationFrame(tick)}};
-  g.onpointermove=ev=>{d0.at=d0.cols?ev.clientX:ev.clientY;apply();edge()};
-  g.onpointerup=g.onpointercancel=()=>{cancelAnimationFrame(d0.raf);d0.raf=0;g.classList.remove('drag');g.onpointermove=g.onpointerup=g.onpointercancel=null;drag=null;save()};
+  const edge=()=>{if(!d0.raf&&d0.sign===1&&edgeDist()<EDGE_ZONE){d0.t=0;d0.in=0;d0.go=0;d0.raf=requestAnimationFrame(tick)}};
+  d0.y=d0.cols?e.clientY:e.clientX;
+  g.onpointermove=ev=>{d0.at=d0.cols?ev.clientX:ev.clientY;d0.y=d0.cols?ev.clientY:ev.clientX;set(size());edge()};
+  g.onpointerup=g.onpointercancel=()=>{cancelAnimationFrame(d0.raf);d0.raf=0;mark(false);g.classList.remove('drag');g.onpointermove=g.onpointerup=g.onpointercancel=null;drag=null;save()};
   edge();
 }
 
@@ -5490,12 +5569,61 @@ function setZen(on){
   zen=!!on;$('#app').classList.toggle('zen',zen);$('#app').classList.remove('zenside');$('#zenB').setAttribute('aria-pressed',String(zen));$('#zenB').classList.toggle('on',zen);
   try{if(zen)sessionStorage.setItem('digress:zen','1');else sessionStorage.removeItem('digress:zen')}catch(e){}
   closeMore();if(themeMenu.classList.contains('open'))themeMenu.classList.remove('open');
+  zenFullscreen(zen);
 }
 $('#zenB').innerHTML=ic('zen')+'<b class="mlbl">Zen</b>';$('#zenB').onclick=()=>setZen(!zen);$('#zenX').onclick=()=>setZen(false);
 $('#zenS').innerHTML=ic('side');$('#zenS').onclick=()=>$('#app').classList.add('zenside');
 const zenSideAway=()=>$('#app').classList.remove('zenside');
 document.addEventListener('pointerdown',e=>{if(zen&&$('#app').classList.contains('zenside')&&!e.target.closest('#side,#zenS'))zenSideAway()},true);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&zen&&$('#app').classList.contains('zenside'))zenSideAway()});
+/* ---------- installed as an app (Install app on Android; manifest.webmanifest) ---------- */
+// installed: opened from the home screen in its own window, not in a browser tab
+const installedApp=()=>matchMedia('(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)').matches;
+// In the installed app on a phone or tablet, Zen also goes full screen: the status bar and Android's navigation go too.
+// Leaving full screen some other way (Android's back, a swipe) leaves Zen with it.
+let zenFs=false;
+function zenFullscreen(on){
+  if(!installedApp()||!matchMedia('(pointer: coarse)').matches||!document.fullscreenEnabled)return;
+  if(on&&!document.fullscreenElement){zenFs=true;document.documentElement.requestFullscreen({navigationUI:'hide'}).catch(()=>{zenFs=false})}
+  else if(!on&&document.fullscreenElement&&zenFs){zenFs=false;document.exitFullscreen().catch(()=>{})}
+}
+let fsLeft=0;
+document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&zenFs){zenFs=false;fsLeft=Date.now();if(zen)setZen(false)}});
+/* Android's back gesture, in the installed app. A browser tab goes back a page; here that would close the app.
+   So back closes whatever is open on top (a dialog, a menu, search, flashcards, the sidebar, the branch popup),
+   never a pane or anything you'd lose; with nothing open, the first back says how to leave and only a second
+   one, right after, closes the app. It works by keeping one extra history entry (BACK_GUARD) on top. */
+const BACK_GUARD={digressBack:1},BACK_AGAIN_MS=2500;
+function closeTopmost(){
+  const lb=document.querySelector('.lightbox');if(lb){lb.click();return true}
+  if($('#modal').classList.contains('show')){closeModal();return true}
+  if($('#docModal').classList.contains('show')){closeDocModal();return true}
+  if($('#pal').classList.contains('show')){closePalette();return true}
+  if(themeMenu.classList.contains('open')){closeThemes();return true}
+  if(moreMenu.classList.contains('open')){closeMore();return true}
+  const vw=$('#cvViews');if(vw&&vw.classList.contains('open')){closeViews();return true}
+  if(brPop){closeBrList();return true}
+  if(pop.classList.contains('show')){hidePop();return true}
+  if(document.querySelector('.docpane.snipping')){setSnip(false);return true}
+  if($('#cardsModal').classList.contains('show')){closeCards();return true}
+  if($('#guide').classList.contains('open')){closeGuide();return true}
+  const app=$('#app');
+  if(app.classList.contains('zenside')){zenSideAway();return true}
+  if(app.classList.contains('sideopen')){app.classList.remove('sideopen');return true}
+  return false;
+}
+let backArmed=0;
+function guardBack(){if(!installedApp())return;if(!(history.state&&history.state.digressBack))history.pushState(BACK_GUARD,'',location.href)}
+addEventListener('popstate',()=>{
+  if(!installedApp())return;
+  showInUrl();
+  if(Date.now()-fsLeft<600){guardBack();return}   // that back left full screen (and Zen): that's all it does   // the entry under the guard may name the conversation you had open before; keep this one
+  if(closeTopmost()){guardBack();return}
+  if(Date.now()-backArmed<BACK_AGAIN_MS)return;   // never armed this time round: the guard is already gone
+  // nothing open: say so, and leave the guard off for a moment, so a second back closes the app
+  backArmed=Date.now();toast('Swipe back again to leave Digress');
+  setTimeout(()=>{if(Date.now()-backArmed>=BACK_AGAIN_MS-50)guardBack()},BACK_AGAIN_MS);
+});
 /* Ask about Digress (the ? beside How it works): a one-off chat with Digress's own documentation in its system
    prompt (GET api/guide, the files listed in GUIDE_DOCS in server.mjs). Kept only in this page's memory: never
    saved, never in a conversation, gone on reload. It uses the model picked in the top bar. */
@@ -5557,34 +5685,65 @@ $('#guide').addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagatio
 const themeB=$('#themeB');themeB.innerHTML=ic('palette')+'<b class="mlbl">Theme</b>';
 const themeMenu=document.createElement('div');themeMenu.className='thmenu';themeMenu.setAttribute('role','menu');themeMenu.innerHTML='<div class="thh">Theme</div>';
 const sw=(id)=>`<span class="thsw" data-theme="${id}"><i></i><i></i><i></i></span>`;
-for(const [id,name] of THEMES){
-  const b=document.createElement('button');b.dataset.theme=id;b.setAttribute('role','menuitemradio');
-  b.innerHTML=(id==='system'?`<span class="thsys">${sw('light')}${sw('dark')}</span>`:sw(id))+`<span></span><span class="ck">${ic('check')}</span>`;
-  b.children[1].textContent=name;themeMenu.appendChild(b);
+// a section: its header (folds the list; folded, it shows a dot per choice and which one is picked) and its list
+function themeGroup(g,name,items,dot){
+  const h=document.createElement('button');h.className='thgrp';h.dataset.g=g;h.setAttribute('aria-expanded','false');
+  h.innerHTML=`<span class="chev">${ic('chev')}</span><span class="thgn"></span><span class="thcur"></span><span class="thmini">${items.map(dot).join('')}</span>`;
+  h.querySelector('.thgn').textContent=name;
+  const list=document.createElement('div');list.className='thlist';list.setAttribute('role','group');
+  themeMenu.append(h,list);return list;
 }
-themeMenu.insertAdjacentHTML('beforeend','<div class="thh thsep">PDF pages</div>');
+const themeButton=(id,name)=>{const b=document.createElement('button');b.dataset.theme=id;b.setAttribute('role','menuitemradio');
+  b.innerHTML=(id==='system'?`<span class="thsys">${sw('light')}${sw('dark')}</span>`:sw(id))+`<span></span><span class="ck">${ic('check')}</span>`;
+  b.children[1].textContent=name;return b};
+themeMenu.appendChild(themeButton('system',THEMES[0][1]));
+for(const [mode,label] of [['light','Light'],['dark','Dark']]){
+  const ts=THEMES.filter(t=>t[2]===mode),list=themeGroup(mode,label,ts,([id])=>`<span class="thsw thdot" data-theme="${id}"></span>`);
+  for(const [id,name] of ts)list.appendChild(themeButton(id,name));
+}
+const pdfList=themeGroup('pdf','PDF pages',PDF_LOOKS,([id])=>`<span class="pdsw thdot" data-p="${id}"></span>`);
 for(const [id,name] of PDF_LOOKS){
   const b=document.createElement('button');b.dataset.pdf=id;b.setAttribute('role','menuitemradio');
   b.title={original:'As the PDF is printed',match:'Dark pages with a dark theme, as printed with a light one',dark:'Light text on dark pages (pictures look like negatives)',dim:'Less bright, colors unchanged',sepia:'Warm paper'}[id];
-  b.innerHTML=`<span class="pdsw" data-p="${id}">Aa</span><span></span><span class="ck">${ic('check')}</span>`;b.children[1].textContent=name;themeMenu.appendChild(b);
+  b.innerHTML=`<span class="pdsw" data-p="${id}">Aa</span><span></span><span class="ck">${ic('check')}</span>`;b.children[1].textContent=name;pdfList.appendChild(b);
 }
 document.body.appendChild(themeMenu);
-function setPdfLook(id,keep){applyPdfLook(id);if(keep){settings.pdf=document.documentElement.dataset.pdf;saveSettings();themeMenu.querySelectorAll('button[data-pdf]').forEach(b=>b.setAttribute('aria-checked',b.dataset.pdf===settings.pdf?'true':'false'))}}
+// each folded header names the choice in it ("Nord"), so you can see what's picked without opening it
+function themeHeads(){
+  for(const h of themeMenu.querySelectorAll('.thgrp')){
+    const ck=h.nextElementSibling.querySelector('button[aria-checked=true]');h.querySelector('.thcur').textContent=ck?ck.children[1].textContent:'';
+  }
+}
+// opened, the section holding the current theme is unfolded and the others folded, so the menu stays short;
+// it fits under its button or, short of room (a phone, or opened from ⋯), moves up and scrolls inside
+function placeThemes(){
+  const r=themeB.getBoundingClientRect(),vh=(window.visualViewport?visualViewport.height:innerHeight);
+  themeMenu.style.maxHeight=(vh-16)+'px';
+  const h=themeMenu.offsetHeight;
+  themeMenu.style.top=Math.max(8,Math.min(r.bottom+6,vh-h-8))+'px';
+  themeMenu.style.left=Math.max(8,Math.min(innerWidth-themeMenu.offsetWidth-8,r.right-themeMenu.offsetWidth))+'px';
+}
+function setPdfLook(id,keep){applyPdfLook(id);if(keep){settings.pdf=document.documentElement.dataset.pdf;saveSettings();themeMenu.querySelectorAll('button[data-pdf]').forEach(b=>b.setAttribute('aria-checked',b.dataset.pdf===settings.pdf?'true':'false'));themeHeads()}}
 setPdfLook(settings.pdf||'original',true);
 function setTheme(id,keep){
   const was=document.documentElement.dataset.theme;applyTheme(id);
-  if(keep){settings.theme=id;saveSettings();themeMenu.querySelectorAll('button[data-theme]').forEach(b=>b.setAttribute('aria-checked',b.dataset.theme===settings.theme?'true':'false'))}
+  if(keep){settings.theme=id;saveSettings();themeMenu.querySelectorAll('button[data-theme]').forEach(b=>b.setAttribute('aria-checked',b.dataset.theme===settings.theme?'true':'false'));themeHeads()}
   if(document.documentElement.dataset.theme!==was&&mermaidOk){mermaidTheme();document.querySelectorAll('.mermaid-box[data-done]').forEach(b=>b.removeAttribute('data-done'));renderMermaid(document)}
 }
 setTheme(settings.theme,true);
 function closeThemes(){if(!themeMenu.classList.contains('open'))return;themeMenu.classList.remove('open');themeB.setAttribute('aria-expanded','false');setTheme(settings.theme);setPdfLook(settings.pdf)}
 themeB.onclick=(e)=>{e.stopPropagation();if(themeMenu.classList.contains('open'))return closeThemes();
-  const r=themeB.getBoundingClientRect();themeMenu.classList.add('open');themeB.setAttribute('aria-expanded','true');
-  themeMenu.style.top=(r.bottom+6)+'px';themeMenu.style.left=Math.max(8,Math.min(innerWidth-themeMenu.offsetWidth-8,r.right-themeMenu.offsetWidth))+'px'};
+  const cur=THEMES.find(t=>t[0]===settings.theme),g=cur&&cur[2]!=='auto'?cur[2]:document.documentElement.dataset.mode;
+  for(const h of themeMenu.querySelectorAll('.thgrp'))h.setAttribute('aria-expanded',h.dataset.g===g?'true':'false');
+  themeMenu.classList.add('open');themeB.setAttribute('aria-expanded','true');themeMenu.scrollTop=0;placeThemes()};
 // hovering previews (a theme, or how PDF pages look); leaving puts back what's chosen; clicking keeps it
-themeMenu.addEventListener('mouseover',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.pdf)setPdfLook(b.dataset.pdf);else{setTheme(b.dataset.theme);setPdfLook(settings.pdf)}});
+themeMenu.addEventListener('mouseover',e=>{const b=e.target.closest('button[data-theme],button[data-pdf]');if(!b)return;if(b.dataset.pdf)setPdfLook(b.dataset.pdf);else{setTheme(b.dataset.theme);setPdfLook(settings.pdf)}});
 themeMenu.addEventListener('mouseleave',()=>{setTheme(settings.theme);setPdfLook(settings.pdf)});
-themeMenu.addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('button');if(!b)return;if(b.dataset.pdf)setPdfLook(b.dataset.pdf,true);else setTheme(b.dataset.theme,true)});
+themeMenu.addEventListener('click',e=>{e.stopPropagation();
+  const h=e.target.closest('.thgrp');
+  if(h){h.setAttribute('aria-expanded',h.getAttribute('aria-expanded')==='true'?'false':'true');placeThemes();
+    if(h.getAttribute('aria-expanded')==='true'){const l=h.nextElementSibling;if(l.getBoundingClientRect().bottom>themeMenu.getBoundingClientRect().bottom)h.scrollIntoView({block:'start',behavior:'smooth'})}return}
+  const b=e.target.closest('button[data-theme],button[data-pdf]');if(!b)return;if(b.dataset.pdf)setPdfLook(b.dataset.pdf,true);else setTheme(b.dataset.theme,true)});
 document.addEventListener('click',closeThemes);
 addEventListener('keydown',e=>{if(e.key==='Escape'&&themeMenu.classList.contains('open')){e.stopPropagation();closeThemes()}},true);
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(settings.theme==='system')setTheme('system')});
@@ -5710,7 +5869,7 @@ setTimeout(()=>{const ta=paneEls.get('main')&&paneEls.get('main').querySelector(
 
 if('serviceWorker' in navigator&&window.isSecureContext&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register('sw.js').catch(e=>console.warn('offline support unavailable',e));
 io.ready=initConnectors().catch(e=>{console.warn('connector setup failed',e);noServer()});
-io.ready.then(async()=>{fillModelPicker();await loadList();await maybeOpenLatest();loadCards()});
+io.ready.then(async()=>{fillModelPicker();await loadList();await maybeOpenLatest();loadCards();guardBack()});
 async function maybeOpenLatest(){
   try{
     if(conv.order.main.length||!convList.length)return;
