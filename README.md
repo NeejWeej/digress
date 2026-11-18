@@ -23,7 +23,7 @@ Select any text in a reply and type a question (or pick a quick one: *Explain si
 
 - The model sees the whole conversation up to that point, plus the passage you picked, so the answer is about *that* sentence in *that* context.
 - A numbered marker in the parent shows where each branch starts. Click it to open the branch; **Show in source** in the branch jumps back to the exact words and flashes them.
-- Branches can branch again, as deep as you need. The sidebar shows the whole tree.
+- Branches can branch again, as deep as you need. The sidebar shows the whole tree. Each pane's header says how many branches come off it; click that number for a list of just those, nested, and click one to open it.
 
 ## Takeaways: carry it back
 
