@@ -37,8 +37,8 @@ async def main():
 
         check('starts matching the device (light here)', await theme() == 'light' and await var('--bg') == '#f5f3ee', await theme())
         await pg.locator('#themeB').click(); await frames(pg)
-        names = await pg.locator('.thmenu button').all_text_contents()
-        check('the menu lists every theme', len(names) == 10 and any('Shades of Purple' in n for n in names) and any('Sand' in n for n in names), names)
+        names = await pg.locator('.thmenu button[data-theme]').all_text_contents()   # (the PDF pages looks follow: test_pdf_look.py)
+        check('the menu lists every theme', len(names) == await pg.evaluate('THEMES.length') and any('Shades of Purple' in n for n in names) and any('Sand' in n for n in names), names)
         await pg.locator('.thmenu button[data-theme=gruvbox]').hover(); await frames(pg)
         check('hovering a theme previews it', await theme() == 'gruvbox' and await var('--bg') == '#1d2021')
         await pg.mouse.move(5, 400); await frames(pg)

@@ -9,13 +9,17 @@
 <script>
 /* Themes: [id, name, mode]. The colors are in the CSS (:root[data-theme=…]); 'system' follows the device's
    light or dark setting. Set here, before anything paints, so there's no flash of the wrong one. */
-window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['gruvbox-light','Gruvbox Light','light'],['dark','Dark','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark']];
+window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['dark','Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['moon','Rosé Pine Moon','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark']];
+/* How PDF pages look (pdf.js draws them as images, in the PDF's own colors): [id, name]. 'match' is dark pages with
+   a dark theme. Only the page images are filtered (CSS), never what the model gets. */
+window.PDF_LOOKS=[['original','Original'],['match','Match the theme'],['dark','Dark'],['dim','Dim'],['sepia','Sepia']];
+window.applyPdfLook=function(id){document.documentElement.dataset.pdf=PDF_LOOKS.some(function(x){return x[0]===id})?id:'original'};
 window.applyTheme=function(id){
   var t=THEMES.find(function(x){return x[0]===id})||THEMES[0],dark=t[2]==='auto'?matchMedia('(prefers-color-scheme: dark)').matches:t[2]==='dark';
   var name=t[0]==='system'?(dark?'dark':'light'):t[0],r=document.documentElement;
   r.dataset.theme=name;r.dataset.mode=dark?'dark':'light';return t[0];
 };
-(function(){var id='system';try{id=JSON.parse(localStorage.getItem('sq:settings')||'{}').theme||id}catch(e){}applyTheme(id)})();
+(function(){var s={};try{s=JSON.parse(localStorage.getItem('sq:settings')||'{}')}catch(e){}applyTheme(s.theme||'system');applyPdfLook(s.pdf)})();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -69,6 +73,41 @@ window.applyTheme=function(id){
   --bg:#2a303c;--panel:#2e3440;--panel-2:#353c4a;--ink:#eceff4;--muted:#b8c1d1;--faint:#7b88a1;
   --line:#3b4252;--line2:#4c566a;--user-bg:#3b4252;--code-bg:#323946;--accent:#88c0d0;--danger:#bf616a;
   --hk:#81a1c1;--hs:#a3be8c;--hn:#b48ead;--ht:#88c0d0;--hy:#8fbcbb;--hm:#d08770;
+}
+:root[data-theme=solarized-light],.thsw[data-theme=solarized-light]{   /* Solarized Light */
+  --bg:#eee8d5;--panel:#fdf6e3;--panel-2:#f7f0dc;--ink:#4a5d63;--muted:#657b83;--faint:#93a1a1;
+  --line:#e6dfca;--line2:#d6cfb8;--user-bg:#eee8d5;--code-bg:#f5eedb;--accent:#268bd2;--danger:#dc322f;
+  --hk:#859900;--hs:#2aa198;--hn:#d33682;--ht:#268bd2;--hy:#b58900;--hm:#cb4b16;
+}
+:root[data-theme=everforest-light],.thsw[data-theme=everforest-light]{   /* Everforest Light */
+  --bg:#efebd4;--panel:#fdf6e3;--panel-2:#f4f0d9;--ink:#4f5b62;--muted:#829181;--faint:#a6b0a0;
+  --line:#e6e2cc;--line2:#d8d3ba;--user-bg:#ebe7cf;--code-bg:#f4f0d9;--accent:#35a77c;--danger:#e14b48;
+  --hk:#e14b48;--hs:#7a8b00;--hn:#d55aa9;--ht:#3a94c5;--hy:#c18c00;--hm:#e5701f;
+}
+:root[data-theme=latte],.thsw[data-theme=latte]{   /* Catppuccin Latte */
+  --bg:#e6e9ef;--panel:#eff1f5;--panel-2:#eaedf2;--ink:#4c4f69;--muted:#6c6f85;--faint:#8c8fa1;
+  --line:#dce0e8;--line2:#ccd0da;--user-bg:#dce0e8;--code-bg:#e6e9ef;--accent:#8839ef;--danger:#d20f39;
+  --hk:#8839ef;--hs:#40a02b;--hn:#fe640b;--ht:#1e66f5;--hy:#df8e1d;--hm:#179299;
+}
+:root[data-theme=kanagawa],.thsw[data-theme=kanagawa]{   /* Kanagawa (wave) */
+  --bg:#16161d;--panel:#1f1f28;--panel-2:#24242f;--ink:#dcd7ba;--muted:#a9a58f;--faint:#727169;
+  --line:#2a2a37;--line2:#363646;--user-bg:#2a2a37;--code-bg:#1a1a22;--accent:#7e9cd8;--danger:#e46876;
+  --hk:#957fb8;--hs:#98bb6c;--hn:#d27e99;--ht:#7e9cd8;--hy:#7aa89f;--hm:#ffa066;
+}
+:root[data-theme=everforest],.thsw[data-theme=everforest]{   /* Everforest Dark */
+  --bg:#232a2e;--panel:#2d353b;--panel-2:#343f44;--ink:#d3c6aa;--muted:#9da9a0;--faint:#7a8478;
+  --line:#3d484d;--line2:#475258;--user-bg:#343f44;--code-bg:#293136;--accent:#a7c080;--danger:#e67e80;
+  --hk:#e67e80;--hs:#a7c080;--hn:#d699b6;--ht:#7fbbb3;--hy:#dbbc7f;--hm:#e69875;
+}
+:root[data-theme=moon],.thsw[data-theme=moon]{   /* Rosé Pine Moon */
+  --bg:#232136;--panel:#2a273f;--panel-2:#2f2c47;--ink:#e0def4;--muted:#908caa;--faint:#6e6a86;
+  --line:#393552;--line2:#44415a;--user-bg:#393552;--code-bg:#26233a;--accent:#ea9a97;--danger:#eb6f92;
+  --hk:#9ccfd8;--hs:#f6c177;--hn:#eb6f92;--ht:#ea9a97;--hy:#3e8fb0;--hm:#c4a7e7;
+}
+:root[data-theme=mocha],.thsw[data-theme=mocha]{   /* Catppuccin Mocha */
+  --bg:#181825;--panel:#1e1e2e;--panel-2:#232334;--ink:#cdd6f4;--muted:#a6adc8;--faint:#7f849c;
+  --line:#313244;--line2:#45475a;--user-bg:#313244;--code-bg:#1b1b29;--accent:#cba6f7;--danger:#f38ba8;
+  --hk:#cba6f7;--hs:#a6e3a1;--hn:#fab387;--ht:#89b4fa;--hy:#f9e2af;--hm:#94e2d5;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased}
@@ -131,6 +170,11 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .thmenu{position:fixed;z-index:61;min-width:230px;padding:6px;border:1px solid var(--line2);border-radius:12px;background:var(--panel);box-shadow:var(--shadow);display:none}
 .thmenu.open{display:block}
 .thmenu .thh{padding:4px 8px 6px;font-size:11.5px;color:var(--faint)}
+.thmenu .thh.thsep{margin-top:6px;padding-top:10px;border-top:1px solid var(--line)}
+.thmenu{max-height:calc(100vh - 70px);overflow:auto}
+.pdsw{display:inline-flex;width:34px;height:20px;border-radius:4px;border:1px solid var(--line2);flex:none;align-items:center;justify-content:center;font:600 11px var(--serif);background:#fff;color:#222}
+.pdsw[data-p=dark]{background:#1c1c1c;color:#ddd}.pdsw[data-p=dim]{background:#c7c7c7;color:#1a1a1a}.pdsw[data-p=sepia]{background:#f3ead6;color:#3b2f1e}
+.pdsw[data-p=match]{background:linear-gradient(135deg,#fff 50%,#1c1c1c 50%);color:transparent}
 .thmenu button{display:flex;align-items:center;gap:10px;width:100%;padding:6px 8px;border-radius:8px;text-align:left;font-size:13px;color:var(--ink)}
 .thmenu button:hover,.thmenu button:focus-visible{background:var(--user-bg);outline:none}
 .thmenu button .ck{margin-left:auto;color:var(--accent);visibility:hidden}
@@ -777,6 +821,15 @@ sup.fn.res{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px va
 .docwrap{display:flex;flex-direction:column;align-items:safe center;gap:22px;padding-bottom:20px}
 .dpage{position:relative;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.04);border-radius:2px;flex:none}
 .dpage canvas{position:absolute;inset:0;border-radius:2px}
+/* PDF pages: Original (as printed), Dark (inverted, hues turned back, not quite black), Dim, Sepia; "Match the
+   theme" is Dark under a dark theme. Only the drawn page is filtered: the text layer, markers and the reading mark
+   aren't, and what the model gets (snips, page images) is drawn from the PDF unfiltered. */
+:root[data-pdf=dark] .dpage,:root[data-pdf=match][data-mode=dark] .dpage{background:#1c1c1c}
+:root[data-pdf=dark] .dpage canvas,:root[data-pdf=match][data-mode=dark] .dpage canvas{filter:invert(.89) hue-rotate(180deg) contrast(.95)}
+:root[data-pdf=dim] .dpage canvas{filter:brightness(.78) contrast(1.04)}
+:root[data-pdf=dim] .dpage{background:#c7c7c7}
+:root[data-pdf=sepia] .dpage canvas{filter:sepia(.38) brightness(.97) contrast(1.02)}
+:root[data-pdf=sepia] .dpage{background:#f3ead6}
 /* the reading mark: a ribbon in the left margin and a faint line across the page where you got up to */
 .dmark{position:absolute;left:-14px;right:0;height:0;z-index:4;pointer-events:none}
 .dmark::after{content:'';position:absolute;left:14px;right:0;top:0;border-top:1.5px dashed var(--accent);opacity:.45}
@@ -1062,7 +1115,7 @@ const plain=(md)=>String(md||'')
   .replace(/```mermaid[\s\S]*?(```|$)/g,' [diagram] ').replace(/```[\s\S]*?(```|$)/g,' [code] ').replace(/\$\$[\s\S]*?\$\$/g,' [equation] ').replace(/\$([^$\n]+)\$/g,(m,t)=>texText(t)).replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/[#*_`>|]/g,'').replace(/\s+/g,' ').trim();
 
 /* ---------- settings ---------- */
-const settings={model:'auto',effort:'auto',web:false,theme:'system'};
+const settings={model:'auto',effort:'auto',web:false,theme:'system',pdf:'original'};
 try{Object.assign(settings,JSON.parse(localStorage.getItem('sq:settings')||'{}'))}catch(e){}
 function saveSettings(){try{localStorage.setItem('sq:settings',JSON.stringify(settings))}catch(e){}}
 const modelLabel=(v)=>{if(!v)return '';if(typeof v==='object')v=v.model||v.id||'';const list=(typeof io!=='undefined'&&io.llm&&io.llm.models())||MODELS;const m=list.find(x=>x[0]===v)||MODELS.find(x=>x[0]===v);return m?m[1]:String(v).replace(/^claude-/,'')};
@@ -5446,20 +5499,29 @@ for(const [id,name] of THEMES){
   b.innerHTML=(id==='system'?`<span class="thsys">${sw('light')}${sw('dark')}</span>`:sw(id))+`<span></span><span class="ck">${ic('check')}</span>`;
   b.children[1].textContent=name;themeMenu.appendChild(b);
 }
+themeMenu.insertAdjacentHTML('beforeend','<div class="thh thsep">PDF pages</div>');
+for(const [id,name] of PDF_LOOKS){
+  const b=document.createElement('button');b.dataset.pdf=id;b.setAttribute('role','menuitemradio');
+  b.title={original:'As the PDF is printed',match:'Dark pages with a dark theme, as printed with a light one',dark:'Light text on dark pages (pictures look like negatives)',dim:'Less bright, colors unchanged',sepia:'Warm paper'}[id];
+  b.innerHTML=`<span class="pdsw" data-p="${id}">Aa</span><span></span><span class="ck">${ic('check')}</span>`;b.children[1].textContent=name;themeMenu.appendChild(b);
+}
 document.body.appendChild(themeMenu);
+function setPdfLook(id,keep){applyPdfLook(id);if(keep){settings.pdf=document.documentElement.dataset.pdf;saveSettings();themeMenu.querySelectorAll('button[data-pdf]').forEach(b=>b.setAttribute('aria-checked',b.dataset.pdf===settings.pdf?'true':'false'))}}
+setPdfLook(settings.pdf||'original',true);
 function setTheme(id,keep){
   const was=document.documentElement.dataset.theme;applyTheme(id);
-  if(keep){settings.theme=id;saveSettings();themeMenu.querySelectorAll('button').forEach(b=>b.setAttribute('aria-checked',b.dataset.theme===settings.theme?'true':'false'))}
+  if(keep){settings.theme=id;saveSettings();themeMenu.querySelectorAll('button[data-theme]').forEach(b=>b.setAttribute('aria-checked',b.dataset.theme===settings.theme?'true':'false'))}
   if(document.documentElement.dataset.theme!==was&&mermaidOk){mermaidTheme();document.querySelectorAll('.mermaid-box[data-done]').forEach(b=>b.removeAttribute('data-done'));renderMermaid(document)}
 }
 setTheme(settings.theme,true);
-function closeThemes(){if(!themeMenu.classList.contains('open'))return;themeMenu.classList.remove('open');themeB.setAttribute('aria-expanded','false');setTheme(settings.theme)}
+function closeThemes(){if(!themeMenu.classList.contains('open'))return;themeMenu.classList.remove('open');themeB.setAttribute('aria-expanded','false');setTheme(settings.theme);setPdfLook(settings.pdf)}
 themeB.onclick=(e)=>{e.stopPropagation();if(themeMenu.classList.contains('open'))return closeThemes();
   const r=themeB.getBoundingClientRect();themeMenu.classList.add('open');themeB.setAttribute('aria-expanded','true');
   themeMenu.style.top=(r.bottom+6)+'px';themeMenu.style.left=Math.max(8,Math.min(innerWidth-themeMenu.offsetWidth-8,r.right-themeMenu.offsetWidth))+'px'};
-themeMenu.addEventListener('mouseover',e=>{const b=e.target.closest('button');if(b)setTheme(b.dataset.theme)});
-themeMenu.addEventListener('mouseleave',()=>setTheme(settings.theme));
-themeMenu.addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('button');if(b)setTheme(b.dataset.theme,true)});
+// hovering previews (a theme, or how PDF pages look); leaving puts back what's chosen; clicking keeps it
+themeMenu.addEventListener('mouseover',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.pdf)setPdfLook(b.dataset.pdf);else{setTheme(b.dataset.theme);setPdfLook(settings.pdf)}});
+themeMenu.addEventListener('mouseleave',()=>{setTheme(settings.theme);setPdfLook(settings.pdf)});
+themeMenu.addEventListener('click',e=>{e.stopPropagation();const b=e.target.closest('button');if(!b)return;if(b.dataset.pdf)setPdfLook(b.dataset.pdf,true);else setTheme(b.dataset.theme,true)});
 document.addEventListener('click',closeThemes);
 addEventListener('keydown',e=>{if(e.key==='Escape'&&themeMenu.classList.contains('open')){e.stopPropagation();closeThemes()}},true);
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(settings.theme==='system')setTheme('system')});
