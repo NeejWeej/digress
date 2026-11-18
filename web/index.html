@@ -645,6 +645,19 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .alist{display:none;flex-direction:column;gap:1px;margin-bottom:10px}
 .alist.show{display:flex}
 .alist .citem{opacity:.8}
+.kdchk{display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:600;cursor:pointer}
+.kdlist{margin:6px 0 0 24px}
+.kdlist summary{cursor:pointer;color:var(--muted);font-size:13px}
+.kdbox{max-height:min(220px,32vh);overflow:auto;margin-top:6px;border:1px solid var(--line);border-radius:8px;padding:2px 10px}
+.kdrow{display:flex;flex-direction:column;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
+.kdrow:last-child{border-bottom:0}
+.kdrow .kdw{color:var(--faint);font-size:11.5px}
+.kdnote{margin-top:10px;color:var(--muted);font-size:12.5px}
+.ksrcnote{margin:0 14px 8px;padding:7px 10px;border-radius:8px;font-size:12.5px;background:var(--user-bg);color:var(--muted)}
+.ksrcnote button{text-decoration:underline;color:var(--ink);margin-left:4px}
+.citem .cday{color:var(--faint);font-size:11px}
+.citem .xleft{color:var(--faint);font-size:11px;white-space:nowrap;margin-left:6px;flex:none}
+.citem:hover .xleft{visibility:hidden}
 .mnode .mp{width:22px;height:22px;margin-left:2px}
 .mnode .mp svg.i{width:13px;height:13px}
 /* canvas: quote jumps to its source, floating jump buttons */
@@ -881,6 +894,7 @@ a.pref:hover{border-bottom-style:solid}
     <div class="sh">Conversations<span class="cfilt" id="cFilt" title="Show all conversations, only those with a document, or only plain chats"><button data-cf="all">All</button><button data-cf="doc">Docs</button><button data-cf="chat">Chats</button></span></div>
     <div class="clist" id="clist"></div>
     <div id="archWrap" style="display:none;margin:-12px 0 16px"><button class="archtoggle" id="archToggle" title="Archived conversations: out of the way, but nothing is deleted"><span class="chev"></span><span id="archLbl">Archive</span></button><div class="alist" id="alist"></div></div>
+    <div id="trashWrap" style="display:none;margin:-12px 0 16px"><button class="archtoggle" id="trashToggle" title="Deleted conversations: restore one, or it's deleted for good after 7 days"><span class="chev"></span><span id="trashLbl">Trash</span></button><div class="alist" id="xlist"></div></div>
     <div class="sh">Branches<button class="shbtn" id="treeAll"></button></div>
     <div class="tree" id="tree"></div>
     <details class="help" id="help">
@@ -992,6 +1006,8 @@ const I={
  edit:'<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
  eye:'<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
  eyeoff:'<path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.3 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7c1.8 0 3.4-.5 4.8-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+ restart:'<path d="M5 4h14v12H9l-4 4z"/><path d="M12 7v6M9 10h6"/>',
+ docnew:'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M13 11v7M9.5 14.5h7"/>',
  versions:'<path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
  palette:'<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.8 1.7-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7h2a5 5 0 0 0 5-5C21.4 6.4 17.2 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7" r="1.2"/><circle cx="15.5" cy="7.5" r="1.2"/>',
  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
@@ -1055,7 +1071,7 @@ const modelLabel=(v)=>{if(!v)return '';if(typeof v==='object')v=v.model||v.id||'
 let conv=null,convList=[];
 const msgCache=new Map(),paneEls=new Map(),gutEls=new Map(),streaming=new Map();
 window.__digressBusy=()=>streaming.size>0; // read by the server's dev live-reload, so it never reloads mid-reply
-window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id)};   // for tests and the console
+window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList}};   // for tests and the console
 let mathReady=false,mermaidReady=null,mermaidOk=false;
 let popState=null;
 
@@ -1494,7 +1510,24 @@ const pendNote=()=>{const k=io.cards&&io.cards.stuck&&io.cards.pending?io.cards.
 async function dropCard(id){CARDS.delete(id);try{await io.cards.remove(id)}catch(e){console.warn(e)}syncCardsUI()}
 const cardsOn=()=>!!(conv&&conv.cards&&conv.cards.on);
 const dueCards=(scope)=>[...CARDS.values()].filter(c=>c.status==='active'&&(c.due||0)<=Date.now()&&inScope(c,scope)).sort((a,b)=>(a.due||0)-(b.due||0));
-const inScope=(c,scope)=>scope!=='conv'||(conv&&c.conv===conv.id);
+const inScope=(c,scope)=>!cardHeld(c)&&(scope!=='conv'||(conv&&c.conv===conv.id));
+// the conversation a card came from, as the sidebar knows it (null: not known here, e.g. offline)
+function convInfo(id){if(conv&&conv.id===id)return {id,trashed:conv.trashed||0,dropCards:!!conv.dropCards,title:conv.title};return convList.find(c=>c.id===id)||null}
+// a card whose conversation is in the trash with "Also delete its flashcards": out of review until Restore
+function cardHeld(c){const m=convInfo(c.conv);return !!(m&&m.trashed&&m.dropCards)}
+// where a card's source stands: '' (fine), 'trash' (its conversation is in the trash), 'gone' (conversation or branch deleted)
+function cardSource(c){
+  if(io.offline||!convListLoaded)return '';
+  const m=convInfo(c.conv);if(!m)return 'gone';if(m.trashed)return 'trash';
+  if(conv&&conv.id===c.conv&&c.thread&&!T(c.thread))return 'gone';
+  return '';
+}
+// the cards a delete would take, listed in its dialog: collapsed, and a box of fixed height that scrolls
+function cardsChoice(cards,what){
+  if(!cards.length)return '';
+  const n=cards.length,rows=cards.slice().sort((a,b)=>(a.created||0)-(b.created||0)).map(c=>`<div class="kdrow"><span class="kdf">${esc(trunc((c.front||'').replace(/\s+/g,' '),110))}</span><span class="kdw">${c.status==='inbox'?'draft · ':''}${esc(c.where||srcLabel(c)||'')}</span></div>`).join('');
+  return `<label class="kdchk"><input type="checkbox" id="kdDrop"> Also delete ${what} ${n} flashcard${n>1?'s':''}</label><details class="kdlist"><summary>See the ${n===1?'card':n+' cards'}</summary><div class="kdbox">${rows}</div></details>`;
+}
 function syncCardsUI(){
   $('#stage').classList.toggle('cardson',cardsOn());
   const k=paneEls.get('main')&&paneEls.get('main').querySelector('.kicon');if(k)k.classList.toggle('on',cardsOn());
@@ -1594,6 +1627,14 @@ function cardFace(el,text,image){
   const d=document.createElement('div');d.className='kface';el.appendChild(d);renderRich(d,text,true);
 }
 function srcLink(c,withConv){const b=document.createElement('button');b.className='ksrc';b.dataset.kact='open';b.dataset.kid=c.id;b.title=`Open it in its conversation, at the reply it came from (${srcLabel(c)})${KS.tab==='review'?'. Key: O':''}`;b.textContent='↗ '+[withConv&&c.convTitle?trunc(c.convTitle,40):'',c.where||srcLabel(c)].filter(Boolean).join(' › ');return b}
+// a card whose source is in the trash or gone says so: going back to the source is much of a card's use
+function srcNote(c){
+  const st=cardSource(c);if(!st)return null;
+  const d=document.createElement('div');d.className='ksrcnote '+st;
+  if(st==='trash'){const m=convInfo(c.conv),left=trashLeft(m);d.innerHTML=`Its conversation is in the trash: deleted for good in ${left} day${left>1?'s':''}. <button data-kact="restoreconv" data-kid="${esc(c.id)}">Restore it</button>`}
+  else d.textContent='Where this came from was deleted, so it can’t take you back there any more. Keep it, or delete it below.';
+  return d;
+}
 function srcLabel(c){return ({highlight:'from a highlight',snip:'from a snip',page:'from a page',takeaway:'from a takeaway',made:'made from a branch'})[c.src]||''}
 function renderReview(body,due){
   if(!due.length){
@@ -1604,6 +1645,7 @@ function renderReview(body,due){
   const c=due[0],now=Date.now();
   body.innerHTML=`<div class="kbar"><span>${due.length} due</span><span class="sp"></span><span class="kmeta"></span></div><div class="kcard"><div class="kfront"></div></div><div class="kfoot"><button data-kact="del" data-kid="${c.id}">Delete card</button><span class="kpend">${esc(pendNote())}</span><span class="sp"></span>${due.length>1?`<button data-kact="skip" data-kid="${c.id}" title="Not now: go on to the next card. This one comes back at the end. (S)">Skip</button>`:''}</div>`;
   body.querySelector('.kmeta').replaceWith(srcLink(c,KS.scope==='all'));
+  const sn=srcNote(c);if(sn)body.querySelector('.kbar').after(sn);
   const card=body.querySelector('.kcard');cardFace(card.querySelector('.kfront'),c.front,c.image);
   if(!KS.shown){const b=document.createElement('button');b.className='mbtn primary kshow';b.dataset.kact='show';b.textContent='Show answer';b.title='Space';card.after(b);return}
   const back=document.createElement('div');back.className='kback';card.appendChild(back);cardFace(back,c.back);
@@ -1679,6 +1721,7 @@ $('#cardsModal').addEventListener('click',async e=>{
   else if(a==='del'&&c)await dropCard(c.id);
   else if(a==='keep'&&c){const x=edited();if(!x.front){toast('A card needs a front.');return}Object.assign(c,x,{status:'active',due:Date.now()});await putCard(c)}
   else if(a==='keepall'){for(const k of [...CARDS.values()].filter(k=>k.status==='inbox'&&inScope(k,KS.scope))){const el=$('#cardsModal').querySelector(`.kitem[data-kid="${k.id}"]`);if(el){k.front=el.querySelector('.kef').value.trim()||k.front;k.back=el.querySelector('.keb').value.trim()}k.status='active';k.due=Date.now();await putCard(k)}}
+  else if(a==='restoreconv'){if(c){await restoreConv(c.conv);renderCards()}}
   else if(a==='delall'){for(const k of [...CARDS.values()].filter(k=>k.status==='inbox'&&inScope(k,KS.scope)))await dropCard(k.id)}
   else if(a==='edit'&&c){KS.editing=c.id;renderCards()}
   else if(a==='canceledit'){KS.editing=null;renderCards()}
@@ -1862,6 +1905,7 @@ function resumeRuns(){
 // a reply that was cut off: ask the model to carry on from where it stopped
 async function continueReply(mid){
   const m=conv.msgs[mid];if(!m||m.role!=='assistant'||streaming.has(m.thread))return;
+  if(retryBlock(mid)){const q=questionOf(mid);if(q)newVersion(q.id,q.content);return}
   const before=m.content||'';delete m.cut;delete m.error;m.pending=true;m.runFrom=before.length;m.ver++;renderPane(m.thread);
   await docReady();
   const ctx=buildContext(m.thread,m.id);
@@ -1870,6 +1914,8 @@ async function continueReply(mid){
 }
 function retry(mid){
   const m=conv.msgs[mid];if(!m||streaming.has(m.thread))return;
+  // a reply the conversation went on from (or that has branches or cards) isn't replaced: ask again as another version
+  if(m.role==='assistant'&&retryBlock(mid)){const q=questionOf(mid);if(q)newVersion(q.id,q.content);return}
   if(m.role==='note'){m.thread&&delete conv.msgs[mid];conv.order[m.thread]=conv.order[m.thread].filter(x=>x!==mid);bringBack(m.fromThread,m.focus||'');return}
   m.content='';delete m.error;m.pending=true;m.ver++;renderPane(m.thread);generate(m,buildContext(m.thread,m.id),m.thread);
 }
@@ -1884,6 +1930,8 @@ function redoBlock(mid){   // why this reply can't be redone in place, or '' if 
   for(const c of CARDS.values())if(c.conv===conv.id&&c.at&&c.at.msg===mid)return 'cards';
   return '';
 }
+// Retry and Continue change a reply in place too, so the same rule: not once anything builds on it
+function retryBlock(mid){const m=conv.msgs[mid];if(!m||m.role!=='assistant')return '';const t=m.pending;m.pending=false;const w=redoBlock(mid);m.pending=t;return w==='busy'?'':w}
 const REDO_WHY={later:'the conversation has gone on after it',branches:'branches start from it',cards:'flashcards were drafted from it',busy:'a reply is being written'};
 function questionOf(mid){const m=conv.msgs[mid],ord=conv.order[m.thread],i=ord.indexOf(mid);for(let k=i-1;k>=0;k--){const q=conv.msgs[ord[k]];if(q&&q.role==='user')return q;if(q&&q.role==='assistant')return null}return null}
 // the reply to a question, if it's right after it
@@ -1957,6 +2005,40 @@ async function redo(mid){
   m.pending=true;m.ver++;renderPane(m.thread);renderMap();
   await docReady();
   await generate(m,buildContext(m.thread,m.id),m.thread);
+}
+/* Start main over (document conversations): main's messages move into another version of it (ThreadOps.split
+   before its first message: an 'alt' thread from START), so main is empty and the next question starts from just
+   the document. Branches, takeaways and cards go with the messages they came from. Undo joins it back
+   (ThreadOps.join, while main is still empty); later, "Use this version" swaps it back. */
+async function startMainOver(){
+  const ord=conv.order.main;if(!ord.length)return;
+  if(streaming.size){toast('Wait for the reply to finish');return}
+  const first=ord.find(id=>conv.msgs[id].role==='user'),fq=first?conv.msgs[first].content:'';
+  const fresh={id:'t'+rid(),created:Date.now(),colorIdx:conv.nextColor++,anchorText:'',title:fq?'Earlier main · '+trunc(fq,40):'Earlier main thread'};
+  let changed;try{changed=ThreadOps.split(conv,[...CARDS.values()],'main',ord[0],fresh)}catch(e){toast(e.message);return}
+  for(const c of changed)putCard(c);
+  const oldTitle=conv.title,named=!conv.titleKept&&first&&conv.title===trunc(fq||'Question about an image',120);
+  if(named){conv.title=conv.doc?conv.doc.name:'New conversation';renderTitle()}   // the next first question names it again
+  conv.ui.open=conv.ui.open.filter(x=>x!==fresh.id);if(!conv.ui.open.includes('main'))conv.ui.open.push('main');
+  refreshAll();renderMap();renderConvList();save();revealPane('main');
+  const ta=paneEls.get('main')&&paneEls.get('main').querySelector('textarea');if(ta)ta.focus();
+  toast('Started the main thread over. What was in it is now another version, under Branches.',{label:'Undo',fn:()=>{
+    if(conv.order.main.length){toast('Main has gone on since: open the earlier version and use “Use this version”.');return}
+    let ch;try{ch=ThreadOps.join(conv,[...CARDS.values()],fresh.id)}catch(e){toast(e.message);return}
+    for(const c of ch)putCard(c);if(named)conv.title=oldTitle;renderTitle();refreshAll();renderMap();renderConvList();save();
+  }});
+}
+/* New conversation from this document: the same file (the same stored asset; a file goes only when nothing uses it),
+   nothing else. The reading mark stays with the old one. */
+async function newFromDoc(){
+  if(!conv.doc)return;
+  await flushNow();
+  const src=conv,c=newConv(),d=JSON.parse(JSON.stringify(src.doc));delete d.mark;
+  c.doc=d;c.ui.open=['doc','main'];
+  if(src.titleKept){c.title=src.title;c.titleKept=true}else{c.title=d.name||'New conversation';if(d.kind==='pdf')c.autoTitle=c.title}
+  const data=docBlobCache.get(src.id);if(data!=null)docBlobCache.set(c.id,data);
+  setConv(c);dirty=true;save();
+  toast('A new conversation on the same document. The other one is still in the sidebar.');
 }
 async function saveEdit(qid,text){
   const why=editBlock(qid);if(why==='busy'){toast(`This question can’t be edited now: ${REDO_WHY[why]}.`);return false}
@@ -2329,7 +2411,7 @@ function ctxLabel(u){
   return `<span class="model ctxu" title="${esc(tip)}">${ktok(ctx)}${w?` / ${ktok(w)}`:''} context</span>`;
 }
 function buildFoot(f,m){
-  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(m.cut?`<button class="tb" data-act="continue" title="Ask the model to carry on from where it stopped">${ic('send')}Continue</button>`:'')+(m.error?`<button class="ib" data-act="retry" title="${m.cut?'Ask again from the start':'Retry'}">${ic('retry')}</button>`:m.role==='assistant'&&redoBlock(m.id)!=='busy'&&questionOf(m.id)?`<button class="ib" data-act="redo" title="${redoBlock(m.id)?'Redo as another version: asks again with the model and effort selected now, next to this one. Nothing here changes.':'Redo: ask again with the model and effort selected now (replaces this reply)'}">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}${m.effort?` · ${esc(effortLabel(m.effort))}`:''}</span>`:'')+ctxLabel(m.usage);
+  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(m.cut&&!retryBlock(m.id)?`<button class="tb" data-act="continue" title="Ask the model to carry on from where it stopped">${ic('send')}Continue</button>`:'')+(m.error?`<button class="ib" data-act="retry" title="${m.role==='assistant'&&retryBlock(m.id)?'Ask again as another version, next to this one ('+REDO_WHY[retryBlock(m.id)]+'). Nothing here changes.':m.cut?'Ask again from the start':'Retry'}">${ic('retry')}</button>`:m.role==='assistant'&&redoBlock(m.id)!=='busy'&&questionOf(m.id)?`<button class="ib" data-act="redo" title="${redoBlock(m.id)?'Redo as another version: asks again with the model and effort selected now, next to this one. Nothing here changes.':'Redo: ask again with the model and effort selected now (replaces this reply)'}">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}${m.effort?` · ${esc(effortLabel(m.effort))}`:''}</span>`:'')+ctxLabel(m.usage);
   const bs=shownOn(m.id);
   if(bs.length){
     const wrap=document.createElement('div');wrap.className='bchips';
@@ -2396,7 +2478,7 @@ function paneEl(tid){
   const isMain=tid==='main';
   el=document.createElement('section');el.className='pane'+(isMain?' main':'');el.dataset.tid=tid;
   el.innerHTML=`<div class="ph"><span class="pgrip" title="Drag to reorder panes"></span>${isMain?'<span class="dot"></span>':`<span class="sdot" data-resolve="${tid}"></span>`}<div class="ph-main"><div class="ph-title" spellcheck="false"></div><div class="ph-orow"><div class="ph-origin"></div><button class="pox" data-act="oexp" title="Show the whole line"></button></div></div>
-    <div class="ph-act"><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button></div>${isMain?'':`<button class="tb" data-act="back" title="Go back to where this branched from">${ic('back')}<span class="tl">Back</span></button><button class="tb" data-act="take" title="Add a short takeaway from this branch to its parent">${ic('take')}<span class="tl">Takeaway</span></button><button class="tb kmk" data-act="mkcards" title="Have the model draft flashcards from this branch into your inbox">${ic('cards')}<span class="tl">Cards</span></button>`}${isMain?`<button class="ib kicon" data-act="cards" title="Flashcards for this conversation">${ic('cards')}</button>`:''}
+    <div class="ph-act"><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button></div>${isMain?'':`<button class="tb" data-act="back" title="Go back to where this branched from">${ic('back')}<span class="tl">Back</span></button><button class="tb" data-act="take" title="Add a short takeaway from this branch to its parent">${ic('take')}<span class="tl">Takeaway</span></button><button class="tb kmk" data-act="mkcards" title="Have the model draft flashcards from this branch into your inbox">${ic('cards')}<span class="tl">Cards</span></button>`}${isMain?`<button class="ib kicon" data-act="cards" title="Flashcards for this conversation">${ic('cards')}</button><button class="ib" data-act="restart" title="Start the main thread over: an empty main thread, from just the document. What was in it is kept as another version (Branches in the sidebar), with its branches and flashcards; “Use this version” there brings it back.">${ic('restart')}</button>`:''}
     <button class="ib" data-act="pin"></button><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it. (⌘\\ / Ctrl+\\ for the pane you’re in)">${ic('collapse')}</button><button class="ib" data-act="focus"></button>${isMain?`<button class="ib" data-act="close" title="Close the main thread’s pane. Main thread, under Branches in the sidebar, brings it back. (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`:`<button class="ib dz" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button><button class="ib" data-act="close" title="Close this pane. Branches open under it stay open; the branch stays saved. (Back goes to where it came from.) (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`}</div></div>
     <div class="pb"><div class="msgs"></div></div>
     ${isMain?'':`<div class="tk"><div class="tkb"><span class="tkl">Takeaway to parent</span><input placeholder="Optional: what to focus on" autocomplete="off"><button class="go" title="Generate 2–4 takeaway bullets and add them to the end of the parent thread">Add</button><button class="ib" data-act="take" title="Cancel">${ic('x')}</button></div></div>`}
@@ -2445,7 +2527,9 @@ function updateHeader(tid){
   el.style.setProperty('--c',color(t));
   const title=el.querySelector('.ph-title');if(title.contentEditable!=='true')title.textContent=tid==='main'?(conv.title||'Main thread'):t.title;
   title.title=tid==='main'?'':'Double-click to rename';
-  const o=el.querySelector('.ph-origin');
+  // what branches off this thread (and off those), as the sidebar's tree shows it; in a document conversation main's
+  // count leaves out the document's branches, which the document's header counts
+  const o=el.querySelector('.ph-origin'),nb=descendants(tid).length;
   if(t.parent){
     const path=ancestors(tid);
     // each crumb is an ancestor; clicking it shows the spot in that ancestor where the path continues
@@ -2454,8 +2538,8 @@ function updateHeader(tid){
       const label=esc(trunc(id==='main'?(isDocBranch(T(via))?'Document':'Main'):T(id).title,22));
       if(via===tid)return `<span class="crumb" data-crumb="${id}" data-via="${via}" title="${esc(`Show where this branch starts in ${name}`)}">${label}</span>`;
       return `<span class="crumb" data-crumb="${id}" data-via="${via}" title="${esc(`Show where “${T(via).title}” branches off ${name}`)}">${label}</span>`}).join(' › ');
-    o.innerHTML=`↳ ${crumbs} <sup style="font-size:10px;color:${color(t)}">${branchNum(t)}</sup>${t.anchorText?` · <q data-back="1" title="Show this passage in its source">${esc(trunc(t.anchorText,70))}</q>`:t.alt?' · another version':' · whole reply'}`;
-  }else{const n=Object.keys(conv.threads).length-1;o.textContent=`${n} branch${n===1?'':'es'}`}
+    o.innerHTML=`↳ ${crumbs} <sup style="font-size:10px;color:${color(t)}">${branchNum(t)}</sup>${t.anchorText?` · <q data-back="1" title="Show this passage in its source">${esc(trunc(t.anchorText,70))}</q>`:t.alt?' · another version':' · whole reply'}${nb?` · ${nb} branch${nb===1?'':'es'}`:''}`;
+  }else o.textContent=`${nb} branch${nb===1?'':'es'}`;
   const pb_=el.querySelector('[data-act="pin"]');if(pb_){const pinned=tid==='main'?!!conv.pinned:!!t.pinned;pb_.innerHTML=ic('pin');pb_.classList.toggle('pinned',pinned);pb_.title=tid==='main'?(pinned?'Unpin this conversation':'Pin this conversation to the top of the sidebar'):(pinned?'Unpin this branch':'Pin this branch to the top of the sidebar, so you can jump straight back to it')}
   const f=el.querySelector('[data-act="focus"]');const on=isFocused(tid);f.innerHTML=ic(on?'unfocus':'focus');f.title=on?'Show all panes (Esc)':'Focus: collapse every other pane';f.classList.toggle('on',on);
   el.querySelector('.rl').textContent=tid==='main'?'Main':t.title;
@@ -2536,6 +2620,7 @@ function renderPane(tid,toBottom){
   applyPaneZoom(tid);
   if(tid==='doc'){renderDocPane();return}
   const el=paneEls.get(tid);if(!el||!T(tid))return;
+  if(tid==='main'){const rb=el.querySelector('.ph [data-act=restart]');if(rb)rb.style.display=conv.doc&&conv.order.main.length?'':'none'}
   const t=T(tid),list=el.querySelector('.msgs'),nodes=[];
   if(t.parent)nodes.push(originCard(t));
   const mids=conv.order[tid]||[];
@@ -3485,7 +3570,7 @@ async function docReady(){if(conv&&conv.doc&&docState)await docState.ready}
 function docPaneEl(){
   const el=document.createElement('section');el.className='pane docpane';el.dataset.tid='doc';
   el.innerHTML=`<div class="ph"><span class="pgrip" title="Drag to reorder panes"></span><span class="docico">${ic('doc')}</span><div class="ph-main"><div class="ph-title"></div><div class="ph-orow"><div class="ph-origin"></div><button class="pox" data-act="oexp" title="Show the whole line"></button></div></div>
-    <div class="ph-act"><button class="ib" data-act="snip" title="Snip: drag a box over part of a page (a figure, a table, an equation) to ask about it. Esc cancels.">${ic('snip')}</button><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button><button class="ib pzf" data-act="zfit">${ic('fit')}</button></div><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it. (⌘\\ / Ctrl+\\ for the pane you’re in)">${ic('collapse')}</button><button class="ib" data-act="focus"></button><button class="ib" data-act="close" title="Close the document’s pane. Its row at the top of Branches in the sidebar brings it back (so do page links and Show in source). (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button></div></div>
+    <div class="ph-act"><button class="ib" data-act="newfromdoc" title="New conversation from this document: a fresh conversation on the same file. This one stays as it is.">${ic('docnew')}</button><button class="ib" data-act="snip" title="Snip: drag a box over part of a page (a figure, a table, an equation) to ask about it. Esc cancels.">${ic('snip')}</button><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button><button class="ib pzf" data-act="zfit">${ic('fit')}</button></div><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it. (⌘\\ / Ctrl+\\ for the pane you’re in)">${ic('collapse')}</button><button class="ib" data-act="focus"></button><button class="ib" data-act="close" title="Close the document’s pane. Its row at the top of Branches in the sidebar brings it back (so do page links and Show in source). (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button></div></div>
     <div class="pb"><div class="docwrap"></div></div>
     <div class="jumpw"><div class="jump"><button class="ib js" data-act="jsearch" title="Search this document">${ic('search')}</button><button class="ib jm" data-act="jmark" title="Mark where you got up to">${ic('mark')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button></div></div>
     <div class="rail-label"><span class="docico">${ic('doc')}</span><span class="rl"></span></div>`;
@@ -3514,7 +3599,7 @@ function trackDocPage(){
 function updateDocHeader(){
   const el=paneEls.get('doc');if(!el||!conv.doc)return;
   el.querySelector('.ph-title').textContent=conv.doc.name;
-  const o=el.querySelector('.ph-origin'),nb=docBranches().length,bl=`${nb} branch${nb===1?'':'es'}`;
+  const o=el.querySelector('.ph-origin'),nb=docBranches().filter(b=>!hiddenNow(b.id)).reduce((n,b)=>n+1+descendants(b.id).length,0),bl=`${nb} branch${nb===1?'':'es'}`;
   if(o.querySelector('.pgin'))return;   // typing a page number: don't redraw it out from under you
   if(!docState||(!docState.loaded&&!docState.error))o.textContent=docState&&docState.progress?`Reading ${docState.progress} of ${docState.n} pages…`:'Loading…';
   else if(docState.error)o.textContent='Couldn\'t load the document';
@@ -4317,7 +4402,7 @@ async function searchNow(){
   if(!q&&PAL.scope!=='all'){PAL.results=[];box.innerHTML=`<div class="pempty">Type to search ${PAL.scope==='thread'?(PAL.stid==='doc'?'the document':'this thread'):'this conversation'}.</div>`;return}
   if(!q){
     const items=[...convList.map(c=>conv&&c.id===conv.id?metaOf(conv):c)];if(conv&&!items.find(c=>c.id===conv.id))items.unshift(metaOf(conv));
-    const act=items.filter(c=>!c.archived);const list=[...act.filter(c=>c.pinned),...act.filter(c=>!c.pinned).sort((a,b)=>(b.updated||0)-(a.updated||0))].slice(0,8);
+    const act=items.filter(c=>!c.archived&&!c.trashed);const list=[...act.filter(c=>c.pinned),...act.filter(c=>!c.pinned).sort((a,b)=>(b.updated||0)-(a.updated||0))].slice(0,8);
     PAL.results=list.map(c=>({cid:c.id,k:'ct',tid:'main',x:c.title||'New conversation',jump:true,pinned:c.pinned}));PAL.sel=0;
     box.innerHTML=list.length?'<div class="pgrp">Pinned and recent</div>':'<div class="pempty">No conversations yet.</div>';
     PAL.results.forEach((r,i)=>box.appendChild(resultRow(r,i,[])));markSel();return;
@@ -4330,6 +4415,7 @@ async function searchNow(){
    for(const r of res){const low=(r.x||'').toLowerCase();r.phrase=ph&&ph.test(low)?1:0;r.exact=wr.filter(x=>x.test(low)).length}
    res.sort((a,b)=>(b.phrase-a.phrase)||(b.exact-a.exact)||(b.score-a.score))}
   res=scopeFilter(res);
+  {const gone=new Set(convList.filter(c=>c.trashed).map(c=>c.id));if(conv&&conv.trashed)gone.add(conv.id);if(gone.size)res=res.filter(r=>!gone.has(r.cid))}   // not what's in the trash
   {const seen=new Set();res=res.filter(r=>{const k=resultKey(r);if(seen.has(k))return false;seen.add(k);return true})}   // one row per message: its best passage
   // keep the best few hits per conversation, conversations ordered by their best hit
   const cap=PAL.scope==='all'?4:40;   // one conversation: show its matches, not just the best few
@@ -4600,7 +4686,7 @@ function treeAll(){
   renderMap();save();
 }
 function metaOf(c){
-  return {id:c.id,title:c.title,updated:c.updated,pinned:!!c.pinned,archived:!!c.archived,doc:!!c.doc,
+  return {dropCards:!!c.dropCards,id:c.id,title:c.title,updated:c.updated,created:c.created,pinned:!!c.pinned,archived:!!c.archived,trashed:c.trashed||0,doc:!!c.doc,docName:c.doc?c.doc.name||'':'',asset:(c.doc&&c.doc.assetId)||'',
     pins:Object.values(c.threads||{}).filter(t=>t.pinned).map(t=>({tid:t.id,title:t.title,ci:t.colorIdx}))};
 }
 let convFilt='all';try{convFilt=localStorage.getItem('digress:cfilt')||'all'}catch(e){}
@@ -4617,8 +4703,10 @@ function renderConvList(){
   const shown=c=>filt==='all'||(filt==='doc')===!!c.doc||(conv&&c.id===conv.id);   // the open one always shows
   // flashcards per conversation: a badge (due count) and, on hover, a button that opens just its cards
   const kc={},now=Date.now();for(const k of CARDS.values()){if(k.status==='suspended')continue;const e=kc[k.conv]||(kc[k.conv]={n:0,due:0,inbox:0});e.n++;if(k.status==='inbox')e.inbox++;else if((k.due||0)<=now)e.due++}
-  const sig=JSON.stringify([conv&&conv.id,archOpen,filt,kc,items.map(c=>[c.id,c.title,c.pinned,c.archived,c.doc,c.pins])]);
-  if(sig===convListSig&&$('#clist').childElementCount+$('#plist').childElementCount+$('#alist').childElementCount)return;
+  const sig=JSON.stringify([conv&&conv.id,archOpen,trashOpen,filt,kc,new Date().toDateString(),items.map(c=>[c.id,c.title,c.pinned,c.archived,c.trashed,c.dropCards,c.doc,c.pins])]);
+  if(sig===convListSig&&$('#clist').childElementCount+$('#plist').childElementCount+$('#alist').childElementCount+$('#xlist').childElementCount)return;
+  // two conversations with the same name (say, two on one document) are told apart by the day they started
+  const names={};for(const c of items)if(!c.trashed){const n=c.title||'New conversation';names[n]=(names[n]||0)+1}
   convListSig=sig;
   const row=(c,extra)=>{
     const d=document.createElement('div');d.className='citem'+(conv&&c.id===conv.id?' cur':'');d.dataset.conv=c.id;
@@ -4628,11 +4716,12 @@ function renderConvList(){
       (k?`<button class="ib${k.due?' kdue':''}" data-cardsconv="${esc(c.id)}" title="${esc(kt+'. Click to review them.')}">${ic('cards')}</button>`:'')+
       (c.archived?'':`<button class="ib${c.pinned?' pinned':''}" data-pinconv="${esc(c.id)}" title="${c.pinned?'Unpin':'Pin to the top of the sidebar'}">${ic('pin')}</button>`)+
       `<button class="ib" data-archconv="${esc(c.id)}" title="${c.archived?'Move back to your conversations':'Archive: move out of the way without deleting'}">${ic('archive')}</button>`+
-      `<button class="ib dz" data-del="${esc(c.id)}" title="Delete this conversation and all its branches">${ic('trash')}</button></span>`;
+      `<button class="ib dz" data-del="${esc(c.id)}" title="Move to the trash (deleted for good after ${TRASH_DAYS} days; restore it from Trash before then)">${ic('trash')}</button></span>`;
     const tt=d.querySelector('.t');tt.textContent=c.title||'New conversation';d.dataset.tip=tt.textContent;d.dataset.clip='';
+    if(names[tt.textContent]>1&&c.created){const sm=document.createElement('small');sm.className='cday';sm.textContent=' · '+dayLabel(c.created);tt.appendChild(sm);d.dataset.tip+=' · started '+dayLabel(c.created)}
     return d;
   };
-  const active=items.filter(c=>!c.archived),arch=items.filter(c=>c.archived);
+  const trash=items.filter(c=>c.trashed).sort((a,b)=>b.trashed-a.trashed),active=items.filter(c=>!c.archived&&!c.trashed),arch=items.filter(c=>c.archived&&!c.trashed);
   // pinned: whole conversations, then individual branches
   const pl=$('#plist');pl.replaceChildren();
   for(const c of active.filter(c=>c.pinned))pl.appendChild(row(c,`<span class="pmark" title="Pinned">${ic('pin')}</span>`));
@@ -4651,7 +4740,51 @@ function renderConvList(){
   const al=$('#alist');al.replaceChildren();arch.filter(shown).forEach(c=>al.appendChild(row(c)));
   $('#archWrap').style.display=arch.length?'':'none';$('#archLbl').textContent=`Archive · ${arch.length}`;
   $('#archToggle').classList.toggle('open',archOpen);al.classList.toggle('show',archOpen);
+  // the trash: restore, or delete for good now; on its own after TRASH_DAYS
+  const xl=$('#xlist');xl.replaceChildren();
+  for(const c of trash){
+    const d=document.createElement('div');d.className='citem'+(conv&&c.id===conv.id?' cur':'');d.dataset.conv=c.id;
+    const left=trashLeft(c),when=left<=1?'goes today':`${left} days left`;
+    d.innerHTML=`<span class="t"></span><span class="xleft">${when}</span><span class="acts"><button class="ib" data-restore="${esc(c.id)}" title="Restore: move back to your conversations">${ic('back')}</button><button class="ib dz" data-delnow="${esc(c.id)}" title="Delete for good now">${ic('trash')}</button></span>`;
+    d.querySelector('.t').textContent=c.title||'New conversation';const df=docFate(c.id);d.dataset.tip=(c.title||'New conversation')+` · in the trash, deleted for good ${left<=1?'today':'in '+left+' days'}`+(df&&!df.shared?`, with its document “${df.name}”`:'')+(c.dropCards?`, and its flashcards`:'');d.dataset.clip='';
+    xl.appendChild(d);
+  }
+  $('#trashWrap').style.display=trash.length?'':'none';$('#trashLbl').textContent=`Trash · ${trash.length}`;
+  $('#trashToggle').classList.toggle('open',trashOpen);xl.classList.toggle('show',trashOpen);
 }
+const TRASH_DAYS=7;   // server.mjs TRASH_DAYS empties it
+const trashLeft=c=>Math.max(1,Math.ceil((c.trashed+TRASH_DAYS*864e5-Date.now())/864e5));
+const dayLabel=t=>{const d=new Date(t);return d.toLocaleDateString(undefined,{month:'short',day:'numeric',...(d.getFullYear()!==new Date().getFullYear()?{year:'numeric'}:{})})};
+let convListLoaded=false;   // cardSource says nothing until the list is in
+let trashOpen=false;try{trashOpen=localStorage.getItem('digress:trash')==='1'}catch(e){}
+/* Deleting moves a conversation to the trash (shared: every device sees it there) for TRASH_DAYS; Restore brings it
+   back. An empty conversation, or "Delete for good", is deleted at once (deleteConv). Its flashcards stay either way. */
+async function trashConv(id,o={}){
+  const isOpen=conv&&conv.id===id;
+  if(isOpen&&!Object.keys(conv.msgs).length&&!conv.doc){deleteConv(id);return}
+  const cards=[...CARDS.values()].filter(c=>c.conv===id);
+  if(cards.length&&o.drop===undefined){
+    const m=convInfo(id)||{};
+    askConfirm('Move to the trash?',`<b>${esc(m.title||'This conversation')}</b> goes to the trash. Restore it within ${TRASH_DAYS} days and it’s all back; after that it’s deleted for good.`+cardsChoice(cards,'its')+
+      `<div class="kdnote">Ticked, its flashcards leave your review now and are deleted with the conversation. Restore it and they’re back, as they were. Unticked, they stay in your review, but once the conversation is deleted they can’t take you back to where they came from.</div>`,
+      ()=>trashConv(id,{drop:!!($('#kdDrop')||{}).checked}),{ok:'Move to trash'});
+    return;
+  }
+  if(isOpen)for(const s of [...streaming.values()])stopReply(s);
+  const df=docFate(id);   // before another conversation opens
+  await setConvFlag(id,{trashed:Date.now(),pinned:false,dropCards:!!o.drop});
+  if(o.drop)syncCardsUI();
+  if(isOpen){await flushNow();const next=convList.find(c=>c.id!==id&&!c.trashed&&!c.archived);if(next)await openConv(next.id);else{dirty=false;setConv(newConv())}}
+  toast(`Moved to the trash. It’s deleted for good in ${TRASH_DAYS} days${df&&!df.shared?`, with its document “${trunc(df.name,40)}”`:''}.`,{label:'Undo',fn:()=>restoreConv(id)});
+}
+// what deleting this conversation for good does to its document: the name, and whether another conversation
+// (in the trash or not) still uses the same file, which then stays
+function docFate(id){
+  const m=(conv&&conv.id===id)?metaOf(conv):convList.find(c=>c.id===id);if(!m||!m.doc)return null;
+  const shared=!!m.asset&&[...convList,...(conv?[metaOf(conv)]:[])].some(c=>c.id!==id&&c.asset===m.asset);
+  return {name:m.docName||'its document',shared};
+}
+async function restoreConv(id){await setConvFlag(id,{trashed:0,dropCards:false});syncCardsUI();setStatus('Restored')}
 /* Rename from the sidebar: double-click a conversation's title. Enter or clicking away keeps it, Esc cancels.
    The title is shared content: the open conversation saves (and merges) as usual, another is PATCHed. */
 let convRenaming=null;
@@ -4693,7 +4826,7 @@ function toggleHidden(tid){
   refreshAll();setStatus(t.hidden?'Hidden from the tree and canvas (“Show hidden” under the tree brings it back)':'Shown again');
 }
 // after something changes which branches show: every pane, the tree and the canvas
-function refreshAll(){for(const id of conv.ui.open)if(id!=='doc'&&T(id)){renderPane(id);updateHeader(id)}renderMap();if(conv.ui.view==='canvas')renderCanvas();save()}
+function refreshAll(){for(const id of conv.ui.open)if(id!=='doc'&&T(id)){renderPane(id);updateHeader(id)}if(conv.doc)updateHeader('doc');renderMap();if(conv.ui.view==='canvas')renderCanvas();save()}
 function toggleBranchPin(tid){
   const t=T(tid);if(!t||!t.parent)return;
   t.pinned=!t.pinned;if(!t.pinned)delete t.pinned;
@@ -4871,7 +5004,7 @@ async function loadList(){
   await io.ready;
   try{
     convList=(await io.store.list()).map(({id,data})=>({...metaOf(data),id}));
-    convList.sort((a,b)=>(b.updated||0)-(a.updated||0));
+    convList.sort((a,b)=>(b.updated||0)-(a.updated||0));convListLoaded=true;
   }catch(e){console.warn('list failed',e)}
   renderConvList();
 }
@@ -4888,14 +5021,16 @@ async function openConv(id){
   if(io.layout){try{const d=(await io.layout.get(id)).devices||{},pick=d[await layoutKey()]||Object.values(d).sort((a,b)=>(b.at||0)-(a.at||0))[0];if(pick&&pick.ui)data.ui=pick.ui}catch(e){console.warn('layout not loaded',e)}}
   if(conv&&conv.id===id)return;
   setConv(data);
+  if(conv.trashed)toast(`This conversation is in the trash: it’s deleted for good in ${trashLeft(conv)} day${trashLeft(conv)>1?'s':''}.`,{label:'Restore',fn:()=>restoreConv(id)});
 }
 async function flushNow(){clearTimeout(saveTimer);for(let i=0;saving&&i<200;i++)await new Promise(ok=>setTimeout(ok,25));if(dirty)await flush()}
 async function deleteConv(id){
   await io.ready;
-  let assetId=null;try{if(conv&&conv.id===id)assetId=conv.doc&&conv.doc.assetId;else{const d=await io.store.get(id);assetId=d&&d.doc&&d.doc.assetId}}catch(e){}
   if(conv&&conv.id===id)for(const s of [...streaming.values()])stopReply(s);
+  // its document's file isn't deleted here: another conversation may use it. The server deletes files nothing uses.
+  const dropK=!!(convInfo(id)||{}).dropCards;
   try{await io.store.remove(id)}catch(e){toast('Couldn\'t delete it.');return}
-  if(assetId){try{await io.files.remove(assetId)}catch(e){console.warn(e)}}
+  if(dropK)for(const k of [...CARDS.values()].filter(k=>k.conv===id))await dropCard(k.id);
   idxDelete(id);
   convList=convList.filter(c=>c.id!==id);
   if(conv&&conv.id===id){dirty=false;setConv(newConv())}else renderConvList();
@@ -5074,6 +5209,8 @@ document.addEventListener('click',e=>{
       case 'pin':if(tid==='main')setConvFlag(conv.id,{pinned:!conv.pinned});else toggleBranchPin(tid);break;
       case 'collapse':toggleCollapse(tid);break;
       case 'close':closeThread(tid);break;
+      case 'restart':startMainOver();break;
+      case 'newfromdoc':newFromDoc();break;
       case 'back':revealAnchor(tid);break;
       case 'jend':{const pb=pane.querySelector('.pb');pb.scrollTo({top:pb.scrollHeight,behavior:'smooth'});break}
       case 'jsearch':openPalette('','thread',tid);break;
@@ -5103,8 +5240,12 @@ document.addEventListener('click',e=>{
   const pt=e.target.closest('[data-pinthread]');if(pt){e.stopPropagation();toggleBranchPin(pt.dataset.pinthread);return}
   const hb=e.target.closest('[data-hideb]');if(hb){e.stopPropagation();toggleHidden(hb.dataset.hideb);return}
   const mn=e.target.closest('[data-map]');if(mn){const id=mn.dataset.map;if(conv.ui.view==='canvas'){focusCard(id);return}openThread(id);conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==id);layout();renderMap();revealPane(id);return}
-  const del=e.target.closest('[data-del]');if(del){e.stopPropagation();const id=del.dataset.del;const c=convList.find(x=>x.id===id)||(conv.id===id?conv:null);
-    askConfirm('Delete this conversation?',`<b>${esc((c&&c.title)||'This conversation')}</b> and all of its branches will be permanently deleted, along with its document if it has one.`,()=>deleteConv(id));return}
+  const del=e.target.closest('[data-del]');if(del){e.stopPropagation();trashConv(del.dataset.del);return}
+  const rsb=e.target.closest('[data-restore]');if(rsb){e.stopPropagation();restoreConv(rsb.dataset.restore);return}
+  const dn=e.target.closest('[data-delnow]');if(dn){e.stopPropagation();const id=dn.dataset.delnow;const c=convList.find(x=>x.id===id)||(conv.id===id?conv:null);
+    const nk=[...CARDS.values()].filter(k=>k.conv===id).length,dropK=!!(convInfo(id)||{}).dropCards;
+    const df=docFate(id),dt=!df?'':df.shared?` Its document <b>${esc(df.name)}</b> stays: another conversation uses it.`:` <b>Its document, ${esc(df.name)}, is deleted too</b>: no other conversation uses it.`;
+    askConfirm('Delete for good?',`<b>${esc((c&&c.title)||'This conversation')}</b> and all of its branches will be permanently deleted.${dt}${nk?(dropK?` <b>Its ${nk} flashcard${nk>1?'s are':' is'} deleted too</b>, as you chose when you moved it to the trash.`:` Its ${nk} flashcard${nk>1?'s stay':' stays'} in your review, as you chose when you moved it to the trash.`):''} This can’t be undone.`,()=>deleteConv(id));return}
   const pc=e.target.closest('[data-pinconv]');if(pc){e.stopPropagation();const id=pc.dataset.pinconv;const m=convList.find(c=>c.id===id)||(conv.id===id?metaOf(conv):{});setConvFlag(id,{pinned:!m.pinned});return}
   const ac=e.target.closest('[data-archconv]');if(ac){e.stopPropagation();const id=ac.dataset.archconv;const m=convList.find(c=>c.id===id)||(conv.id===id?metaOf(conv):{});const a=!m.archived;setConvFlag(id,a?{archived:true,pinned:false}:{archived:false});setStatus(a?'Archived':'Moved back to conversations');return}
   const ub=e.target.closest('[data-unpinb]');if(ub){e.stopPropagation();const [c,t]=ub.dataset.unpinb.split('|');unpinRemoteBranch(c,t);return}
@@ -5140,8 +5281,8 @@ document.addEventListener('mouseover',e=>{
 
 /* ---------- confirm dialog ---------- */
 let modalOk=null;
-function askConfirm(title,html,onOk){
-  $('#mTitle').textContent=title;$('#mBody').innerHTML=html;modalOk=onOk;hideTip();
+function askConfirm(title,html,onOk,o={}){
+  $('#mTitle').textContent=title;$('#mBody').innerHTML=html;modalOk=onOk;hideTip();$('#mOk').textContent=o.ok||'Delete';
   $('#modal').classList.add('show');setTimeout(()=>$('#mOk').focus(),20);
 }
 function closeModal(){$('#modal').classList.remove('show');modalOk=null}
@@ -5159,7 +5300,9 @@ function confirmDeleteBranch(tid){
   html+=sub.length?`, along with <b>${sub.length} sub-branch${sub.length===1?'':'es'}</b> branched from it:`:'.';
   if(sub.length)html+='<ul>'+sub.slice(0,6).map(x=>`<li>${esc(T(x).title)}</li>`).join('')+(sub.length>6?`<li>and ${sub.length-6} more</li>`:'')+'</ul>';
   html+=`<div style="margin-top:8px">That's ${msgs} question${msgs===1?'':'s'} and their answers.${notes?` Takeaways already added to a parent stay, labeled as from a deleted branch.`:''}</div>`;
-  askConfirm(sub.length?'Delete branch and its sub-branches?':'Delete branch?',html,()=>deleteBranch(tid));
+  const cards=[...CARDS.values()].filter(c=>c.conv===conv.id&&(all.includes(c.thread)||(c.at&&all.includes(c.at.thread))));
+  if(cards.length)html+=cardsChoice(cards,sub.length?'their':'its')+`<div class="kdnote">Unticked, they stay in your review, but they can’t take you back to where they came from any more.</div>`;
+  askConfirm(sub.length?'Delete branch and its sub-branches?':'Delete branch?',html,()=>{const drop=!!($('#kdDrop')||{}).checked;deleteBranch(tid);if(drop){for(const c of cards)dropCard(c.id);toast(`Branch deleted, with ${cards.length} flashcard${cards.length>1?'s':''}`)}});
 }
 
 /* ---------- tooltips ---------- */
@@ -5210,6 +5353,8 @@ $('#backGo').addEventListener('click',goBack);$('#backX').addEventListener('clic
 $('#archToggle').querySelector('.chev').innerHTML=ic('back').replace('class="i"','class="i" style="width:12px;height:12px;transform:rotate(180deg)"');
 $('#treeAll').onclick=treeAll;
 $('#archToggle').onclick=()=>{archOpen=!archOpen;try{localStorage.setItem('sq:arch',archOpen?'1':'')}catch(e){}renderConvList()};
+$('#trashToggle').querySelector('.chev').innerHTML=$('#archToggle').querySelector('.chev').innerHTML;
+$('#trashToggle').onclick=()=>{trashOpen=!trashOpen;try{localStorage.setItem('digress:trash',trashOpen?'1':'')}catch(e){}renderConvList()};
 $('#newConv').innerHTML=ic('plus')+'New conversation';$('#newDoc').innerHTML=ic('doc')+'New from a document';$('#newDoc').onclick=openDocModal;
 ['cols','rows','canvas'].forEach(v=>{document.querySelector(`[data-v="${v}"] span`).outerHTML=ic(v)});
 const mSel=$('#mSel'),eSel=$('#eSel'),webT=$('#webT');
@@ -5447,7 +5592,7 @@ async function maybeOpenLatest(){
     const want=urlConv();
     if(want&&convList.some(x=>x.id===want))return await openConv(want);
     if(want)toast('That conversation isn’t here (it may have been deleted), so here’s the latest.');
-    await openConv(convList[0].id);
+    const latest=convList.find(c=>!c.trashed);if(latest)await openConv(latest.id);
   }finally{urlOn=true;showInUrl()}
 }
 function showBanner(on,msg){const b=$('#banner');b.textContent=msg||NO_SERVER;b.style.display=on?'block':'none'}

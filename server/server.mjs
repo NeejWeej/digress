@@ -153,6 +153,30 @@ async function sweepFiles(minAgeMs = 24 * 3600e3) {
   return gone;
 }
 
+// The trash: a deleted conversation is kept, marked `trashed` (when, ms), for TRASH_DAYS, so it can be restored;
+// then it goes for good, with its layouts, its search index and any file nothing else uses. Checked at startup
+// and every hour.
+const TRASH_DAYS = 7;   // the page says so too (index.html TRASH_DAYS)
+async function purgeTrash() {
+  let names = []; try { names = (await fs.readdir(path.join(DATA, 'convs'))).filter((n) => n.endsWith('.json')); } catch { return 0; }
+  let gone = 0;
+  for (const n of names) {
+    const id = n.slice(0, -5); let d; try { d = await readDoc('convs', id); } catch { continue; }
+    if (!d || !d.trashed || Date.now() - d.trashed < TRASH_DAYS * 864e5) continue;
+    const file = docPath('convs', id);
+    await withLock(file, async () => { const now = await readDoc('convs', id); if (now && now.trashed === d.trashed) await fs.rm(file, { force: true }); });
+    await fs.rm(layoutPath(id), { force: true }); await fs.rm(docPath('index', id), { force: true }); gone++;
+    if (d.dropCards) await dropCardsOf(id);   // "Also delete its flashcards", chosen when it was trashed
+  }
+  if (gone) await sweepFiles(10 * 60e3);
+  return gone;
+}
+async function dropCardsOf(conv) {
+  let names = []; try { names = (await fs.readdir(path.join(DATA, 'cards'))).filter((n) => n.endsWith('.json')); } catch { return; }
+  for (const n of names) { const id = n.slice(0, -5); let c; try { c = await readDoc('cards', id); } catch { continue; } if (c && c.conv === conv) await withLock(docPath('cards', id), () => fs.rm(docPath('cards', id), { force: true })); }
+}
+function trashTick() { purgeTrash().then((n) => { if (n) console.log(`Emptied ${n} conversation${n > 1 ? 's' : ''} from the trash (deleted over ${TRASH_DAYS} days ago).`); }).catch((e) => console.warn('trash:', e.message)); }
+
 // ---- model providers ----------------------------------------------------------
 // claude-code: runs the Claude Code CLI (`claude -p`) signed in with your Claude subscription. Personal use only.
 // anthropic:   calls the Anthropic API with ANTHROPIC_API_KEY.
@@ -758,7 +782,7 @@ async function route(req, res) {
     }
     if (req.method === 'DELETE') {
       await withLock(file, () => fs.rm(file, { force: true }));
-      if (coll === 'convs') { await fs.rm(layoutPath(id), { force: true }); await sweepFiles(10 * 60e3); } // its layouts, and files nothing uses now
+      if (coll === 'convs') { await fs.rm(layoutPath(id), { force: true }); await fs.rm(docPath('index', id), { force: true }); await sweepFiles(10 * 60e3); } // its layouts, search index, and files nothing uses now
       return send(res, 200, { ok: true });
     }
     return fail(res, 405, 'Method not allowed');
@@ -825,6 +849,7 @@ const server = http.createServer((req, res) => {
   });
 });
 server.listen(PORT, HOST, () => {
+  trashTick(); setInterval(trashTick, 3600e3).unref();
   sweepFiles().then((n) => { if (n) console.log(`Removed ${n} uploaded file${n > 1 ? 's' : ''} no conversation or card uses any more.`); }).catch((e) => console.warn('file cleanup:', e.message));
   console.log(`Digress is running at http://${HOST}:${PORT}`);
   console.log(`Data folder: ${DATA}`);

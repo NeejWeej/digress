@@ -80,5 +80,13 @@ if the server takes more than a couple of seconds to answer.
 ## Where they're stored
 
 Cards live in their own collection, `data/cards/` (next to `data/convs/`), not inside conversations, which
-is what lets review span all of them. Deleting a conversation doesn't delete its cards; they just can't
-link back anymore.
+is what lets review span all of them. Deleting a conversation doesn't delete its cards unless you tick **Also delete its N flashcards** when you
+move it to the Trash (the dialog lists them, folded away in a box that scrolls). That's the only time it asks:
+
+- Ticked: the cards leave review straight away. Restore the conversation and they're back, schedule and all.
+  Delete for good, or the automatic cleanup after 7 days, deletes them with it.
+- Unticked: they stay in review. While the conversation is in the Trash, a card from it says so, with
+  **Restore it**. Once it's deleted for good, the card says where it came from was deleted, since it can't
+  take you back there any more; keep it or delete it.
+
+Deleting a branch offers the same checkbox for the cards made from it and its sub-branches.

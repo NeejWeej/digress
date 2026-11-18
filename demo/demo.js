@@ -50,6 +50,24 @@
     await kv.put('seeded', s.v);
   })());
 
+  // ---- as the real server: files nothing uses go (not ones just uploaded: the page uploads before it saves), and
+  // the trash empties after TRASH_DAYS ----
+  async function sweepFiles() {
+    const used = new Set();
+    for (const coll of ['convs/', 'cards/']) for (const [, d] of await kv.list(coll)) for (const m of JSON.stringify(d).matchAll(/"asset(?:Id)?":"([a-f0-9]{32})"/g)) used.add(m[1]);
+    for (const [id, f] of await kv.list('file/')) if (!used.has(id) && Date.now() - ((f && f.at) || 0) > 10 * 60e3) await kv.del('file/' + id);
+  }
+  const TRASH_DAYS = 7;
+  let purged = null;
+  const purgeTrash = () => purged || (purged = (async () => {
+    let n = 0;
+    for (const [id, c] of await kv.list('convs/')) if (c && c.trashed && Date.now() - c.trashed > TRASH_DAYS * 864e5) {
+      await kv.del('convs/' + id); await kv.del('layout/' + id); await kv.del('index/' + id); n++;
+      if (c.dropCards) for (const [kid, k] of await kv.list('cards/')) if (k && k.conv === id) await kv.del('cards/' + kid);
+    }
+    if (n) await sweepFiles();
+  })());
+
   // ---- replies: demo/replies.js writes them; streamed in small pieces like a real reply ----
   const runs = new Map();
   let resetting = false;   // "Start over" was pressed (see note())
@@ -80,6 +98,7 @@
     const url = new URL(typeof input === 'string' ? input : input.url, location.href);
     if (url.origin !== location.origin || !url.pathname.startsWith(API)) return realFetch(input, init);
     await seed().catch((e) => console.warn('demo: the sample couldn’t be loaded', e));
+    await purgeTrash().catch((e) => console.warn('demo: emptying the trash', e));
     const method = (init.method || 'GET').toUpperCase();
     if (resetting && method !== 'GET') return json({ error: 'Starting over' }, 503);
     const p = url.pathname.slice(API.length).split('/').filter(Boolean).map(decodeURIComponent);
@@ -113,12 +132,12 @@
         const d = await body(); d.rev = (cur ? cur.rev || 0 : 0) + 1; await kv.put(k, d); return json({ ok: true, rev: d.rev });
       }
       if (method === 'PATCH') { if (!cur) return json({ error: 'Not found' }, 404); await kv.put(k, { ...cur, ...(await body()) }); return json({ ok: true }); }
-      if (method === 'DELETE') { await kv.del(k); if (coll === 'convs') await kv.del('layout/' + id); return json({ ok: true }); }
+      if (method === 'DELETE') { await kv.del(k); if (coll === 'convs') { await kv.del('layout/' + id); await kv.del('index/' + id); await sweepFiles(); } return json({ ok: true }); }
     }
     if (p[0] === 'files') {
       if (method === 'POST') {
         const id = Array.from(crypto.getRandomValues(new Uint8Array(16)), (x) => x.toString(16).padStart(2, '0')).join('');
-        await kv.put('file/' + id, { type: url.searchParams.get('type') || 'application/octet-stream', blob: new Blob([init.body]) });
+        await kv.put('file/' + id, { type: url.searchParams.get('type') || 'application/octet-stream', blob: new Blob([init.body]), at: Date.now() });
         return json({ id });
       }
       if (method === 'DELETE') { await kv.del('file/' + p[1]); return json({ ok: true }); }

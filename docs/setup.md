@@ -112,6 +112,8 @@ data/index/<id>.json      search index entries
 data/files/<id>           uploaded documents (+ .meta.json)
 ```
 
+A conversation you delete stays in the sidebar's Trash (still in `data/convs/`, marked `trashed`) for 7 days, then the server deletes it for good, along with its search index and any uploaded file no other conversation or flashcard uses.
+
 Back it up by copying the folder. It's git-ignored.
 
 ## All settings
