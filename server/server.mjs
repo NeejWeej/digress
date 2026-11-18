@@ -302,6 +302,9 @@ async function handleChat(req, res) {
   payload.model = !payload.model || payload.model === 'auto' ? await defaultModel() : String(payload.model);
   const k = await providerFor(payload.model);
   payload.web = payload.web === true && webOk(k); // the one place web access gets switched on, for every provider
+  // whether the search tool is listed at all: always where the provider could search, so Web on or off sends the
+  // same tools and the prompt cache survives the switch (Claude Code, ChatGPT); `web` is whether it may run
+  payload.webListed = webOk(k);
   // document tools: only when the page asked for them (a conversation with a document open) and the provider can
   // The reply is a run (runs.mjs): the provider writes into it, and this request is only the first page
   // watching it. If the connection drops, the model keeps going and the page can reattach.
@@ -413,13 +416,17 @@ async function chatViaClaudeCode(payload, res) {
   const sysFile = path.join(work, 'system.txt');
   // the system prompt can carry a whole paper, too long for a command-line argument, so it goes in a file
   await fs.writeFile(sysFile, payload.system || 'You are a helpful tutor.');
-  // Tools are off unless the reader turned web access on, and then the only one is WebSearch, which runs
-  // on Anthropic's side. Never WebFetch: it fetches from this machine, so a page could steer it at
-  // this server (127.0.0.1, no login) or the local network.
+  // The only built-in tool is WebSearch, which runs on Anthropic's side. Never WebFetch: it fetches from this
+  // machine, so a page could steer it at this server (127.0.0.1, no login) or the local network.
+  // WebSearch is always listed (where web access is allowed at all) but only *allowed* when the reader turned
+  // Web on: unallowed, a call is refused (-p has no one to ask). Listing it either way keeps the tool list, the
+  // front of the prompt, the same, so switching Web doesn't throw away the conversation's prompt cache
+  // (--disallowedTools would take it out of the list, which does). Each question says whether it may search
+  // (PROMPTS.webOn), so the model doesn't try.
   // The document tools come from this server, as an MCP server made for this one reply (doctools.mjs).
   const s = payload.session;
   const allowed = [...(payload.web ? ['WebSearch'] : []), ...(s ? CLAUDE_CODE_TOOL_NAMES : [])];
-  const tools = ['--tools', payload.web ? 'WebSearch' : '', ...(allowed.length ? ['--allowedTools', allowed.join(',')] : [])];
+  const tools = ['--tools', payload.webListed ? 'WebSearch' : '', ...(allowed.length ? ['--allowedTools', allowed.join(',')] : [])];
   // And none of your own Claude Code setup: no MCP servers, hooks, CLAUDE.md, memory, skills or plugins.
   // --safe-mode does all of that, but it also turns off --mcp-config servers, so with document tools the
   // same is done piece by piece: no settings files (hooks, plugins, permissions), hooks off anyway, only our
@@ -689,9 +696,11 @@ async function route(req, res) {
     res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache' });
     return createReadStream(path.join(ROOT, 'web', url.pathname.slice(1))).pipe(res);
   }
-  // the logo: the browser tab icon (follows light/dark) and the phone home-screen icon
-  if (req.method === 'GET' && ['/icon.svg', '/apple-touch-icon.png'].includes(url.pathname)) {
-    res.writeHead(200, { 'content-type': url.pathname.endsWith('.svg') ? 'image/svg+xml' : 'image/png', 'cache-control': 'public, max-age=86400', 'x-content-type-options': 'nosniff' });
+  // the logo: the browser tab icon (follows light/dark), the phone home-screen icons, and the manifest that makes
+  // the page installable as an app (Install app on Android)
+  if (req.method === 'GET' && ['/icon.svg', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/manifest.webmanifest'].includes(url.pathname)) {
+    const type = url.pathname.endsWith('.svg') ? 'image/svg+xml' : url.pathname.endsWith('.webmanifest') ? 'application/manifest+json' : 'image/png';
+    res.writeHead(200, { 'content-type': type, 'cache-control': url.pathname.endsWith('.webmanifest') ? 'no-cache' : 'public, max-age=86400', 'x-content-type-options': 'nosniff' });
     return createReadStream(path.join(ROOT, 'web', url.pathname.slice(1))).pipe(res);
   }
   if (DEV && url.pathname === '/__dev/events') return devEvents(req, res);

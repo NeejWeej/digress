@@ -12,6 +12,8 @@ tailscale serve --bg 8787       # → https://<machine>.<tailnet>.ts.net
 tailscale serve status          # see the URL; `tailscale serve --https=443 off` to stop
 ```
 
+On an Android phone, open that address in Chrome and choose **Install app** (in the ⋮ menu) to get Digress on your home screen. It then opens in its own window with no browser bar. **Zen** there also goes full screen (no status bar either); Android's back gesture or Zen's own button leaves it. Back closes whatever is open on top (a menu, search, the sidebar), never a pane; with nothing open, it asks for a second back before leaving the app. Installing needs the HTTPS address, which Tailscale Serve gives you.
+
 Tailscale is the lock here, so:
 
 - Don't use `tailscale funnel`, which puts it on the public internet.

@@ -9,6 +9,15 @@ Ideas that aren't built yet, written down so they aren't lost. What's already bu
 - **Prompt cache on the ChatGPT plan route** is best-effort: measured hit rates from 0 to 5 of 8 identical
   requests with the same prompt_cache_key, with or without tools. Nothing more to set on our side
   (prompt_cache_retention isn't accepted there); recheck if OpenAI documents more.
+- **Web on/off and the prompt cache with an Anthropic API key:** with Claude Code and ChatGPT, switching Web
+  keeps the tool list the same (only what may run changes), so the cache survives. On the API, the
+  `web_search` tool is still added or removed, and since tools come first in the prompt, switching Web
+  makes the whole conversation uncached once ([prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching):
+  changing tool definitions invalidates every cache tier). Anthropic's fix is mid-conversation tool changes:
+  keep `tools` fixed and append `tool_addition` / `tool_removal` blocks where Web changed (beta
+  `mid-conversation-tool-changes-2026-07-01` or `inline-tools-2026-09-15`; Opus 4.8 and later, Sonnet 5.5,
+  Haiku 5.5, not Sonnet 5; [mid-conversation system messages](https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages)).
+  Needs an API key to check, and whether it applies to the server-side `web_search` tool.
 - **Web articles:** a bookmarklet or small browser extension that sends the article from the tab you're
   reading, for pages the server can't fetch (logins, paywalls you pay for).
 - **Images in Markdown:** pasted or uploaded Markdown with image links still loads those images straight

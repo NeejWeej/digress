@@ -142,7 +142,7 @@ async def main():
             cc = [l for l in lines(cc_log) if 'model' in l]
             first = cc[-1]
             check('Claude Code: offered exactly our three tools through our MCP server', [l for l in lines(cc_log) if 'mcpTools' in l][-1]['mcpTools'] == ['search', 'read_pages', 'view_page'])
-            check('Claude Code: only those tools are allowed, nothing built in', first['tools'] == '' and first['allowed'] == 'mcp__digress__search,mcp__digress__read_pages,mcp__digress__view_page', first)
+            check('Claude Code: only those tools are allowed (WebSearch is listed, so Web on or off sends the same tools, but not allowed)', first['tools'] in ('', 'WebSearch') and first['allowed'] == 'mcp__digress__search,mcp__digress__read_pages,mcp__digress__view_page', first)
             check('Claude Code: still isolated from your own setup (no CLAUDE.md, hooks, settings, other MCP servers)', first['isolatedHow'] == 'pieces', first)
             sys1 = first['system']
             check('the test PDF was too long to send whole', 'It is too long to include whole' in sys1, sys1[:300])

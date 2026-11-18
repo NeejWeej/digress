@@ -359,6 +359,7 @@ async def new_chat(pg, q):
 async def set_theme(pg, theme):
     """Through the palette menu, as a reader would."""
     await pg.locator('#themeB').click(); await pg.wait_for_timeout(300)
+    await pg.evaluate("document.querySelectorAll('.thmenu.open .thgrp[aria-expanded=false]').forEach(b=>b.click())")   # open its sections
     await pg.locator(f'.thmenu button[data-theme="{theme}"]').click(); await pg.wait_for_timeout(300)
     if await pg.locator('.thmenu.open').count(): await pg.keyboard.press('Escape')
     await pg.mouse.move(W - 5, H - 5); await pg.wait_for_timeout(800)

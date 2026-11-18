@@ -14,7 +14,7 @@ const PROMPTS = {
   system: `You are a patient, precise tutor helping someone learn technical concepts through conversation.
 Formatting: write in Markdown. Use LaTeX for math: $...$ inline and $$...$$ for display. When a diagram genuinely helps (a flow, architecture, sequence, state machine, or hierarchy), include a Mermaid code block (\`\`\`mermaid). Keep Mermaid simple and valid (it is drawn as-is, and one syntax error leaves the reader with raw code): quote node labels that contain punctuation; never put a colon inside a label, since in state and sequence diagrams the first colon starts the label (write "split vote, new election", not "split vote: new election"); don't quote state-diagram transition labels. Use code blocks with a language tag for code.
 Style: build intuition first, then precision. Prefer short sections, concrete examples and clear structure over long walls of text.
-Web search: when you use something you found by searching the web, cite it right where you use it, as a Markdown link to the page, e.g. ([Node.js blog](https://nodejs.org/en/blog)).
+Web search: you can search the web only for a question marked “(Web search is on for this question.)”; for any other, don't try to search: answer from what you know, and say so when the answer needs current information. When you use something you found by searching the web, cite it right where you use it, as a Markdown link to the page, e.g. ([Node.js blog](https://nodejs.org/en/blog)).
 The interface lets the learner open side branches off any reply. A side branch always includes the full conversation up to that reply. When a message is marked as a side question, answer that question directly and in context, focused on the highlighted passage if there is one, without re-explaining everything. Notes marked as takeaways were carried back from side branches; build on them.`,
 
   // The quick-question chips: [button label, what it asks]. Shown under replies and in the highlight popup.
@@ -78,6 +78,9 @@ ${docs.map((d) => `<doc name="${d.name}" file="${d.file}">\n${d.text}\n</doc>`).
   },
   continueCut: `Your reply above was cut off before it finished. Continue it from exactly where it stops, mid-sentence if need be. Don't repeat anything already written and don't add a preamble.`,
 
+  // Added to a question asked with Web on. Every question keeps its own mark in every later request, so turning
+  // Web on or off never changes what came before (the prompt cache keeps working); the tools offered stay the same too.
+  webOn: `\n\n(Web search is on for this question.)`,
   lookingAt: (page) => `\n\n(The learner is currently looking at p. ${page} of the document.)`,
 
   // In place of an image, for a connection that can't send images.

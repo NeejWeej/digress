@@ -8,6 +8,7 @@ from common import CORS
 MAP = {'marked.min.js': ROOT + 'marked/marked.min.js', 'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
        'highlight.min.js': ROOT + '@highlightjs/cdn-assets/highlight.min.js', 'tex-svg-full.js': ROOT + 'mathjax/es5/tex-svg-full.js'}
 FAKE = "window.fakeLLM={use:async n=>n==='sample'?async()=>({text:'Hi.'}):null};"
+UNFOLD = "document.querySelectorAll('.thmenu.open .thgrp[aria-expanded=false]').forEach(b=>b.click())"   # open every section of the theme menu
 fails = []
 def check(name, ok, detail=''):
     print(('ok   ' if ok else 'FAIL ') + name, '' if ok else str(detail)[:400])
@@ -43,7 +44,7 @@ async def main():
                     await pg.select_option('.tmore #eSel', 'high'); await frames(pg)
                     check(f'{w}px: effort can be set from the menu', await pg.evaluate("document.getElementById('eSel').value") == 'high')   # (it's kept per conversation now, not in localStorage)
                 if reach['#themeB'] == 'menu':
-                    await pg.locator('.tmore #themeB').click(); await frames(pg)
+                    await pg.locator('.tmore #themeB').click(); await frames(pg); await pg.evaluate(UNFOLD)
                     await pg.locator('.thmenu button[data-theme=sand]').click(); await frames(pg)
                     check(f'{w}px: the theme can be picked from the menu', await pg.evaluate('document.documentElement.dataset.theme') == 'sand')
                 await pg.screenshot(path=f'{OUT}/topbar-{w}.png')

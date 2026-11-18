@@ -95,7 +95,7 @@ process.stdin.on('end', async () => {
     emit({ type: 'result', subtype: 'success', is_error: true, result: 'Invalid API key · Please run /login' });
     process.exit(1);
   }
-  if (prompt.includes('SEARCHME') && arg('--tools') === 'WebSearch') {
+  if (prompt.includes('SEARCHME') && arg('--tools') === 'WebSearch' && (arg('--allowedTools') || '').split(',').includes('WebSearch')) {   // listed and allowed (listed only, the real CLI refuses the call)
     // what the real CLI prints for one WebSearch call: the tool call streams, then its result comes back as a user message
     const ev = (event) => emit({ type: 'stream_event', event });
     ev({ type: 'message_start', message: { model, usage: usage() } });
