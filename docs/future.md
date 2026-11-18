@@ -86,3 +86,34 @@ map of everything you've worked out about it, in one place.
   machine, in the spirit of the opt-in web toggle and "no other tools".
 - **UI:** code views with line anchors (branch from a line range like from a highlight), file and symbol
   navigation, and a canvas that can lay branches out alongside the structure of the code.
+
+## Sharing a conversation
+
+Send one whole conversation to someone as a single `.html` file. They can look around in it without
+installing anything, and, if they run Digress themselves, import it and carry on with their own Claude Code
+or ChatGPT login.
+
+- **A live viewer, read-only:** built the way the demo is (`demo/build.mjs`): the real page with an
+  in-browser stand-in for the server, the conversation as its seed instead of `demo/seed.json`. Columns,
+  Rows, the canvas, branch chips and search all work; asking a question says to import it into Digress to
+  continue. Made in the browser from the page's own files (fetched from the server) plus the conversation
+  and its images. The libraries still come from CDNs, so it needs internet to open (bundling them adds
+  about 5–7 MB). To check: IndexedDB from a `file://` page, and HTML attachments on Android (some viewers
+  don't run scripts).
+- **Choosing what goes in:** a dialog lists the branches (hidden ones and other versions optional),
+  takeaways, images, the document and the file's size before saving. Never in it: flashcards (their own
+  collection), `run` ids, layouts, device and window ids. Model names and token counts optional.
+- **The document is included by default, with an option to leave it out** (it may be someone else's
+  paper). Left out, a document opened from a link (`doc.source`) is fetched again on import and checked
+  to be the same file, so branches still land on their passages; otherwise the reader can attach their
+  own copy.
+- **Import is the safety line.** The data sits in the file as inert JSON (`<script
+  type="application/json">`); importing reads the file as text and takes only that block, never running
+  its scripts, so an edited viewer can't reach the importer's Digress. Then: `ThreadOps.check`, size
+  limits and image types checked, a new conversation id, no `run`; nothing is sent to a model and no link
+  fetched until the reader acts. It's always a new conversation, so no merging. A file picker in the
+  sidebar, or drop the file on the page; not a button in the shared file that posts to a local Digress,
+  which would mean loosening `requestAllowed()`.
+- **Carrying on:** every request is rebuilt from saved messages (`buildContext`), so it works with
+  whichever provider the importer has; a model they don't have falls back to their default.
+- **Tests:** export → import round trip, a tampered file refused, the viewer opening from a local file.
