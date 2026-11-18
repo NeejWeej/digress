@@ -2776,13 +2776,32 @@ function gutTarget(g){
   const nx=g.nextElementSibling;if(!nx||!nx.classList.contains('pane')||nx.classList.contains('rail'))return null;
   return {tid:nx.dataset.tid,el:nx,sign:-1};
 }
+/* Resizing a pane by its handle. Held near the far edge of the panes area (right in Columns, bottom in Rows) the pane
+   keeps growing on its own and the row scrolls with it, so the handle stays under the pointer: a pane at the end can
+   grow past the screen. Faster the closer to the edge, capped (EDGE_GROW). */
+const EDGE_ZONE=44,EDGE_GROW=700,EDGE_WAIT=250;   // px from the edge where it starts; px per second at most; ms held there first (a drag that merely ends near the edge doesn't grow)
 function startDrag(e,g){
   const tg=gutTarget(g);if(!tg)return;const {tid,el,sign}=tg;
   const cols=conv.ui.layout==='cols';const r=el.getBoundingClientRect();
-  drag={tid,el,cols,sign,start:cols?e.clientX:e.clientY,size:cols?r.width:r.height,g};g.classList.add('drag');(()=>{try{g.setPointerCapture(e.pointerId)}catch(_){}})();
+  drag={tid,el,cols,sign,start:cols?e.clientX:e.clientY,size:cols?r.width:r.height,g,at:cols?e.clientX:e.clientY,raf:0,t:0};g.classList.add('drag');(()=>{try{g.setPointerCapture(e.pointerId)}catch(_){}})();
   drag.el.classList.add('sized');const min=drag.cols?(innerWidth<=760?220:360):200;   // phones: narrow enough for two side by side
-  g.onpointermove=ev=>{const d=((drag.cols?ev.clientX:ev.clientY)-drag.start)*drag.sign;const s=Math.max(min,drag.size+d);drag.el.style.flex=`0 0 ${s}px`;conv.ui.sizes[drag.tid]=Math.round(s);wiresSoon()};
-  g.onpointerup=g.onpointercancel=()=>{g.classList.remove('drag');g.onpointermove=g.onpointerup=g.onpointercancel=null;drag=null;save()};
+  const d0=drag,box=$('#panes');
+  const apply=()=>{const s=Math.max(min,d0.size+(d0.at-d0.start)*d0.sign);d0.el.style.flex=`0 0 ${s}px`;conv.ui.sizes[d0.tid]=Math.round(s);wiresSoon();return s};
+  const edgeDist=()=>{const b=box.getBoundingClientRect();return (d0.cols?Math.min(b.right,innerWidth):Math.min(b.bottom,innerHeight))-d0.at};
+  const tick=t=>{
+    d0.raf=0;if(drag!==d0)return;
+    const dist=edgeDist();if(d0.sign!==1||dist>=EDGE_ZONE){d0.t=0;d0.in=0;return}
+    if(!d0.in)d0.in=t;if(t-d0.in<EDGE_WAIT){d0.raf=requestAnimationFrame(tick);return}
+    const dt=d0.t?Math.min(.05,(t-d0.t)/1000):1/60;d0.t=t;
+    const grow=EDGE_GROW*Math.min(1,(EDGE_ZONE-dist)/EDGE_ZONE)*dt;
+    d0.start-=grow;apply();
+    if(d0.cols)box.scrollLeft+=grow;else box.scrollTop+=grow;
+    d0.raf=requestAnimationFrame(tick);
+  };
+  const edge=()=>{if(!d0.raf&&d0.sign===1&&edgeDist()<EDGE_ZONE){d0.t=0;d0.in=0;d0.raf=requestAnimationFrame(tick)}};
+  g.onpointermove=ev=>{d0.at=d0.cols?ev.clientX:ev.clientY;apply();edge()};
+  g.onpointerup=g.onpointercancel=()=>{cancelAnimationFrame(d0.raf);d0.raf=0;g.classList.remove('drag');g.onpointermove=g.onpointerup=g.onpointercancel=null;drag=null;save()};
+  edge();
 }
 
 /* ---------- connector wires (pane view) ---------- */
