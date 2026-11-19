@@ -5,7 +5,7 @@ with tests/fakes/page-server.js standing in for the server, and its CDN librarie
 node_modules (run `npm install` first), so they need no network.
 Set CHROME_PATH to use a specific Chrome; otherwise Playwright's own Chromium is used.
 """
-import asyncio, os, time
+import asyncio, json, os, re, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
@@ -27,7 +27,7 @@ def launch_args():
 def cached_math_page():
     """A copy of the app that loads MathJax synchronously, the way a warm browser cache behaves."""
     html = open(PAGE, encoding='utf-8').read()
-    fast = html.replace('<script async src="https://cdn.jsdelivr.net/npm/mathjax', '<script src="https://cdn.jsdelivr.net/npm/mathjax')
+    fast = html.replace('<script async src="lib/mathjax', '<script src="lib/mathjax')
     assert fast != html, 'MathJax script tag not found'
     path = os.path.join(OUT, f'cached_math.{os.getpid()}.html')   # per process: tests run in parallel
     open(path, 'w', encoding='utf-8').write(fast)
@@ -35,6 +35,20 @@ def cached_math_page():
 
 
 APP_URL = 'http://digress.test/'
+LIBS = json.load(open(os.path.join(REPO, 'server', 'libs.json')))
+
+
+def lib_path(rest):
+    """node_modules' copy of a lib/ path (package@version/file), as server/libs.mjs finds it; None if it's not one."""
+    if rest not in LIBS: return None
+    pkg, _, file = re.match(r'^((?:@[^/@]+/)?[^/@]+)@([^/]+)/(.+)$', rest).groups()
+    return ROOT + pkg + '/' + file
+
+
+async def serve_lib(r):
+    f = lib_path(r.request.url.split('/lib/', 1)[1].split('?')[0])
+    if not f: return await r.fulfill(status=404, body='not found')
+    await r.fulfill(path=f, content_type='text/javascript; charset=utf-8')
 PAGE_SERVER = open(os.path.join(HERE, 'fakes', 'page-server.js'), encoding='utf-8').read()
 
 
@@ -48,6 +62,7 @@ async def goto_app(pg, page=PAGE):
         return lambda r: r.fulfill(path=os.path.join(REPO, 'web', f), content_type='text/javascript; charset=utf-8')
     for f in ('prompts.js', 'threads.js'):
         await pg.route(APP_URL + f, serve(f))
+    await pg.route(APP_URL + 'lib/**', serve_lib)   # the libraries, as the server serves them from node_modules
     await pg.goto(APP_URL)
 
 

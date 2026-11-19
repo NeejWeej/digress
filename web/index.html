@@ -1057,31 +1057,47 @@ a.pref:hover{border-bottom-style:solid}
 <div class="modal" id="cardsModal"><div class="kbox" role="dialog" aria-modal="true" aria-label="Flashcards"></div></div>
 <div class="modal" id="modal"><div class="mbox" role="dialog" aria-modal="true"><div class="mt" id="mTitle"></div><div class="mb" id="mBody"></div><div class="ma"><button class="mbtn" id="mCancel">Cancel</button><button class="mbtn danger" id="mOk">Delete</button></div></div></div>
 
-<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" integrity="sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.17/dist/purify.min.js" integrity="sha384-P0JNneQf81HOl9VwNXK76cQ9VMD6Nfsnepxb0cCOg8+UzEdzgPHAPV4wVQrvYQSx" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha384-F/bZzf7p3Joyp5psL90p/p89AZJsndkSoGwRpXcZhleCWhd8SnRuoYo4d0yirjJp" crossorigin="anonymous"></script>
+<script>
+/* Libraries. Each comes first from this server (lib/: its copy in node_modules, once `npm install` has been run;
+   server/libs.json lists them) and, if this server doesn't have it, from a CDN. Some networks can't reach a CDN
+   (a phone's could reach this server but not cdn.jsdelivr.net, so search never loaded), and this server is the
+   one place the page can always reach. Either way the file must match its hash (Subresource Integrity), so neither
+   copy can run anything but the exact file. tests/test_sri.py checks every hash against node_modules, and
+   tests/test_local_libs.py both routes; update the hash with a version. */
+window.LIBS={
+  'https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js':['lib/marked@12.0.2/marked.min.js','sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi'],
+  'https://cdn.jsdelivr.net/npm/dompurify@3.4.17/dist/purify.min.js':['lib/dompurify@3.4.17/dist/purify.min.js','sha384-P0JNneQf81HOl9VwNXK76cQ9VMD6Nfsnepxb0cCOg8+UzEdzgPHAPV4wVQrvYQSx'],
+  'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js':['lib/@highlightjs/cdn-assets@11.9.0/highlight.min.js','sha384-F/bZzf7p3Joyp5psL90p/p89AZJsndkSoGwRpXcZhleCWhd8SnRuoYo4d0yirjJp'],
+  'https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg-full.js':['lib/mathjax@3.2.2/es5/tex-svg-full.js','sha384-4kE/rQ11E8xT9QgrCBTyvenkuPfQo8rXYQvJZuMgxyPOoUfpatjQPlgdv6V5yhUK'],
+  'https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js':['lib/mermaid@11.17.2/dist/mermaid.min.js','sha384-EOXBFmc3gx5mb+vn0vPvvGqACToJD24hhacX5Yx+8NUUQrHIle/Qi5Bg9o3zKwW2'],
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js':['lib/pdfjs-dist@3.11.174/build/pdf.min.js','sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e'],
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js':['lib/pdfjs-dist@3.11.174/build/pdf.worker.min.js','sha384-SnzOobpRMLXZ52iJvZm/C0fYw0OQemTXzTjIsdsfMcrCtCEe9qgzxTd3RSklO5x2'],
+  'https://cdn.jsdelivr.net/npm/minisearch@7.1.0/dist/umd/index.js':['lib/minisearch@7.1.0/dist/umd/index.js','sha384-WYxvx105q0lClUQiJPNSSLCBKa8ha7WajFLCebXbbpsax4ywxgy3afY2BI2gaqra'],
+  'https://cdn.jsdelivr.net/npm/@mozilla/readability@0.6.0/Readability.js':['lib/@mozilla/readability@0.6.0/Readability.js','sha384-e+TY0H9ZOYdOLMJKCM3iXGmTbjVVh+PJ+GTEKuGjQY0+bsSOJohq+GWUAmhGjKOi'],
+  'https://cdn.jsdelivr.net/npm/turndown@7.2.0/dist/turndown.js':['lib/turndown@7.2.0/dist/turndown.js','sha384-OGauEFaI5hnS8jXK4qdSGShAUAObMBKoLXgcL1ORhRh7ulx5jPZH35qVpacIEA4Z'],
+  'https://cdn.jsdelivr.net/npm/turndown-plugin-gfm@1.0.2/dist/turndown-plugin-gfm.js':['lib/turndown-plugin-gfm@1.0.2/dist/turndown-plugin-gfm.js','sha384-2TroN1N6OfLQ+K4qttptnIfMREzUlMa3hW/nZqDZXv7Sm9BkESfGEupDEqCbzyRl'],
+};
+// a library the code below needs as it starts: when this server's copy didn't load, the CDN's, written in right here
+// so it still runs before that code
+window.needLib=function(cdn,there){if(!there())document.write('<script src="'+cdn+'" integrity="'+LIBS[cdn][1]+'" crossorigin="anonymous"><\/script>')};
+// one loaded without waiting (MathJax): its onerror fetches the CDN's copy
+window.libElsewhere=function(el){for(var k in LIBS)if(LIBS[k][0]===el.getAttribute('src')){var s=document.createElement('script');s.async=el.async;s.src=k;s.integrity=LIBS[k][1];s.crossOrigin='anonymous';document.head.appendChild(s);return}};
+</script>
+<script src="lib/marked@12.0.2/marked.min.js" integrity="sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi" crossorigin="anonymous"></script>
+<script>needLib('https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js',function(){return window.marked})</script>
+<script src="lib/dompurify@3.4.17/dist/purify.min.js" integrity="sha384-P0JNneQf81HOl9VwNXK76cQ9VMD6Nfsnepxb0cCOg8+UzEdzgPHAPV4wVQrvYQSx" crossorigin="anonymous"></script>
+<script>needLib('https://cdn.jsdelivr.net/npm/dompurify@3.4.17/dist/purify.min.js',function(){return window.DOMPurify})</script>
+<script src="lib/@highlightjs/cdn-assets@11.9.0/highlight.min.js" integrity="sha384-F/bZzf7p3Joyp5psL90p/p89AZJsndkSoGwRpXcZhleCWhd8SnRuoYo4d0yirjJp" crossorigin="anonymous"></script>
+<script>needLib('https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js',function(){return window.hljs})</script>
 <script src="prompts.js"></script>
 <script src="threads.js"></script>
 <script>
 window.MathJax={svg:{fontCache:'local'},startup:{typeset:false,ready(){MathJax.startup.defaultReady();MathJax.startup.promise.then(()=>{window.__mathReady&&window.__mathReady()})}}};
 </script>
-<script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg-full.js" integrity="sha384-4kE/rQ11E8xT9QgrCBTyvenkuPfQo8rXYQvJZuMgxyPOoUfpatjQPlgdv6V5yhUK" crossorigin="anonymous"></script>
+<script async src="lib/mathjax@3.2.2/es5/tex-svg-full.js" integrity="sha384-4kE/rQ11E8xT9QgrCBTyvenkuPfQo8rXYQvJZuMgxyPOoUfpatjQPlgdv6V5yhUK" crossorigin="anonymous" onerror="libElsewhere(this)"></script>
 <script>
 (()=>{
 'use strict';
-/* Every library comes from a CDN with a hash of the exact file (Subresource Integrity): if a CDN ever served anything
-   else, the browser refuses to run it, so a compromised CDN can't get code into this page (which holds your
-   conversations). The <script> tags above carry theirs; these are for the ones loaded when first needed.
-   tests/test_sri.py checks every hash against the copy in node_modules, so update both with a version. */
-const SRI={
-  'https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js':'sha384-EOXBFmc3gx5mb+vn0vPvvGqACToJD24hhacX5Yx+8NUUQrHIle/Qi5Bg9o3zKwW2',
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js':'sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e',
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js':'sha384-SnzOobpRMLXZ52iJvZm/C0fYw0OQemTXzTjIsdsfMcrCtCEe9qgzxTd3RSklO5x2',
-  'https://cdn.jsdelivr.net/npm/minisearch@7.1.0/dist/umd/index.js':'sha384-WYxvx105q0lClUQiJPNSSLCBKa8ha7WajFLCebXbbpsax4ywxgy3afY2BI2gaqra',
-  'https://cdn.jsdelivr.net/npm/@mozilla/readability@0.6.0/Readability.js':'sha384-e+TY0H9ZOYdOLMJKCM3iXGmTbjVVh+PJ+GTEKuGjQY0+bsSOJohq+GWUAmhGjKOi',
-  'https://cdn.jsdelivr.net/npm/turndown@7.2.0/dist/turndown.js':'sha384-OGauEFaI5hnS8jXK4qdSGShAUAObMBKoLXgcL1ORhRh7ulx5jPZH35qVpacIEA4Z',
-  'https://cdn.jsdelivr.net/npm/turndown-plugin-gfm@1.0.2/dist/turndown-plugin-gfm.js':'sha384-2TroN1N6OfLQ+K4qttptnIfMREzUlMa3hW/nZqDZXv7Sm9BkESfGEupDEqCbzyRl',
-};
 /* ---------- constants ---------- */
 const PALETTE=['#d9774b','#3f8fd2','#3fa077','#9d6ad6','#cc9a2e','#d65a8a','#2a9ea3','#7f8f36'];
 const SYS=PROMPTS.system,QUICK=PROMPTS.quick;   // every instruction to the model is in web/prompts.js
@@ -2378,9 +2394,7 @@ function renderRich(el,md,final){
 function loadMermaid(){
   if(mermaidReady)return mermaidReady;
   mermaidReady=new Promise(res=>{
-    const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js';s.integrity=SRI[s.src];s.crossOrigin='anonymous';
-    s.onload=()=>{try{mermaidTheme();mermaidOk=true}catch(e){}res()};
-    s.onerror=()=>res();document.head.appendChild(s);
+    loadScript('https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js').then(()=>{try{mermaidTheme();mermaidOk=true}catch(e){}res()},()=>res());
   });
   return mermaidReady;
 }
@@ -3627,13 +3641,16 @@ const docView={scale:1,width:0,current:1,rendered:new Map(),obs:null,ro:null,res
 const docBlobCache=new Map();
 const isDocBranch=(t)=>!!t&&t.anchorMsg==='DOC';
 const docBranches=()=>conv&&conv.doc?Object.values(conv.threads).filter(isDocBranch).sort((a,b)=>(a.anchorPage-b.anchorPage)||(a.created-b.created)):[];
-function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;if(SRI[src]){s.integrity=SRI[src];s.crossOrigin='anonymous'}s.onload=res;s.onerror=()=>rej(new Error('Could not load '+src));document.head.appendChild(s)})}
+// a library (by its CDN address, a key of LIBS): this server's copy, else the CDN's, both checked against its hash;
+// resolves with the address it came from
+function addScript(src,hash){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;if(hash){s.integrity=hash;s.crossOrigin='anonymous'}s.onload=()=>res(src);s.onerror=()=>{s.remove();rej(new Error('Could not load '+src))};document.head.appendChild(s)})}
+function loadScript(src){const l=LIBS[src];return l?addScript(l[0],l[1]).catch(()=>addScript(src,l[1])):addScript(src)}
 let pdfLibP=null;
 function loadPdfLib(){
   if(!pdfLibP)pdfLibP=(async()=>{
     // loading the worker script first lets pdf.js run in the page itself (cross-origin workers aren't allowed here)
-    await loadScript(PDFJS+'pdf.worker.min.js');await loadScript(PDFJS+'pdf.min.js');
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+'pdf.worker.min.js';return window.pdfjsLib;
+    const worker=await loadScript(PDFJS+'pdf.worker.min.js');await loadScript(PDFJS+'pdf.min.js');
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc=worker;return window.pdfjsLib;
   })().catch(e=>{pdfLibP=null;throw e});
   return pdfLibP;
 }

@@ -28,6 +28,7 @@ import { fetchDocument, WARNINGS } from './fetchdoc.mjs';
 import { normalizeMessages, toAnthropic, toClaudeCodeBlocks, IMAGE_TYPES, isImage } from './content.mjs';
 import { createRun, getRun, DETACH_MS } from './runs.mjs';
 import { GUIDE_DOCS } from './guide.mjs';
+import { libFile } from './libs.mjs';
 import { openSession, deliverResult, handleMcp, toolsForAnthropic, resultForAnthropic, CLAUDE_CODE_TOOL_NAMES, MAX_TOOL_ROUNDS } from './doctools.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -702,6 +703,15 @@ async function route(req, res) {
     const type = url.pathname.endsWith('.svg') ? 'image/svg+xml' : url.pathname.endsWith('.webmanifest') ? 'application/manifest+json' : 'image/png';
     res.writeHead(200, { 'content-type': type, 'cache-control': url.pathname.endsWith('.webmanifest') ? 'no-cache' : 'public, max-age=86400', 'x-content-type-options': 'nosniff' });
     return createReadStream(path.join(ROOT, 'web', url.pathname.slice(1))).pipe(res);
+  }
+  // the page's libraries (marked, MathJax, pdf.js, …), from node_modules when installed (server/libs.mjs); the page
+  // falls back to a CDN on a 404. Versioned paths, so they're cached for good.
+  if (req.method === 'GET' && url.pathname.startsWith('/lib/')) {
+    let f = null;
+    try { f = libFile(decodeURIComponent(url.pathname.slice(5))); } catch { /* a malformed path */ }
+    if (!f) return fail(res, 404, 'Not found');
+    res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' });
+    return createReadStream(f).pipe(res);
   }
   if (DEV && url.pathname === '/__dev/events') return devEvents(req, res);
   if (parts[0] !== 'api') return fail(res, 404, 'Not found');
