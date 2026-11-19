@@ -158,7 +158,7 @@ export async function listModels() {
 // The plan route rejects `system` messages, max_output_tokens, temperature and previous_response_id,
 // and requires store:false + stream:true.
 // `more`: what this reply has added so far in a tool loop (the model's own output items, then the tool results).
-export function requestBody({ system, messages, model, effort, web, webListed, session }, withEffort, more = []) {
+export function requestBody({ system, messages, model, effort, web, webListed, session, final }, withEffort, more = []) {
   const input = [];
   if (system) input.push({ role: 'developer', content: system });
   input.push(...toOpenAI(messages), ...more); // messages arrive checked by server/content.mjs; images become input_image parts
@@ -173,7 +173,8 @@ export function requestBody({ system, messages, model, effort, web, webListed, s
     body.tools = tools;
     // which of them may run: web_search only when the reader turned Web on
     const may = tools.filter((t) => web || t.type !== 'web_search').map((t) => (t.type === 'function' ? { type: 'function', name: t.name } : { type: t.type }));
-    body.tool_choice = may.length ? { type: 'allowed_tools', mode: 'auto', tools: may } : 'none';
+    // final: the tool loop's last request, past MAX_TOOL_ROUNDS: nothing may run, so the model answers (the tools stay listed)
+    body.tool_choice = may.length && !final ? { type: 'allowed_tools', mode: 'auto', tools: may } : 'none';
   }
   if (include.length) body.include = include;
   return body;
@@ -206,10 +207,11 @@ export async function chat(payload, res, h) {
   const ctrl = new AbortController();
   res.on('close', () => { if (!res.writableFinished) ctrl.abort(); }); // Stop pressed or page closed
   let more = []; // the tool loop's additions, resent with each round (store:false keeps nothing between requests)
+  let final = false; // the last request of a tool loop that ran out of rounds: tools off
   const send = async (withEffort, force) => fetch(API + '/responses', {
     method: 'POST', signal: ctrl.signal, redirect: 'error',
     headers: { authorization: 'Bearer ' + (await accessToken(force)), 'content-type': 'application/json', accept: 'text/event-stream' },
-    body: JSON.stringify(requestBody(payload, withEffort, more)),
+    body: JSON.stringify(requestBody({ ...payload, final }, withEffort, more)),
   });
   let up, withEffort = !!payload.effort;
   try {
@@ -286,7 +288,8 @@ export async function chat(payload, res, h) {
       if (ctrl.signal.aborted) return res.end();
     }
     const calls = st.items.filter((it) => it.type === 'function_call');
-    if (!payload.session || !calls.length || !st.end || st.end.error || round + 1 >= MAX_TOOL_ROUNDS) break;
+    if (!payload.session || !calls.length || !st.end || st.end.error || final) break;
+    if (round + 1 >= MAX_TOOL_ROUNDS) final = true; // still calling tools at the limit: one more request, tools off, to get an answer
     // send back what the model produced this round (its reasoning, any text, the calls), then each result
     more = [...more, ...st.items.filter((it) => ['reasoning', 'message', 'function_call'].includes(it.type))];
     for (const c of calls) {

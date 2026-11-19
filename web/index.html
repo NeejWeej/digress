@@ -2014,6 +2014,7 @@ async function generate(m,ctx,lockTid,o={}){
     }
     m.content=prefix+r.text;if(r.model)m.model=r.model;if(r.usage)m.usage=r.usage;keepSearch(r);
     if(r.truncated)m.error='Reply was cut off (length limit).';
+    else if(!String(r.text||'').trim())m.error='No answer came back from the model. Retry, or ask something narrower.';   // never a blank reply that looks finished
   }catch(e){
     if(st.detached){clearInterval(tick);return}   // the page moved to another conversation: the reply carries on without it
     if(e&&e.text!==undefined)m.content=prefix+e.text;

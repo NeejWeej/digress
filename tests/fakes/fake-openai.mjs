@@ -85,6 +85,15 @@ http.createServer((req, res) => {
     };
     const asked = [...j.input].reverse().find((m) => m.role === 'user');
     const ROUNDS = asked && scriptFor(JSON.stringify(asked.content));
+    // NEVERSTOP: a model that keeps searching for as long as it may; told it can't (tool_choice none), it answers
+    if ((j.tools || []).some((t) => t.type === 'function' && t.name === 'search') && asked && JSON.stringify(asked.content).includes('NEVERSTOP')) {
+      const outs = j.input.filter((it) => it.type === 'function_call_output'), calls = j.input.filter((it) => it.type === 'function_call');
+      if (calls.length !== outs.length) { ev({ type: 'response.failed', response: { ...resp, status: 'failed', error: { message: `calls without results: ${calls.length} vs ${outs.length}` } } }); return res.end(); }
+      if (j.tool_choice === 'none') say(0, `FINALANSWER after ${outs.length} tool results`);
+      else ev({ type: 'response.output_item.done', output_index: 0, item: { type: 'function_call', id: `fc_n${outs.length}`, call_id: `call_n${outs.length}`, name: 'search', arguments: JSON.stringify({ query: 'Section ' + (outs.length + 1) }), status: 'completed' } });
+      ev({ type: 'response.completed', response: { ...resp, status: 'completed', usage: { input_tokens: 100, output_tokens: 5 } } });
+      return res.end();
+    }
     if ((j.tools || []).some((t) => t.type === 'function' && t.name === 'read_pages') && ROUNDS) {
       const outs = j.input.filter((it) => it.type === 'function_call_output'), calls = j.input.filter((it) => it.type === 'function_call');
       let done = 0; for (let n = 0; done < ROUNDS.length && n + ROUNDS[done].length <= outs.length; done++) n += ROUNDS[done].length;
