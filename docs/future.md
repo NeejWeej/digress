@@ -28,6 +28,16 @@ Ideas that aren't built yet, written down so they aren't lost. What's already bu
   would also need a way to keep its prefix (what the passage was) in the text.
 - **Live updates between devices:** a tab catches up when it comes back to the foreground, not while two
   screens are both in view. A server-sent event per conversation would do it, if that ever matters.
+- **Bigger diagrams:** a diagram is drawn no wider than its message and at most 60% of the window's height; the
+  zoom strip only magnifies it inside that box. Two ways to make it really bigger:
+  - **Full screen:** a button beside the 🔍 opens it over the whole window, where the wheel, a trackpad pinch or
+    a finger pinch zoom it and dragging moves it (no chat behind it to scroll); Esc, a click outside or back
+    closes it (`closeTopmost`). Also covers phones, where the canvas takes the pinch and a diagram in a card
+    can't be zoomed now.
+  - **Beside the rest:** pop the diagram out into its own pane (Columns/Rows) or card (canvas), resizable like
+    any other, so it stays large next to the conversation that discusses it. It would follow the message
+    (redrawn from its source, not copied), and close without changing anything.
+  On the canvas, the 60% cap could also follow the card's height, so resizing a card enlarges its diagrams.
 - **Rewind:** delete a message and everything after it in a thread, with a confirmation listing what goes.
 
 ## Sub-agents that explore
@@ -117,3 +127,38 @@ or ChatGPT login.
 - **Carrying on:** every request is rebuilt from saved messages (`buildContext`), so it works with
   whichever provider the importer has; a model they don't have falls back to their default.
 - **Tests:** export → import round trip, a tampered file refused, the viewer opening from a local file.
+
+## Videos, YouTube first
+
+Learn from a video the way Digress does from a PDF: branch from what was said or from what was on screen. YouTube
+is the main focus; uploaded video files are supported too, but second. The server stays light: it never
+downloads or keeps a video.
+
+- **The pane:** the player, with branch markers on its timeline, over the transcript, which follows along
+  (the line being spoken highlighted; click a line to jump there). Highlight transcript text to branch, like a
+  passage (the branch keeps the time and the words); pause and **Ask about this frame** to branch with the frame
+  as its image, like a snip (or drag a box over the paused video for part of it). The model cites `[t. 12:34]`,
+  which seeks the player; branch cards on the canvas show their frame; the reading mark is a time ("you got up to
+  41:20").
+- **Tools,** like the document tools (run in the browser): `read_transcript(from, to)` like `read_pages`, and
+  `view_frame(t)` like `view_page`, so the model reads what was said and looks when it needs to ("as you can
+  see here"). An hour's transcript is ~13k tokens, so it can usually go whole, like a short PDF; chapters from
+  the description are its table of contents.
+- **Playback:** YouTube's official embedded player (IFrame API) streams straight to the browser and lets the
+  page play, pause, seek and read the time; no server load, works on phones.
+- **Transcript:** the server fetches the captions (text, ~100 KB an hour) plus title, chapters and description.
+  There's no official way for videos that aren't yours, so it reads the caption files YouTube's player uses,
+  which can break when YouTube changes them; `yt-dlp --skip-download --write-auto-subs` (captions only, never the
+  video) as an optional fallback if installed. Without captions (an uploaded file), whisper if installed.
+- **Frames, the hard part** (the embedded player won't hand its pixels to the page), lightest first:
+  1. Tab capture (desktop Chrome): allow "share this tab" once a session, and the page grabs what the player
+     shows, cropped to it, sharp. Nothing downloaded; `view_frame` can seek, wait and capture by itself. Not on
+     Chrome for Android, and the player must be on screen.
+  2. YouTube's scrub-preview thumbnails: tiny, light, work on phones, but too small to read slides or code.
+  3. The server grabs one frame (`yt-dlp` for the stream, `ffmpeg` reading a few MB around that moment, nothing
+     kept): sharp, anywhere, but against YouTube's terms and fragile. Opt-in only, if those are installed.
+  4. Paste a screenshot (works today, phones included).
+  Uploaded files are easy: the browser draws any frame itself.
+- **What's kept:** the transcript and only the frames used (small JPEGs), never the video.
+- **To settle:** desktop or phone first (on a phone, frames are the weak spot: thumbnails, pasted screenshots,
+  or option 3); and how much breakage from unofficial caption fetching is acceptable.
