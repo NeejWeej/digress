@@ -405,6 +405,16 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .pane.rail .rail-label .dot{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
 .pane.rail:hover{border-color:var(--c)}
 .pane.rail:hover .rail-label{color:var(--ink)}
+/* a reply in a thread you can't see (a strip, a folded canvas card, a sidebar row): writing, then ready until you open it */
+.rbadge{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:3px;line-height:1}
+.rbadge.writing i{width:4px;height:4px;border-radius:50%;background:var(--muted);animation:bl 1.2s infinite}
+.rbadge.writing i:nth-child(2){animation-delay:.2s}.rbadge.writing i:nth-child(3){animation-delay:.4s}
+.rbadge.ready{font-size:10.5px;font-weight:600;letter-spacing:.02em;color:var(--ink);padding:2px 6px;border-radius:9px;
+  background:color-mix(in srgb,var(--accent) 16%,var(--panel));border:1px solid color-mix(in srgb,var(--accent) 55%,transparent)}
+.pane.rail .rbadge.ready{padding:6px 2px}.pane.rail .rbadge.writing{flex-direction:column}
+.panes.rows .pane.rail .rbadge.writing{flex-direction:row}
+.pane.rail.rready{border-color:var(--accent)}
+.cnode.rready{border-color:var(--accent)}
 
 /* Panes are reordered by the grip at the left of the header (shown on hover; always on touch), so the rest of
    the header (crumbs, quote, title) is plain clicking. */
@@ -1199,6 +1209,8 @@ const modelLabel=(v)=>{if(!v)return '';if(typeof v==='object')v=v.model||v.id||'
 /* ---------- state ---------- */
 let conv=null,convList=[];
 const msgCache=new Map(),paneEls=new Map(),gutEls=new Map(),streaming=new Map();
+// threads whose reply finished while you couldn't see them: per window, in memory only (a reload forgets them)
+const unread=new Set();
 window.__digressBusy=()=>streaming.size>0; // read by the server's dev live-reload, so it never reloads mid-reply
 window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList}};   // for tests and the console
 let mathReady=false,mermaidReady=null,mermaidOk=false;
@@ -1982,7 +1994,7 @@ async function send(tid,text,imgs){
 // o.resume: reconnect to m.run instead of asking. o.prefix: text it carries on from (Continue).
 async function generate(m,ctx,lockTid,o={}){
   const ctrl=new AbortController(),run=o.resume?m.run:runId(),st={mid:m.id,ctrl,run,conv};
-  streaming.set(lockTid,st);updateComposer(lockTid);let tick=0;
+  streaming.set(lockTid,st);updateComposer(lockTid);markReplies();let tick=0;
   const prefix=o.prefix||'';
   try{
     if(!io.llm)await io.ready;
@@ -2024,9 +2036,11 @@ async function generate(m,ctx,lockTid,o={}){
   clearInterval(tick);
   if(conv!==st.conv)return;
   delete m.pending;delete m.run;delete m.runFrom;delete m.toolNow;delete m.live;delete m.t0;if(m.reads&&!m.reads.length)delete m.reads;m.ver++;streaming.delete(lockTid);
+  if(!seenNow(m.thread))unread.add(m.thread);   // finished out of sight: badge it until it's opened
   cardsAfterReply(m);
   renderPane(m.thread);updateComposer(lockTid);renderMap();save();
   if(conv.ui.view==='canvas')renderCanvas();
+  markReplies();
 }
 // Stop: tell the server to stop the model, and stop reading
 function stopReply(s){if(!s)return;s.stopped=true;if(s.run&&io.llm&&io.llm.stop)io.llm.stop(s.run);s.ctrl.abort()}
@@ -2313,6 +2327,27 @@ function closeThread(tid,o={}){
   toast(`Closed “${name}”, ${kids.length} branch${kids.length>1?'es':''} under it still open`,
     {label:'Close them too',fn:()=>{if(conv!==c0)return;const u=conv.ui;u.open=u.open.filter(x=>!kids.includes(x));u.collapsed=u.collapsed.filter(x=>u.open.includes(x));
       if(!u.open.length)u.open=['main'];layout();renderMap();save()}});
+}
+/* Is this thread's conversation showing? Columns/Rows: its pane is open and not a strip. Canvas: its card is open. */
+function seenNow(tid){
+  if(!conv||!conv.ui)return false;
+  if(conv.ui.view==='canvas'){const S=conv.ui.cv||{};return !!((S.open||[]).includes(tid)||(S.dock||{})[tid])}
+  return conv.ui.open.includes(tid)&&!isCollapsed(tid);
+}
+const replyState=(tid)=>streaming.has(tid)?'writing':unread.has(tid)?'ready':'';
+// the badge on a strip, a folded canvas card and a sidebar row: a pulsing ring while it writes, a dot once it's ready
+function markReplies(){
+  if(!conv)return;
+  for(const tid of [...unread])if(!conv.threads[tid]||seenNow(tid))unread.delete(tid);
+  const put=(host,before,st,wrap)=>{if(!host)return;let b=host.querySelector(':scope > .rbadge');
+    if(!st){if(b)b.remove();if(wrap)wrap.classList.remove('rready');return}
+    if(!b){b=document.createElement('span');host.insertBefore(b,before||null)}
+    if(!b.classList.contains(st)){b.className='rbadge '+st;b.innerHTML=st==='ready'?'Ready':'<i></i><i></i><i></i>'}b.title=st==='ready'?'A reply is ready: open it to read':'Writing a reply…';
+    if(wrap)wrap.classList.toggle('rready',st==='ready')};
+  const st=(tid)=>seenNow(tid)?'':replyState(tid);
+  for(const [tid,el] of paneEls){if(tid==='doc')continue;const lb=el.querySelector('.rail-label');put(lb,lb&&lb.querySelector('.rl'),el.classList.contains('rail')?st(tid):'',el)}
+  document.querySelectorAll('#cv .cnode[data-ctid]').forEach(n=>{const ch=n.querySelector('.ch');put(ch,ch&&ch.querySelector('.ct')&&ch.querySelector('.ct').nextSibling,st(n.dataset.ctid),n)});
+  document.querySelectorAll('#tree .mnode[data-map]').forEach(n=>put(n,n.querySelector('.mc'),st(n.dataset.map)));
 }
 function toggleCollapse(tid){
   const ui=conv.ui;
@@ -2873,7 +2908,7 @@ function layout(){
   while(wrap.children.length>seq.length)wrap.lastChild.remove();
   fresh.forEach(tid=>renderPane(tid,true));
   syncViewSeg();
-  wiresSoon();markCur();
+  wiresSoon();markCur();markReplies();
   if(inDock)placeDocPane();
 }
 /* Reorder panes by dragging the grip at the left of a pane's header, or a collapsed strip itself (Columns / Rows). The drag starts after a
@@ -3178,7 +3213,7 @@ function renderCanvas(){
   applyStack();
   drawEdges();
   if(!camFitted){fitCanvas();camFitted=true}else applyCam();
-  markHere();placeDocPane();
+  markHere();placeDocPane();markReplies();
 }
 let edgeRAF=0;
 function drawEdgesSoon(){if(!edgeRAF)edgeRAF=requestAnimationFrame(()=>{edgeRAF=0;drawEdges()})}
@@ -4981,7 +5016,7 @@ function renderMap(){
     n.innerHTML=`${chev('doc',kids)}<span class="docico">${ic('doc')}</span><div style="min-width:0;flex:1"><div class="mt"></div></div>${hiddenBadge('doc')}`;n.querySelector('.mt').textContent=conv.doc.name;
     li.appendChild(n);if(!fold.includes('doc')){const sub=document.createElement('ul');kids.forEach(c=>sub.appendChild(build(c.id)));li.appendChild(sub)}ul.appendChild(li);
   }else ul.appendChild(build('main'));
-  tree.replaceChildren(ul);fillBrList();
+  tree.replaceChildren(ul);fillBrList();markReplies();
   const nh=Object.values(conv.threads).filter(t=>t.hidden).length;
   if(nh){const b=document.createElement('button');b.className='showhid';b.dataset.showhid='1';b.textContent=conv.ui.showHidden?'Hide the hidden branches again':`Show ${nh} hidden branch${nh>1?'es':''}`;tree.appendChild(b)}
   const any=fold.length>0,ta=$('#treeAll'),has=Object.keys(conv.threads).length>1;
@@ -5351,7 +5386,7 @@ async function deleteConv(id){
 }
 function setConv(c){
   clearHere();   // "You were here" belongs to this conversation's canvas visit
-  for(const s of streaming.values()){s.detached=true;s.ctrl.abort()}streaming.clear();   // replies carry on on the server; back here, resumeRuns picks them up
+  for(const s of streaming.values()){s.detached=true;s.ctrl.abort()}streaming.clear();unread.clear();   // replies carry on on the server; back here, resumeRuns picks them up
   conv=c;const ui=conv.ui=conv.ui||{};
   ui.open=(ui.open||[]).filter(id=>conv.threads[id]||(id==='doc'&&conv.doc));   // main or the document may have been closed here
   if(!ui.open.length)ui.open=conv.doc?['doc','main']:['main'];
