@@ -2848,7 +2848,8 @@ function placeDocPane(){
   const slot=$('#dock .docpanecard .cdocpane');if(!slot)return;
   if(!conv.ui.open.includes('doc')){conv.ui.open.unshift('doc');conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!=='doc')}
   const el=paneEl('doc');el.classList.remove('rail');
-  if(el.parentNode!==slot)slot.appendChild(el);
+  const sp=docSpotNow();
+  if(el.parentNode!==slot){slot.appendChild(el);renderDocPane();putDocSpot(sp);return}   // moving it resets its scroll
   renderDocPane();
 }
 function layout(){
@@ -2856,7 +2857,7 @@ function layout(){
   wrap.className='panes '+ui.layout;
   for(const [tid,el] of paneEls)if(!ui.open.includes(tid)||(!T(tid)&&!(tid==='doc'&&conv.doc))){el.remove();paneEls.delete(tid);gutEls.get(tid)&&gutEls.get(tid).remove();gutEls.delete(tid)}
   const seq=[],fresh=[];
-  const inDock=docInDock();
+  const inDock=docInDock(),dEl=paneEls.get('doc'),dWas=dEl&&dEl.parentNode,dSpot=dEl&&docSpotNow();
   ui.open.forEach((tid,i)=>{
     if(inDock&&tid==='doc'){if(!paneEls.has(tid))fresh.push(tid);paneEl(tid);return}   // it's in its canvas card
     const isNew=!paneEls.has(tid);const el=paneEl(tid);
@@ -2868,6 +2869,7 @@ function layout(){
   });
   for(const [tid,g] of gutEls)if(!seq.includes(g))g.remove();
   seq.forEach((n,i)=>{if(wrap.children[i]!==n)wrap.insertBefore(n,wrap.children[i]||null)});
+  if(dEl&&dWas&&dWas!==wrap&&dEl.parentNode===wrap)putDocSpot(dSpot);   // back from the canvas's dock: moving it reset its scroll
   while(wrap.children.length>seq.length)wrap.lastChild.remove();
   fresh.forEach(tid=>renderPane(tid,true));
   syncViewSeg();
@@ -3834,7 +3836,7 @@ function docPaneEl(){
     <div class="jumpw"><div class="jump"><button class="ib js" data-act="jsearch" title="Search this document">${ic('search')}</button><button class="ib jm" data-act="jmark" title="Mark where you got up to">${ic('mark')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button></div></div>
     <div class="rail-label"><span class="docico">${ic('doc')}</span><span class="rl"></span></div>`;
   const pb=el.querySelector('.pb');
-  pb.addEventListener('scroll',()=>{wiresSoon();updateJump(el);trackDocPage()},{passive:true});
+  pb.addEventListener('scroll',()=>{wiresSoon();updateJump(el);trackDocPage();noteDocSpot()},{passive:true});
   if(docView.ro)docView.ro.disconnect();clearTimeout(docView.resizeT);
   docView.ro=new ResizeObserver(()=>{
     if(!docState||!docState.loaded||docState.kind!=='pdf'||!docView.width)return;
@@ -3842,7 +3844,7 @@ function docPaneEl(){
     // re-fit after the resize settles, but only if the same PDF is still open in this pane
     // (switching to another document inside the 250 ms used to rebuild the old one from the new state)
     const ds=docState;
-    clearTimeout(docView.resizeT);docView.resizeT=setTimeout(async()=>{if(docState!==ds||!ds.pdf||paneEls.get('doc')!==el||!el.isConnected)return;const cur=docView.current;await buildPdfPages(el,el.querySelector('.docwrap'));scrollDocToPage(cur,false)},250);
+    clearTimeout(docView.resizeT);docView.resizeT=setTimeout(async()=>{if(docState!==ds||!ds.pdf||paneEls.get('doc')!==el||!el.isConnected)return;const cur=docView.current,sp=docSpotNow();await buildPdfPages(el,el.querySelector('.docwrap'));if(!putDocSpot(sp))scrollDocToPage(cur,false)},250);
   });
   docView.ro.observe(pb);
   paneEls.set('doc',el);originRO.observe(el);return el;
@@ -4014,6 +4016,22 @@ function docBodyEl(){const el=paneEls.get('doc');return el&&el.querySelector('.d
 function charAt(root,k){const w=textWalker(root);let n,c=0,last=null;
   while((n=w.nextNode())){last=n;const s=n.nodeValue;for(let i=0;i<s.length;i++){if(/\s/.test(s[i]))continue;if(c===k)return [n,i];c++}}
   return last?[last,last.nodeValue.length]:null}
+/* Where you are in the document, kept as you scroll (as a mark: page and how far down it, or a character), so the
+   view can be put back after the pane moves (Columns <-> the canvas's dock: moving an element resets its scroll)
+   or is laid out again at another width (the pixels no longer point at the same place). One spot for both views. */
+let docSpotT=0;
+function noteDocSpot(){if(docView.restoring)return;clearTimeout(docSpotT);docSpotT=setTimeout(()=>{const el=paneEls.get('doc');
+  if(!el||!el.isConnected||!el.getClientRects().length||docView.restoring)return;const m=readingSpot();if(m)docView.spot={conv:conv&&conv.id,m}},150)}
+function docSpotNow(){const sp=docView.spot;return sp&&conv&&sp.conv===conv.id?sp.m:null}
+function putDocSpot(m){
+  const el=paneEls.get('doc');if(!m||!el)return false;const pb=el.querySelector('.pb');
+  const sp=markSpot(m);if(!sp||!pb.clientHeight)return false;
+  clearTimeout(docSpotT);docView.restoring=true;
+  const r=sp.host.getBoundingClientRect();
+  pb.scrollTop+=r.top+sp.f*r.height-pb.getBoundingClientRect().top-pb.clientHeight*READ_LINE;
+  docView.spot={conv:conv.id,m};requestAnimationFrame(()=>{docView.restoring=false});
+  return true;
+}
 // where the reading line is now, as a mark
 function readingSpot(){
   const el=paneEls.get('doc');if(!el||!docState||!docState.loaded)return null;
