@@ -1,5 +1,5 @@
 """Zen: only the panes, for reading.
-  - The Zen button (or ⌘/Ctrl+., even while typing) hides the top bar, sidebar and wires; the panes take the room.
+  - The Zen button (or ⌘/Ctrl+., even while typing) hides the top bar and sidebar (the lines between panes stay); the panes take the room.
   - Selecting text and branching works as usual in Zen; the branch opens beside it.
   - The sidebar still comes out, over the panes: ⌘/Ctrl+B or the tab at the left edge; a click outside or Esc puts it away.
   - The tab at the top of the screen, or ⌘/Ctrl+. again, brings everything back.
