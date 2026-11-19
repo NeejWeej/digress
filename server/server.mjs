@@ -477,7 +477,7 @@ async function chatViaClaudeCode(payload, res) {
           try { const s = sourcesLine(JSON.parse(raw)); if (s) out(s); } catch { /* not the shape we know: skip the sources */ }
         }
       } else if (m.type === 'result') {
-        if (m.is_error) resultErr = String(m.result || m.subtype || 'The model returned an error.');
+        if (m.is_error) resultErr = m.subtype === 'error_max_turns' ? 'The model ran out of steps before answering (it kept reading the document). Retry, or ask something narrower.' : String(m.result || m.subtype || 'The model returned an error.');
         // the context window of the model that answered (the CLI reports it per model it used)
         const mu = m.modelUsage && typeof m.modelUsage === 'object' ? m.modelUsage : {};
         const e = mu[st.model] || Object.values(mu).find((x) => x && x.contextWindow);
@@ -497,7 +497,7 @@ async function chatViaClaudeCode(payload, res) {
 }
 
 // ---- provider: Anthropic API ----
-function anthropicRequest({ system, messages, model, effort, web, session }, withEffort, signal) {
+function anthropicRequest({ system, messages, model, effort, web, session, final }, withEffort, signal) {
   const body = { model: pickModel(model), max_tokens: MAX_TOKENS, stream: true, messages };
   // cache the system prompt (which carries any document text), so follow-ups about the same paper are cheaper
   if (system) body.system = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
@@ -505,6 +505,7 @@ function anthropicRequest({ system, messages, model, effort, web, session }, wit
   // web search runs on Anthropic's servers; nothing is fetched from this machine
   const tools = [...(web ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: MAX_SEARCHES }] : []), ...(session ? toolsForAnthropic() : [])];
   if (tools.length) body.tools = tools;
+  if (final && tools.length) body.tool_choice = { type: 'none' }; // the tool loop ran out of rounds: answer from what was read
   return fetch(API_BASE + '/v1/messages', {
     method: 'POST', signal,
     headers: { 'content-type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' },
@@ -526,14 +527,14 @@ async function chatViaApi(payload, res) {
   const out = startStream(res), st = { model: null, truncated: false, any: false, failed: false };
   if (payload.session) payload.session.out = out;
   const dec = new TextDecoder();
-  let messages = payload.messages, pauses = 0, rounds = 0;
+  let messages = payload.messages, pauses = 0, rounds = 0, final = false;
   try {
     // The agentic loop: one request per round. The model's reply streams to the page; if it stopped to call
     // document tools, run them (in the page, via session.call), add its reply and the results to the
     // conversation, and ask again. It ends when the model answers without calling a tool.
     for (let turn = 0; ; turn++) {
       if (turn > 0) {
-        upstream = await anthropicRequest({ ...payload, messages }, withEffort, ctrl.signal);
+        upstream = await anthropicRequest({ ...payload, messages, final }, withEffort, ctrl.signal);
         if (!upstream.ok) { st.failed = true; out({ error: errorText(await upstream.text(), upstream.status) }); break; }
       }
       let buf = '';
@@ -553,10 +554,11 @@ async function chatViaApi(payload, res) {
       // a long search turn can pause; send back what came so far and the model carries on
       if (st.stop === 'pause_turn' && pauses++ < 4) { messages = [...messages, { role: 'assistant', content: blocks }]; continue; }
       const calls = blocks.filter((b) => b.type === 'tool_use');
-      if (st.stop === 'tool_use' && payload.session && calls.length && ++rounds < MAX_TOOL_ROUNDS) {
+      if (st.stop === 'tool_use' && payload.session && calls.length && !final) {
         const results = [];
         for (const b of calls) results.push(resultForAnthropic(await payload.session.call(b.name, b.input), b.id));
         messages = [...messages, { role: 'assistant', content: blocks }, { role: 'user', content: results }];
+        if (++rounds >= MAX_TOOL_ROUNDS) final = true; // still calling tools at the limit: one more request, tools off, to get an answer
         continue;
       }
       break;

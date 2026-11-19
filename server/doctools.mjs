@@ -17,9 +17,11 @@
 import crypto from 'node:crypto';
 import { IMAGE_TYPES, MAX_IMAGE_BYTES, isImage } from './content.mjs';
 
-export const MAX_TOOL_CALLS = Number(process.env.MAX_TOOL_CALLS || 15);
+export const MAX_TOOL_CALLS = Number(process.env.MAX_TOOL_CALLS || 30);
 // requests per answer in a tool loop, the same for every provider: past MAX_TOOL_CALLS the model is told to
-// answer, so it needs a round or two more; this only stops a model that keeps calling anyway
+// answer, so it needs a round or two more; this only stops a model that keeps calling anyway. A model still
+// calling tools then gets one last request with the tools switched off (tool_choice none), so it has to answer
+// from what it read: stopping there used to end the reply with no text at all.
 export const MAX_TOOL_ROUNDS = MAX_TOOL_CALLS + 3;
 const WAIT_MS = 120_000; // how long a call waits for the browser before telling the model it failed
 

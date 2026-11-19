@@ -15,7 +15,7 @@ http.createServer((req, res) => {
     if (req.headers['x-api-key'] !== 'test-key') { res.writeHead(401, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: { message: 'invalid x-api-key' } })); }
     if (req.url.startsWith('/v1/models')) { res.writeHead(200, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ data: [{ id: 'claude-test-1', display_name: 'Test One', max_input_tokens: 200000 }, { id: 'claude-noeffort', display_name: 'No Effort' }] })); }
     const j = JSON.parse(body);
-    log({ api: true, system: j.system, messages: j.messages, tools: (j.tools || []).map((t) => t.name) });
+    log({ api: true, system: j.system, messages: j.messages, tools: (j.tools || []).map((t) => t.name), tool_choice: j.tool_choice });
     if (j.output_config && j.model.includes('noeffort')) { res.writeHead(400, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: { message: 'output_config.effort: not supported for this model' } })); }
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const ev = (o) => res.write(`event: ${o.type}\ndata: ${JSON.stringify(o)}\n\n`);
@@ -24,6 +24,19 @@ http.createServer((req, res) => {
     const isResults = (m) => m.role === 'user' && Array.isArray(m.content) && m.content.length && m.content.every((b) => b.type === 'tool_result');
     const asked = [...j.messages].reverse().find((m) => m.role === 'user' && !isResults(m));
     const ROUNDS = asked && scriptFor(JSON.stringify(asked.content));
+    // NEVERSTOP: a model that keeps searching for as long as it may; told it can't (tool_choice none), it answers
+    if ((j.tools || []).some((t) => t.name === 'search') && asked && JSON.stringify(asked.content).includes('NEVERSTOP')) {
+      const done = j.messages.filter(isResults).length;
+      ev({ type: 'content_block_start', index: 0, content_block: (j.tool_choice || {}).type === 'none' ? { type: 'text', text: '' } : { type: 'tool_use', id: `toolu_n${done}`, name: 'search', input: {} } });
+      if ((j.tool_choice || {}).type === 'none') {
+        ev({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: `FINALANSWER after ${done} tool results` } }); ev({ type: 'content_block_stop', index: 0 });
+        ev({ type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 5 } });
+      } else {
+        ev({ type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: JSON.stringify({ query: 'Section ' + (done + 1) }) } }); ev({ type: 'content_block_stop', index: 0 });
+        ev({ type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 5 } });
+      }
+      ev({ type: 'message_stop' }); return res.end();
+    }
     if ((j.tools || []).some((t) => t.name === 'read_pages') && ROUNDS) {
       const done = j.messages.filter(isResults).length;
       if (done < ROUNDS.length) {
