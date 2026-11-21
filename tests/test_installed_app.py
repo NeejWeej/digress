@@ -3,8 +3,8 @@
   - The status bar color (theme-color) is the top bar's, and follows the theme.
   - Installed, Android's back closes what's open on top (a menu, search, the sidebar on a phone), never a pane;
     with nothing open, the first back says how to leave and keeps the app, so only a second one right after leaves.
-  - Installed on a touch screen, Zen also goes full screen; leaving full screen leaves Zen.
-  - In a browser tab, none of that: back and Zen behave as before.
+  - Zen never goes full screen, installed or not (Android turns pinch-zoom off in full screen).
+  - In a browser tab, none of that: back behaves as before.
 "Installed" and "touch screen" are what matchMedia says, so the test answers those queries itself.
 Asserts and exits non-zero."""
 import asyncio, json, os, struct, sys, tempfile
@@ -117,15 +117,9 @@ async def main():
         await pg.wait_for_timeout(2700)
         check('…then puts it back', await pg.evaluate('!!(history.state&&history.state.digressBack)'))
 
-        # Zen goes full screen
-        fs_ok = await pg.evaluate('document.fullscreenEnabled')
+        # Zen doesn't go full screen, even installed on a touch screen: full screen turns off pinch-zoom on Android
         await pg.keyboard.press('Control+.'); await pg.wait_for_timeout(300)
-        if fs_ok:
-            check('installed on a touch screen: Zen goes full screen', await pg.evaluate('!!document.fullscreenElement'))
-            await pg.evaluate('document.exitFullscreen()'); await pg.wait_for_timeout(300)
-            check('…and leaving full screen leaves Zen', not await pg.evaluate("document.querySelector('#app').classList.contains('zen')"))
-        else:
-            print('(full screen not available in this browser; skipped)')
+        check('installed on a touch screen: Zen hides the top bar but doesn’t go full screen', await pg.evaluate("document.querySelector('#app').classList.contains('zen') && !document.fullscreenElement"))
         check('no page errors', not errs, errs[:3])
         await b.close()
     print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')
