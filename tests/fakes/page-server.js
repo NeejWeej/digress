@@ -37,6 +37,8 @@
         let sent = '';
         const push = (text) => { if (text.startsWith(sent) && text.length > sent.length) { line({ d: text.slice(sent.length) }); sent = text; } };
         try {
+          // the title call (PROMPTS.title) gets no answer, so titles stay the questions, unless a test sets window.fakeTitles
+          if (!window.fakeTitles && /^You name notes in a learner's study app/.test(body.system || '')) { line({ done: true, model: 'claude-haiku-5-5', truncated: false }); c.close(); return; }
           const sample = await waitForModel();
           if (!sample) throw new Error('No fake model (window.fakeLLM) in this test.');
           const model = body.model && body.model !== 'auto' ? body.model : undefined;

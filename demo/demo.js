@@ -74,7 +74,7 @@
   function chat(body) {
     const enc = new TextEncoder(), ctrl = new AbortController();
     if (body.chat) runs.set(body.chat, ctrl);
-    const quick = /^You help someone find something/.test(body.system || '');
+    const quick = /^You (help someone find something|name notes)/.test(body.system || '');
     return new Response(new ReadableStream({
       cancel() { ctrl.abort(); },   // the page stopped reading
       async start(c) {
