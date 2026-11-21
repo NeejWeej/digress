@@ -262,7 +262,7 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .wsrc[open] summary{color:var(--muted)}
 .wsrc .wq{color:var(--faint);margin:4px 0}
 .wsrc ol{margin:4px 0 6px;padding-left:20px}.wsrc li{margin:2px 0;overflow-wrap:anywhere}.wsrc .wh{color:var(--faint);font-size:11.5px}
-.sel select{font:13px var(--sans);color:var(--ink);background:var(--panel);border:0;border-radius:7px;padding:4px 6px;outline:none;cursor:pointer}
+.sel select{font:13px var(--sans);color:var(--ink);background-color:var(--panel);border:0;border-radius:7px;padding:4px 24px 4px 8px;outline:none;cursor:pointer}
 .mdef{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;color:var(--faint)}
 .mdef .i{width:14px;height:14px}
 .mdef:hover{color:var(--accent);background:var(--panel)}
@@ -277,6 +277,8 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 #activity{position:fixed;inset:0;z-index:85;background:var(--bg);overflow-y:auto;display:none}#activity.show{display:block}
 .acwrap{max-width:920px;margin:0 auto;padding:26px 24px 60px;color:var(--ink)}
 .acload{color:var(--faint);padding:60px 0;text-align:center}
+.acskel{display:flex;flex-direction:column;gap:16px}.acskel i{display:block;border-radius:12px;background:linear-gradient(90deg,var(--line) 0%,color-mix(in srgb,var(--line) 40%,transparent) 50%,var(--line) 100%);background-size:200% 100%;opacity:.5;animation:acsk 1.3s linear infinite}
+@keyframes acsk{to{background-position:-200% 0}}@media (prefers-reduced-motion:reduce){.acskel i{animation:none}}
 .achead{display:flex;align-items:center;margin-bottom:18px}.achead h1{font:600 26px var(--serif);margin:0}.achead .sp{flex:1}
 .acsec{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:16px;animation:kin .25s ease-out}
 .acsec h2{font:600 18px var(--serif);margin:0 0 12px}
@@ -296,7 +298,7 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .acrow{display:flex;align-items:baseline;gap:12px;width:100%;text-align:left;border:0;background:none;padding:7px 8px;border-radius:8px;cursor:pointer;color:var(--ink);font:13.5px var(--sans);position:relative}
 .acrow:hover{background:var(--user-bg)}.acrow:disabled{cursor:default;color:var(--faint)}.acrow:disabled:hover{background:none}
 .acrow .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:relative}.acrow .m{flex:none;font-size:12px;color:var(--faint);position:relative}
-.acbar::before{content:'';position:absolute;left:0;top:3px;bottom:3px;width:var(--w);border-radius:6px;background:color-mix(in srgb,var(--accent) 13%,transparent)}
+.acbar{background:color-mix(in srgb,var(--line) 30%,transparent);margin-bottom:3px}.acbar::before{content:'';position:absolute;left:0;top:3px;bottom:3px;width:var(--w);border-radius:6px;background:color-mix(in srgb,var(--accent) 13%,transparent)}
 .acnums{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px}
 .acnum{flex:1 1 220px;display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
 .acnum b{font:600 32px/1.1 var(--serif)}.acnum span{font-size:13px;color:var(--muted)}.acnum small{font-size:11.5px;color:var(--faint)}
@@ -374,6 +376,20 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .help[open] .chev{transform:rotate(90deg)}
 .help ul{margin:6px 0 0;padding-left:16px}
 .help .hkhead{margin:12px 0 4px;font-weight:600;color:var(--ink)}
+.help .hkeys{margin-top:10px;color:var(--muted)}.help .hkbtn{border:0;background:none;padding:0;font:inherit;font-weight:600;color:var(--ink);cursor:pointer;text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px}.help .hkbtn:hover{color:var(--accent)}
+.help .hkeys kbd,.ekeys kbd{font:11px var(--mono);border:1px solid var(--line2);border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--muted)}
+#keysPanel{position:fixed;bottom:16px;right:16px;z-index:80;width:min(380px,calc(100vw - 32px));max-height:min(70vh,620px);display:none;flex-direction:column;background:var(--panel);border:1px solid var(--line2);border-radius:14px;box-shadow:var(--shadow);font-size:12.5px;animation:dgRise .2s cubic-bezier(.2,.8,.3,1)}
+#keysPanel.show{display:flex}#keysPanel[data-side=left]{right:auto;left:16px}
+.kphead{display:flex;align-items:center;gap:2px;padding:10px 8px 4px 14px}.kphead b{font:600 13px var(--sans);color:var(--ink)}
+.kpq{margin:4px 12px 6px;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:12.5px var(--sans);outline:none}.kpq:focus{border-color:color-mix(in srgb,var(--accent) 50%,var(--line2))}
+.kpbody{overflow-y:auto;padding:0 8px 10px;overscroll-behavior:contain}
+.kpsec{font:600 10.5px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin:10px 6px 3px}
+.kprow{display:flex;align-items:baseline;gap:10px;padding:4px 6px;border-radius:6px;color:var(--muted);line-height:1.4}
+.kprow.hit{animation:kphit 1.1s ease-out}@keyframes kphit{from{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--ink)}}
+.kpk{flex:0 0 118px;display:flex;flex-wrap:wrap;gap:3px}.kpk kbd{font:500 11px var(--mono);color:var(--ink);border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;padding:0 5px;background:var(--bg);white-space:nowrap}
+.kpw{flex:1}.kpnone{color:var(--faint);padding:14px 6px}
+@media (max-width:600px){#keysPanel,#keysPanel[data-side=left]{left:0;right:0;bottom:0;width:auto;max-height:55vh;border-radius:14px 14px 0 0;border-bottom:0}.kphead{padding-top:14px}.kphead::before{content:'';position:absolute;top:6px;left:50%;width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--line2)}}
+@media (prefers-reduced-motion:reduce){#keysPanel,.kprow.hit{animation:none}}
 .help .keys{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:0 0 4px}
 .help .keys dt{font:500 11.5px var(--mono,ui-monospace,monospace);color:var(--ink);white-space:nowrap}
 .help .keys dd{margin:0}
@@ -491,6 +507,11 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .origin .ol button:hover{color:var(--ink)}
 .origin .oq{font-family:var(--serif);font-size:15px;line-height:1.5;font-style:italic;max-height:132px;overflow-y:auto;white-space:pre-wrap;padding-right:4px}
 .empty{padding:20px 4px;color:var(--muted)}
+.empty .eor{margin-top:14px}.elink{display:inline-flex;align-items:center;gap:6px;border:0;background:none;padding:4px 0;color:var(--muted);font:13px var(--sans);cursor:pointer}.elink:hover{color:var(--accent)}.elink .i{width:15px;height:15px}
+.esteps{list-style:none;counter-reset:es;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;padding:0;margin:34px 0 0}
+.esteps li{counter-increment:es;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.5;display:flex;flex-direction:column;gap:2px}
+.esteps li::before{content:counter(es);font:500 12px var(--sans);color:var(--accent);margin-bottom:4px}.esteps b{color:var(--ink);font-weight:600}
+.ekeys{margin-top:16px;font-size:12.5px;color:var(--faint)}@media (hover:none) and (pointer:coarse){.ekeys{display:none}}.ekeys kbd{font:11px var(--mono);border:1px solid var(--line2);border-radius:4px;padding:0 5px;color:var(--muted)}
 .empty h2{font-family:var(--serif);font-weight:400;font-size:28px;color:var(--ink);margin:12vh 0 8px;letter-spacing:-.01em}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
 .chip{border:1px solid var(--line2);border-radius:999px;padding:6px 12px;font-size:13px;color:var(--muted);background:var(--panel)}
@@ -631,7 +652,9 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 #cardsModal .kbox{width:min(760px,100%);max-height:min(88vh,900px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line2);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
 .khead{display:flex;align-items:center;gap:8px;padding:12px 14px 8px}
 .khead .kt{font-weight:600;font-size:15px}.khead .sp{flex:1}
-.khead select{border:1px solid var(--line2);border-radius:8px;background:var(--panel);color:var(--ink);font:13px var(--sans);padding:3px 6px;min-width:0;max-width:100%;flex:0 1 auto}
+.khead select{border:1px solid var(--line2);border-radius:8px;background-color:var(--panel);color:var(--ink);font:13px var(--sans);padding:4px 24px 4px 8px;min-width:0;max-width:100%;flex:0 1 auto}
+.sel select,.khead select{-webkit-appearance:none;appearance:none;text-overflow:ellipsis;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 12px) 55%,calc(100% - 8px) 55%;background-size:4px 4px;background-repeat:no-repeat}
+.sel select:focus-visible,.khead select:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1px}
 .khead{flex-wrap:wrap;row-gap:6px}
 @media (max-width:600px){.khead [data-kact=close]{order:1;margin-left:auto}.khead .sp{display:none}.khead select{order:2;flex:1 1 100%}.khead .kbranch,.khead .mbtn{order:3}}
 .ktabs{display:flex;gap:4px;padding:0 14px;border-bottom:1px solid var(--line)}
@@ -639,6 +662,18 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .ktabs button.on{color:var(--ink);border-bottom-color:var(--accent,var(--ink))}
 .kbody{padding:14px;overflow:auto;flex:1;min-height:200px}
 .kempty{color:var(--muted);font-size:13.5px;line-height:1.6;padding:18px 4px;text-align:center}
+.kdone{text-align:center;padding:26px 8px 12px;animation:kdin .35s ease-out both}
+@keyframes kdin{from{opacity:0;transform:translateY(6px)}}
+.kdmark{width:44px;height:44px;margin:0 auto 10px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.kdmark .i{width:24px;height:24px;stroke-width:2.2}
+.kdt{font-family:var(--serif);font-size:22px;color:var(--text)}
+.kdstats{display:flex;justify-content:center;gap:34px;margin:16px 0 12px}
+.kdstats div{display:flex;flex-direction:column;gap:2px}.kdstats b{font-family:var(--serif);font-size:26px;font-weight:500;color:var(--text);font-variant-numeric:tabular-nums}
+.kdstats span{font-size:12px;color:var(--muted)}
+.kdbar{display:flex;gap:2px;height:6px;max-width:280px;margin:0 auto;border-radius:3px;overflow:hidden}
+.kdbar i{display:block;min-width:4px;background:var(--accent)}.kdbar i[data-g="1"]{background:var(--danger)}.kdbar i[data-g="2"]{opacity:.55}.kdbar i[data-g="4"]{filter:brightness(1.15)}
+.kdnext{color:var(--muted);font-size:13px;margin:14px 0 16px}
+.kdacts{display:flex;justify-content:center;flex-wrap:wrap;gap:8px}
 .kempty .mbtn{margin-top:10px}
 /* the review card: paper-like, tinted by its branch's colour on the left edge; a hairline for the session's progress */
 .kcard{position:relative;max-width:620px;margin:6px auto 0;border:1px solid var(--line);border-left:3px solid var(--c);border-radius:14px;padding:22px 26px 20px;background:var(--bg);box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px rgba(0,0,0,.06);overflow:hidden}
@@ -646,6 +681,8 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .korigin{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--faint);letter-spacing:.01em;margin-bottom:14px}
 .korigin i{width:7px;height:7px;border-radius:50%;background:var(--c);flex:none}
 .korigin span:not(.kleft){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.korigin .kleft{margin-left:auto;flex:none}
+/* numbers that change in place keep their width (zoom levels, counts, stats) */
+.pzl,.zl,.cbadge,.kleft,.acstat b,.acnum b,.acrow .m,.kdstats b,#reviewBtn,.brcount,.rbadge,.ctxl,.krate small{font-variant-numeric:tabular-nums}
 .kface{font-size:15px;line-height:1.6}.kface p:first-child{margin-top:0}.kface p:last-child{margin-bottom:0}
 .kfront .kface{font:19px/1.5 var(--serif);color:var(--ink)}
 .kshow{display:flex;align-items:center;gap:8px;margin:22px auto 2px;border:1px solid var(--line2);border-radius:999px;background:var(--panel);color:var(--ink);font:13.5px var(--sans);padding:7px 16px;cursor:pointer}
@@ -724,6 +761,21 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .pop .hint{font-size:11px;color:var(--faint);margin:8px 4px 0}
 .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:8px 14px;border-radius:10px;font-size:13px;z-index:94;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
+.xopts{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.xopt{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid var(--line);border-radius:10px;cursor:pointer;color:var(--ink)}
+.xopt:has(input:checked){border-color:color-mix(in srgb,var(--accent) 55%,var(--line2));background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.xopt input{margin-top:3px;accent-color:var(--accent)}.xopt>span{display:flex;flex-direction:column;gap:2px;font-size:13.5px}.xext{font:normal 12px var(--mono);color:var(--faint)}.xopt small,.xsub small{color:var(--muted);font-size:12.5px;line-height:1.45}
+.xsub{display:flex;flex-direction:column;gap:6px;margin:0 0 4px 34px;font-size:13px;color:var(--ink)}.xsub label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}.xsub label input{margin-top:3px}.xsub label small{display:block}.xsub input{accent-color:var(--accent)}.xsub.off{opacity:.45;pointer-events:none}.xsub:empty{display:none}
+.xnote{display:flex;align-items:center;gap:6px;margin-top:6px;color:var(--muted);font-size:12.5px}.xnote .i{width:14px;height:14px;color:var(--accent)}
+/* motion: overlays fade in and their boxes rise a little; all of it off for anyone whose device asks for less */
+@keyframes dgFade{from{opacity:0}}
+@keyframes dgRise{from{opacity:0;transform:translateY(8px) scale(.985)}}
+@keyframes dgSlide{from{opacity:.4;transform:translateX(24px)}}
+.modal.show,.pal.show,#activity.show{animation:dgFade .16s ease-out}
+.modal.show>*,.pal.show>.pbox{animation:dgRise .2s cubic-bezier(.2,.8,.3,1)}
+#activity.show .acwrap{animation:dgRise .24s cubic-bezier(.2,.8,.3,1)}
+.guide.open{animation:dgSlide .2s cubic-bezier(.2,.8,.3,1)}
+@media (prefers-reduced-motion:reduce){.modal.show,.pal.show,#activity.show,.modal.show>*,.pal.show>.pbox,#activity.show .acwrap,.guide.open,.kdone,.toast{animation:none!important;transition:none!important}}
 .toast.act.show{pointer-events:auto}
 .toast .tact{background:none;border:0;padding:0;font:inherit;font-weight:600;color:inherit;text-decoration:underline;cursor:pointer}
 .banner{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:20;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:8px 14px;font-size:13px;color:var(--muted);box-shadow:var(--shadow);display:none;max-width:90%}
@@ -1111,34 +1163,7 @@ a.pref:hover{border-bottom-style:solid}
         <li>Collapse any pane to a thin strip and click the strip to expand it again (drag a strip to move it). <b>Focus</b> collapses everything else.</li>
         <li><b>Canvas</b>: drag the background to pan and scroll to zoom; drag a card by its title to move it, or to an edge to dock it.</li>
       </ul>
-      <div class="hkhead">Keyboard shortcuts</div>
-      <dl class="keys">
-        <dt><span class="kmod">⌘</span>K</dt><dd>Search</dd>
-        <dt><span class="kmod">⌘</span>B</dt><dd>Show or hide the sidebar</dd>
-        <dt><span class="kmod">⌘</span>.</dt><dd>Zen</dd>
-        <dt><span class="kmod">⌘</span>'</dt><dd>Canvas, or back to the panes</dd>
-        <dt><span class="kmod">⌘</span><span class="kshift">⇧</span>'</dt><dd>Columns or Rows</dd>
-        <dt><span class="kmod">⌘</span>\</dt><dd>Collapse the pane you’re in, or expand it again</dd>
-        <dt><span class="kmod">⌘</span><span class="kshift">⇧</span>\</dt><dd>Close the pane you’re in (the toast can undo it)</dd>
-        <dt>Enter</dt><dd>Send (<span class="kshift">⇧</span>Enter: a new line)</dd>
-        <dt>Esc</dt><dd>Close the question box; leave Focus</dd>
-        <dt class="ksec">In search</dt><dd></dd>
-        <dt>↑ ↓ Enter</dt><dd>Pick and open a result</dd>
-        <dt><span class="kmod">⌘</span>Enter</dt><dd>Open it, keep searching</dd>
-        <dt>Tab</dt><dd>Everywhere / this conversation / this pane</dd>
-        <dt class="ksec">Reviewing flashcards</dt><dd></dd>
-        <dt>Space</dt><dd>Show the answer</dd>
-        <dt>1 2 3 4</dt><dd>Again, Hard, Good, Easy</dd>
-        <dt>S</dt><dd>Skip: it comes back at the end</dd>
-        <dt>O</dt><dd>Open where the card came from</dd>
-        <dt class="ksec">On the canvas</dt><dd></dd>
-        <dt>Space</dt><dd>Read the selected card full screen (again or Esc: back)</dd>
-        <dt><span class="kmod">⌘</span>\</dt><dd>Expand the selected card, or shrink it</dd>
-        <dt><span class="kmod">⌘</span><span class="kalt">⌥</span>← →</dt><dd>Dock it left or right</dd>
-        <dt><span class="kmod">⌘</span><span class="kalt">⌥</span>↑ ↓</dt><dd>Full screen; undock</dd>
-        <dt><span class="kalt">⌥</span>scroll</dt><dd>Zoom one card</dd>
-        <dt><span class="kmod">⌘</span>click</dt><dd>A conversation in the sidebar: open it in a new window</dd>
-      </dl>
+      <div class="hkeys"><button type="button" class="hkbtn" data-keys="1">Keyboard shortcuts</button> <span>or press <kbd>?</kbd></span></div>
     </details>
   </aside>
   <main class="stage" id="stage">
@@ -1161,7 +1186,8 @@ a.pref:hover{border-bottom-style:solid}
 <div class="toast" id="toast"></div>
 <div class="tipbox" id="tipbox"></div>
 <div class="pal" id="pal"><div class="pbox" role="dialog" aria-modal="true" aria-label="Search"><div class="pin"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="palIn" placeholder="Search conversations, highlights, takeaways, documents…" autocomplete="off" spellcheck="false"></div><div class="pscope" id="palScope"></div><div class="pres" id="palRes"></div><div class="pfoot"><span id="palFoot"></span><span class="sp"></span><span><kbd class="k">↑</kbd> <kbd class="k">↓</kbd> move</span><span><kbd class="k">Tab</kbd> where</span><span><kbd class="k">Enter</kbd> open</span><span><kbd class="k"><span class="kmod">⌘</span>Enter</kbd> open, keep searching</span><span><kbd class="k">Esc</kbd> close</span></div></div></div>
-<div class="modal" id="docModal"><div class="mbox wide" role="dialog" aria-modal="true"><div class="mt">Start from a document</div><div class="mb">The document opens next to a main thread for questions about the whole thing. Highlight any passage in it to open a branch about that part.</div><label class="drop" id="docDrop"><input type="file" id="docFile" accept=".pdf,.md,.markdown,.txt,application/pdf,text/markdown,text/plain"><span id="docFileLbl"></span></label><textarea id="docPaste" placeholder="…or paste text, Markdown, or a link to a PDF"></textarea><input id="docName" placeholder="Title (optional)" autocomplete="off"><div class="ma"><span class="dmsg" id="docMsg"></span><button class="mbtn" id="docCancel">Cancel</button><button class="mbtn primary" id="docGo">Start</button></div></div></div>
+<div class="modal" id="docModal"><div class="mbox wide" role="dialog" aria-modal="true"><div class="mt">Start from a document</div><div class="mb">The document opens next to a main thread for questions about the whole thing. Highlight any passage in it to open a branch about that part.</div><label class="drop" id="docDrop"><input type="file" id="docFile" accept=".pdf,.md,.markdown,.txt,.digress,application/pdf,text/markdown,text/plain"><span id="docFileLbl"></span></label><textarea id="docPaste" placeholder="…or paste text, Markdown, or a link to a PDF"></textarea><input id="docName" placeholder="Title (optional)" autocomplete="off"><div class="ma"><span class="dmsg" id="docMsg"></span><button class="mbtn" id="docCancel">Cancel</button><button class="mbtn primary" id="docGo">Start</button></div></div></div>
+<div id="keysPanel" role="complementary" aria-label="Keyboard shortcuts"></div>
 <div id="activity" role="dialog" aria-modal="true" aria-label="Activity"><div class="acwrap"></div></div>
 <div class="modal" id="cardsModal"><div class="kbox" role="dialog" aria-modal="true" aria-label="Flashcards"></div></div>
 <div class="modal" id="modal"><div class="mbox" role="dialog" aria-modal="true"><div class="mt" id="mTitle"></div><div class="mb" id="mBody"></div><div class="ma"><button class="mbtn" id="mCancel">Cancel</button><button class="mbtn danger" id="mOk">Delete</button></div></div></div>
@@ -1239,6 +1265,8 @@ const I={
  unfocus:'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
  collapse:'<path d="M6 12h12"/>',
  x:'<path d="M6 6l12 12M18 6L6 18"/>',
+ swap:'<path d="M7 7h12l-3-3M17 17H5l3 3"/>',
+ download:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
  back:'<path d="M15 6l-6 6 6 6"/>',
  up:'<path d="M12 19V5M6 11l6-6 6 6"/>',
  send:'<path d="M12 19V5M6 11l6-6 6 6"/>',
@@ -1296,7 +1324,7 @@ const msgCache=new Map(),paneEls=new Map(),gutEls=new Map(),streaming=new Map();
 // threads whose reply finished while you couldn't see them: per window, in memory only (a reload forgets them)
 const unread=new Set();
 window.__digressBusy=()=>streaming.size>0; // read by the server's dev live-reload, so it never reloads mid-reply
-window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList}};   // for tests and the console
+window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList},get keys(){return KEYS}};   // for tests and the console
 let mathReady=false,mermaidReady=null,mermaidOk=false;
 let popState=null;
 
@@ -1842,7 +1870,7 @@ async function draftCards(c0,tid,o){
   const msgs=ctx.messages,last=msgs[msgs.length-1];if(last&&last.role==='user')appendText(last,'\n\n'+ask);else msgs.push({role:'user',content:ask});
   if(!io.llm)await io.ready;
   const rc=await resolveContext(ctx,!!io.llm.supportsImages);
-  const r=await io.llm.complete({system:rc.system,messages:rc.messages,model:settings.model,effort:'low',web:false,tools:ctx.tools?{run:(n,i)=>runDocTool(n,i,[])}:undefined});
+  const r=await io.llm.complete({system:rc.system,messages:rc.messages,model:modelFor(tid),effort:'low',web:false,tools:ctx.tools?{run:(n,i)=>runDocTool(n,i,[])}:undefined});
   let list=[];try{const a=r.text.indexOf('['),b=r.text.lastIndexOf(']');list=JSON.parse(r.text.slice(a,b+1))}catch(e){throw new Error('the model’s reply wasn’t a list of cards')}
   list=(Array.isArray(list)?list:[]).filter(x=>x&&typeof x.front==='string'&&typeof x.back==='string'&&x.front.trim()).slice(0,6);
   for(const x of list){const q=typeof x.quote==='string'&&findQuote(x.quote,o.note?[o.note]:conv.order[tid]||[]);x.q=q||null}
@@ -1894,7 +1922,7 @@ const KS={scope:'all',thread:null,tab:'review',shown:false,editing:null,fixing:n
 const reviewQueue=(scope)=>{const d=dueCards(scope),sk=KS.skipped;return [...d.filter(c=>!sk.includes(c.id)),...sk.map(id=>d.find(c=>c.id===id)).filter(Boolean)]};
 // scope: 'all' or a conversation's id ('conv': the one open); thread: just that branch's cards
 async function openCards(scope,tab,thread){
-  await loadCards();KS.scope=scope==='conv'||!scope?(conv?conv.id:'all'):scope;KS.thread=KS.scope!=='all'&&thread||null;KS.reviewed=0;
+  await loadCards();KS.scope=scope==='conv'||!scope?(conv?conv.id:'all'):scope;KS.thread=KS.scope!=='all'&&thread||null;KS.reviewed=0;KS.tally=[0,0,0,0,0];
   KS.tab=tab||(dueCards(KS.scope).length?'review':[...CARDS.values()].some(c=>inInbox(c)&&inScope(c,KS.scope))?'inbox':KS.thread?'all':'review');
   KS.shown=false;KS.editing=null;KS.fixing=null;KS.skipped=[];hideBackToReview();$('#cardsModal').classList.add('show');renderCards();
 }
@@ -1944,6 +1972,7 @@ function srcNote(c){
 const docLabel=(c)=>conv&&conv.id===c.conv&&conv.doc&&conv.doc.kind!=='pdf'?'Part':'p.';
 function srcLabel(c){return ({highlight:'from a highlight',snip:'from a snip',page:'from a page',takeaway:'from a takeaway',made:'made from a branch'})[c.src]||''}
 function renderReview(body,due){
+  if(!due.length&&KS.reviewed){body.innerHTML='';body.appendChild(reviewDone());return}
   if(!due.length){
     const next=[...CARDS.values()].filter(c=>c.status==='active'&&inScope(c,KS.scope)).sort((a,b)=>a.due-b.due)[0];
     const n=[...CARDS.values()].filter(c=>inInbox(c)&&inScope(c,KS.scope)).length;
@@ -1971,6 +2000,19 @@ function renderReview(body,due){
   const rate=document.createElement('div');rate.className='krate';
   rate.innerHTML=[['Again',1],['Hard',2],['Good',3],['Easy',4]].map(([l,g])=>`<button data-krate="${g}" data-kid="${c.id}" data-g="${g}" title="${l} (${g})">${l}<small>${ivlText(fsrsNext(c.fsrs,g,now).due-now)}</small></button>`).join('');
   card.after(rate);
+}
+// the end of a session: how it went, when the next card comes, and where to look further
+function reviewDone(){
+  const t=KS.tally||[0,0,0,0,0],n=KS.reviewed,ok=n-t[1],pct=Math.round(100*ok/n);
+  const next=[...CARDS.values()].filter(c=>c.status==='active'&&!c.fix&&inScope(c,KS.scope)).sort((a,b)=>a.due-b.due)[0];
+  const inbox=[...CARDS.values()].filter(c=>inInbox(c)&&inScope(c,KS.scope)).length;
+  const d=document.createElement('div');d.className='kdone';
+  d.innerHTML=`<div class="kdmark">${ic('check')}</div><div class="kdt">Done for now</div>
+    <div class="kdstats"><div><b>${n}</b><span>card${n>1?'s':''} reviewed</span></div><div><b>${pct}%</b><span>recalled</span></div>${t[1]?`<div><b>${t[1]}</b><span>to see again soon</span></div>`:''}</div>
+    <div class="kdbar" title="Again ${t[1]} · Hard ${t[2]} · Good ${t[3]} · Easy ${t[4]}">${[1,2,3,4].filter(g=>t[g]).map(g=>`<i data-g="${g}" style="flex:${t[g]}"></i>`).join('')}</div>
+    <div class="kdnext">${next?`Next card due in ${ivlText(next.due-Date.now())}.`:'No more cards scheduled.'}</div>
+    <div class="kdacts">${inbox?`<button class="mbtn" data-ktab="inbox">${inbox} in the inbox</button>`:''}<button class="mbtn" data-kact="activity">See your activity</button><button class="mbtn primary" data-kact="close">Close</button></div>`;
+  return d;
 }
 function renderInbox(body,inbox){
   if(!inbox.length){body.innerHTML=`<div class="kempty">The inbox is empty.${KS.scope!=='all'?' Cards drafted from your highlights, snips and takeaways land here, and so do the ones from “Make cards”.':''}</div>`;return}
@@ -2039,7 +2081,7 @@ async function askFix(c){
     const text=lines.join('\n\n').slice(-60000);
     req={system:PROMPTS.system,messages:[{role:'user',content:(text?PROMPTS.cardFixSource(text)+'\n\n':'')+ask}]};
   }
-  const r=await io.llm.complete({...req,model:settings.model,effort:'low',web:false});
+  const r=await io.llm.complete({...req,model:mine?modelFor(c.thread):settings.model,effort:'low',web:false});
   let o;try{const a=r.text.indexOf('{'),b=r.text.lastIndexOf('}');o=JSON.parse(r.text.slice(a,b+1))}catch(e){throw new Error('the model’s reply wasn’t a fix')}
   const verdict=['rewrite','split','delete','right'].includes(o&&o.verdict)?o.verdict:null;if(!verdict)throw new Error('the model’s reply wasn’t a fix');
   let cards=(Array.isArray(o.cards)?o.cards:[]).filter(x=>x&&typeof x.front==='string'&&typeof x.back==='string'&&x.front.trim()).slice(0,verdict==='split'?2:1);
@@ -2082,7 +2124,7 @@ async function acceptFix(c,it){
 function skipCard(id){KS.skipped=[...KS.skipped.filter(x=>x!==id),id];KS.shown=false;renderCards()}
 async function rateCard(id,g){
   const c=CARDS.get(id);if(!c)return;const now=Date.now(),n=fsrsNext(c.fsrs,g,now);
-  c.fsrs=n.fsrs;c.due=n.due;(c.reviews=c.reviews||[]).push({at:now,g});KS.shown=false;KS.reviewed++;await putCard(c);
+  c.fsrs=n.fsrs;c.due=n.due;(c.reviews=c.reviews||[]).push({at:now,g});KS.shown=false;KS.reviewed++;(KS.tally=KS.tally||[0,0,0,0,0])[g]++;await putCard(c);
 }
 // Takes you to where a card came from: its branch, scrolled to the reply it was drafted from (or the takeaway),
 // with the highlighted passage flashing in the parent. A "Back to review" pill returns to the same card.
@@ -2123,6 +2165,7 @@ $('#cardsModal').addEventListener('click',async e=>{
   const a=b.dataset.kact,c=b.dataset.kid&&CARDS.get(b.dataset.kid),it=b.closest('.kitem');
   const edited=()=>({front:it.querySelector('.kef').value.trim(),back:it.querySelector('.keb').value.trim()});
   if(a==='close')closeCards();
+  else if(a==='activity'){closeCards();openActivity()}
   else if(a==='on'){conv.cards={...(conv.cards||{}),on:true,done:(conv.cards&&conv.cards.done)||{}};save();syncCardsUI();renderCards();const n=newForCards().length;if(n)toast(`Turned on. “Make cards” can draft cards from the ${n} thread${n>1?'s':''} already here.`)}
   else if(a==='off'){conv.cards.on=false;save();syncCardsUI();renderCards()}
   else if(a==='make')makeNewCards();
@@ -2147,7 +2190,7 @@ $('#cardsModal').addEventListener('click',async e=>{
   else if(a==='saveedit'&&c){const x=edited();if(!x.front){toast('A card needs a front.');return}KS.editing=null;Object.assign(c,x);await putCard(c)}
   else if(a==='suspend'&&c){c.status=c.status==='suspended'?'active':'suspended';await putCard(c)}
 });
-$('#cardsModal').addEventListener('change',e=>{if(e.target.matches('[data-kscope]')){KS.scope=e.target.value;KS.thread=null;KS.shown=false;KS.editing=null;KS.reviewed=0;renderCards()}});
+$('#cardsModal').addEventListener('change',e=>{if(e.target.matches('[data-kscope]')){KS.scope=e.target.value;KS.thread=null;KS.shown=false;KS.editing=null;KS.reviewed=0;KS.tally=[0,0,0,0,0];renderCards()}});
 document.addEventListener('keydown',e=>{
   if(!$('#cardsModal').classList.contains('show'))return;
   if(e.key==='Escape'){e.preventDefault();if(KS.fixing||(KS.editing&&KS.tab==='review')){KS.fixing=KS.editing=null;renderCards()}else closeCards();return}
@@ -2183,7 +2226,7 @@ async function actGather(){
 }
 async function openActivity(){
   $('#activity').classList.add('show');ACT.day=null;
-  $('#activity .acwrap').innerHTML='<div class="acload">Gathering your history…</div>';
+  $('#activity .acwrap').innerHTML='<div class="achead"><h1>Activity</h1></div><div class="acskel" aria-label="Gathering your history…"><i style="height:300px"></i><i style="height:340px"></i><i style="height:260px"></i></div>';
   ACT.data=await actGather();renderActivity();
 }
 function closeActivity(){$('#activity').classList.remove('show')}
@@ -2216,11 +2259,14 @@ function actGridSection(el,D){
   el.innerHTML=`<div class="actop"><div class="acstat"><b>${last7}</b> of the last 7 days</div><div class="acstat"><b>${year.days}</b> active day${year.days===1?'':'s'}${weeks>=53?' in the last year':''}</div><div class="acstat"><b>${year.q}</b> questions · <b>${year.b}</b> branches · <b>${year.r}</b> reviews</div></div>
     <div class="ackinds">${ACT_KINDS.map(([v,l])=>`<button data-akind="${v}" class="${k===v?'on':''}">${l}</button>`).join('')}</div>
     <div class="acscroll" style="--n:${weeks}"><div class="acmonths">${months}</div><div class="acgrid">${cells.map(([key,n,dt])=>`<button class="acday l${lvl(n)}${ACT.day===key?' sel':''}" data-aday="${key}" title="${esc(tip(key,n,dt))}"></button>`).join('')}</div></div>
-    <div class="aclegend"><span>${best?`Busiest: ${fmt(new Date(best[0]+'T12:00'),{month:'short',day:'numeric'})}, ${best[1]}`:''}</span><span class="sp"></span>Less<i class="acday l0"></i><i class="acday l1"></i><i class="acday l2"></i><i class="acday l3"></i><i class="acday l4"></i>More</div>
+    <div class="aclegend"><span>${best?`Busiest day: ${esc(busyText(D,best[0],k))}`:''}</span><span class="sp"></span>Less<i class="acday l0"></i><i class="acday l1"></i><i class="acday l2"></i><i class="acday l3"></i><i class="acday l4"></i>More</div>
     <div class="acdaybox"></div>`;
   const sc=el.querySelector('.acscroll');requestAnimationFrame(()=>{sc.scrollLeft=sc.scrollWidth});
   if(ACT.day)actDay(el.querySelector('.acdaybox'),D,ACT.day);
 }
+function busyText(D,key,k){const d=D.days.get(key),dt=new Date(key+'T12:00').toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  const parts=[(k==='all'||k==='q')&&d.q&&plural(d.q,'question'),(k==='all'||k==='b')&&d.b&&(d.b+' branch'+(d.b>1?'es':'')),(k==='all'||k==='r')&&d.r&&plural(d.r,'review')].filter(Boolean);
+  return dt+' · '+parts.join(', ')}
 function actDay(box,D,key){
   const d=D.days.get(key),dt=new Date(key+'T12:00');
   if(!d||!(d.q+d.b+d.r)){box.innerHTML=`<div class="acdayh">${dt.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}: a day off.</div>`;return}
@@ -2296,6 +2342,142 @@ $('#activity').addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.defaultPrevented&&$('#activity').classList.contains('show')&&!$('#cardsModal').classList.contains('show')){e.preventDefault();closeActivity()}});
 $('#actBtn').addEventListener('click',openActivity);
+
+/* ---------- export and import ----------
+   A .digress file is one gzipped JSON document: {digress: 1, exported, conversations: [content as saved, without
+   layout or version], cards: [...], files: {id: {type, data (base64)}}}. It's made in this browser and saved to this
+   device; nothing is sent anywhere (reading the conversation's own files from this server is the only request).
+   Left out: the document unless asked (the reader can attach their own copy: doc.left), the reading mark, pins,
+   archive/trash state and flashcard schedules (cards, when asked, arrive in the inbox, fresh). Import gives
+   everything new ids, so a file can be opened twice or next to the original. Markdown (to read elsewhere) and
+   Anki CSV (the kept cards) are export only. */
+const DIGRESS_V=1;
+const isDigressFile=(f)=>!!f&&/\.digress$/i.test(f.name||'');
+const b64Blob=(b64,type)=>{const s=atob(b64),u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return new Blob([u],{type})};
+async function gzip(text){if(typeof CompressionStream==='undefined')return new Blob([text],{type:'application/json'});return new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).blob()}
+async function gunzipText(buf){const u=new Uint8Array(buf);if(u[0]===0x1f&&u[1]===0x8b)return new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).text();return new TextDecoder().decode(u)}
+function saveFile(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),20000)}
+const fileSafe=(t)=>String(t||'').replace(/[\\/:*?"<>|\x00-\x1f]+/g,' ').replace(/\s+/g,' ').trim().slice(0,80)||'conversation';
+async function convFull(id){
+  if(conv&&conv.id===id)return contentOf(conv);
+  const d=await io.store.get(id);if(!d)throw new Error('That conversation couldn’t be loaded.');
+  const {rev,ui,...rest}=d;return JSON.parse(JSON.stringify({...rest,id}));
+}
+// every image record in a conversation (pasted into questions, an article's pictures): {asset|data, type, w, h}
+const imageRecs=(c)=>[...Object.values(c.msgs||{}).flatMap(m=>(m&&m.images)||[]),...Object.values((c.doc&&c.doc.images)||{})].filter(Boolean);
+async function digressFile(id,o={}){
+  const c=await convFull(id),files={};
+  const grab=async(assetId,type)=>{if(!assetId||files[assetId])return;const buf=await io.files.fetch(assetId);files[assetId]={type:type||'application/octet-stream',data:await blobB64(new Blob([buf]))}};
+  for(const k of ['trashed','archived','pinned','dropCards','cards'])delete c[k];
+  for(const t of Object.values(c.threads))delete t.pinned;
+  for(const m of Object.values(c.msgs)){delete m.run;delete m.runFrom}
+  if(c.doc){
+    delete c.doc.mark;delete c.doc.unsaved;
+    if(o.doc){if(c.doc.assetId)await grab(c.doc.assetId,c.doc.kind==='pdf'?'application/pdf':'text/markdown')}
+    else{delete c.doc.assetId;delete c.doc.text;delete c.doc.images;c.doc.left=true}
+  }
+  for(const im of imageRecs(c))if(im.asset)await grab(im.asset,im.type).catch(e=>{console.warn('image left out',e);delete im.asset});
+  let cards=[];
+  if(o.cards){await loadCards();
+    for(const k of CARDS.values()){if(k.conv!==id||k.fix)continue;
+      const x={front:k.front,back:k.back,thread:k.thread,at:k.at,where:k.where,src:k.src,created:k.created};
+      if(k.quote)x.quote=k.quote;if(k.image){x.image={...k.image};if(x.image.asset)await grab(x.image.asset,x.image.type).catch(()=>{delete x.image})}
+      cards.push(x)}}
+  return {file:{digress:DIGRESS_V,exported:Date.now(),conversations:[c],cards,files},title:c.title};
+}
+async function exportDigress(id,o){const {file,title}=await digressFile(id,o);saveFile(await gzip(JSON.stringify(file)),fileSafe(title)+'.digress')}
+// Markdown: each thread a section; a branch follows the thread it came from, under the passage it was about
+function convMarkdown(c){
+  const kids=(tid)=>Object.values(c.threads).filter(t=>t.parent===tid&&!t.alt).sort((a,b)=>(a.created||0)-(b.created||0));
+  const say=(m)=>String(m.content||m.text||'').trim(),out=[`# ${c.title||'Conversation'}`,''];
+  const meta=[`Exported from Digress, ${new Date().toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'})}`,c.doc&&`about “${c.doc.name||'a document'}”`].filter(Boolean).join(', ');
+  out.push(`*${meta}.*`,'');
+  const walk=(tid,depth)=>{
+    const t=c.threads[tid];if(!t)return;const h='#'.repeat(Math.min(6,2+depth));
+    out.push(`${h} ${tid==='main'?'Main thread':(t.title||'Branch')}`,'');
+    if(t.parent){const p=c.threads[t.parent],from=t.anchorMsg==='DOC'?`the document${t.anchorPage!=null?`, p. ${t.anchorPage+1}`:''}`:(t.parent==='main'?'the main thread':`“${(p&&p.title)||'a branch'}”`);
+      out.push(t.anchorText?`> ${String(t.anchorText).replace(/\s+/g,' ').trim()}`:'',`*Branched from ${from}${t.anchorText?'':' (the whole reply)'}.*`,'')}
+    for(const id of c.order[tid]||[]){const m=c.msgs[id];if(!m)continue;const x=say(m);
+      if(m.role==='user')out.push(`**You:** ${x}${(m.images||[]).length?` *(${m.images.length} image${m.images.length>1?'s':''})*`:''}`,'');
+      else if(m.role==='note'){const f=c.threads[m.fromThread];out.push(`> **Takeaway from “${(f&&f.title)||m.fromTitle||'a branch'}”:**`,...x.split('\n').map(l=>'> '+l),'')}
+      else if(x)out.push(x,'',m.model?`<sub>${modelLabel(m.model)}</sub>`:'','')}
+    for(const k of kids(tid))walk(k.id,depth+1);
+  };
+  walk('main',0);
+  return out.filter((l,i,a)=>!(l===''&&a[i-1]==='')).join('\n').trim()+'\n';
+}
+async function exportMarkdown(id){const c=await convFull(id);saveFile(new Blob([convMarkdown(c)],{type:'text/markdown'}),fileSafe(c.title)+'.md')}
+// Anki imports this as is (File → Import): front, back, the sentence it came from, and a tag for the conversation
+async function exportAnki(id){
+  await loadCards();const c=await convFull(id),cards=[...CARDS.values()].filter(k=>k.conv===id&&k.status!=='inbox');
+  const cell=(v)=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"',tag='digress::'+fileSafe(c.title).replace(/[\s:]+/g,'_');
+  const lines=['#separator:comma','#html:false','#columns:Front,Back,Source,Tags','#tags column:4',...cards.map(k=>[k.front,k.back,k.quote?k.quote.text:'',tag].map(cell).join(','))];
+  saveFile(new Blob([lines.join('\n')+'\n'],{type:'text/csv'}),fileSafe(c.title)+' (cards).csv');
+}
+async function openExport(id){
+  const m=convList.find(x=>x.id===id)||{};let nCards=0,hasDoc=!!m.doc,docName=m.docName||'';
+  try{await loadCards();nCards=[...CARDS.values()].filter(k=>k.conv===id&&!k.fix).length}catch(e){}
+  const kept=[...CARDS.values()].filter(k=>k.conv===id&&k.status!=='inbox').length;
+  askConfirm(`Export “${trunc(m.title||'this conversation',60)}”`,`<div class="xopts">
+    <label class="xopt"><input type="radio" name="xfmt" value="digress" checked><span><span><b>Digress file</b> <i class="xext">.digress</i></span><small>Everything: every branch, highlight and takeaway. Open it in your Digress, or someone else’s, to read it and carry on.</small></span></label>
+    <div class="xsub">${hasDoc?`<label><input type="checkbox" id="xDoc"><span>Include the document <small>${esc(trunc(docName||'the document',50))}. Without it, whoever opens the file attaches their own copy.</small></span></label>`:''}${nCards?`<label><input type="checkbox" id="xCards"><span>Include ${nCards>1?`the ${nCards} flashcards`:'its flashcard'} <small>They arrive in the inbox, without your review history.</small></span></label>`:''}</div>
+    <label class="xopt"><input type="radio" name="xfmt" value="md"><span><span><b>Markdown</b> <i class="xext">.md</i></span><small>To read in another app: each branch a section, under the passage it came from.</small></span></label>
+    ${kept?`<label class="xopt"><input type="radio" name="xfmt" value="anki"><span><span><b>Flashcards for Anki</b> <i class="xext">.csv</i></span><small>Your ${kept} kept card${kept>1?'s':''}, with the sentence each came from. In Anki: File → Import.</small></span></label>`:''}
+    <div class="xnote">${ic('check')}Made in your browser and saved to this device. Nothing is uploaded.</div></div>`,
+  async()=>{const f=(document.querySelector('[name=xfmt]:checked')||{}).value,doc=!!($('#xDoc')||{}).checked,cards=!!($('#xCards')||{}).checked;
+    try{if(f==='md')await exportMarkdown(id);else if(f==='anki')await exportAnki(id);else await exportDigress(id,{doc,cards});setStatus('Exported')}
+    catch(e){console.warn(e);toast('Couldn’t export it: '+((e&&e.message)||'error'))}},{ok:'Export',kind:'primary',wide:true});
+  const sub=document.querySelector('#mBody .xsub');document.querySelectorAll('#mBody [name=xfmt]').forEach(r=>r.addEventListener('change',()=>{if(sub)sub.classList.toggle('off',r.value!=='digress'||!r.checked)}));
+}
+// --- import ---
+function fresh(c){
+  const bad=[];if(!c||typeof c!=='object'||!c.threads||!c.msgs||!c.order||typeof c.threads!=='object'||typeof c.msgs!=='object')return ['not a conversation'];
+  for(const m of Object.values(c.msgs)){if(!m||!['user','assistant','note'].includes(m.role))bad.push('a message of an unknown kind');else for(const k of ['content','text'])if(m[k]!=null&&typeof m[k]!=='string')bad.push('a message that isn’t text')}
+  return bad.concat(ThreadOps.check(c));
+}
+async function importDigress(file){
+  let d;
+  try{d=JSON.parse(await gunzipText(await file.arrayBuffer()))}catch(e){toast('That file couldn’t be read as a Digress file.');return}
+  if(!d||d.digress!==DIGRESS_V||!Array.isArray(d.conversations)||!d.conversations.length){toast(d&&d.digress>DIGRESS_V?'That file is from a newer Digress. Update this one to open it.':'That isn’t a Digress file.');return}
+  await io.ready;if(!io.store){toast('Nothing can be saved here, so it can’t be imported.');return}
+  const files=d.files&&typeof d.files==='object'?d.files:{},made=new Map();
+  const restore=async(rec)=>{if(!rec||!rec.asset)return;const f=files[rec.asset];const old=rec.asset;delete rec.asset;if(!f||typeof f.data!=='string')return;
+    if(!made.has(old))made.set(old,(await storeImages([{blob:b64Blob(f.data,f.type),type:f.type,w:rec.w,h:rec.h}]))[0]);
+    const r=made.get(old);if(r.asset)rec.asset=r.asset;else rec.data=r.data};
+  let first=null,n=0,nc=0;
+  for(const src of d.conversations){
+    const c=JSON.parse(JSON.stringify(src)),problems=fresh(c);
+    if(problems.length){console.warn('import: skipped a conversation',problems);toast('Part of that file is damaged, so it was left out.');continue}
+    const old=c.id,id='c'+Date.now().toString(36)+rid().slice(0,4);
+    for(const k of ['rev','ui','trashed','archived','pinned','dropCards','cards'])delete c[k];
+    c.id=id;c.title=typeof c.title==='string'&&c.title?c.title:'Shared conversation';c.created=+c.created||Date.now();c.updated=Date.now();c.nextColor=+c.nextColor||0;
+    for(const m of Object.values(c.msgs)){for(const f of [...LOCAL_MSG,'run','runFrom'])delete m[f];for(const im of m.images||[])await restore(im)}
+    if(c.doc){
+      if(typeof c.doc!=='object'){delete c.doc}
+      else{
+        const a=c.doc.assetId&&files[c.doc.assetId];delete c.doc.assetId;
+        if(a){const blob=b64Blob(a.data,a.type),pdf=c.doc.kind==='pdf';if(!await storeDocFile(c,c.doc.kind,blob,pdf?null:await blob.text()))c.doc.left=true}
+        else if(c.doc.text==null)c.doc.left=true;
+        for(const im of Object.values(c.doc.images||{}))await restore(im);
+      }
+    }
+    try{const r=await io.store.save(id,c,0);if(!r||!r.rev)throw new Error('not saved')}catch(e){console.warn(e);toast('Couldn’t save the imported conversation.');continue}
+    n++;first=first||{id,title:c.title};
+    for(const k of Array.isArray(d.cards)?d.cards:[]){
+      if(!k||typeof k.front!=='string'||typeof k.back!=='string'||!k.front.trim()||(k.conv&&k.conv!==old))continue;
+      const card={id:'k'+rid()+rid(),conv:id,convTitle:c.title,thread:c.threads[k.thread]?k.thread:'main',at:k.at&&c.msgs[k.at.msg]?k.at:null,where:typeof k.where==='string'?k.where:'',src:typeof k.src==='string'?k.src:'',front:k.front,back:k.back,status:'inbox',created:Date.now(),due:null,fsrs:null,reviews:[]};
+      if(k.quote&&typeof k.quote.text==='string')card.quote=k.quote;
+      if(k.image&&typeof k.image==='object'){card.image={...k.image};await restore(card.image);if(!card.image.asset&&!card.image.data)delete card.image}
+      await putCard(card);nc++;
+    }
+  }
+  if(!first)return;
+  await loadList();renderConvList();await openConv(first.id);
+  toast(`Opened “${trunc(first.title,50)}”${n>1?` and ${n-1} more`:''}${nc?`, with ${nc} card${nc>1?'s':''} in your inbox`:''}.${window.DemoReplies?' It’s kept only in this browser; delete it from the sidebar to remove it.':''}`);
+}
+// a .digress file dropped anywhere (outside a question box) opens as its conversation
+document.addEventListener('dragover',e=>{if(e.dataTransfer&&[...(e.dataTransfer.items||[])].some(i=>i.kind==='file'))e.preventDefault()});
+document.addEventListener('drop',e=>{const f=e.dataTransfer&&[...e.dataTransfer.files].find(isDigressFile);if(!f||e.target.closest('#docDrop'))return;e.preventDefault();importDigress(f)});
 
 /* ---------- context for the model ---------- */
 function branchPrefix(t){
@@ -2416,8 +2598,9 @@ async function generate(m,ctx,lockTid,o={}){
     let web=!!m.web;
     if(!o.resume){
       web=!!(settings.web&&io.llm.supportsWeb);if(web)m.web=true;else delete m.web;delete m.searches;delete m.sources;delete m.reads;delete m.toolNow;delete m.cut;
+      applyConvLlm(m.thread,true);   // the model this thread asks with (the picker follows it)
       if(io.llm.supportsEffort)m.effort=settings.effort;else delete m.effort;
-      if(!Array.isArray(conv.llm))stickLlm();   // the conversation keeps the model it started with
+      stickLlm(m.thread,false);   // a thread keeps the model it started with
       if(ctx.docSeen)m.docSeen=ctx.docSeen;else delete m.docSeen;
       m.run=run;save();await flushNow();   // saved with its run first, so the server can finish it into this message
     }
@@ -2453,6 +2636,7 @@ async function generate(m,ctx,lockTid,o={}){
   if(conv!==st.conv)return;
   delete m.pending;delete m.run;delete m.runFrom;delete m.toolNow;delete m.live;delete m.t0;if(m.reads&&!m.reads.length)delete m.reads;m.ver++;streaming.delete(lockTid);
   if(!seenNow(m.thread))unread.add(m.thread);   // finished out of sight: badge it until it's opened
+  if(document.hidden&&!m.error){tabReady=true;tabName()}
   cardsAfterReply(m);nameAfterReply(m);
   renderPane(m.thread);updateComposer(lockTid);renderMap();save();
   if(conv.ui.view==='canvas')renderCanvas();
@@ -3248,6 +3432,9 @@ function emptyState(t){
   }else if(t.id==='main'){
     d.innerHTML=`<h2>What do you want to understand?</h2><div>Ask a question. When a phrase in the answer raises a new question, highlight it to open a side branch next to the main thread.</div><div class="chips"></div>`;
     STARTERS.forEach(s=>{const b=document.createElement('button');b.className='chip';b.textContent=s;b.dataset.ask=s;d.lastChild.appendChild(b)});
+    d.insertAdjacentHTML('beforeend',`<div class="eor"><button class="elink" data-newdoc="1">${ic('doc')}Or start from something to read: a PDF, a web page, a text file</button></div>`);
+    // the very first time (nothing saved yet): the idea in three steps
+    if(!convList.some(c=>c.id!==conv.id))d.insertAdjacentHTML('beforeend',`<ol class="esteps"><li><b>Ask</b><span>anything, or about a document you open.</span></li><li><b>Highlight</b><span>a phrase in the answer to branch off into it, beside the main thread.</span></li><li><b>Keep</b><span>what you learn: carry a takeaway back, or turn on flashcards.</span></li></ol><div class="ekeys">Press <kbd>?</kbd> for keyboard shortcuts.</div>`);
   }else{
     d.innerHTML=`<div>${t.anchorText?'Ask anything about this passage':'Ask a side question about that reply'}, or start with one of these:</div><div class="chips"></div>`;
     QUICK.forEach(([l,q])=>{const b=document.createElement('button');b.className='chip';b.textContent=l;b.dataset.ask=q;b.title='Asks: '+q;d.lastChild.appendChild(b)});
@@ -3785,7 +3972,7 @@ function curPane(){
   if(lastPane&&lastPane.cid===conv.id&&conv.ui.open.includes(lastPane.tid)&&paneEls.has(lastPane.tid))return lastPane.tid;
   return focusedPane();
 }
-function markCur(){const c=conv&&conv.ui.view!=='canvas'&&conv.ui.open.length>1?curPane():null;for(const [tid,el] of paneEls)el.classList.toggle('cur',tid===c)}
+function markCur(){const c=conv&&conv.ui.view!=='canvas'&&conv.ui.open.length>1?curPane():null;for(const [tid,el] of paneEls)el.classList.toggle('cur',tid===c);syncPicker()}
 // ⌘⇧\: close the current pane; the one after it (or before) becomes current. Undo puts it all back.
 function keyClose(tid){
   const ui=conv.ui;if(ui.open.length<2){toast('At least one pane stays open');return}
@@ -3896,6 +4083,7 @@ function raiseCard(tid){
 function applyStack(){
   const S=cvState(),z=S.z||[];
   $('#cv').querySelectorAll('.cnode').forEach(n=>{const i=z.indexOf(n.dataset.ctid);n.style.zIndex=i<0?1:i+2;n.classList.toggle('picked',S.sel===n.dataset.ctid)});
+  syncPicker();
 }
 // where a card was being read before "jump to the passage" moved it ({top, jumping}), per conversation and card,
 // outside the card's element because the canvas redraws cards; the card's Return button (cjp) goes back to it
@@ -4177,8 +4365,11 @@ function setView(v){
 }
 // Tab name: window number and view ("Digress 2 · Canvas"), never the conversation's title: titles would end up
 // in browser history (synced off this machine by some browsers), screen shares and the OS window switcher.
+// a reply that finished while this tab was in the background puts a dot in front of the tab's name until you come back
+let tabReady=false;
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tabReady){tabReady=false;if(conv)tabName()}});
 function tabName(){const v=conv.ui.view==='canvas'?'Canvas':conv.ui.layout==='rows'?'Rows':'Columns';
-  WINDOW.then(n=>{const t=`Digress ${n} · ${v}`;if(document.title!==t)document.title=t})}
+  WINDOW.then(n=>{const t=`${tabReady?'● ':''}Digress ${n} · ${v}`;if(document.title!==t)document.title=t})}
 function syncViewSeg(){tabName();const v=conv.ui.view==='canvas'?'canvas':conv.ui.layout;document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   $('#resetOrder').style.display=conv.ui.view!=='canvas'&&conv.ui.open.join()!==branchOrder().join()?'':'none'}
 // the order panes open in: the document, then main, each branch right after the thread it came from (oldest first)
@@ -4256,7 +4447,7 @@ function startDoc(){
       if(data==null){
         if(d.assetId){await io.ready;data=await io.files.fetch(d.assetId,d.kind==='pdf'?'arrayBuffer':'text')}
         else if(d.text!=null)data=d.text;
-        else throw {missing:true,message:'This document wasn\'t stored, so it needs to be attached again.'};
+        else throw {missing:true,message:d.left?`This conversation was shared without its document. Attach your copy of “${d.name||'the document'}” to read it alongside.`:'This document wasn\'t stored, so it needs to be attached again.'};
       }
       if(d.kind==='pdf'){
         const lib=await loadPdfLib();
@@ -4325,6 +4516,9 @@ function docPaneEl(){
   pb.addEventListener('scroll',()=>{wiresSoon();updateJump(el);trackDocPage();noteDocSpot()},{passive:true});
   if(docView.ro)docView.ro.disconnect();clearTimeout(docView.resizeT);
   docView.ro=new ResizeObserver(()=>{
+    // a text document re-wraps the moment its width changes (another pane closed, the sidebar went): the same scroll
+    // offset is now somewhere else, so put the reading spot back right away
+    if(docState&&docState.loaded&&docState.kind!=='pdf'){const w=pb.clientWidth;if(pb.__tw&&w>100&&Math.abs(w-pb.__tw)>1){const sp=docSpotNow();if(sp)putDocSpot(sp)}pb.__tw=w;return}
     if(!docState||!docState.loaded||docState.kind!=='pdf'||!docView.width)return;
     if(Math.abs(pb.clientWidth-docView.width)<40||pb.clientWidth<100)return;
     // re-fit after the resize settles, but only if the same PDF is still open in this pane
@@ -4814,7 +5008,7 @@ async function storeDocFile(c,kind,blob,text){
 async function reattachDoc(file){
   const isPdf=/pdf$/i.test(file.type)||/\.pdf$/i.test(file.name);
   const data=isPdf?await file.arrayBuffer():await file.text();
-  docBlobCache.set(conv.id,data);conv.doc.kind=isPdf?'pdf':'text';
+  docBlobCache.set(conv.id,data);conv.doc.kind=isPdf?'pdf':'text';delete conv.doc.left;
   await storeDocFile(conv,conv.doc.kind,file,isPdf?null:data);
   docState=null;startDoc();renderDocPane(true);save();
 }
@@ -4822,7 +5016,7 @@ async function reattachDoc(file){
 let docLinkOk=null; // {link, codes}: warnings the reader accepted for this link
 function openDocModal(){
   docLinkOk=null;$('#docGo').textContent='Start';
-  $('#docFile').value='';$('#docPaste').value='';$('#docName').value='';$('#docFileLbl').textContent='Choose a PDF, Markdown or text file, or drop it here';$('#docMsg').textContent='';$('#docGo').disabled=false;
+  $('#docFile').value='';$('#docPaste').value='';$('#docName').value='';$('#docFileLbl').textContent='Choose a PDF, Markdown or text file, or drop it here (a .digress file someone shared opens as its conversation)';$('#docMsg').textContent='';$('#docGo').disabled=false;
   hideTip();$('#docModal').classList.add('show');
 }
 function closeDocModal(){$('#docModal').classList.remove('show')}
@@ -4994,7 +5188,7 @@ async function startFromDoc(){
 }
 (()=>{
   const drop=$('#docDrop'),fi=$('#docFile');
-  fi.onchange=()=>{if(fi.files[0])$('#docFileLbl').textContent=fi.files[0].name};
+  fi.onchange=()=>{const f=fi.files[0];if(!f)return;if(isDigressFile(f)){closeDocModal();importDigress(f);return}$('#docFileLbl').textContent=f.name};
   $('#docPaste').addEventListener('input',()=>{if(docLinkOk){docLinkOk=null;$('#docGo').textContent='Start';$('#docMsg').textContent=''}});
   drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over')});
   drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
@@ -5398,6 +5592,85 @@ async function goBack(){
   document.querySelectorAll('.kalt').forEach(k=>k.textContent=mac?'⌥':'Alt+');
 })();
 
+/* ---------- keyboard shortcuts: one list, shown in a small panel in a corner ----------
+   The panel has no backdrop and doesn't take focus, so the keys still work with it open (the row of a key you
+   press lights up). ? toggles it (not while typing), Esc or ✕ closes it; ⇆ moves it to the other corner. On a
+   phone it's a sheet at the bottom. Keys: Mod is ⌘ on a Mac, else Ctrl; `m` are KeyboardEvent codes it lights up
+   for. README.md's table must list each of them (tests/test_keys_panel.py). */
+const IS_MAC=/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent);
+const IS_IPAD=/iPad/.test(navigator.userAgent)||(/Mac/.test(navigator.platform||'')&&navigator.maxTouchPoints>1);   // iPadOS says it's a Mac
+const KEYS=[
+  ['Anywhere',[
+    [['Mod+K'],'Search',['Mod+KeyK']],
+    [['Mod+B'],'Show or hide the sidebar',['Mod+KeyB']],
+    [[IS_IPAD?'Ctrl+.':'Mod+.'],'Zen: just the panes'+(IS_IPAD?' (on an iPad, ⌘. is taken by iPadOS)':''),['Mod+Period']],
+    [["Mod+'"],'Canvas, or back to the panes',['Mod+Quote']],
+    [["Mod+Shift+'"],'Switch Columns and Rows',['Mod+Shift+Quote']],
+    [['Mod+\\'],'Collapse the pane you’re in, or expand it again',['Mod+Backslash']],
+    [['Mod+Shift+\\'],'Close the pane you’re in (the toast can undo it)',['Mod+Shift+Backslash']],
+    [['?'],'Show or hide this list',['Shift+Slash']],
+  ]],
+  ['Asking',[
+    [['Enter'],'Send',['Enter']],
+    [['Shift+Enter'],'A new line',['Shift+Enter']],
+    [['Esc'],'Close the question box; leave Focus',['Escape']],
+  ]],
+  ['In search',[
+    [['↑','↓','Enter'],'Pick and open a result',['ArrowUp','ArrowDown']],
+    [['Mod+Enter'],'Open it, keep searching',['Mod+Enter']],
+    [['Tab'],'Everywhere / this conversation / this pane',['Tab']],
+  ]],
+  ['Reviewing flashcards',[
+    [['Space'],'Show the answer',['Space']],
+    [['1','2','3','4'],'Again, Hard, Good, Easy',['Digit1','Digit2','Digit3','Digit4']],
+    [['S'],'Skip: it comes back at the end',['KeyS']],
+    [['O'],'Open where the card came from',['KeyO']],
+    [['E'],'Edit the card',['KeyE']],
+    [['F'],'Fix…: have the model check it',['KeyF']],
+  ]],
+  ['On the canvas',[
+    [['Space'],'Read the selected card full screen (again or Esc: back)',[]],
+    [['Mod+\\'],'Expand the selected card, or shrink it',[]],
+    [['Mod+Alt+←','Mod+Alt+→'],'Dock it left or right',['Mod+Alt+ArrowLeft','Mod+Alt+ArrowRight']],
+    [['Mod+Alt+↑','Mod+Alt+↓'],'Full screen; undock',['Mod+Alt+ArrowUp','Mod+Alt+ArrowDown']],
+    [['Alt+scroll'],'Zoom one card',[]],
+  ]],
+  ['In the sidebar',[
+    [['Mod+click'],'Open a conversation in a new window',[]],
+  ]],
+];
+const KP={el:$('#keysPanel'),q:'',side:(()=>{try{return localStorage.getItem('sq:keysSide')||'right'}catch(e){return 'right'}})()};
+const keyLabel=(k)=>k.split('+').map(p=>p==='Mod'?(IS_MAC?'⌘':'Ctrl'):p==='Ctrl'?(IS_MAC?'⌃':'Ctrl'):p==='Shift'?(IS_MAC?'⇧':'Shift'):p==='Alt'?(IS_MAC?'⌥':'Alt'):p).join(IS_MAC?'':'+');
+function renderKeys(){
+  const q=KP.q.trim().toLowerCase();
+  const secs=KEYS.map(([sec,rows])=>[sec,rows.filter(([ks,what])=>!q||what.toLowerCase().includes(q)||sec.toLowerCase().includes(q)||ks.some(k=>keyLabel(k).toLowerCase().includes(q)))]).filter(x=>x[1].length);
+  KP.el.querySelector('.kpbody').innerHTML=secs.length?secs.map(([sec,rows])=>`<div class="kpsec">${esc(sec)}</div>`+rows.map(([ks,what,m])=>`<div class="kprow" data-m="${esc(m.join(' '))}"><span class="kpk">${ks.map(k=>`<kbd>${esc(keyLabel(k))}</kbd>`).join('')}</span><span class="kpw">${esc(what)}</span></div>`).join('')).join(''):'<div class="kpnone">No shortcut matches.</div>';
+}
+function openKeys(){
+  if(!KP.el.firstChild){
+    KP.el.innerHTML=`<div class="kphead"><b>Keyboard shortcuts</b><span class="sp"></span><button class="ib" data-kp="side" title="Move to the other corner">${ic('swap')}</button><button class="ib" data-kp="close" title="Close (? or Esc)">${ic('x')}</button></div><input class="kpq" placeholder="Filter: pane, canvas, search…" aria-label="Filter shortcuts" autocomplete="off"><div class="kpbody"></div>`;
+    const inp=KP.el.querySelector('.kpq');inp.addEventListener('input',()=>{KP.q=inp.value;renderKeys()});
+    inp.addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();e.preventDefault();if(inp.value){inp.value='';KP.q='';renderKeys()}else{inp.blur()}}});
+    KP.el.addEventListener('click',e=>{const b=e.target.closest('[data-kp]');if(!b)return;if(b.dataset.kp==='close')closeKeys();else{KP.side=KP.side==='right'?'left':'right';try{localStorage.setItem('sq:keysSide',KP.side)}catch(e){}KP.el.dataset.side=KP.side}});
+    // on a phone: swipe the sheet down to put it away
+    let y0=null;KP.el.addEventListener('touchstart',e=>{y0=e.target.closest('.kphead')?e.touches[0].clientY:null},{passive:true});
+    KP.el.addEventListener('touchmove',e=>{if(y0!=null&&e.touches[0].clientY-y0>60){y0=null;closeKeys()}},{passive:true});
+  }
+  KP.el.dataset.side=KP.side;renderKeys();KP.el.classList.add('show');
+}
+function closeKeys(){KP.el.classList.remove('show')}
+const keysOpen=()=>KP.el.classList.contains('show');
+const typingIn=(t)=>t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+document.addEventListener('keydown',e=>{
+  if(e.key==='?'&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&!typingIn(e.target)){e.preventDefault();keysOpen()?closeKeys():openKeys();return}
+  if(!keysOpen())return;
+  if(e.key==='Escape'&&!e.defaultPrevented&&!typingIn(e.target)&&!document.querySelector('.modal.show,.pal.show,#activity.show')){closeKeys();return}
+  // light up the row of the key just pressed (it still does what it does)
+  const code=[(e.metaKey||e.ctrlKey)&&'Mod',e.altKey&&'Alt',e.shiftKey&&'Shift',e.code].filter(Boolean).join('+');
+  KP.el.querySelectorAll('.kprow').forEach(r=>{if(r.dataset.m.split(' ').includes(code)){r.classList.remove('hit');void r.offsetWidth;r.classList.add('hit')}});
+},true);
+document.addEventListener('click',e=>{if(e.target.closest('[data-keys]')){e.preventDefault();keysOpen()?closeKeys():openKeys()}});
+
 /* ---------- sidebar ---------- */
 function renderTitle(){const el=$('#cTitle');if(document.activeElement!==el)el.textContent=conv.title||'New conversation';updateHeader('main')}
 // the branch count in a pane's header opens a list of those branches (the sidebar's tree from that pane down)
@@ -5516,6 +5789,7 @@ function renderConvList(){
       (k?`<span class="cbadge${k.due?' due':''}" title="${esc(kt)}">${ic('cards')}${k.due||''}</span>`:'')+`<span class="acts">`+
       (k?`<button class="ib${k.due?' kdue':''}" data-cardsconv="${esc(c.id)}" title="${esc(kt+'. Click to review them.')}">${ic('cards')}</button>`:'')+
       (c.archived?'':`<button class="ib${c.pinned?' pinned':''}" data-pinconv="${esc(c.id)}" title="${c.pinned?'Unpin':'Pin to the top of the sidebar'}">${ic('pin')}</button>`)+
+      `<button class="ib" data-expconv="${esc(c.id)}" title="Export: a .digress file to share or keep, Markdown, or flashcards for Anki">${ic('download')}</button>`+
       `<button class="ib" data-archconv="${esc(c.id)}" title="${c.archived?'Move back to your conversations':'Archive: move out of the way without deleting'}">${ic('archive')}</button>`+
       `<button class="ib dz" data-del="${esc(c.id)}" title="Move to the trash (deleted for good after ${TRASH_DAYS} days; restore it from Trash before then)">${ic('trash')}</button></span>`;
     const tt=d.querySelector('.t');tt.textContent=c.title||'New conversation';d.dataset.tip=tt.textContent;d.dataset.clip='';
@@ -6014,6 +6288,7 @@ document.addEventListener('click',e=>{
   const tkf=e.target.closest('[data-tkfrom]');if(tkf){goToTakeawaySource(tkf.dataset.tkfrom);return}
   const tkc=e.target.closest('[data-tknote]');if(tkc){goToTakeaway(tkc.dataset.tknote);return}
   const op=e.target.closest('[data-open]');if(op){openThread(op.dataset.open);return}
+  if(e.target.closest('[data-newdoc]')){$('#newDoc').click();return}
   const ask=e.target.closest('[data-ask]');if(ask){send(ask.closest('.pane').dataset.tid,ask.dataset.ask);return}
   const act=e.target.closest('[data-act]');
   if(act){
@@ -6062,6 +6337,7 @@ document.addEventListener('click',e=>{
     const df=docFate(id),dt=!df?'':df.shared?` Its document <b>${esc(df.name)}</b> stays: another conversation uses it.`:` <b>Its document, ${esc(df.name)}, is deleted too</b>: no other conversation uses it.`;
     askConfirm('Delete for good?',`<b>${esc((c&&c.title)||'This conversation')}</b> and all of its branches will be permanently deleted.${dt}${nk?(dropK?` <b>Its ${nk} flashcard${nk>1?'s are':' is'} deleted too</b>, as you chose when you moved it to the trash.`:` Its ${nk} flashcard${nk>1?'s stay':' stays'} in your review, as you chose when you moved it to the trash.`):''} This can’t be undone.`,()=>deleteConv(id));return}
   const pc=e.target.closest('[data-pinconv]');if(pc){e.stopPropagation();const id=pc.dataset.pinconv;const m=convList.find(c=>c.id===id)||(conv.id===id?metaOf(conv):{});setConvFlag(id,{pinned:!m.pinned});return}
+  const xc=e.target.closest('[data-expconv]');if(xc){e.stopPropagation();openExport(xc.dataset.expconv);return}
   const ac=e.target.closest('[data-archconv]');if(ac){e.stopPropagation();const id=ac.dataset.archconv;const m=convList.find(c=>c.id===id)||(conv.id===id?metaOf(conv):{});const a=!m.archived;setConvFlag(id,a?{archived:true,pinned:false}:{archived:false});setStatus(a?'Archived':'Moved back to conversations');return}
   const ub=e.target.closest('[data-unpinb]');if(ub){e.stopPropagation();const [c,t]=ub.dataset.unpinb.split('|');unpinRemoteBranch(c,t);return}
   const pbr=e.target.closest('[data-pinb]');if(pbr){const [c,t]=pbr.dataset.pinb.split('|');openPinnedBranch(c,t);return}
@@ -6097,7 +6373,7 @@ document.addEventListener('mouseover',e=>{
 /* ---------- confirm dialog ---------- */
 let modalOk=null;
 function askConfirm(title,html,onOk,o={}){
-  $('#mTitle').textContent=title;$('#mBody').innerHTML=html;modalOk=onOk;hideTip();$('#mOk').textContent=o.ok||'Delete';
+  $('#mTitle').textContent=title;$('#mBody').innerHTML=html;modalOk=onOk;hideTip();$('#mOk').textContent=o.ok||'Delete';$('#mOk').className='mbtn '+(o.kind||'danger');$('#modal .mbox').classList.toggle('wide',!!o.wide);
   $('#modal').classList.add('show');setTimeout(()=>$('#mOk').focus(),20);
 }
 function closeModal(){$('#modal').classList.remove('show');modalOk=null}
@@ -6222,6 +6498,7 @@ function closeTopmost(){
   if($('#cardsModal').classList.contains('show')){closeCards();return true}
   if($('#activity').classList.contains('show')){closeActivity();return true}
   if($('#guide').classList.contains('open')){closeGuide();return true}
+  if(keysOpen()){closeKeys();return true}
   const app=$('#app');
   if(app.classList.contains('zenside')){zenSideAway();return true}
   if(app.classList.contains('sideopen')){app.classList.remove('sideopen');return true}
@@ -6422,7 +6699,7 @@ mSel.value=settings.model;eSel.value=settings.effort;if(!mSel.value)mSel.value=s
    puts the picker back to it. Older conversations use their latest reply's model. A new one starts at Default.
    A model that isn't offered right now (signed out of ChatGPT) leaves the picker on Default without forgetting
    it. Web is not kept: it's off until turned on, every time. */
-let llmMissing=null,llmMissSaid='';
+let llmMissing=null,llmSub=null,llmMissSaid='',pickerFor=null;
 const modelsKnown=()=>!!io.llm&&io.llm.models().length>1;
 const resolvedModel=()=>settings.model!=='auto'?settings.model:(io.llm&&io.llm.defaultModel)||'auto';
 function convLlm(c){
@@ -6430,30 +6707,54 @@ function convLlm(c){
   const last=Object.values(c.msgs).filter(m=>m.role==='assistant'&&m.model&&!m.pending).sort((a,b)=>(b.ts||0)-(a.ts||0))[0];
   return last?[typeof last.model==='string'?last.model:'',last.effort||'auto',true]:null;
 }
-function applyConvLlm(){
-  if(!conv)return;
-  const want=convLlm(conv),ids=io.llm?io.llm.models().map(x=>x[0]):[];
-  let model='auto',effort='auto';llmMissing=null;
+/* A model per branch: a thread asks with its own model (t.llm, the same [model, effort] pair; main's is conv.llm),
+   else the one of the thread it branched from, up to main. It's stamped on the thread's first question, so a branch
+   keeps its model even if its parent switches later. The picker shows and changes the model of the thread you're
+   in (the pane last used; on the canvas, the selected card). */
+const llmTid=(tid)=>!tid||tid==='doc'||!conv||!T(tid)?'main':tid;
+function threadLlm(tid){
+  let t=T(llmTid(tid)),n=0;
+  while(t&&t.id!=='main'&&n++<500){if(Array.isArray(t.llm))return t.llm;t=T(t.parent)||T('main')}
+  return convLlm(conv);
+}
+const ownLlm=(tid)=>{tid=llmTid(tid);return tid==='main'?conv.llm:T(tid).llm};
+const pickerTid=()=>!conv?'main':llmTid(conv.ui.view==='canvas'?cvState().sel:curPane());
+// a model that isn't offered here (another provider, signed out, retired): the newest of the same kind (another Opus,
+// another GPT Sol), else the same family (Claude or GPT), else Default
+const modelTier=(id)=>String(id||'').toLowerCase().replace(/[\d.]+/g,'').replace(/-+/g,'-').replace(/^-|-$/g,'');
+function closestModel(id,ids){const tier=modelTier(id),fam=MODEL_FAM(id);return ids.find(x=>modelTier(x)===tier)||(fam&&ids.find(x=>MODEL_FAM(x)===fam))||null}
+function applyConvLlm(tid,quiet){
+  if(!conv)return;tid=llmTid(tid||pickerTid());pickerFor=conv.id+'|'+tid;
+  const want=threadLlm(tid),ids=io.llm?io.llm.models().map(x=>x[0]):[];
+  let model='auto',effort='auto';llmMissing=null;llmSub=null;
   if(want){
-    if(ids.includes(want[0]))model=want[0];else if(!want[2]&&modelsKnown())llmMissing=want[0];   // only a model it was set to counts as missing
+    if(ids.includes(want[0]))model=want[0];
+    else if(!want[2]&&modelsKnown()){llmMissing=want[0];const c=closestModel(want[0],ids);if(c)model=llmSub=c}   // only a model it was set to counts as missing
     if(EFFORTS.some(e=>e[0]===want[1]))effort=want[1];
   }
   settings.model=model;settings.effort=effort;mSel.value=model;if(!mSel.value)mSel.value=settings.model='auto';eSel.value=effort;
   syncDefStar();
+  const lbl=mSel.closest('.sel');if(lbl)lbl.title=`Which model answers in ${tid==='main'?'the main thread':'this branch'}. A new branch starts with the model of the one it came from; each reply shows the model that answered.`;
   const said=conv.id+'|'+llmMissing;
-  if(llmMissing&&llmMissSaid!==said){llmMissSaid=said;
-    toast(`This conversation uses ${modelLabel(llmMissing)}, which isn’t available right now, so new replies use the default. It switches back once ${modelLabel(llmMissing)} is available again.`)}
+  if(llmMissing&&llmMissSaid!==said&&!quiet){llmMissSaid=said;
+    toast(`This ${tid==='main'?'conversation':'branch'} used ${modelLabel(llmMissing)}, which isn’t available here, so new replies use ${llmSub?modelLabel(llmSub):'the default'}. It switches back once ${modelLabel(llmMissing)} is available again.`)}
 }
-// the picker changed, or the first question is being sent: the conversation keeps what the picker says
-function stickLlm(){
-  const model=settings.model==='auto'&&llmMissing?llmMissing:resolvedModel();
+// the pane or card you're in changed: the picker shows its model
+// the model to call for a thread's own work (cards, fixes): its model if offered here, else the closest one, else the picker's
+function modelFor(tid){const w=threadLlm(tid),ids=io.llm?io.llm.models().map(x=>x[0]):[];if(!w||!w[0])return settings.model;return ids.includes(w[0])?w[0]:closestModel(w[0],ids)||settings.model}
+function syncPicker(){if(!conv||!io.llm)return;const k=conv.id+'|'+pickerTid();if(k!==pickerFor)applyConvLlm()}
+// the picker changed (force), or a thread's first question is being sent: the thread keeps what the picker says
+function stickLlm(tid,force=true){
+  tid=llmTid(tid||pickerTid());if(!force&&Array.isArray(ownLlm(tid)))return false;
+  const model=llmMissing&&(settings.model==='auto'||settings.model===llmSub)?llmMissing:resolvedModel();
   if(model==='auto')return false;
-  const next=[model,settings.effort];if(JSON.stringify(conv.llm)===JSON.stringify(next))return false;
-  conv.llm=next;return true;
+  const next=[model,settings.effort];if(JSON.stringify(ownLlm(tid))===JSON.stringify(next))return false;
+  if(tid==='main')conv.llm=next;else T(tid).llm=next;return true;
 }
-mSel.onchange=()=>{settings.model=mSel.value;llmMissing=null;syncDefStar();
-  if(stickLlm()&&Object.keys(conv.msgs).length)save();
-  setStatus('This conversation now uses '+modelLabel(resolvedModel()))};
+const hasMsgs=()=>Object.keys(conv.msgs).length>0;
+mSel.onchange=()=>{settings.model=mSel.value;llmMissing=null;llmSub=null;syncDefStar();const tid=pickerTid();
+  if(stickLlm(tid)&&hasMsgs())save();
+  setStatus((tid==='main'?'The main thread':'This branch')+' now uses '+modelLabel(resolvedModel()))};
 /* ☆ beside the picker: make the model picked here what "Default" means, on every device. It shows only when
    a specific model is picked (not "Default" itself); afterwards the picker goes back to following Default. */
 const mDef=$('#mDef');mDef.innerHTML=ic('star');
@@ -6467,7 +6768,7 @@ mDef.onclick=async(e)=>{e.preventDefault();e.stopPropagation();const id=settings
   settings.model='auto';saveSettings();fillModelPicker();setStatus(name+' is now the default');toast(`${name} is now the default model, on all your devices.`)};
 // another device may have changed the default: refresh the list when this tab comes back
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&io.llm&&io.llm.setDefault)io.llm.loadModels().then(fillModelPicker)});
-eSel.onchange=()=>{settings.effort=eSel.value;if(stickLlm()&&Object.keys(conv.msgs).length)save()};
+eSel.onchange=()=>{settings.effort=eSel.value;if(stickLlm(pickerTid())&&hasMsgs())save()};
 $('#tSide').addEventListener('click',()=>{const app=$('#app');if(zen){app.classList.toggle('zenside');return}if(innerWidth<760){app.classList.toggle('sideopen')}else{app.classList.toggle('noside');try{localStorage.setItem('sq:noside',app.classList.contains('noside')?'1':'')}catch(e){}}setTimeout(()=>{wires();if(conv.ui.view==='canvas')applyCam()},50)});
 try{if(localStorage.getItem('sq:noside'))$('#app').classList.add('noside')}catch(e){}
 (()=>{

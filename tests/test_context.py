@@ -345,6 +345,7 @@ async def app_checks(tmp, b):
         pb = [t for t in conv['threads'].values() if t.get('anchorRegion') and t['anchorRegion']['w'] >= 1][0]
         pimgs, _, stream = verify(conv, pb['id'], 'whole-page branch')
         check(len(pimgs) == 1 and 'page 2 of the document' in stream, 'the page image arrives, labelled with its page')
+        await pg.locator(f'.pane[data-tid="{nb["id"]}"] .pb').dispatch_event('pointerdown')   # the picker follows the pane you're in: switch that branch
         await pg.select_option('#mSel', 'gpt-test-1')
         await ask(nb['id'], 'Q-nested-gpt: the same branch, now on ChatGPT')
         conv = await saved_conv()
