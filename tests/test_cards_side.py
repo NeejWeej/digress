@@ -65,9 +65,9 @@ async def main():
         await btn.click(); await soon(pg, "id => __digress.conv.id === id && !!document.querySelector('#cardsModal.show')", a)
         check('it opens that conversation', await pg.evaluate('__digress.conv.id') == a)
         check('…and its flashcards', await pg.locator('#cardsModal.show').count() == 1)
-        sel = await pg.locator('#cardsModal [data-kscope] option[value=conv]').inner_text()
+        sel = await pg.locator(f'#cardsModal [data-kscope] option[value="{a}"]').inner_text()
         check('the dialog names the conversation, not just “This conversation”', 'Cards about attention' in sel, sel)
-        check('…scoped to it, starting on what’s due', await pg.evaluate("document.querySelector('#cardsModal [data-kscope]').value") == 'conv' and 'Front 1' in await pg.locator('#cardsModal').inner_text())
+        check('…scoped to it, starting on what’s due', await pg.evaluate("document.querySelector('#cardsModal [data-kscope]').value") == a and 'Front 1' in await pg.locator('#cardsModal').inner_text())
         check('cards turned off for new drafts are still there to review, with a way to turn drafting back on',
               'New cards are off' in await pg.locator('#cardsModal').inner_text() and await pg.locator('#cardsModal [data-kact=on]').count() == 1 and await pg.locator('#cardsModal [data-kact=make]').count() == 0)
         check('no page errors', not errs, errs[:3])
