@@ -48,7 +48,7 @@ async def main():
         await goto_app(pg); await booted(pg); await pg.evaluate(NET)
         front = lambda: pg.locator('#cardsModal .kfront').inner_text()
         await pg.locator('#reviewBtn').click(); await pg.locator('#cardsModal .kfront').wait_for()
-        check('(three cards due, the first one shown)', 'Front 0' in await front() and '3 due' in await pg.locator('#cardsModal .kbar').inner_text())
+        check('(three cards due, the first one shown)', 'Front 0' in await front() and '3 to go' in await pg.locator('#cardsModal .korigin').inner_text())
 
         # skip
         await pg.locator('#cardsModal [data-kact=skip]').click(); await frames(pg)

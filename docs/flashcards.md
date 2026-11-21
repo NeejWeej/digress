@@ -22,13 +22,18 @@ Once they're on, the model drafts cards on its own from the moments that show wh
 
 You can also ask:
 
-- **Make cards** in a branch's header drafts from that branch.
+- **Cards** in a branch's header drafts from that branch: the first time from all of it, after that only from
+  what's new since its cards were last drafted. While it works the button says **Drafting…** (and can't be
+  pressed twice); a toast says when the cards are in, with **Open**. With nothing new, the button (which then
+  counts the branch's cards) opens that branch's cards instead, where **Draft more** asks for more on purpose.
 - **Make cards** in the panel (it says how many threads are new) drafts from everything that changed since
   the last time, thread by thread.
 
 Each draft is one model call, using the same model, context and document as the conversation, so the
 cards can check the document rather than guess. It drafts at most three or four cards each time, and fewer
-when there's less worth remembering (sometimes none). Cards it already made aren't repeated.
+when there's less worth remembering (sometimes none). Cards it already made aren't repeated. With each card
+it copies the sentence the answer rests on, word for word from the conversation or the document; Digress
+keeps it only if it really is there, so a card either shows its true source or none.
 
 ## The inbox
 
@@ -41,11 +46,30 @@ Drafts never go straight into your reviews. They wait in the **Inbox** tab, wher
 ## Reviewing
 
 The **Review** button in the sidebar shows when cards are due, across all your conversations. In the
-panel you can also pick **This conversation** or **All conversations**.
+panel, pick **All conversations** or any one conversation with cards; each is listed with how many are due
+and new, most due first.
 
 1. You see the front. Think of the answer, then show the back (**Space** or **Enter**).
-2. Rate how it went: **Again**, **Hard**, **Good** or **Easy** (keys **1** to **4**). Each button shows
+2. With the answer comes where it came from: the quoted sentence (and its page, if it's from the document).
+3. Rate how it went: **Again**, **Hard**, **Good** or **Easy** (keys **1** to **4**). Each button shows
    when you'd see the card next with that rating.
+
+### When a card is off
+
+With the answer showing, two quiet buttons sit beside **Open in conversation**:
+
+- **Edit** (**E**): change the front or back yourself. The card keeps its schedule.
+- **Fix…** (**F**): something's wrong and you'd like the model to sort it out. Tap what's off (*Wrong*, *Unclear*,
+  *Too vague*, *Two questions in one*, *Answer too long*), add a note if you like, and **Send**
+  (⌘/Ctrl+Enter). The card leaves review and the model checks it against the conversation and the document (the
+  same context it drafted from; for a card from a conversation that isn't open, that branch's messages). A toast
+  says when its answer is in the **Inbox**, shown under the card as it was:
+  - **Rewrite** or **Split** (two cards, when it asked two things): editable, then **Accept** or **Keep original**.
+    If only the wording changed the card keeps its schedule; if the answer itself changed it starts over as a new card.
+  - **Delete**: why it isn't worth keeping; delete it or keep it.
+  - **It's right**: the model can tell you the card was fine, and why, citing the source. **Keep it** puts it back.
+
+  It needs the model, so it's hidden offline. A fix whose page was closed before it finished offers **Try again**.
 
 Not in the mood for a card? **Skip** (or **S**) goes on to the next one without rating it; the skipped card
 comes back at the end of the session. Nothing about it changes.
@@ -59,9 +83,10 @@ until you resume it).
 
 ## Back to where it came from
 
-Every card remembers where it was made. Its link (**↗** with the branch's name, or **O** while reviewing) opens the
-conversation and the branch, scrolled to the reply the card came from, with the passage you highlighted
-flashing in its parent. A **← Back to review** pill takes you back to the same card, at the same point.
+Every card remembers where it was made. **Open in conversation** under the answer (or **O** while reviewing; **↗**
+with the branch's name in the lists) opens the conversation at the quoted sentence, highlighted: in its
+reply, or on its page of the document. A card without a quote opens the branch at the reply it came from, with
+the passage you highlighted flashing in its parent. A **← Back to review** pill takes you back to the same card, at the same point.
 
 ## Offline
 

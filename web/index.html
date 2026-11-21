@@ -273,6 +273,11 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .newbtn{display:flex;align-items:center;gap:6px;width:100%;padding:8px 10px;border-radius:9px;border:1px dashed var(--line2);color:var(--muted);margin-bottom:6px}
 .newbtn:hover{color:var(--ink);border-color:var(--faint)}
 .clist{display:flex;flex-direction:column;gap:1px;margin-bottom:18px}
+/* Pinned and Conversations fold, and a long list scrolls inside itself, so Branches and How it works stay near */
+#plist,#clist{position:relative}#plist{max-height:22vh;overflow-y:auto;overscroll-behavior:contain}#clist{max-height:38vh;overflow-y:auto;overscroll-behavior:contain}
+.sfold{display:inline-flex;align-items:center;gap:4px;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;padding:0;margin-left:-2px}.sfold:hover{color:var(--ink)}
+.sfold .chev{display:inline-flex;transition:transform .15s;transform:rotate(90deg)}.sfoldw.folded .sfold .chev{transform:none}
+.sfoldw.folded>:not(.sh){display:none}.sfoldw.folded .cfilt{display:none}.sfoldw.folded{margin-bottom:12px}
 .citem{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;cursor:pointer;color:var(--muted)}
 .citem:hover{background:var(--user-bg);color:var(--ink)}
 .citem.cur{background:var(--user-bg);color:var(--ink);font-weight:500}
@@ -588,16 +593,51 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 #cardsModal .kbox{width:min(760px,100%);max-height:min(88vh,900px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line2);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
 .khead{display:flex;align-items:center;gap:8px;padding:12px 14px 8px}
 .khead .kt{font-weight:600;font-size:15px}.khead .sp{flex:1}
-.khead select{border:1px solid var(--line2);border-radius:8px;background:var(--panel);color:var(--ink);font:13px var(--sans);padding:3px 6px}
+.khead select{border:1px solid var(--line2);border-radius:8px;background:var(--panel);color:var(--ink);font:13px var(--sans);padding:3px 6px;min-width:0;max-width:100%;flex:0 1 auto}
+.khead{flex-wrap:wrap;row-gap:6px}
+@media (max-width:600px){.khead [data-kact=close]{order:1;margin-left:auto}.khead .sp{display:none}.khead select{order:2;flex:1 1 100%}.khead .kbranch,.khead .mbtn{order:3}}
 .ktabs{display:flex;gap:4px;padding:0 14px;border-bottom:1px solid var(--line)}
 .ktabs button{border:0;background:none;padding:7px 10px;font:13px var(--sans);color:var(--muted);border-bottom:2px solid transparent;cursor:pointer}
 .ktabs button.on{color:var(--ink);border-bottom-color:var(--accent,var(--ink))}
 .kbody{padding:14px;overflow:auto;flex:1;min-height:200px}
 .kempty{color:var(--muted);font-size:13.5px;line-height:1.6;padding:18px 4px;text-align:center}
 .kempty .mbtn{margin-top:10px}
-.kcard{border:1px solid var(--line2);border-radius:12px;padding:16px 18px;background:var(--panel)}
-.kface{font-size:15px;line-height:1.55}.kface p:first-child{margin-top:0}.kface p:last-child{margin-bottom:0}
-.kback{border-top:1px dashed var(--line2);margin-top:14px;padding-top:14px}
+/* the review card: paper-like, tinted by its branch's colour on the left edge; a hairline for the session's progress */
+.kcard{position:relative;max-width:620px;margin:6px auto 0;border:1px solid var(--line);border-left:3px solid var(--c);border-radius:14px;padding:22px 26px 20px;background:var(--bg);box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px rgba(0,0,0,.06);overflow:hidden}
+.kprog{position:absolute;left:0;top:0;height:2px;width:var(--p);background:var(--c);opacity:.7;transition:width .3s}
+.korigin{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--faint);letter-spacing:.01em;margin-bottom:14px}
+.korigin i{width:7px;height:7px;border-radius:50%;background:var(--c);flex:none}
+.korigin span:not(.kleft){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}.korigin .kleft{margin-left:auto;flex:none}
+.kface{font-size:15px;line-height:1.6}.kface p:first-child{margin-top:0}.kface p:last-child{margin-bottom:0}
+.kfront .kface{font:19px/1.5 var(--serif);color:var(--ink)}
+.kshow{display:flex;align-items:center;gap:8px;margin:22px auto 2px;border:1px solid var(--line2);border-radius:999px;background:var(--panel);color:var(--ink);font:13.5px var(--sans);padding:7px 16px;cursor:pointer}
+.kshow:hover{background:var(--user-bg)}.kshow kbd{font:11px var(--sans);color:var(--faint);border:1px solid var(--line2);border-radius:4px;padding:0 4px}
+.kback{border-top:1px solid var(--line);margin-top:18px;padding-top:16px;animation:kin .25s ease-out}
+@keyframes kin{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.kfrom{margin-top:16px;animation:kin .25s ease-out}
+.kquote{margin:0 0 8px;padding:6px 0 6px 12px;border-left:2px solid color-mix(in srgb,var(--c) 70%,transparent);font:italic 13.5px/1.55 var(--serif);color:var(--muted)}
+.kacts{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.kacts .sp{flex:1}
+.kfix{max-width:620px;margin:14px auto 0;border:1px solid var(--line2);border-radius:12px;background:var(--panel);padding:12px 14px;animation:kin .2s ease-out}
+.kfixt{font:500 13.5px var(--sans);color:var(--ink);margin-bottom:8px}.kfixt span{font-weight:400;font-size:12px;color:var(--faint);margin-left:4px}
+.kchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.kchips button{border:1px solid var(--line2);border-radius:999px;background:none;color:var(--muted);font:12.5px var(--sans);padding:3px 10px;cursor:pointer}
+.kchips button:hover{color:var(--ink)}.kchips button.on{background:var(--user-bg);color:var(--ink);border-color:var(--muted)}
+.kfix textarea{width:100%;box-sizing:border-box;border:1px solid var(--line2);border-radius:8px;background:var(--panel-2);color:var(--ink);font:13.5px/1.45 var(--sans);padding:6px 8px;resize:vertical}
+.kfix .kfoot{margin-top:8px;gap:8px}.kfix kbd{font:10.5px var(--sans);opacity:.7;margin-left:4px}
+.kfixh{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-bottom:8px}.kfixh b{color:var(--ink);font-weight:600}.kfixh .sp{flex:1}.kfixh .ksrc{min-width:0}
+.kwas{border-left:2px solid var(--line2);padding:2px 0 2px 10px;margin-bottom:10px;opacity:.75}.kwas .kfr{font-weight:500}.kwas .kbk{color:var(--muted);font-size:13px}
+.kwhy{font-size:13px;color:var(--ink);margin-bottom:8px;line-height:1.45}.kwhy.busy{color:var(--muted);animation:kpulse 1.4s ease-in-out infinite}
+.kpair+.kpair{margin-top:4px;padding-top:8px;border-top:1px dashed var(--line)}
+.kchg{font-size:12px;color:var(--faint);margin:-2px 0 6px}
+.kopen,.klink{border:0;background:none;padding:0;font:12.5px var(--sans);color:var(--muted);cursor:pointer}.kopen:hover,.klink:hover{color:var(--ink);text-decoration:underline;text-underline-offset:2px}
+.kbranch{display:inline-flex;align-items:center;gap:6px;max-width:220px;border:1px solid var(--line2);border-radius:999px;padding:2px 4px 2px 9px;font-size:12.5px;color:var(--ink)}
+.kbranch i{width:7px;height:7px;border-radius:50%;background:var(--c);flex:none}.kbranch span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kbranch button{border:0;background:none;padding:2px;display:flex;color:var(--faint);cursor:pointer;border-radius:50%}.kbranch button:hover{color:var(--ink);background:var(--user-bg)}.kbranch svg{width:11px;height:11px}
+.kmk.busy svg{animation:kpulse 1s ease-in-out infinite}.kmk:disabled{cursor:default}
+@keyframes kpulse{50%{opacity:.25}}
+.kdrafting{opacity:.75}
+@media (prefers-reduced-motion:reduce){.kback,.kfrom{animation:none}.kmk.busy svg{animation:none}}
+@media (max-width:600px){.kcard{padding:18px 18px 16px}.kfront .kface{font-size:17.5px}}
 .kimg{display:block;margin:0 0 10px;border:0;padding:0;background:none;cursor:zoom-in;max-width:100%}.kimg img{display:block;max-width:100%;max-height:260px;border-radius:6px;border:1px solid var(--line);background:#fff}
 .ksrc{border:0;background:none;padding:2px 0;font:12.5px var(--sans);color:var(--muted);cursor:pointer;text-align:left;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ksrc:hover{color:var(--ink);text-decoration:underline}
 .kbar .ksrc{flex:0 1 auto;min-width:0}
@@ -606,10 +646,10 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 #backReview button{border:0;background:none;color:inherit;font:13.5px var(--sans);cursor:pointer;padding:8px 12px;border-radius:999px}
 #backReview .br-x{padding:8px 10px 8px 4px;display:flex;opacity:.7}#backReview .br-x:hover{opacity:1}#backReview .br-x svg{width:13px;height:13px}
 #backReview .br-go:hover{background:color-mix(in srgb,var(--panel) 15%,transparent)}
-.krate{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
-.krate button{flex:1;min-width:90px;border:1px solid var(--line2);border-radius:10px;background:var(--panel);padding:8px 6px;font:13px var(--sans);color:var(--ink);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
-.krate button:hover{background:var(--user-bg)}.krate small{color:var(--muted);font-size:11px}
-.kshow{display:block;margin:14px auto 0}
+.krate{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:620px;margin:14px auto 0;animation:kin .25s ease-out}
+.krate button{border:1px solid var(--line2);border-radius:999px;background:var(--panel);padding:7px 4px;font:13px var(--sans);color:var(--ink);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px}
+.krate button:hover{background:var(--user-bg);border-color:var(--muted)}.krate small{color:var(--faint);font-size:10.5px}
+.krate [data-g="4"]:hover{border-color:color-mix(in srgb,var(--accent) 70%,var(--line2))}
 .kfoot{display:flex;gap:12px;align-items:center;margin-top:10px;font-size:12px;color:var(--muted);flex-wrap:wrap}
 .kfoot button:not(.mbtn),.klink{border:0;background:none;padding:0;color:var(--muted);font:12px var(--sans);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .kfoot button:not(.mbtn):hover,.klink:hover{color:var(--ink)}
@@ -621,6 +661,7 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .kitem .kfr{font-weight:500;margin-bottom:4px}.kitem .kbk{color:var(--muted);font-size:13px}
 .kitem .kimg img{max-height:120px}
 .kbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;font-size:12.5px;color:var(--muted)}.kbar .sp{flex:1}
+#cardsModal .kbody>.kfoot{max-width:620px;margin-left:auto;margin-right:auto}
 .kmeta{font-size:11.5px;color:var(--faint)}
 .lightbox{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:24px;cursor:zoom-out}
 .lightbox img{max-width:100%;max-height:100%;background:#fff;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,.4)}
@@ -1012,11 +1053,11 @@ a.pref:hover{border-bottom-style:solid}
     <button class="newbtn" id="newConv" title="Start a fresh conversation. This one stays saved in the list below."></button>
     <button class="newbtn" id="newDoc" title="Start from a PDF, Markdown or text file: read it side by side with a chat about it, and highlight any passage to branch."></button>
     <button class="newbtn" id="reviewBtn" style="display:none" title="Review your flashcards"></button>
-    <div id="pinWrap" style="display:none"><div class="sh">Pinned</div><div class="clist" id="plist"></div></div>
-    <div class="sh">Conversations<span class="cfilt" id="cFilt" title="Show all conversations, only those with a document, or only plain chats"><button data-cf="all">All</button><button data-cf="doc">Docs</button><button data-cf="chat">Chats</button></span></div>
+    <div id="pinWrap" class="sfoldw" data-fold="pins" style="display:none"><div class="sh"><button class="sfold" title="Fold or unfold the pinned conversations"><span class="chev"></span>Pinned</button></div><div class="clist" id="plist"></div></div>
+    <div id="convWrap" class="sfoldw" data-fold="convs"><div class="sh"><button class="sfold" title="Fold or unfold the conversations"><span class="chev"></span>Conversations</button><span class="cfilt" id="cFilt" title="Show all conversations, only those with a document, or only plain chats"><button data-cf="all">All</button><button data-cf="doc">Docs</button><button data-cf="chat">Chats</button></span></div>
     <div class="clist" id="clist"></div>
     <div id="archWrap" style="display:none;margin:-12px 0 16px"><button class="archtoggle" id="archToggle" title="Archived conversations: out of the way, but nothing is deleted"><span class="chev"></span><span id="archLbl">Archive</span></button><div class="alist" id="alist"></div></div>
-    <div id="trashWrap" style="display:none;margin:-12px 0 16px"><button class="archtoggle" id="trashToggle" title="Deleted conversations: restore one, or it's deleted for good after 7 days"><span class="chev"></span><span id="trashLbl">Trash</span></button><div class="alist" id="xlist"></div></div>
+    <div id="trashWrap" style="display:none;margin:-12px 0 16px"><button class="archtoggle" id="trashToggle" title="Deleted conversations: restore one, or it's deleted for good after 7 days"><span class="chev"></span><span id="trashLbl">Trash</span></button><div class="alist" id="xlist"></div></div></div>
     <div class="sh">Branches<button class="shbtn" id="treeAll"></button></div>
     <div class="tree" id="tree"></div>
     <details class="help" id="help">
@@ -1641,7 +1682,9 @@ document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest
    highlight or snip branch and from each takeaway, into an inbox; "Make cards" drafts from whatever
    changed since last time (conv.cards.done[tid] = the last reply it saw). Kept cards are reviewed with
    FSRS. Cards live in their own collection (io.cards), so review can span every conversation:
-   {id, conv, convTitle, thread, src, front, back, image?, status:'inbox'|'active'|'suspended', created, due, fsrs, reviews} */
+   {id, conv, convTitle, thread, src, front, back, image?, quote?, status:'inbox'|'active'|'suspended', created, due, fsrs, reviews}
+   quote = {text, msg} or {text, page}: the sentence the answer rests on, as found in a reply (msg) or the document
+   (page, 1-based); shown under the answer and highlighted where it is when the card's source is opened */
 const CARDS=new Map();let cardsLoaded=null;
 function loadCards(){if(!cardsLoaded)cardsLoaded=(async()=>{await io.ready;try{for(const {id,data} of await io.cards.list())CARDS.set(id,data)}catch(e){console.warn('cards failed to load',e)}syncCardsUI();
   // fetch each card's image once while online, so the service worker has it for offline review
@@ -1657,9 +1700,11 @@ function cardsSyncChanged(){
 }
 const pendNote=()=>{const k=io.cards&&io.cards.stuck&&io.cards.pending?io.cards.pending():0;return k?`${k} change${k>1?'s':''} saved on this device, not synced yet`:''};
 async function dropCard(id){CARDS.delete(id);try{await io.cards.remove(id)}catch(e){console.warn(e)}syncCardsUI()}
+// in the inbox: drafts, and cards waiting on a fix (Fix… in review), which stay out of review until it's settled
+const inInbox=(c)=>c.status==='inbox'||!!c.fix;
 const cardsOn=()=>!!(conv&&conv.cards&&conv.cards.on);
-const dueCards=(scope)=>[...CARDS.values()].filter(c=>c.status==='active'&&(c.due||0)<=Date.now()&&inScope(c,scope)).sort((a,b)=>(a.due||0)-(b.due||0));
-const inScope=(c,scope)=>!cardHeld(c)&&(scope!=='conv'||(conv&&c.conv===conv.id));
+const dueCards=(scope)=>[...CARDS.values()].filter(c=>c.status==='active'&&!c.fix&&(c.due||0)<=Date.now()&&inScope(c,scope)).sort((a,b)=>(a.due||0)-(b.due||0));
+const inScope=(c,scope)=>!cardHeld(c)&&(scope==='all'||(c.conv===scope&&(!KS.thread||c.thread===KS.thread)));
 // the conversation a card came from, as the sidebar knows it (null: not known here, e.g. offline)
 function convInfo(id){if(conv&&conv.id===id)return {id,trashed:conv.trashed||0,dropCards:!!conv.dropCards,title:conv.title};return convList.find(c=>c.id===id)||null}
 // a card whose conversation is in the trash with "Also delete its flashcards": out of review until Restore
@@ -1680,9 +1725,10 @@ function cardsChoice(cards,what){
 function syncCardsUI(){
   $('#stage').classList.toggle('cardson',cardsOn());
   const k=paneEls.get('main')&&paneEls.get('main').querySelector('.kicon');if(k)k.classList.toggle('on',cardsOn());
-  const due=dueCards('all').length,inbox=[...CARDS.values()].filter(c=>c.status==='inbox').length,any=CARDS.size>0;
+  const due=dueCards('all').length,inbox=[...CARDS.values()].filter(inInbox).length,any=CARDS.size>0;
   const b=$('#reviewBtn');b.style.display=any?'':'none';
-  b.innerHTML=ic('cards')+'Review'+(due?` · ${due} due`:'')+(inbox?` · ${inbox} in inbox`:'');
+  b.innerHTML=ic('cards')+'Review'+(due?` · ${due} due`:'')+(inbox?` · ${inbox} in inbox`:'')+(drafting?'<span class="kdrafting"> · drafting…</span>':'');
+  markCardButtons();
   renderConvList();   // the per-conversation badges
   if($('#cardsModal').classList.contains('show'))renderCards();
 }
@@ -1715,9 +1761,28 @@ function cardsAfterReply(m){
   else if(m.role==='assistant'&&t&&t.parent&&(t.anchorText||t.anchorRegion)&&conv.order[t.id].filter(id=>conv.msgs[id].role==='assistant').length===1)
     queueDraft(t.id,{src:t.anchorRegion?(isWholePage(t.anchorRegion)?'page':'snip'):'highlight',quiet:true});
 }
-function makeCardsFor(tid){if(!lastReply(tid)){toast('Ask something in this branch first');return}queueDraft(tid,{src:'made'})}
+// A branch's Cards button: drafts from what's new in the branch since cards were last drafted from it (only that);
+// with nothing new, it opens the branch's cards. "Draft more" in that view drafts again on purpose.
+const draftingT=new Map(),dKey=(tid)=>(conv?conv.id:'')+':'+tid;
+function makeCardsFor(tid){
+  if(draftingT.get(dKey(tid)))return;
+  if(!lastReply(tid)){toast('Ask something in this branch first');return}
+  const done=conv.cards&&conv.cards.done&&conv.cards.done[tid];
+  if(done===lastReply(tid)){openCards(conv.id,null,tid);return}
+  queueDraft(tid,{src:'made',since:done&&conv.msgs[done]?done:null});
+}
+function markCardButtons(){
+  if(!conv)return;const done=(conv.cards&&conv.cards.done)||{};
+  for(const [tid,el] of paneEls){const b=el.querySelector('[data-act=mkcards]');if(!b)continue;
+    const busy=!!draftingT.get(dKey(tid)),n=[...CARDS.values()].filter(c=>c.conv===conv.id&&c.thread===tid).length,fresh=lastReply(tid)&&done[tid]===lastReply(tid);
+    b.classList.toggle('busy',busy);b.disabled=busy;
+    b.querySelector('.tl').textContent=busy?'Drafting…':n&&fresh?`Cards · ${n}`:'Cards';
+    b.title=busy?'Drafting flashcards from this branch…':fresh?(n?`This branch’s ${n} card${n>1?'s':''}: review or edit them`:'No cards came from this branch. Open its cards to draft more'):done[tid]?'Draft flashcards from what’s new in this branch since cards were last made':'Have the model draft flashcards from this branch into your inbox';
+  }
+}
 function makeNewCards(){const l=newForCards();if(!l.length){toast('Nothing new since cards were last made.');return}for(const tid of l)queueDraft(tid,{src:'made',quiet:true});toast(`Drafting cards from ${l.length} thread${l.length>1?'s':''}…`)}
-function queueDraft(tid,o){drafting++;syncCardsUI();const c0=conv;draftChain=draftChain.then(()=>draftCards(c0,tid,o)).catch(e=>{console.warn('card drafting failed',e);toast('Couldn’t draft cards: '+((e&&e.message)||e))}).finally(()=>{drafting--;syncCardsUI()});return draftChain}
+function queueDraft(tid,o){const k=dKey(tid);drafting++;draftingT.set(k,(draftingT.get(k)||0)+1);syncCardsUI();const c0=conv;
+  draftChain=draftChain.then(()=>draftCards(c0,tid,o)).catch(e=>{console.warn('card drafting failed',e);toast('Couldn’t draft cards: '+((e&&e.message)||e))}).finally(()=>{drafting--;const n=draftingT.get(k)-1;if(n>0)draftingT.set(k,n);else draftingT.delete(k);syncCardsUI()});return draftChain}
 async function draftCards(c0,tid,o){
   if(conv!==c0)return;   // the conversation was switched before this branch's turn came
   if(!o.takeaway){   // another device may have drafted this thread already: catch up first, so the same cards aren't made twice
@@ -1729,47 +1794,97 @@ async function draftCards(c0,tid,o){
   await docReady();
   const ctx=buildContext(tid),seen=lastReply(tid);   // the same context and document tools as the conversation, so it can check the document and shares its prompt cache
   const have=[...CARDS.values()].filter(c=>c.conv===conv.id).map(c=>'- '+c.front.replace(/\s+/g,' ').slice(0,160)).slice(-80);
-  const ask=PROMPTS.cardsAsk({what:o.takeaway?'takeaway':tid==='main'?'main':'branch',about:t.anchorText?trunc(t.regionText||t.anchorText,120):'',takeaway:o.takeaway,snip:!!(t.anchorRegion&&!isWholePage(t.anchorRegion)),max:o.takeaway?4:3,have});
+  // only what's new since the last draft: the question that starts it
+  const ord=conv.order[tid]||[],from=o.since?ord.indexOf(o.since):-1,nextQ=from>=0?ord.slice(from+1).map(id=>conv.msgs[id]).find(m=>m&&m.role==='user'):null;
+  const ask=PROMPTS.cardsAsk({what:o.takeaway?'takeaway':tid==='main'?'main':'branch',about:t.anchorText?trunc(t.regionText||t.anchorText,120):'',takeaway:o.takeaway,snip:!!(t.anchorRegion&&!isWholePage(t.anchorRegion)),max:o.takeaway?4:3,have,after:nextQ?trunc(String(nextQ.text||nextQ.content||'').replace(/\s+/g,' '),140):''});
   const msgs=ctx.messages,last=msgs[msgs.length-1];if(last&&last.role==='user')appendText(last,'\n\n'+ask);else msgs.push({role:'user',content:ask});
   if(!io.llm)await io.ready;
   const rc=await resolveContext(ctx,!!io.llm.supportsImages);
   const r=await io.llm.complete({system:rc.system,messages:rc.messages,model:settings.model,effort:'low',web:false,tools:ctx.tools?{run:(n,i)=>runDocTool(n,i,[])}:undefined});
   let list=[];try{const a=r.text.indexOf('['),b=r.text.lastIndexOf(']');list=JSON.parse(r.text.slice(a,b+1))}catch(e){throw new Error('the model’s reply wasn’t a list of cards')}
   list=(Array.isArray(list)?list:[]).filter(x=>x&&typeof x.front==='string'&&typeof x.back==='string'&&x.front.trim()).slice(0,6);
+  for(const x of list){const q=typeof x.quote==='string'&&findQuote(x.quote,o.note?[o.note]:conv.order[tid]||[]);x.q=q||null}
   let image=null;
   if(list.length&&t.anchorRegion&&!isWholePage(t.anchorRegion)&&o.src!=='takeaway'){   // keep a copy of the snip with the card, so it can be reviewed without opening the PDF
     try{const bl=await imageBlob(regionRef(t));const [im]=await storeImages([{blob:bl,type:bl.type}]);image=im}catch(e){console.warn('snip not kept with the card',e)}
   }
   const at=o.note?{thread:o.noteThread,msg:o.note}:{thread:tid,msg:seen},where=tid==='main'?'Main thread':trunc(t.title||t.anchorText||'Branch',70);   // where to take the reader back to
-  for(const x of list)await putCard({id:'k'+rid()+rid(),conv:c0.id,convTitle:c0.title||'',thread:tid,at,where,src:o.src,front:x.front.trim(),back:x.back.trim(),...(image?{image}:{}),status:'inbox',created:Date.now(),due:null,fsrs:null,reviews:[]});
+  for(const x of list)await putCard({id:'k'+rid()+rid(),conv:c0.id,convTitle:c0.title||'',thread:tid,at,where,src:o.src,front:x.front.trim(),back:x.back.trim(),...(image?{image}:{}),...(x.q?{quote:x.q}:{}),status:'inbox',created:Date.now(),due:null,fsrs:null,reviews:[]});
   if(seen&&!o.takeaway){c0.cards.done=c0.cards.done||{};c0.cards.done[tid]=seen;if(conv===c0)save();else io.store.update(c0.id,{cards:c0.cards}).catch(()=>{})}
-  if(!o.quiet||list.length)toast(list.length?`${list.length} card${list.length>1?'s':''} drafted into your inbox`:'Nothing new worth a card there.');
+  if(!o.quiet||list.length){
+    if(list.length)toast(`${list.length} card${list.length>1?'s':''} drafted into your inbox`,{label:'Open',fn:()=>{if(conv&&conv.id===c0.id)openCards(c0.id,'inbox',o.src==='made'?tid:null)}});
+    else toast('Nothing new worth a card there.');
+  }
+}
+// --- a card's quote: where it is, and landing on it ---
+// words of a quote as a pattern that skips any punctuation, markup or spacing between them
+const quoteWords=(q)=>String(q||'').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+const quoteRe=(ws)=>new RegExp('(?<![\\p{L}\\p{N}])'+ws.map(reEsc).join('[^\\p{L}\\p{N}]+')+'(?![\\p{L}\\p{N}])','u');
+// where the model's quote is: in one of these messages (latest first), else a page of the document; null if nowhere
+function findQuote(text,mids){
+  const ws=quoteWords(text);if(ws.length<3)return null;const re=quoteRe(ws),q=text.trim().replace(/\s+/g,' ');
+  for(const id of [...mids].reverse()){const m=conv.msgs[id];if(m&&(m.role==='assistant'||m.role==='note')&&re.test(String(m.content||'').toLowerCase()))return {text:q,msg:id}}
+  const P=docState&&docState.loaded?docState.pages:[];
+  for(let i=0;i<P.length;i++)if(re.test((P[i]||'').toLowerCase()))return {text:q,page:i+1};
+  return null;
+}
+// highlight the quote inside root and scroll it into view (CSS Highlight API: no DOM changes, so anchors are
+// untouched). Rendered text can differ from the source (math): then it spans from its first words to its last.
+function showQuote(root,scroller,quote,scale){
+  if(!root||!scroller)return false;
+  const nodes=[],w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement.closest('.acts,button,svg')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+  let text='',n;while((n=w.nextNode())){nodes.push([n,text.length]);text+=n.data}
+  const low=text.toLowerCase(),ws=quoteWords(quote);if(ws.length<3)return false;
+  let from=-1,to=-1;const m=low.match(quoteRe(ws));
+  if(m){from=m.index;to=m.index+m[0].length}
+  else{const k=Math.min(6,ws.length),a=low.match(quoteRe(ws.slice(0,k))),b=low.match(quoteRe(ws.slice(-k)));
+    if(a&&b&&b.index>=a.index){from=a.index;to=b.index+b[0].length}else return false}
+  const at=o=>{let lo=0,hi=nodes.length-1;while(lo<hi){const mid=(lo+hi+1)>>1;if(nodes[mid][1]<=o)lo=mid;else hi=mid-1}return [nodes[lo][0],o-nodes[lo][1]]};
+  const r=document.createRange(),[a,ao]=at(from),[b,bo]=at(to-1);r.setStart(a,ao);r.setEnd(b,bo+1);
+  const rr=r.getBoundingClientRect(),sr=scroller.getBoundingClientRect();
+  scroller.scrollBy({top:(rr.top-sr.top-sr.height/3)/scale,behavior:'smooth'});
+  clearHit();try{CSS.highlights.set('digress-hit',new Highlight(r))}catch(e){}
+  hitTimer=setTimeout(clearHit,8000);return true;
 }
 // --- the panel: Review / Inbox / All ---
-const KS={scope:'conv',tab:'review',shown:false,editing:null,skipped:[]};
+const KS={scope:'all',thread:null,tab:'review',shown:false,editing:null,fixing:null,skipped:[],reviewed:0};
 // the cards to review, in order; ones you skipped go to the back (until the flashcards are closed)
 const reviewQueue=(scope)=>{const d=dueCards(scope),sk=KS.skipped;return [...d.filter(c=>!sk.includes(c.id)),...sk.map(id=>d.find(c=>c.id===id)).filter(Boolean)]};
-async function openCards(scope,tab){
-  await loadCards();KS.scope=scope||'conv';if(KS.scope==='conv'&&!conv)KS.scope='all';
-  KS.tab=tab||(dueCards(KS.scope).length?'review':[...CARDS.values()].some(c=>c.status==='inbox'&&inScope(c,KS.scope))?'inbox':'review');
-  KS.shown=false;KS.editing=null;KS.skipped=[];hideBackToReview();$('#cardsModal').classList.add('show');renderCards();
+// scope: 'all' or a conversation's id ('conv': the one open); thread: just that branch's cards
+async function openCards(scope,tab,thread){
+  await loadCards();KS.scope=scope==='conv'||!scope?(conv?conv.id:'all'):scope;KS.thread=KS.scope!=='all'&&thread||null;KS.reviewed=0;
+  KS.tab=tab||(dueCards(KS.scope).length?'review':[...CARDS.values()].some(c=>inInbox(c)&&inScope(c,KS.scope))?'inbox':KS.thread?'all':'review');
+  KS.shown=false;KS.editing=null;KS.fixing=null;KS.skipped=[];hideBackToReview();$('#cardsModal').classList.add('show');renderCards();
 }
 function closeCards(){$('#cardsModal').classList.remove('show')}
 const hideBackToReview=()=>{const b=$('#backReview');if(b)b.classList.remove('show')};
 function renderCards(){
   const box=$('#cardsModal .kbox'),scope=KS.scope,all=[...CARDS.values()].filter(c=>inScope(c,scope));
-  const due=reviewQueue(scope),inbox=all.filter(c=>c.status==='inbox'),kept=all.filter(c=>c.status!=='inbox');
+  const due=reviewQueue(scope),inbox=all.filter(inInbox),kept=all.filter(c=>c.status!=='inbox');
   // off with no cards: the explainer; off but with cards (turned off later): they're still there to review
-  const off=scope==='conv'&&!cardsOn()&&!all.length,paused=scope==='conv'&&!cardsOn()&&all.length>0,nNew=scope==='conv'?newForCards().length:0;
-  box.innerHTML=`<div class="khead"><span class="kt">Flashcards</span><select data-kscope aria-label="Which cards"><option value="conv">${conv?'“'+esc(trunc(conv.title||'New conversation',36))+'”':'This conversation'}</option><option value="all">All conversations</option></select><span class="sp"></span>${scope==='conv'&&cardsOn()?`<button class="mbtn" data-kact="make" ${nNew&&!drafting?'':'disabled'} title="Have the model draft cards from the threads that changed since cards were last made">${drafting?'Drafting…':nNew?`Make cards · ${nNew} new`:'Up to date'}</button>`:''}<button class="ib" data-kact="close" title="Close (Esc)">${ic('x')}</button></div>
+  const here=!!conv&&scope===conv.id,on=here&&cardsOn(),br=here&&KS.thread&&T(KS.thread);
+  const off=here&&!cardsOn()&&!all.length,paused=here&&!cardsOn()&&all.length>0,nNew=on&&!br?newForCards().length:0;
+  box.innerHTML=`<div class="khead"><span class="kt">Flashcards</span>${cardsPicker(scope)}${br?`<span class="kbranch" style="--c:${color(br)}"><i></i><span></span><button data-kact="allbranches" title="All of this conversation’s cards">${ic('x')}</button></span>`:''}<span class="sp"></span>${on&&!br?`<button class="mbtn" data-kact="make" ${nNew&&!drafting?'':'disabled'} title="Have the model draft cards from the threads that changed since cards were last made">${drafting?'Drafting…':nNew?`Make cards · ${nNew} new`:'Up to date'}</button>`:''}${on&&br?`<button class="mbtn" data-kact="draftmore" ${draftingT.get(dKey(KS.thread))?'disabled':''} title="Have the model draft more cards from this branch, besides the ones it has">${draftingT.get(dKey(KS.thread))?'Drafting…':'Draft more'}</button>`:''}<button class="ib" data-kact="close" title="Close (Esc)">${ic('x')}</button></div>
     ${off?'':`<div class="ktabs"><button data-ktab="review" class="${KS.tab==='review'?'on':''}">Review${due.length?` (${due.length})`:''}</button><button data-ktab="inbox" class="${KS.tab==='inbox'?'on':''}">Inbox${inbox.length?` (${inbox.length})`:''}</button><button data-ktab="all" class="${KS.tab==='all'?'on':''}">All cards (${kept.length})</button></div>`}
-    <div class="kbody"></div>${scope==='conv'&&cardsOn()?`<div class="kfoot" style="padding:0 14px 12px"><span class="sp"></span><button data-kact="off" title="Stop drafting cards for this conversation. Cards you have stay.">Turn off for this conversation</button></div>`:paused?`<div class="kfoot" style="padding:0 14px 12px"><span style="color:var(--faint);font-size:12.5px">New cards are off for this conversation.</span><span class="sp"></span><button data-kact="on" title="Draft cards from this conversation again">Turn back on</button></div>`:''}`;
-  box.querySelector('[data-kscope]').value=scope;
+    <div class="kbody"></div>${on?`<div class="kfoot" style="padding:0 14px 12px"><span class="sp"></span><button data-kact="off" title="Stop drafting cards for this conversation. Cards you have stay.">Turn off for this conversation</button></div>`:paused?`<div class="kfoot" style="padding:0 14px 12px"><span style="color:var(--faint);font-size:12.5px">New cards are off for this conversation.</span><span class="sp"></span><button data-kact="on" title="Draft cards from this conversation again">Turn back on</button></div>`:''}`;
+  box.querySelector('[data-kscope]').value=scope;if(br)box.querySelector('.kbranch>span').textContent=trunc(br.title||br.anchorText||'Branch',40);
   const body=box.querySelector('.kbody');
   if(off){body.innerHTML=`<div class="kempty"><b>Flashcards are off for this conversation.</b><br>Turn them on and the model drafts cards from your highlights, snips and takeaways into an inbox. You keep the ones you want and review them with spaced repetition. Nothing changes until you do.<br><button class="mbtn primary" data-kact="on">Turn on for this conversation</button></div>`;return}
   if(KS.tab==='review')renderReview(body,due);
   else if(KS.tab==='inbox')renderInbox(body,inbox);
   else renderAllCards(body,kept);
+}
+// which cards: all, or one conversation's (each with what's due and new), most due first; the open one always listed
+function cardsPicker(scope){
+  const by=new Map();
+  for(const c of CARDS.values()){if(cardHeld(c))continue;const e=by.get(c.conv)||by.set(c.conv,{due:0,inbox:0,title:c.convTitle}).get(c.conv);
+    if(inInbox(c))e.inbox++;else if(c.status==='active'&&(c.due||0)<=Date.now())e.due++}
+  if(conv&&!by.has(conv.id))by.set(conv.id,{due:0,inbox:0});
+  if(scope!=='all'&&!by.has(scope))by.set(scope,{due:0,inbox:0});
+  const counts=(e)=>[e.due?e.due+' due':'',e.inbox?e.inbox+' new':''].filter(Boolean).join(', ');
+  const all={due:dueCards('all').length,inbox:[...CARDS.values()].filter(c=>inInbox(c)&&!cardHeld(c)).length};
+  const rows=[...by].map(([id,e])=>{const m=convInfo(id);return [id,e,(m&&m.title)||e.title||'New conversation']}).sort((a,b)=>b[1].due-a[1].due||b[1].inbox-a[1].inbox||a[2].localeCompare(b[2]));
+  return `<select data-kscope aria-label="Which cards"><option value="all">All conversations${counts(all)?' · '+counts(all):''}</option>${rows.map(([id,e,t])=>`<option value="${esc(id)}">${esc(trunc(t,40))}${counts(e)?' · '+counts(e):''}</option>`).join('')}</select>`;
 }
 function cardFace(el,text,image){
   if(image){const b=document.createElement('button');b.className='kimg';b.dataset.zoomref='1';b.__ref=image;b.title='Show larger';const im=document.createElement('img');im.alt='';b.appendChild(im);el.appendChild(b);imageURL(image).then(u=>{im.src=u}).catch(()=>b.remove())}
@@ -1784,28 +1899,41 @@ function srcNote(c){
   else d.textContent='Where this came from was deleted, so it can’t take you back there any more. Keep it, or delete it below.';
   return d;
 }
+const docLabel=(c)=>conv&&conv.id===c.conv&&conv.doc&&conv.doc.kind!=='pdf'?'Part':'p.';
 function srcLabel(c){return ({highlight:'from a highlight',snip:'from a snip',page:'from a page',takeaway:'from a takeaway',made:'made from a branch'})[c.src]||''}
 function renderReview(body,due){
   if(!due.length){
     const next=[...CARDS.values()].filter(c=>c.status==='active'&&inScope(c,KS.scope)).sort((a,b)=>a.due-b.due)[0];
-    const n=[...CARDS.values()].filter(c=>c.status==='inbox'&&inScope(c,KS.scope)).length;
+    const n=[...CARDS.values()].filter(c=>inInbox(c)&&inScope(c,KS.scope)).length;
     body.innerHTML=`<div class="kempty">${next?`Nothing due right now. The next card is due in ${ivlText(next.due-Date.now())}.`:'No cards to review yet.'}${n?`<br><button class="mbtn" data-ktab="inbox">${n} card${n>1?'s':''} waiting in the inbox</button>`:''}</div>`;return;
   }
-  const c=due[0],now=Date.now();
-  body.innerHTML=`<div class="kbar"><span>${due.length} due</span><span class="sp"></span><span class="kmeta"></span></div><div class="kcard"><div class="kfront"></div></div><div class="kfoot"><button data-kact="del" data-kid="${c.id}">Delete card</button><span class="kpend">${esc(pendNote())}</span><span class="sp"></span>${due.length>1?`<button data-kact="skip" data-kid="${c.id}" title="Not now: go on to the next card. This one comes back at the end. (S)">Skip</button>`:''}</div>`;
-  body.querySelector('.kmeta').replaceWith(srcLink(c,KS.scope==='all'));
-  const sn=srcNote(c);if(sn)body.querySelector('.kbar').after(sn);
+  const c=due[0],now=Date.now(),t=conv&&conv.id===c.conv&&T(c.thread);
+  if(KS.editing===c.id){body.innerHTML='';body.appendChild(cardEditor(c,false));body.querySelector('.kef').focus();return}   // Edit, from the answer: your own fix, schedule kept
+  // the session's progress: a hairline across the top of the card
+  const pct=Math.round(100*KS.reviewed/(KS.reviewed+due.length));
+  body.innerHTML=`<div class="kcard${KS.shown?' shown':''}" style="--c:${t?color(t):'var(--faint)'}"><div class="kprog" style="--p:${pct}%" title="${KS.reviewed} reviewed, ${due.length} to go"></div><div class="korigin"><i></i><span></span><span class="kleft">${due.length} to go</span></div><div class="kfront"></div></div><div class="kfoot"><button data-kact="del" data-kid="${c.id}">Delete card</button><span class="kpend">${esc(pendNote())}</span><span class="sp"></span>${due.length>1?`<button data-kact="skip" data-kid="${c.id}" title="Not now: go on to the next card. This one comes back at the end. (S)">Skip</button>`:''}</div>`;
+  body.querySelector('.korigin>span').textContent=[KS.scope==='all'?trunc((convInfo(c.conv)||{}).title||c.convTitle||'',40):'',c.where||srcLabel(c)].filter(Boolean).join(' · ');
+  const sn=srcNote(c);if(sn)body.prepend(sn);
   const card=body.querySelector('.kcard');cardFace(card.querySelector('.kfront'),c.front,c.image);
-  if(!KS.shown){const b=document.createElement('button');b.className='mbtn primary kshow';b.dataset.kact='show';b.textContent='Show answer';b.title='Space';card.after(b);return}
+  if(!KS.shown){const b=document.createElement('button');b.className='kshow';b.dataset.kact='show';b.innerHTML='Show answer <kbd>Space</kbd>';card.appendChild(b);return}
   const back=document.createElement('div');back.className='kback';card.appendChild(back);cardFace(back,c.back);
+  // where it came from, only with the answer: the sentence it rests on, and the way back to it
+  const src=document.createElement('div');src.className='kfrom';
+  if(c.quote){const q=document.createElement('blockquote');q.className='kquote';q.textContent=plain(c.quote.text);src.appendChild(q)}   // as read, not as Markdown
+  const go=document.createElement('button');go.className='kopen';go.dataset.kact='open';go.dataset.kid=c.id;go.title='Open it in its conversation (O)';
+  go.textContent=(c.quote&&c.quote.page?(docLabel(c)+' '+c.quote.page+' · '):'')+'Open in conversation →';
+  const acts=document.createElement('div');acts.className='kacts';acts.appendChild(go);
+  acts.insertAdjacentHTML('beforeend',`<span class="sp"></span><button class="klink" data-kact="edit" data-kid="${c.id}" title="Edit this card yourself (E)">Edit</button>${io.offline?'':`<button class="klink" data-kact="fix" data-kid="${c.id}" title="Something’s off: have the model check it against the conversation and suggest a fix, which waits in your inbox (F)">Fix…</button>`}`);
+  src.appendChild(acts);card.appendChild(src);
+  if(KS.fixing===c.id){card.after(fixForm(c));return}
   const rate=document.createElement('div');rate.className='krate';
-  rate.innerHTML=[['Again',1],['Hard',2],['Good',3],['Easy',4]].map(([l,g])=>`<button data-krate="${g}" data-kid="${c.id}" title="${l} (${g})">${l}<small>${ivlText(fsrsNext(c.fsrs,g,now).due-now)}</small></button>`).join('');
+  rate.innerHTML=[['Again',1],['Hard',2],['Good',3],['Easy',4]].map(([l,g])=>`<button data-krate="${g}" data-kid="${c.id}" data-g="${g}" title="${l} (${g})">${l}<small>${ivlText(fsrsNext(c.fsrs,g,now).due-now)}</small></button>`).join('');
   card.after(rate);
 }
 function renderInbox(body,inbox){
-  if(!inbox.length){body.innerHTML=`<div class="kempty">The inbox is empty.${KS.scope==='conv'?' Cards drafted from your highlights, snips and takeaways land here, and so do the ones from “Make cards”.':''}</div>`;return}
-  body.innerHTML=`<div class="kbar"><span>Keep the cards worth reviewing; edit them first if you like.</span><span class="sp"></span><button class="mbtn" data-kact="keepall">Keep all</button><button class="mbtn" data-kact="delall">Delete all</button></div>`;
-  for(const c of inbox.sort((a,b)=>a.created-b.created))body.appendChild(cardEditor(c,true));
+  if(!inbox.length){body.innerHTML=`<div class="kempty">The inbox is empty.${KS.scope!=='all'?' Cards drafted from your highlights, snips and takeaways land here, and so do the ones from “Make cards”.':''}</div>`;return}
+  body.innerHTML=inbox.some(c=>!c.fix)?`<div class="kbar"><span>Keep the cards worth reviewing; edit them first if you like.</span><span class="sp"></span><button class="mbtn" data-kact="keepall">Keep all</button><button class="mbtn" data-kact="delall">Delete all</button></div>`:'';
+  for(const c of inbox.sort((a,b)=>(a.fix?a.fix.at:a.created)-(b.fix?b.fix.at:b.created)))body.appendChild(c.fix?fixItem(c):cardEditor(c,true));
 }
 function cardEditor(c,isInbox){
   const it=document.createElement('div');it.className='kitem';it.dataset.kid=c.id;
@@ -1826,10 +1954,91 @@ function renderAllCards(body,kept){
     body.appendChild(it);
   }
 }
+// Fix…: what's off (a few one-tap reasons and an optional note), sent to the model in the background
+const FIX_TAGS=['Wrong','Unclear','Too vague','Two questions in one','Answer too long'];
+function fixForm(c){
+  const f=document.createElement('div');f.className='kfix';
+  f.innerHTML=`<div class="kfixt">What’s off? <span>Optional. The model checks it against the conversation; its suggestion waits in your inbox.</span></div><div class="kchips">${FIX_TAGS.map(x=>`<button data-kchip="${esc(x)}">${esc(x)}</button>`).join('')}</div><textarea class="kfixn" rows="2" placeholder="Say why, if you like"></textarea><div class="kfoot"><span class="sp"></span><button data-kact="cancelfix">Cancel</button><button class="mbtn primary" data-kact="sendfix" data-kid="${c.id}">Send <kbd>${/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent)?"⌘":"Ctrl+"}↵</kbd></button></div>`;
+  const d=KS.fixDraft&&KS.fixDraft.id===c.id?KS.fixDraft:(KS.fixDraft={id:c.id,note:'',tags:[]});
+  const t=f.querySelector('textarea');t.value=d.note;t.oninput=()=>{d.note=t.value};
+  f.querySelectorAll('[data-kchip]').forEach(x=>x.classList.toggle('on',d.tags.includes(x.dataset.kchip)));
+  setTimeout(()=>t.focus({preventScroll:true}),0);return f;
+}
+const fixJobs=new Set();   // fixes this page is working on (a pending one from a closed page shows as unfinished)
+async function sendFix(c,note,tags){
+  KS.fixing=null;KS.fixDraft=null;KS.shown=false;c.fix={state:'pending',note,tags,at:Date.now()};await putCard(c);renderCards();
+  toast('Working on a fix. It will wait in your inbox.');runFix(c);
+}
+async function runFix(c){
+  fixJobs.add(c.id);if(c.fix.state!=='pending'){c.fix={...c.fix,state:'pending',at:Date.now(),err:''};await putCard(c)}
+  try{
+    const r=await askFix(c);const f=CARDS.get(c.id);if(!f||!f.fix)return;   // deleted or settled meanwhile
+    Object.assign(f.fix,r,{state:'ready'});await putCard(f);
+    toast(r.verdict==='right'?'The model thinks that card is right; its reasons are in your inbox.':'A fix for that card is in your inbox.',{label:'Open',fn:()=>openCards(KS.scope==='all'||!conv?'all':conv.id,'inbox')});
+  }catch(e){console.warn('card fix failed',e);const f=CARDS.get(c.id);if(f&&f.fix){f.fix.state='failed';f.fix.err=String((e&&e.message)||e).slice(0,200);await putCard(f)}toast('Couldn’t fix the card: '+((e&&e.message)||e))}
+  finally{fixJobs.delete(c.id);if($('#cardsModal').classList.contains('show'))renderCards()}
+}
+// one model call: with the open conversation's own context and document tools (the same as drafting, sharing its
+// prompt cache); for a card from another conversation, the stored branch it came from goes along as text
+async function askFix(c){
+  if(!io.llm)await io.ready;
+  const ask=PROMPTS.cardFix({front:c.front,back:c.back,quote:c.quote&&c.quote.text,note:c.fix.note,tags:c.fix.tags||[]});
+  let req,mine=conv&&conv.id===c.conv&&T(c.thread),src=null;
+  if(mine){
+    await docReady();const ctx=buildContext(c.thread),msgs=ctx.messages,last=msgs[msgs.length-1];
+    if(last&&last.role==='user')appendText(last,'\n\n'+ask);else msgs.push({role:'user',content:ask});
+    const rc=await resolveContext(ctx,!!io.llm.supportsImages);
+    req={system:rc.system,messages:rc.messages,tools:ctx.tools?{run:(n,i)=>runDocTool(n,i,[])}:undefined};
+  }else{
+    src=await io.store.get(c.conv).catch(()=>null);const lines=[];
+    if(src&&src.threads&&src.threads[c.thread])ThreadOps.walk(src,c.thread,m=>{const x=String(m.content||m.text||'').trim();if(x)lines.push((m.role==='user'?'Learner: ':m.role==='note'?'Takeaway: ':'Tutor: ')+x)});
+    const text=lines.join('\n\n').slice(-60000);
+    req={system:PROMPTS.system,messages:[{role:'user',content:(text?PROMPTS.cardFixSource(text)+'\n\n':'')+ask}]};
+  }
+  const r=await io.llm.complete({...req,model:settings.model,effort:'low',web:false});
+  let o;try{const a=r.text.indexOf('{'),b=r.text.lastIndexOf('}');o=JSON.parse(r.text.slice(a,b+1))}catch(e){throw new Error('the model’s reply wasn’t a fix')}
+  const verdict=['rewrite','split','delete','right'].includes(o&&o.verdict)?o.verdict:null;if(!verdict)throw new Error('the model’s reply wasn’t a fix');
+  let cards=(Array.isArray(o.cards)?o.cards:[]).filter(x=>x&&typeof x.front==='string'&&typeof x.back==='string'&&x.front.trim()).slice(0,verdict==='split'?2:1);
+  if((verdict==='rewrite'||verdict==='split')&&!cards.length)throw new Error('the model’s fix had no card in it');
+  // a quote is kept only where it really is (in the open conversation; elsewhere it can't be checked, so the card keeps its own)
+  cards=cards.map(x=>{const q=mine&&typeof x.quote==='string'?findQuote(x.quote,conv.order[c.thread]||[]):null;return {front:x.front.trim(),back:x.back.trim(),...(q?{quote:q}:{})}});
+  return {verdict,why:typeof o.why==='string'?o.why.trim().slice(0,600):'',change:o.change==='answer'?'answer':'wording',cards};
+}
+// a fix in the inbox: before, the model's suggestion (editable) and why; Accept or keep the card as it was
+function fixItem(c){
+  const f=c.fix,it=document.createElement('div');it.className='kitem kfixit';it.dataset.kid=c.id;
+  const stale=f.state==='pending'&&!fixJobs.has(c.id)&&Date.now()-(f.at||0)>3*60e3,state=stale?'failed':f.state;
+  const said=[(f.tags||[]).join(', '),f.note].filter(Boolean).join('. ');
+  it.innerHTML=`<div class="kfixh"><b>Fix</b><span class="kfixs"></span><span class="sp"></span><span class="kmeta"></span></div><div class="kwas"><div class="kfr"></div><div class="kbk"></div></div><div class="kfixb"></div><div class="kfoot"></div>`;
+  it.querySelector('.kfixs').textContent=said?'· you said: '+said:'';
+  it.querySelector('.kfr').textContent=c.front;it.querySelector('.kbk').textContent=c.back;
+  it.querySelector('.kmeta').replaceWith(srcLink(c,KS.scope==='all'));
+  const b=it.querySelector('.kfixb'),foot=it.querySelector('.kfoot');
+  if(state==='pending'){b.innerHTML='<div class="kwhy busy">Checking it against the conversation…</div>';foot.innerHTML=`<span class="sp"></span><button data-kact="dropfix" data-kid="${c.id}" title="Never mind: the card goes back into review as it is">Cancel</button>`;return it}
+  if(state==='failed'){b.innerHTML=`<div class="kwhy">${stale?'This fix didn’t finish (the page was closed while it ran).':'Couldn’t fix it: '+esc(f.err||'')}</div>`;foot.innerHTML=`<span class="sp"></span><button data-kact="dropfix" data-kid="${c.id}">Never mind</button><button class="mbtn primary" data-kact="retryfix" data-kid="${c.id}">Try again</button>`;return it}
+  const why=document.createElement('div');why.className='kwhy';
+  why.textContent=({right:'Looks right as it is. ',delete:'Suggests deleting it. ',split:'Suggests two cards. ',rewrite:''})[f.verdict]+(f.why||'');b.appendChild(why);
+  const after=f.verdict==='right'?[{front:c.front,back:c.back}]:f.verdict==='delete'?[]:f.cards;
+  for(const x of after){const p=document.createElement('div');p.className='kpair';p.innerHTML='<textarea class="kef" rows="2" aria-label="Front"></textarea><textarea class="keb" rows="3" aria-label="Back"></textarea>';p.querySelector('.kef').value=x.front;p.querySelector('.keb').value=x.back;b.appendChild(p)}
+  if(f.verdict==='rewrite'||f.verdict==='split'){const n=document.createElement('div');n.className='kchg';n.textContent=f.change==='answer'?'The answer changed, so it starts over as a new card.':'Same fact, better wording: it keeps its schedule.';b.appendChild(n)}
+  foot.innerHTML=f.verdict==='delete'?`<button data-kact="dropfix" data-kid="${c.id}">Keep the card</button><span class="sp"></span><button class="mbtn primary" data-kact="del" data-kid="${c.id}">Delete it</button>`
+    :f.verdict==='right'?`<button data-kact="del" data-kid="${c.id}">Delete card</button><span class="sp"></span><button class="mbtn primary" data-kact="acceptfix" data-kid="${c.id}">Keep it</button>`
+    :`<button data-kact="del" data-kid="${c.id}">Delete card</button><span class="sp"></span><button data-kact="dropfix" data-kid="${c.id}" title="Ignore the suggestion: the card goes back into review as it was">Keep original</button><button class="mbtn primary" data-kact="acceptfix" data-kid="${c.id}">Accept${f.verdict==='split'?' both':''}</button>`;
+  return it;
+}
+async function acceptFix(c,it){
+  const f=c.fix,pairs=[...it.querySelectorAll('.kpair')].map(p=>({front:p.querySelector('.kef').value.trim(),back:p.querySelector('.keb').value.trim()}));
+  if(pairs.some(p=>!p.front)){toast('A card needs a front.');return}
+  const reset=f.verdict!=='right'&&f.change==='answer',[one,two]=pairs,q=(i)=>f.cards&&f.cards[i]&&f.cards[i].quote;
+  delete c.fix;Object.assign(c,one);if(f.verdict!=='right'&&q(0))c.quote=q(0);
+  if(reset){c.fsrs=null;c.due=Date.now()}
+  await putCard(c);
+  if(two){const n={...c,id:'k'+rid()+rid(),front:two.front,back:two.back,status:'active',created:Date.now(),due:Date.now(),fsrs:null,reviews:[]};delete n.quote;if(q(1))n.quote=q(1);await putCard(n)}
+}
 function skipCard(id){KS.skipped=[...KS.skipped.filter(x=>x!==id),id];KS.shown=false;renderCards()}
 async function rateCard(id,g){
   const c=CARDS.get(id);if(!c)return;const now=Date.now(),n=fsrsNext(c.fsrs,g,now);
-  c.fsrs=n.fsrs;c.due=n.due;(c.reviews=c.reviews||[]).push({at:now,g});KS.shown=false;await putCard(c);
+  c.fsrs=n.fsrs;c.due=n.due;(c.reviews=c.reviews||[]).push({at:now,g});KS.shown=false;KS.reviewed++;await putCard(c);
 }
 // Takes you to where a card came from: its branch, scrolled to the reply it was drafted from (or the takeaway),
 // with the highlighted passage flashing in the parent. A "Back to review" pill returns to the same card.
@@ -1838,13 +2047,21 @@ async function openCardSource(c){
   if(!conv||conv.id!==c.conv){if(!convList.some(x=>x.id===c.conv)){toast('That conversation was deleted.');return}closeCards();await openConv(c.conv)}
   if(!T(c.thread)){toast('That branch was deleted.');return}
   closeCards();showBackToReview();
-  const at=c.at&&T(c.at.thread)&&conv.msgs[c.at.msg]?c.at:{thread:c.thread,msg:lastReply(c.thread)};
+  const q=c.quote,qm=q&&q.msg&&conv.msgs[q.msg];
+  if(q&&q.page&&conv.doc){   // the sentence is in the document: that page, highlighted
+    if(conv.ui.view==='canvas'&&!(cvState().dock||{}).doc)dockCard('doc',REGIONS.fill);else if(conv.ui.view!=='canvas')openDocPane();
+    await goToPage(q.page);setTimeout(()=>{const el=paneEls.get('doc');if(!el)return;const pdf=docState.kind==='pdf';
+      showQuote(pdf?el.querySelector(`.dpage[data-page="${q.page}"]`):el.querySelector('.pb'),el.querySelector('.pb'),q.text,1)},450);return}
+  const at=qm&&T(qm.thread)?{thread:qm.thread,msg:q.msg}:c.at&&T(c.at.thread)&&conv.msgs[c.at.msg]?c.at:{thread:c.thread,msg:lastReply(c.thread)};
+  if(conv.ui.view==='canvas'){focusCard(at.thread,at.msg);if(qm)setTimeout(()=>{const n=$('#cv').querySelector(`.cnode[data-ctid="${at.thread}"]`);if(!n)return;
+    showQuote(n.querySelector(`.cfull .msg[data-mid="${at.msg}"] .body`),n.querySelector('.cfull'),q.text,contentScale(n))},350);return}
   const t=T(c.thread);
-  if(t.parent&&conv.ui.view!=='canvas')revealAnchor(c.thread);   // flash the passage it branched from
+  if(t.parent&&!qm)revealAnchor(c.thread);   // flash the passage it branched from
   if(at.thread!=='main'&&!conv.ui.open.includes(at.thread))openThread(at.thread,T(at.thread).parent);
   if(isCollapsed(at.thread)){conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==at.thread);layout()}
-  if(at.msg)revealMsg(at.thread,at.msg);
   revealPane(at.thread);
+  if(qm)requestAnimationFrame(()=>{const pe=paneEls.get(at.thread),b=pe&&pe.querySelector(`.msg[data-mid="${at.msg}"] .body`);if(!showQuote(b,pe&&pe.querySelector('.pb'),q.text,1))revealMsg(at.thread,at.msg)});
+  else if(at.msg)revealMsg(at.thread,at.msg);
 }
 function showBackToReview(){
   let b=$('#backReview');
@@ -1856,6 +2073,7 @@ function showBackToReview(){
 $('#cardsModal').addEventListener('click',async e=>{
   if(e.target.id==='cardsModal'){closeCards();return}
   const tab=e.target.closest('[data-ktab]');if(tab){KS.tab=tab.dataset.ktab;KS.shown=false;KS.editing=null;renderCards();return}
+  const ch=e.target.closest('[data-kchip]');if(ch){ch.classList.toggle('on');if(KS.fixDraft)KS.fixDraft.tags=[...ch.parentNode.querySelectorAll('.on')].map(x=>x.dataset.kchip);return}
   const r=e.target.closest('[data-krate]');if(r){await rateCard(r.dataset.kid,+r.dataset.krate);return}
   const b=e.target.closest('[data-kact]');if(!b)return;
   const a=b.dataset.kact,c=b.dataset.kid&&CARDS.get(b.dataset.kid),it=b.closest('.kitem');
@@ -1864,29 +2082,40 @@ $('#cardsModal').addEventListener('click',async e=>{
   else if(a==='on'){conv.cards={...(conv.cards||{}),on:true,done:(conv.cards&&conv.cards.done)||{}};save();syncCardsUI();renderCards();const n=newForCards().length;if(n)toast(`Turned on. “Make cards” can draft cards from the ${n} thread${n>1?'s':''} already here.`)}
   else if(a==='off'){conv.cards.on=false;save();syncCardsUI();renderCards()}
   else if(a==='make')makeNewCards();
+  else if(a==='draftmore'&&KS.thread){queueDraft(KS.thread,{src:'made'});renderCards()}
+  else if(a==='allbranches'){KS.thread=null;KS.shown=false;renderCards()}
   else if(a==='show'){KS.shown=true;renderCards()}
   else if(a==='skip'&&c)skipCard(c.id);
   else if(a==='open'&&c)openCardSource(c);
   else if(a==='del'&&c)await dropCard(c.id);
   else if(a==='keep'&&c){const x=edited();if(!x.front){toast('A card needs a front.');return}Object.assign(c,x,{status:'active',due:Date.now()});await putCard(c)}
-  else if(a==='keepall'){for(const k of [...CARDS.values()].filter(k=>k.status==='inbox'&&inScope(k,KS.scope))){const el=$('#cardsModal').querySelector(`.kitem[data-kid="${k.id}"]`);if(el){k.front=el.querySelector('.kef').value.trim()||k.front;k.back=el.querySelector('.keb').value.trim()}k.status='active';k.due=Date.now();await putCard(k)}}
+  else if(a==='keepall'){for(const k of [...CARDS.values()].filter(k=>k.status==='inbox'&&!k.fix&&inScope(k,KS.scope))){const el=$('#cardsModal').querySelector(`.kitem[data-kid="${k.id}"]`);if(el){k.front=el.querySelector('.kef').value.trim()||k.front;k.back=el.querySelector('.keb').value.trim()}k.status='active';k.due=Date.now();await putCard(k)}}
   else if(a==='restoreconv'){if(c){await restoreConv(c.conv);renderCards()}}
-  else if(a==='delall'){for(const k of [...CARDS.values()].filter(k=>k.status==='inbox'&&inScope(k,KS.scope)))await dropCard(k.id)}
-  else if(a==='edit'&&c){KS.editing=c.id;renderCards()}
+  else if(a==='delall'){for(const k of [...CARDS.values()].filter(k=>k.status==='inbox'&&!k.fix&&inScope(k,KS.scope)))await dropCard(k.id)}
+  else if(a==='edit'&&c){KS.editing=c.id;KS.fixing=null;renderCards()}
   else if(a==='canceledit'){KS.editing=null;renderCards()}
+  else if(a==='fix'&&c){KS.fixing=c.id;KS.editing=null;renderCards()}
+  else if(a==='cancelfix'){KS.fixing=null;renderCards()}
+  else if(a==='sendfix'&&c){const f=b.closest('.kfix');sendFix(c,f.querySelector('.kfixn').value.trim(),[...f.querySelectorAll('[data-kchip].on')].map(x=>x.dataset.kchip))}
+  else if(a==='retryfix'&&c){runFix(c);renderCards()}
+  else if(a==='dropfix'&&c){delete c.fix;await putCard(c)}
+  else if(a==='acceptfix'&&c&&c.fix)await acceptFix(c,it);
   else if(a==='saveedit'&&c){const x=edited();if(!x.front){toast('A card needs a front.');return}KS.editing=null;Object.assign(c,x);await putCard(c)}
   else if(a==='suspend'&&c){c.status=c.status==='suspended'?'active':'suspended';await putCard(c)}
 });
-$('#cardsModal').addEventListener('change',e=>{if(e.target.matches('[data-kscope]')){KS.scope=e.target.value;KS.shown=false;KS.editing=null;renderCards()}});
+$('#cardsModal').addEventListener('change',e=>{if(e.target.matches('[data-kscope]')){KS.scope=e.target.value;KS.thread=null;KS.shown=false;KS.editing=null;KS.reviewed=0;renderCards()}});
 document.addEventListener('keydown',e=>{
   if(!$('#cardsModal').classList.contains('show'))return;
-  if(e.key==='Escape'){e.preventDefault();closeCards();return}
-  if(e.target.closest('textarea,input,select')||KS.tab!=='review')return;
+  if(e.key==='Escape'){e.preventDefault();if(KS.fixing||(KS.editing&&KS.tab==='review')){KS.fixing=KS.editing=null;renderCards()}else closeCards();return}
+  if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)&&e.target.closest('.kfix')){e.preventDefault();e.target.closest('.kfix').querySelector('[data-kact=sendfix]').click();return}
+  if(e.target.closest('textarea,input,select')||KS.tab!=='review'||KS.fixing||KS.editing)return;
   const due=reviewQueue(KS.scope);if(!due.length)return;
   if(!KS.shown&&(e.key===' '||e.key==='Enter')){e.preventDefault();KS.shown=true;renderCards()}
   else if((e.key==='s'||e.key==='S')&&due.length>1){e.preventDefault();skipCard(due[0].id)}
   else if(KS.shown&&/^[1-4]$/.test(e.key)){e.preventDefault();rateCard(due[0].id,+e.key)}
   else if(e.key==='o'||e.key==='O'){e.preventDefault();openCardSource(due[0])}
+  else if(KS.shown&&(e.key==='e'||e.key==='E')){e.preventDefault();KS.editing=due[0].id;renderCards()}
+  else if(KS.shown&&(e.key==='f'||e.key==='F')&&!io.offline){e.preventDefault();KS.fixing=due[0].id;renderCards()}
 });
 $('#reviewBtn').addEventListener('click',()=>openCards('all'));
 
@@ -2917,7 +3146,7 @@ function layout(){
   while(wrap.children.length>seq.length)wrap.lastChild.remove();
   fresh.forEach(tid=>renderPane(tid,true));
   syncViewSeg();
-  wiresSoon();markCur();markReplies();
+  wiresSoon();markCur();markReplies();markCardButtons();
   if(inDock)placeDocPane();
 }
 /* Reorder panes by dragging the grip at the left of a pane's header, or a collapsed strip itself (Columns / Rows). The drag starts after a
@@ -5063,7 +5292,7 @@ function renderConvList(){
   const fb=$('#cFilt');fb.classList.toggle('show',anyDoc);fb.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.cf===filt));
   const shown=c=>filt==='all'||(filt==='doc')===!!c.doc||(conv&&c.id===conv.id);   // the open one always shows
   // flashcards per conversation: a badge (due count) and, on hover, a button that opens just its cards
-  const kc={},now=Date.now();for(const k of CARDS.values()){if(k.status==='suspended')continue;const e=kc[k.conv]||(kc[k.conv]={n:0,due:0,inbox:0});e.n++;if(k.status==='inbox')e.inbox++;else if((k.due||0)<=now)e.due++}
+  const kc={},now=Date.now();for(const k of CARDS.values()){if(k.status==='suspended')continue;const e=kc[k.conv]||(kc[k.conv]={n:0,due:0,inbox:0});e.n++;if(inInbox(k))e.inbox++;else if((k.due||0)<=now&&!k.fix)e.due++}
   const sig=JSON.stringify([conv&&conv.id,archOpen,trashOpen,filt,kc,new Date().toDateString(),items.map(c=>[c.id,c.title,c.pinned,c.archived,c.trashed,c.dropCards,c.doc,c.pins])]);
   if(sig===convListSig&&$('#clist').childElementCount+$('#plist').childElementCount+$('#alist').childElementCount+$('#xlist').childElementCount)return;
   // two conversations with the same name (say, two on one document) are told apart by the day they started
@@ -5097,6 +5326,8 @@ function renderConvList(){
   $('#pinWrap').style.display=pl.children.length?'':'none';
   const el=$('#clist');el.replaceChildren();
   for(const c of active.filter(c=>!c.pinned&&shown(c)))el.appendChild(row(c));
+  // the list scrolls inside itself: when another conversation opens, bring its row into view there (only the list moves)
+  if(conv&&listCur!==conv.id){listCur=conv.id;requestAnimationFrame(()=>{for(const l of [el,pl]){const r=l.querySelector('.citem.cur');if(r&&(r.offsetTop<l.scrollTop||r.offsetTop+r.offsetHeight>l.scrollTop+l.clientHeight))l.scrollTop=r.offsetTop-l.clientHeight/3}})}
   if(!el.children.length)el.innerHTML=`<div class="citem" style="cursor:default;color:var(--faint)">${filt==='doc'?'No document conversations':filt==='chat'?'No chats without a document':'No other conversations'}</div>`;
   const al=$('#alist');al.replaceChildren();arch.filter(shown).forEach(c=>al.appendChild(row(c)));
   $('#archWrap').style.display=arch.length?'':'none';$('#archLbl').textContent=`Archive · ${arch.length}`;
@@ -5113,6 +5344,7 @@ function renderConvList(){
   $('#trashWrap').style.display=trash.length?'':'none';$('#trashLbl').textContent=`Trash · ${trash.length}`;
   $('#trashToggle').classList.toggle('open',trashOpen);xl.classList.toggle('show',trashOpen);
 }
+var listCur=null;   // var: renderConvList may run before this line
 const TRASH_DAYS=7;   // server.mjs TRASH_DAYS empties it
 const trashLeft=c=>Math.max(1,Math.ceil((c.trashed+TRASH_DAYS*864e5-Date.now())/864e5));
 const dayLabel=t=>{const d=new Date(t);return d.toLocaleDateString(undefined,{month:'short',day:'numeric',...(d.getFullYear()!==new Date().getFullYear()?{year:'numeric'}:{})})};
@@ -5724,6 +5956,11 @@ $('#backGo').addEventListener('click',goBack);$('#backX').addEventListener('clic
   h.addEventListener('toggle',()=>{try{localStorage.setItem('digress:help',h.open?'1':'0')}catch(e){}})}
 $('#archToggle').querySelector('.chev').innerHTML=ic('back').replace('class="i"','class="i" style="width:12px;height:12px;transform:rotate(180deg)"');
 $('#treeAll').onclick=treeAll;
+// Pinned / Conversations fold (this device remembers which)
+let sideFold={};try{sideFold=JSON.parse(localStorage.getItem('sq:fold')||'{}')||{}}catch(e){}
+for(const w of document.querySelectorAll('.sfoldw')){const k=w.dataset.fold,b=w.querySelector('.sfold');
+  b.querySelector('.chev').innerHTML=$('#archToggle').querySelector('.chev').innerHTML;w.classList.toggle('folded',!!sideFold[k]);b.setAttribute('aria-expanded',String(!sideFold[k]));
+  b.onclick=()=>{sideFold[k]=!sideFold[k];w.classList.toggle('folded',sideFold[k]);b.setAttribute('aria-expanded',String(!sideFold[k]));try{localStorage.setItem('sq:fold',JSON.stringify(sideFold))}catch(e){}}}
 $('#archToggle').onclick=()=>{archOpen=!archOpen;try{localStorage.setItem('sq:arch',archOpen?'1':'')}catch(e){}renderConvList()};
 $('#trashToggle').querySelector('.chev').innerHTML=$('#archToggle').querySelector('.chev').innerHTML;
 $('#trashToggle').onclick=()=>{trashOpen=!trashOpen;try{localStorage.setItem('digress:trash',trashOpen?'1':'')}catch(e){}renderConvList()};
