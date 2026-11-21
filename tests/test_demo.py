@@ -136,6 +136,23 @@ async def main():
             got = [await pg.evaluate("Object.keys(__digress.conv.msgs).length"), await pg.evaluate("document.querySelectorAll('#side .citem[data-conv]').length")]
             check('Start over brings back the sample as it was', got == [n0, 2] and not await pg.locator('#reviewBtn').is_visible(), [got, n0])
 
+            # a shared .digress file opens in the demo, kept only in this browser: nothing but GETs leaves the page
+            sent = []; pg.on('request', lambda r: sent.append((r.method, r.url)) if r.method != 'GET' else None)
+            cid = await pg.evaluate("__digress.conv.id"); n_list = await pg.evaluate("__digress.convList.length")
+            await pg.evaluate("id => document.querySelector(`[data-expconv='${id}']`).click()", cid); await pg.wait_for_selector('#modal.show')
+            await pg.locator('#xDoc').check()
+            async with pg.expect_download() as dl:
+                await pg.locator('#mOk').click()
+            shared = os.path.join(site, 'shared.digress'); await (await dl.value).save_as(shared)
+            await pg.locator('#newDoc').click(); await pg.wait_for_selector('#docModal.show')
+            await pg.locator('#docFile').set_input_files(shared)
+            ok = await soon(pg, "([id, n]) => __digress.conv.id !== id && __digress.convList.length > n && __digress.conv.title.startsWith('Bayes')", [cid, n_list], timeout=20000)
+            check('a .digress file opens in the demo as its own conversation', ok)
+            check('…saying it’s kept only in this browser', await soon(pg, "()=>[...document.querySelectorAll('.toast')].some(t=>/only in this browser/.test(t.textContent))"))
+            await pg.wait_for_function(PDF_DRAWN_JS)
+            check('…with its document', await pg.evaluate("!!__digress.conv.doc.assetId && !__digress.conv.doc.left"))
+            check('…and nothing was sent anywhere (no request but GETs)', not sent, sent[:5])
+
             # a phone: the note can be made small
             ph = await b.new_page(viewport={'width': 390, 'height': 800})
             ph.on('pageerror', lambda e: errs.append(str(e)))

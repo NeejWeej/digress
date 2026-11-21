@@ -65,7 +65,7 @@ The API path streams directly, caches the system prompt (handy for long PDFs) an
 
 ### Which model is the default
 
-Each conversation keeps the model and effort it started with: its first question saves the actual model (even when the picker said Default), and opening it again, after a reload or on another device, puts the picker back to it. Changing the picker or the effort while a conversation is open changes that conversation's from then on. A new conversation starts at Default. If a conversation's model isn't available right now (say you signed out of ChatGPT), it says so and uses the default until it is, without forgetting it. Web search is never kept: it's off until you turn it on.
+Each thread keeps the model and effort it started with: main's first question saves the actual model for the conversation (even when the picker said Default), and a branch's first question saves its own. A branch that hasn't asked anything yet uses the model of the thread it came from. The picker shows and changes the model of the thread you're in (the pane you last clicked, typed in or scrolled; on the canvas, the selected card), so opening a conversation again, after a reload or on another device, puts it back to that thread's model. Changing the picker or the effort changes only that thread's, from then on. A new conversation starts at Default. If a thread's model isn't available here (say you signed out of ChatGPT, or the conversation came from someone else's `.digress` file), it says so and uses the newest model of the same kind (another Opus for an Opus), else one of the same family (Claude or ChatGPT), else the default, until it's available again, without forgetting it. Web search is never kept: it's off until you turn it on.
 
 The ☆ changes what a new conversation starts with. Pick a model and click the ☆ beside the picker, and it becomes the default on all your devices (kept in `data/prefs.json`). Without that, when the picker says **Default**, Digress uses `DEFAULT_MODEL` if it's set (`claude-opus-5-5` out of the box), otherwise the first model of the default connection. `LLM_PROVIDER` picks that connection: `claude-code`, `anthropic` or `chatgpt`. It defaults to `anthropic` when there's an API key and `claude-code` otherwise.
 
@@ -75,8 +75,8 @@ Besides your replies, Digress makes a few calls of its own. Each uses one of two
 
 | Call | Model | Effort |
 | --- | --- | --- |
-| Replies, takeaways, Continue and Retry | the model in the picker (the conversation's own, see above) | the picker's |
-| Flashcard drafts and **Fix…** on a card | the model in the picker, with the conversation's context and document tools | low |
+| Replies, takeaways, Continue and Retry | the thread's own model (see above) | the thread's |
+| Flashcard drafts and **Fix…** on a card | the model of the branch the card comes from, with the conversation's context and document tools (a card from a conversation that isn't open: the model in the picker) | low |
 | **Ask about Digress** | the model in the picker | low |
 | Titles for conversations and branches | the fast model (below) | low |
 | Search's **Describe it instead** | the fast model | low |

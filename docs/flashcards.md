@@ -74,6 +74,9 @@ With the answer showing, two quiet buttons sit beside **Open in conversation**:
 Not in the mood for a card? **Skip** (or **S**) goes on to the next one without rating it; the skipped card
 comes back at the end of the session. Nothing about it changes.
 
+After the last card, a summary says how many you reviewed, what share you recalled (anything but **Again**), how
+many come back soon, and when the next card is due, with a bar of your ratings and a link to **Activity**.
+
 The schedule is [FSRS](https://github.com/open-spaced-repetition/fsrs4anki) (version 4.5, default
 weights), the scheduler Anki uses: cards you know well come back less and less often, cards you miss come
 back soon.
@@ -87,6 +90,13 @@ Every card remembers where it was made. **Open in conversation** under the answe
 with the branch's name in the lists) opens the conversation at the quoted sentence, highlighted: in its
 reply, or on its page of the document. A card without a quote opens the branch at the reply it came from, with
 the passage you highlighted flashing in its parent. A **← Back to review** pill takes you back to the same card, at the same point.
+
+## Sharing and Anki
+
+Exporting a conversation (the ⤓ on its row in the sidebar) can include its flashcards in the `.digress` file. Whoever
+opens it gets them in their **Inbox**, as new cards: your schedule and reviews stay with you. **Flashcards for Anki**
+saves your kept cards as a CSV that Anki imports as is (File → Import): front, back, the sentence the card came from,
+and a tag for the conversation.
 
 ## Offline
 

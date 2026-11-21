@@ -51,12 +51,13 @@ async def main():
         await pg.keyboard.press("ControlOrMeta+Shift+Quote"); await calm(pg)
         check("⌘⇧' on the canvas goes to the other of Columns and Rows", await view() == 'cols', await view())
 
-        await pg.locator('#help summary').click(); await frames(pg)
-        keys = await pg.locator('#help .keys').inner_text()
-        check('How it works lists the shortcuts', all(x in keys for x in ['Ctrl+K', 'Ctrl+B', 'Ctrl+.', "Ctrl+'", "Ctrl+Shift+'", 'Space']), keys)
+        await pg.keyboard.press('Escape'); await pg.evaluate('document.activeElement && document.activeElement.blur()')
+        await pg.keyboard.press('Shift+Slash'); await frames(pg)   # ? opens the shortcuts panel
+        keys = await pg.locator('#keysPanel').inner_text()
+        check('the shortcuts panel lists them', all(x in keys for x in ['Ctrl+K', 'Ctrl+B', 'Ctrl+.', "Ctrl+'", "Ctrl+Shift+'", 'Space']), keys)
         tips = await pg.evaluate("[...document.querySelectorAll('#viewSeg button')].map(b=>b.title||b.dataset.tip)")
         check("the view buttons' tooltips name the shortcuts", all("Ctrl+" in t for t in tips), tips)
-        await pg.locator('#help').screenshot(path=OUT + '/view_keys_help.png')
+        await pg.locator('#keysPanel').screenshot(path=OUT + '/view_keys_panel.png')
         check('no page errors', not errs, errs[:3])
         await b.close()
     print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')

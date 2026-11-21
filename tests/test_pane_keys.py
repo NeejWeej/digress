@@ -92,9 +92,10 @@ async def main():
         await pg.evaluate("document.querySelector('#viewSeg button[data-v=cols]').click()"); await calm(pg)
         tips = await pg.evaluate("[...document.querySelectorAll('#panes .ph [data-act=collapse], #panes .ph [data-act=close]')].map(b=>b.title||b.dataset.tip)")
         check('the collapse and close buttons’ tooltips name the keys', tips and all('Ctrl+\\' in t or 'Ctrl+Shift+\\' in t for t in tips), tips)
-        await pg.locator('#help summary').click(); await frames(pg)
-        keys = await pg.locator('#help .keys').inner_text()
-        check('How it works lists them', 'Ctrl+\\' in keys and 'Ctrl+Shift+\\' in keys, keys)
+        await pg.keyboard.press('Escape'); await pg.evaluate('document.activeElement && document.activeElement.blur()')
+        await pg.keyboard.press('Shift+Slash'); await frames(pg)   # ? opens the shortcuts panel
+        keys = await pg.locator('#keysPanel').inner_text()
+        check('the shortcuts panel lists them', 'Ctrl+\\' in keys and 'Ctrl+Shift+\\' in keys, keys)
         check('no page errors', not errs, errs[:3])
         await b.close()
     print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')
