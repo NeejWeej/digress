@@ -211,8 +211,9 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .thmenu button:hover,.thmenu button:focus-visible{background:var(--user-bg);outline:none}
 .thmenu button .ck{margin-left:auto;color:var(--accent);visibility:hidden}
 .thmenu button[aria-checked=true] .ck{visibility:visible}
-.thmenu .thwire{margin-top:4px;border-top:1px solid var(--line);border-radius:0 0 8px 8px}
-.thmenu .thwire>.i{width:15px;height:15px;color:var(--muted);flex:none}
+.thmenu .thwire{margin-top:4px;border-top:1px solid var(--line)}
+.thmenu .thwire>.i,.thmenu .thfit>.i{width:15px;height:15px;color:var(--muted);flex:none}
+.thmenu .thfit{border-radius:0 0 8px 8px}
 .thsw{display:inline-flex;width:34px;height:20px;border-radius:6px;overflow:hidden;border:1px solid var(--line2);flex:none;background:var(--bg)}
 .thsw i{flex:1;background:var(--panel);border-left:1px solid var(--line)}
 .thsw i:first-child{flex:1.3;background:var(--bg);border:0;position:relative}
@@ -387,11 +388,12 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .cnode .cthumb::after{content:"";position:absolute;inset:auto 0 0 0;height:28px;background:linear-gradient(transparent,var(--panel))}
 .ph-origin .docsrc{color:inherit;text-decoration:underline;text-underline-offset:2px}
 .ph-origin .crumb:hover,.ph-origin q:hover{text-decoration:underline;color:var(--ink)}
-.ph-act{display:flex;gap:0}
-/* a narrow pane: the buttons wrap onto a row under the title rather than squeezing it to a letter */
-.panes .pane>.ph{flex-wrap:wrap;row-gap:2px}
-.panes .pane>.ph>.ph-main{flex:1 1 150px}
-.panes .pane>.ph>.ph-act{margin-left:auto}
+.ph-act{display:flex;gap:0;flex-wrap:wrap;justify-content:flex-end}
+/* a narrow pane (or the document docked on the canvas): the buttons wrap onto a row under the title rather than
+   squeezing it to a letter, and onto another row if need be; none are hidden (zoom must stay reachable on a phone) */
+.pane>.ph{flex-wrap:wrap;row-gap:2px}
+.pane>.ph>.ph-main{flex:1 1 150px}
+.pane>.ph>.ph-act{margin-left:auto}
 .pane{container-type:inline-size}
 @container (max-width:600px){.ph-act .tl{display:none}.ph-act .tb{padding:0 6px}}
 .pb{flex:1;overflow-y:auto;padding:8px 22px 10px}
@@ -565,7 +567,6 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .czoom .zin{width:38px;height:20px;font-size:11px}
 .pzoom .pzf:disabled{opacity:.35;cursor:default}
 .pane .msgs,.pane .docwrap{zoom:var(--pz,1)}
-@container (max-width:340px){.ph .pzoom .ib{display:none}}   /* narrow panes: just the percentage (click it to type a level) */
 .pane.rail .ph .pzoom{display:none}
 .jump{position:absolute;right:16px;bottom:8px;display:flex;flex-direction:column;gap:4px;opacity:0;pointer-events:none;transform:translateY(4px);transition:opacity .15s,transform .15s}
 .pane.away .jump,.pane.hasprev .jump,.pane:hover .jump{opacity:.9;pointer-events:auto;transform:none}
@@ -857,7 +858,7 @@ kbd.k{font:11px var(--mono);border:1px solid var(--line2);border-bottom-width:2p
 .docpanecard>.ch .ct,.docpanecard>.ch .docico{visibility:hidden}
 .docpanecard>.ch .ib{width:22px;height:22px}
 .docpanecard .cdocpane{flex:1;min-height:0;display:flex}
-.docpanecard .cdocpane>.pane{flex:1;min-width:0;border:0;border-radius:0}
+.docpanecard .cdocpane>.pane{flex:1;min-width:0 !important;border:0;border-radius:0}   /* not a phone pane's 88vw: the card's width */
 /* docked on the canvas there are no panes to reorder, collapse into or focus among: those buttons go */
 .docpanecard .cdocpane .ph .pgrip,.docpanecard .cdocpane .ph [data-act=collapse],.docpanecard .cdocpane .ph [data-act=focus],.docpanecard .cdocpane .ph [data-act=close]{display:none}
 .cnode.docked .cfull{flex:1;min-height:0;max-height:none !important;height:auto !important}
@@ -995,7 +996,7 @@ a.pref:hover{border-bottom-style:solid}
     <button class="webt" id="webT" aria-pressed="false" style="display:none" title="Web search: let new replies look things up online. Only search queries leave; your chats and documents stay on this server. You can switch this any time."><span class="wi"></span><span class="lbl">Web</span></button>
     <button class="webt" id="resetOrder" style="display:none" title="Put the panes back in branching order: each branch right after the thread it came from">Reset order</button>
     <button class="ib" id="zenB" title="Zen: hide everything but the panes, for reading (⌘. / Ctrl+.)" aria-pressed="false"><b class="mlbl">Zen</b></button>
-    <button class="ib" id="themeB" title="Theme" aria-haspopup="true" aria-expanded="false"><b class="mlbl">Theme</b></button>
+    <button class="ib" id="themeB" title="Appearance: theme, PDF pages, lines between panes, fit to this screen" aria-haspopup="true" aria-expanded="false"><b class="mlbl">Appearance</b></button>
     <div class="seg" id="viewSeg">
       <button data-v="cols" title="Show threads as panes side by side (⌘⇧' / Ctrl+Shift+' switches Columns and Rows)"><span></span><b class="lbl" style="font-weight:inherit">Columns</b></button>
       <button data-v="rows" title="Show threads as panes stacked top to bottom (⌘⇧' / Ctrl+Shift+' switches Columns and Rows)"><span></span><b class="lbl" style="font-weight:inherit">Rows</b></button>
@@ -1328,6 +1329,13 @@ function serverStore(coll,label,o={}){
     remove:async(id)=>{await okOrThrow(await fetch(u(id),{method:'DELETE'}))}};
 }
 // per-device layout of each conversation (server: api/layout)
+// A layout from another device keeps what's open, the view and the canvas's arrangement, but not what was sized
+// for that device's screen: pane widths, zoom levels, cards stuck to the screen
+function otherScreen(ui){
+  const u=JSON.parse(JSON.stringify(ui||{}));delete u.sizes;delete u.pz;
+  if(u.cv){delete u.cv.dock;delete u.cv.pre;delete u.cv.cz}
+  return u;
+}
 const DEVICE=(()=>{try{let d=localStorage.getItem('digress:device');if(!d){d='d'+rid()+rid();localStorage.setItem('digress:device',d)}return d}catch(e){return 'd'+rid()+rid()}})();
 // Several windows on one machine share DEVICE, so each window also takes a number: the lowest one no other open
 // window holds (a Web Lock, which the browser lets go when the window closes), the same one again after a reload
@@ -3158,7 +3166,9 @@ function renderCanvas(){
     // stuck to the screen: the real document pane (the one Columns shows) sits in it, at reading size, so
     // pages stay sharp and highlighting, snips, zoom and page jumps all work as in the pane (placeDocPane)
     const n=document.createElement('div');n.className='cnode main docnode docked docpanecard';n.dataset.ctid='doc';n.style.setProperty('--c','var(--faint)');
-    n.innerHTML=`<div class="ch" title="Drag to move it, or to another edge. Double-click to open the document in the pane view."><span class="docico">${ic('doc')}</span><span class="ct"></span><button class="ib" data-cact="restore" title="Put it back on the canvas as a card (Esc)">${ic('unfocus')}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="cdocpane"></div>`;
+    // Expand fills the canvas; dragging it to a side edge (or Side) keeps it to half, with the canvas beside it
+    const whole=S.dock.doc.w>=.99&&S.dock.doc.h>=.99;
+    n.innerHTML=`<div class="ch" title="Drag to move it, or to another edge. Double-click to open the document in the pane view."><span class="docico">${ic('doc')}</span><span class="ct"></span>${whole?`<button class="ib" data-cact="docside" title="Keep it to the left half, with the canvas beside it (or drag it to an edge)">${ic('side')}</button>`:`<button class="ib" data-cact="docdock" title="Fill the canvas with the document">${ic('focus')}</button>`}<button class="ib" data-cact="restore" title="Put it back on the canvas as a card (Esc)">${ic('unfocus')}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="cdocpane"></div>`;
     n.querySelector('.ct').textContent=conv.doc.name;
     addSizing(n,'doc',true,S);
     dock.appendChild(n);nodes.doc=n;
@@ -3166,7 +3176,7 @@ function renderCanvas(){
     const n=document.createElement('div');n.className='cnode main docnode';n.dataset.ctid='doc';n.style.setProperty('--c','var(--faint)');
     const nb=docBranches(),folded=S.fold.includes('doc'),nd=descendants('doc').length;
     const hasThumb=docState&&docState.loaded&&docState.kind==='pdf'&&docState.pdf;
-    n.innerHTML=`<div class="ch" title="Drag to move. Double-click to open the document."><span class="docico">${ic('doc')}</span><span class="ct"></span><button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} everything below the document">${folded?'+'+nd:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+(nb.length+1)}</button><button class="ib" data-cact="docdock" title="Read the document here, beside the canvas (or drag this card to an edge)">${ic('focus')}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="crs"></div>`;
+    n.innerHTML=`<div class="ch" title="Drag to move. Double-click to open the document."><span class="docico">${ic('doc')}</span><span class="ct"></span><button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} everything below the document">${folded?'+'+nd:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+(nb.length+1)}</button><button class="ib" data-cact="docdock" title="Read the document here, filling the canvas (or drag this card to an edge to keep it to one side)">${ic('focus')}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="crs"></div>`;
     n.querySelector('.ct').textContent=conv.doc.name;
     const rows=n.querySelector('.crs');
     if(hasThumb){   // first page preview; fixed height, so the layout doesn't shift when the image arrives
@@ -3496,7 +3506,8 @@ function canvasAction(act,tid,btn){
   }
   else if(act==='stick'){if(cvState().dock&&cvState().dock[tid])unstickCard(tid);else stickCard(tid)}
   else if(act==='restore'){restoreCard(tid)}
-  else if(act==='docdock'){dockCard('doc',REGIONS.left)}
+  else if(act==='docdock'){dockCard('doc',REGIONS.fill)}
+  else if(act==='docside'){dockCard('doc',REGIONS.left)}
   else if(act==='zin'){setCardZoom(tid,cardZoom(tid)*1.15)}
   else if(act==='zout'){setCardZoom(tid,cardZoom(tid)/1.15)}
   else if(act==='zedit'){editZoom(btn,cardZoom(tid),z=>setCardZoom(tid,z))}
@@ -5368,7 +5379,13 @@ async function openConv(id){
   }catch(e){console.warn(e)}
   if(!data){toast('Couldn\'t open that conversation.');return}
   // this window's layout for it; the first time here, the one last used on another device or window
-  if(io.layout){try{const d=(await io.layout.get(id)).devices||{},pick=d[await layoutKey()]||Object.values(d).sort((a,b)=>(b.at||0)-(a.at||0))[0];if(pick&&pick.ui)data.ui=pick.ui}catch(e){console.warn('layout not loaded',e)}}
+  if(io.layout){try{
+    const d=(await io.layout.get(id)).devices||{},key=await layoutKey();
+    // none of this window's own: another window of this device as it is, or else the latest from another device, but
+    // without what's sized for that screen (a desktop's 800px panes are wider than a phone)
+    const pick=d[key]?[key,d[key]]:Object.entries(d).sort((a,b)=>(b[1].at||0)-(a[1].at||0)).sort((a,b)=>(b[0].startsWith(DEVICE)?1:0)-(a[0].startsWith(DEVICE)?1:0))[0];
+    if(pick&&pick[1].ui)data.ui=pick[0].startsWith(DEVICE)?pick[1].ui:otherScreen(pick[1].ui);
+  }catch(e){console.warn('layout not loaded',e)}}
   if(conv&&conv.id===id)return;
   setConv(data);
   if(conv.trashed)toast(`This conversation is in the trash: it’s deleted for good in ${trashLeft(conv)} day${trashLeft(conv)>1?'s':''}.`,{label:'Restore',fn:()=>restoreConv(id)});
@@ -5530,7 +5547,9 @@ document.addEventListener('click',e=>{
   const mz=e.target.closest('.mm-bar [data-mmz]');if(mz){e.stopPropagation();mmAct(mz);return}
   let cnode=e.target.closest('.cnode');
   if(cnode&&e.target.closest('.cdocpane')){   // the document pane docked in a card: branch links go to their cards; the rest is the pane's own
-    const fn=e.target.closest('sup.fn,.anchor');if(fn&&window.getSelection().isCollapsed){focusCard(fn.dataset.tid);return}
+    const fn=e.target.closest('sup.fn,.anchor');if(fn&&window.getSelection().isCollapsed){
+      const r=cvState().dock.doc;if(r&&r.w>=.99&&r.h>=.99)dockCard('doc',REGIONS.left);   // filling the canvas: make room beside it for the card
+      focusCard(fn.dataset.tid);return}
     cnode=null;
   }
   if(cnode){
@@ -5727,7 +5746,6 @@ function setZen(on){
   zen=!!on;$('#app').classList.toggle('zen',zen);$('#app').classList.remove('zenside');$('#zenB').setAttribute('aria-pressed',String(zen));$('#zenB').classList.toggle('on',zen);
   try{if(zen)sessionStorage.setItem('digress:zen','1');else sessionStorage.removeItem('digress:zen')}catch(e){}
   closeMore();if(themeMenu.classList.contains('open'))themeMenu.classList.remove('open');
-  zenFullscreen(zen);
 }
 $('#zenB').innerHTML=ic('zen')+'<b class="mlbl">Zen</b>';$('#zenB').onclick=()=>setZen(!zen);$('#zenX').onclick=()=>setZen(false);
 $('#zenS').innerHTML=ic('side');$('#zenS').onclick=()=>$('#app').classList.add('zenside');
@@ -5737,16 +5755,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&zen&&$('#app').clas
 /* ---------- installed as an app (Install app on Android; manifest.webmanifest) ---------- */
 // installed: opened from the home screen in its own window, not in a browser tab
 const installedApp=()=>matchMedia('(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)').matches;
-// In the installed app on a phone or tablet, Zen also goes full screen: the status bar and Android's navigation go too.
-// Leaving full screen some other way (Android's back, a swipe) leaves Zen with it.
-let zenFs=false;
-function zenFullscreen(on){
-  if(!installedApp()||!matchMedia('(pointer: coarse)').matches||!document.fullscreenEnabled)return;
-  if(on&&!document.fullscreenElement){zenFs=true;document.documentElement.requestFullscreen({navigationUI:'hide'}).catch(()=>{zenFs=false})}
-  else if(!on&&document.fullscreenElement&&zenFs){zenFs=false;document.exitFullscreen().catch(()=>{})}
-}
-let fsLeft=0;
-document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&zenFs){zenFs=false;fsLeft=Date.now();if(zen)setZen(false)}});
 /* Android's back gesture, in the installed app. A browser tab goes back a page; here that would close the app.
    So back closes whatever is open on top (a dialog, a menu, search, flashcards, the sidebar, the branch popup),
    never a pane or anything you'd lose; with nothing open, the first back says how to leave and only a second
@@ -5774,8 +5782,7 @@ let backArmed=0;
 function guardBack(){if(!installedApp())return;if(!(history.state&&history.state.digressBack))history.pushState(BACK_GUARD,'',location.href)}
 addEventListener('popstate',()=>{
   if(!installedApp())return;
-  showInUrl();
-  if(Date.now()-fsLeft<600){guardBack();return}   // that back left full screen (and Zen): that's all it does   // the entry under the guard may name the conversation you had open before; keep this one
+  showInUrl();   // the entry under the guard may name the conversation you had open before; keep this one
   if(closeTopmost()){guardBack();return}
   if(Date.now()-backArmed<BACK_AGAIN_MS)return;   // never armed this time round: the guard is already gone
   // nothing open: say so, and leave the guard off for a moment, so a second back closes the app
@@ -5840,8 +5847,8 @@ $('#guideIn').addEventListener('input',()=>{autosize($('#guideIn'));syncGuideSen
 $('#guideIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();askGuide($('#guideIn').value)}});
 $('#guideSend').onclick=()=>{if(GUIDE.busy)GUIDE.busy.stop();else askGuide($('#guideIn').value)};
 $('#guide').addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();closeGuide()}});
-const themeB=$('#themeB');themeB.innerHTML=ic('palette')+'<b class="mlbl">Theme</b>';
-const themeMenu=document.createElement('div');themeMenu.className='thmenu';themeMenu.setAttribute('role','menu');themeMenu.innerHTML='<div class="thh">Theme</div>';
+const themeB=$('#themeB');themeB.innerHTML=ic('palette')+'<b class="mlbl">Appearance</b>';
+const themeMenu=document.createElement('div');themeMenu.className='thmenu';themeMenu.setAttribute('role','menu');themeMenu.innerHTML='<div class="thh">Appearance</div>';
 const sw=(id)=>`<span class="thsw" data-theme="${id}"><i></i><i></i><i></i></span>`;
 // a section: its header (folds the list; folded, it shows a dot per choice and which one is picked) and its list
 function themeGroup(g,name,items,dot){
@@ -5873,6 +5880,18 @@ wireRow.innerHTML=`${ic('branch')}<span>Lines between panes</span><span class="c
 function setWires(on,keep){$('#app').classList.toggle('nowires',!on);wireRow.setAttribute('aria-checked',on?'true':'false');
   if(keep){settings.wires=on;saveSettings()}if(on)wiresSoon()}
 setWires(settings.wires!==false);
+// and one action: fit this conversation to this screen. Pane widths set by dragging go back to sharing the
+// window, each pane's zoom (the PDF's too) back to 100%, and on the canvas each card's own zoom; the canvas fits the tree
+const fitRow=document.createElement('button');fitRow.className='thfit';fitRow.dataset.fitscreen='';fitRow.setAttribute('role','menuitem');
+fitRow.title='Undo the pane widths and zoom levels in this conversation, so it fits this screen (after a bigger screen, say)';
+fitRow.innerHTML=`${ic('fit')}<span>Fit to this screen</span>`;themeMenu.appendChild(fitRow);
+function fitScreen(){
+  if(!conv)return;const u=conv.ui;
+  u.sizes={};for(const t of Object.keys(u.pz||{}))setPaneZoom(t,1);
+  if(u.cv)delete u.cv.cz;
+  if(u.view==='canvas'){renderCanvas();fitCanvas()}else layout();
+  save();setStatus('Fitted to this screen');
+}
 document.body.appendChild(themeMenu);
 // each folded header names the choice in it ("Nord"), so you can see what's picked without opening it
 function themeHeads(){
@@ -5910,6 +5929,7 @@ themeMenu.addEventListener('click',e=>{e.stopPropagation();
   if(h){h.setAttribute('aria-expanded',h.getAttribute('aria-expanded')==='true'?'false':'true');placeThemes();
     if(h.getAttribute('aria-expanded')==='true'){const l=h.nextElementSibling;if(l.getBoundingClientRect().bottom>themeMenu.getBoundingClientRect().bottom)h.scrollIntoView({block:'start',behavior:'smooth'})}return}
   if(e.target.closest('button[data-wires]'))return setWires(settings.wires===false,true);
+  if(e.target.closest('button[data-fitscreen]')){closeThemes();return fitScreen()}
   const b=e.target.closest('button[data-theme],button[data-pdf]');if(!b)return;if(b.dataset.pdf)setPdfLook(b.dataset.pdf,true);else setTheme(b.dataset.theme,true)});
 document.addEventListener('click',closeThemes);
 addEventListener('keydown',e=>{if(e.key==='Escape'&&themeMenu.classList.contains('open')){e.stopPropagation();closeThemes()}},true);
