@@ -1,5 +1,5 @@
 """The sidebar with many conversations.
-  - Pinned and Conversations fold from their headings (remembered on this device).
+  - Pinned, Conversations and Branches fold from their headings (remembered on this device).
   - A long list scrolls inside itself, so Branches and How it works stay on screen without scrolling the sidebar.
   - Opening a conversation far down the list brings its row into view in the list.
 Asserts and exits non-zero."""
@@ -40,6 +40,10 @@ async def main():
         await pg.screenshot(path=OUT + '/side_fold_folded.png')
         await pg.reload(); await booted(pg); await frames(pg)
         check('folding is remembered', await pg.evaluate("document.getElementById('convWrap').classList.contains('folded')&&document.getElementById('pinWrap').classList.contains('folded')"))
+        await pg.locator('#branchWrap .sfold').click(); await frames(pg)
+        check('Branches folds too (its tree and Collapse all go)', await pg.evaluate("!document.getElementById('tree').getClientRects().length&&!document.getElementById('treeAll').getClientRects().length"))
+        await pg.locator('#branchWrap .sfold').click(); await frames(pg)
+        check('…and unfolds', await pg.locator('#tree .mnode').first.is_visible())
         await pg.locator('#convWrap .sfold').click(); await frames(pg)
         check('unfolds again', await pg.locator('#clist .citem').first.is_visible())
 

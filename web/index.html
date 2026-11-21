@@ -273,11 +273,49 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .newbtn{display:flex;align-items:center;gap:6px;width:100%;padding:8px 10px;border-radius:9px;border:1px dashed var(--line2);color:var(--muted);margin-bottom:6px}
 .newbtn:hover{color:var(--ink);border-color:var(--faint)}
 .clist{display:flex;flex-direction:column;gap:1px;margin-bottom:18px}
+/* Activity: its own page over everything */
+#activity{position:fixed;inset:0;z-index:85;background:var(--bg);overflow-y:auto;display:none}#activity.show{display:block}
+.acwrap{max-width:920px;margin:0 auto;padding:26px 24px 60px;color:var(--ink)}
+.acload{color:var(--faint);padding:60px 0;text-align:center}
+.achead{display:flex;align-items:center;margin-bottom:18px}.achead h1{font:600 26px var(--serif);margin:0}.achead .sp{flex:1}
+.acsec{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:16px;animation:kin .25s ease-out}
+.acsec h2{font:600 18px var(--serif);margin:0 0 12px}
+.actop{display:flex;flex-wrap:wrap;gap:8px 26px;margin-bottom:12px;font-size:13.5px;color:var(--muted)}.acstat b{font:600 20px var(--serif);color:var(--ink);margin-right:3px}
+.ackinds{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.ackinds button{border:1px solid var(--line2);border-radius:999px;background:none;color:var(--muted);font:12.5px var(--sans);padding:3px 11px;cursor:pointer}.ackinds button:hover{color:var(--ink)}.ackinds button.on{background:var(--user-bg);color:var(--ink);border-color:var(--muted)}
+.acscroll{overflow-x:auto;padding-bottom:4px;container-type:inline-size}
+.acmonths,.acgrid{--cs:max(11px,min(22px,calc((100cqw - (var(--n) - 1)*3px)/var(--n))))}
+.acmonths{display:grid;grid-template-columns:repeat(var(--n),var(--cs));gap:3px;font-size:10.5px;color:var(--faint);height:15px;width:max-content}.acmonths span{grid-row:1;white-space:nowrap}
+.acgrid{display:grid;grid-template-rows:repeat(7,var(--cs));grid-auto-flow:column;grid-auto-columns:var(--cs);gap:3px;width:max-content}
+.acgrid .acday{width:var(--cs);height:var(--cs)}
+.acday{width:12px;height:12px;border-radius:3px;border:0;padding:0;background:var(--line);cursor:pointer;display:inline-block}
+.acday.l1{background:color-mix(in srgb,var(--accent) 28%,var(--line))}.acday.l2{background:color-mix(in srgb,var(--accent) 52%,var(--line))}.acday.l3{background:color-mix(in srgb,var(--accent) 76%,var(--line))}.acday.l4{background:var(--accent)}
+button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
+.aclegend{display:flex;align-items:center;gap:3px;margin-top:8px;font-size:11.5px;color:var(--faint)}.aclegend .sp{flex:1}.aclegend .acday{cursor:default;margin:0 1px}
+.acdaybox:not(:empty){margin-top:14px;border-top:1px solid var(--line);padding-top:12px}.acdayh{font-size:13px;font-weight:600;margin-bottom:6px}
+.acrow{display:flex;align-items:baseline;gap:12px;width:100%;text-align:left;border:0;background:none;padding:7px 8px;border-radius:8px;cursor:pointer;color:var(--ink);font:13.5px var(--sans);position:relative}
+.acrow:hover{background:var(--user-bg)}.acrow:disabled{cursor:default;color:var(--faint)}.acrow:disabled:hover{background:none}
+.acrow .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:relative}.acrow .m{flex:none;font-size:12px;color:var(--faint);position:relative}
+.acbar::before{content:'';position:absolute;left:0;top:3px;bottom:3px;width:var(--w);border-radius:6px;background:color-mix(in srgb,var(--accent) 13%,transparent)}
+.acnums{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px}
+.acnum{flex:1 1 220px;display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.acnum b{font:600 32px/1.1 var(--serif)}.acnum span{font-size:13px;color:var(--muted)}.acnum small{font-size:11.5px;color:var(--faint)}
+.accharts{display:grid;grid-template-columns:1fr 1fr;gap:14px}.acfig{margin:0;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.acfig figcaption{font-size:12px;color:var(--muted);margin-bottom:6px}.acfig svg{width:100%;height:96px;display:block;overflow:visible}
+.acline .ln{fill:none;stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke}.acline .area{fill:color-mix(in srgb,var(--accent) 12%,transparent)}.acline circle{fill:var(--accent)}
+.acfig text{font:10.5px var(--sans);fill:var(--muted)}.acbars rect{fill:color-mix(in srgb,var(--accent) 45%,var(--line))}.acbars rect.now{fill:var(--accent)}.acfig .ax{fill:var(--faint)}.acline{margin-bottom:14px}
+.acsub{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);margin:16px 0 6px}.achard .acsub{margin-top:16px}
+.acnone{color:var(--faint);font-size:13px;padding:6px 0}
+.actotal{font-size:13.5px;color:var(--muted)}
+.acpath{display:flex;flex-wrap:wrap;align-items:center;gap:4px 2px}
+.acstep{border:1px solid var(--line2);border-radius:999px;background:color-mix(in srgb,var(--accent) min(calc(var(--i,0)*4%),30%),var(--panel));color:var(--ink);font:12.5px var(--sans);padding:3px 10px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acstep:hover{border-color:var(--muted)}.acarr{color:var(--faint);padding:0 3px}
+@media (max-width:640px){.acwrap{padding:16px 16px 40px}.acsec{padding:14px}.accharts{grid-template-columns:1fr}.acnum b{font-size:26px}}
 /* Pinned and Conversations fold, and a long list scrolls inside itself, so Branches and How it works stay near */
 #plist,#clist{position:relative}#plist{max-height:22vh;overflow-y:auto;overscroll-behavior:contain}#clist{max-height:38vh;overflow-y:auto;overscroll-behavior:contain}
 .sfold{display:inline-flex;align-items:center;gap:4px;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;padding:0;margin-left:-2px}.sfold:hover{color:var(--ink)}
 .sfold .chev{display:inline-flex;transition:transform .15s;transform:rotate(90deg)}.sfoldw.folded .sfold .chev{transform:none}
-.sfoldw.folded>:not(.sh){display:none}.sfoldw.folded .cfilt{display:none}.sfoldw.folded{margin-bottom:12px}
+.sfoldw.folded>:not(.sh){display:none}.sfoldw.folded .cfilt,.sfoldw.folded .shbtn{display:none}.sfoldw.folded{margin-bottom:12px}
 .citem{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;cursor:pointer;color:var(--muted)}
 .citem:hover{background:var(--user-bg);color:var(--ink)}
 .citem.cur{background:var(--user-bg);color:var(--ink);font-weight:500}
@@ -660,6 +698,7 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .kitem textarea{width:100%;box-sizing:border-box;border:1px solid var(--line2);border-radius:8px;background:var(--panel-2);color:var(--ink);font:13.5px/1.45 var(--sans);padding:6px 8px;resize:vertical;min-height:38px;margin-bottom:6px}
 .kitem .kfr{font-weight:500;margin-bottom:4px}.kitem .kbk{color:var(--muted);font-size:13px}
 .kitem .kimg img{max-height:120px}
+.kitem.kfocus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
 .kbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;font-size:12.5px;color:var(--muted)}.kbar .sp{flex:1}
 #cardsModal .kbody>.kfoot{max-width:620px;margin-left:auto;margin-right:auto}
 .kmeta{font-size:11.5px;color:var(--faint)}
@@ -1053,13 +1092,14 @@ a.pref:hover{border-bottom-style:solid}
     <button class="newbtn" id="newConv" title="Start a fresh conversation. This one stays saved in the list below."></button>
     <button class="newbtn" id="newDoc" title="Start from a PDF, Markdown or text file: read it side by side with a chat about it, and highlight any passage to branch."></button>
     <button class="newbtn" id="reviewBtn" style="display:none" title="Review your flashcards"></button>
+    <button class="newbtn" id="actBtn" title="Your activity: what you did each day, what you remember, where you dug deepest"></button>
     <div id="pinWrap" class="sfoldw" data-fold="pins" style="display:none"><div class="sh"><button class="sfold" title="Fold or unfold the pinned conversations"><span class="chev"></span>Pinned</button></div><div class="clist" id="plist"></div></div>
     <div id="convWrap" class="sfoldw" data-fold="convs"><div class="sh"><button class="sfold" title="Fold or unfold the conversations"><span class="chev"></span>Conversations</button><span class="cfilt" id="cFilt" title="Show all conversations, only those with a document, or only plain chats"><button data-cf="all">All</button><button data-cf="doc">Docs</button><button data-cf="chat">Chats</button></span></div>
     <div class="clist" id="clist"></div>
     <div id="archWrap" style="display:none;margin:-12px 0 16px"><button class="archtoggle" id="archToggle" title="Archived conversations: out of the way, but nothing is deleted"><span class="chev"></span><span id="archLbl">Archive</span></button><div class="alist" id="alist"></div></div>
     <div id="trashWrap" style="display:none;margin:-12px 0 16px"><button class="archtoggle" id="trashToggle" title="Deleted conversations: restore one, or it's deleted for good after 7 days"><span class="chev"></span><span id="trashLbl">Trash</span></button><div class="alist" id="xlist"></div></div></div>
-    <div class="sh">Branches<button class="shbtn" id="treeAll"></button></div>
-    <div class="tree" id="tree"></div>
+    <div id="branchWrap" class="sfoldw" data-fold="branches"><div class="sh"><button class="sfold" title="Fold or unfold the branches"><span class="chev"></span>Branches</button><button class="shbtn" id="treeAll"></button></div>
+    <div class="tree" id="tree"></div></div>
     <details class="help" id="help">
       <summary><span class="chev"></span><b>How it works</b><button class="gq" id="guideB" type="button" title="Ask how Digress works: a chat that knows its documentation (not saved)">?</button></summary>
       <ul>
@@ -1122,6 +1162,7 @@ a.pref:hover{border-bottom-style:solid}
 <div class="tipbox" id="tipbox"></div>
 <div class="pal" id="pal"><div class="pbox" role="dialog" aria-modal="true" aria-label="Search"><div class="pin"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><input id="palIn" placeholder="Search conversations, highlights, takeaways, documents…" autocomplete="off" spellcheck="false"></div><div class="pscope" id="palScope"></div><div class="pres" id="palRes"></div><div class="pfoot"><span id="palFoot"></span><span class="sp"></span><span><kbd class="k">↑</kbd> <kbd class="k">↓</kbd> move</span><span><kbd class="k">Tab</kbd> where</span><span><kbd class="k">Enter</kbd> open</span><span><kbd class="k"><span class="kmod">⌘</span>Enter</kbd> open, keep searching</span><span><kbd class="k">Esc</kbd> close</span></div></div></div>
 <div class="modal" id="docModal"><div class="mbox wide" role="dialog" aria-modal="true"><div class="mt">Start from a document</div><div class="mb">The document opens next to a main thread for questions about the whole thing. Highlight any passage in it to open a branch about that part.</div><label class="drop" id="docDrop"><input type="file" id="docFile" accept=".pdf,.md,.markdown,.txt,application/pdf,text/markdown,text/plain"><span id="docFileLbl"></span></label><textarea id="docPaste" placeholder="…or paste text, Markdown, or a link to a PDF"></textarea><input id="docName" placeholder="Title (optional)" autocomplete="off"><div class="ma"><span class="dmsg" id="docMsg"></span><button class="mbtn" id="docCancel">Cancel</button><button class="mbtn primary" id="docGo">Start</button></div></div></div>
+<div id="activity" role="dialog" aria-modal="true" aria-label="Activity"><div class="acwrap"></div></div>
 <div class="modal" id="cardsModal"><div class="kbox" role="dialog" aria-modal="true" aria-label="Flashcards"></div></div>
 <div class="modal" id="modal"><div class="mbox" role="dialog" aria-modal="true"><div class="mt" id="mTitle"></div><div class="mb" id="mBody"></div><div class="ma"><button class="mbtn" id="mCancel">Cancel</button><button class="mbtn danger" id="mOk">Delete</button></div></div></div>
 
@@ -1207,6 +1248,7 @@ const I={
  plus:'<path d="M12 5v14M5 12h14"/>',
  minus:'<path d="M5 12h14"/>',
  snip:'<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>',
+ activity:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',
  cards:'<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>',
  fit:'<path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/>',
  doc:'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>',
@@ -1953,6 +1995,8 @@ function renderAllCards(body,kept){
     it.querySelector('.kmeta').textContent=(c.status==='suspended'?'suspended':c.due<=Date.now()?'due now':'due in '+ivlText(c.due-Date.now()))+' · ';it.querySelector('.kmeta').after(srcLink(c,KS.scope==='all'));
     body.appendChild(it);
   }
+  // opened for one card (Activity's "keeps slipping"): bring it into view and mark it
+  if(KS.focus){const el=body.querySelector(`.kitem[data-kid="${CSS.escape(KS.focus)}"]`);KS.focus=null;if(el){el.classList.add('kfocus');requestAnimationFrame(()=>el.scrollIntoView({block:'center'}))}}
 }
 // Fix…: what's off (a few one-tap reasons and an optional note), sent to the model in the background
 const FIX_TAGS=['Wrong','Unclear','Too vague','Two questions in one','Answer too long'];
@@ -2119,6 +2163,140 @@ document.addEventListener('keydown',e=>{
 });
 $('#reviewBtn').addEventListener('click',()=>openCards('all'));
 
+/* ---------- Activity: what you did each day, what you remember, where you dug deepest ----------
+   All of it is worked out from what's already saved (messages' ts, threads' created, cards' reviews); nothing
+   new is recorded. Conversations come from io.store.list() (the open one from memory, which is newer). */
+const ACT={kind:'all',day:null,data:null};
+const dayKey=(t)=>{const d=new Date(t);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const ACT_KINDS=[['all','Everything'],['q','Questions'],['b','Branches'],['r','Reviews']];
+async function actGather(){
+  await loadCards();let list=[];try{list=(await io.store.list()).map(x=>x.data)}catch(e){console.warn(e)}
+  const convs=list.filter(c=>c&&c.threads&&!c.trashed).map(c=>conv&&c.id===conv.id?conv:c);
+  const days=new Map(),bump=(t,k,cid)=>{if(!t)return;const key=dayKey(+t);let d=days.get(key);if(!d)days.set(key,d={q:0,b:0,r:0,convs:new Map()});d[k]++;if(cid){const e=d.convs.get(cid)||{q:0,b:0,r:0};e[k]++;d.convs.set(cid,e)}};
+  for(const c of convs){
+    for(const m of Object.values(c.msgs||{}))if(m&&m.role==='user')bump(m.ts,'q',c.id);
+    for(const t of Object.values(c.threads))if(t.parent&&!t.alt)bump(t.created,'b',c.id);
+  }
+  const cards=[...CARDS.values()];
+  for(const k of cards)for(const r of k.reviews||[])bump(r.at,'r',k.conv);
+  return {convs,days,cards,byId:new Map(convs.map(c=>[c.id,c]))};
+}
+async function openActivity(){
+  $('#activity').classList.add('show');ACT.day=null;
+  $('#activity .acwrap').innerHTML='<div class="acload">Gathering your history…</div>';
+  ACT.data=await actGather();renderActivity();
+}
+function closeActivity(){$('#activity').classList.remove('show')}
+const actCount=(d,k)=>!d?0:k==='all'?d.q+d.b+d.r:d[k];
+const plural=(n,w)=>n+' '+w+(n===1?'':'s');
+function renderActivity(){
+  const D=ACT.data;if(!D)return;const w=$('#activity .acwrap');
+  w.innerHTML=`<div class="achead"><h1>Activity</h1><span class="sp"></span><button class="ib" data-aact="close" title="Close (Esc)">${ic('x')}</button></div>
+    <section class="acsec acgridsec"></section><section class="acsec acmem"></section><section class="acsec acholes"></section>`;
+  actGridSection(w.querySelector('.acgridsec'),D);actMemory(w.querySelector('.acmem'),D);actHoles(w.querySelector('.acholes'),D);
+}
+// --- a year of days ---
+function actGridSection(el,D){
+  const k=ACT.kind,today=new Date();today.setHours(0,0,0,0);
+  // from the week of your first activity (at least 33 weeks, at most a year), Monday first; the squares grow to fill the width
+  const first=[...D.days.keys()].sort()[0],since=first?Math.ceil((today-new Date(first+'T00:00'))/(7*DAY))+1:0,weeks=Math.min(53,Math.max(33,since));
+  const start=new Date(today);start.setDate(start.getDate()-7*(weeks-1)-((today.getDay()+6)%7));
+  const cells=[],vals=[];
+  for(const d=new Date(start);d<=today;d.setDate(d.getDate()+1)){const key=dayKey(d),n=actCount(D.days.get(key),k);cells.push([key,n,new Date(d)]);if(n)vals.push(n)}
+  vals.sort((a,b)=>a-b);const q=(p)=>vals[Math.min(vals.length-1,Math.floor(p*vals.length))]||1,cuts=[q(.25),q(.5),q(.75)];
+  const lvl=(n)=>!n?0:n<=cuts[0]?1:n<=cuts[1]?2:n<=cuts[2]?3:4;
+  // the week so far, and the last 7 days (not a streak: a gap doesn't reset anything)
+  let last7=0;for(let i=0;i<7;i++){const d=new Date(today);d.setDate(d.getDate()-i);if(actCount(D.days.get(dayKey(d)),'all'))last7++}
+  const year=cells.reduce((s,[key])=>{const d=D.days.get(key);if(d){s.q+=d.q;s.b+=d.b;s.r+=d.r;if(d.q+d.b+d.r)s.days++}return s},{q:0,b:0,r:0,days:0});
+  let best=null;for(const [key,n] of cells)if(n&&(!best||n>best[1]))best=[key,n];
+  const fmt=(dt,o)=>dt.toLocaleDateString(undefined,o||{weekday:'short',month:'short',day:'numeric'});
+  const tip=(key,n,dt)=>{const d=D.days.get(key);return fmt(dt)+': '+(d&&(d.q+d.b+d.r)?[d.q&&plural(d.q,'question'),d.b&&plural(d.b,'branch').replace('branchs','branches'),d.r&&plural(d.r,'review')].filter(Boolean).join(', '):'nothing')};
+  let months='',lastM=cells[0][2].getMonth();for(let i=0;i<cells.length;i+=7){const m=cells[i][2].getMonth(),w=i/7;   // a month's name over its first week (the first column's only if the month has 2+ weeks left)
+    const lab=w===0?(new Date(cells[0][2].getFullYear(),m+1,1)-cells[0][2]>14*DAY):m!==lastM;months+=`<span style="grid-column:${w+1}">${lab?fmt(cells[i][2],{month:'short'}):''}</span>`;lastM=m}
+  el.innerHTML=`<div class="actop"><div class="acstat"><b>${last7}</b> of the last 7 days</div><div class="acstat"><b>${year.days}</b> active day${year.days===1?'':'s'}${weeks>=53?' in the last year':''}</div><div class="acstat"><b>${year.q}</b> questions · <b>${year.b}</b> branches · <b>${year.r}</b> reviews</div></div>
+    <div class="ackinds">${ACT_KINDS.map(([v,l])=>`<button data-akind="${v}" class="${k===v?'on':''}">${l}</button>`).join('')}</div>
+    <div class="acscroll" style="--n:${weeks}"><div class="acmonths">${months}</div><div class="acgrid">${cells.map(([key,n,dt])=>`<button class="acday l${lvl(n)}${ACT.day===key?' sel':''}" data-aday="${key}" title="${esc(tip(key,n,dt))}"></button>`).join('')}</div></div>
+    <div class="aclegend"><span>${best?`Busiest: ${fmt(new Date(best[0]+'T12:00'),{month:'short',day:'numeric'})}, ${best[1]}`:''}</span><span class="sp"></span>Less<i class="acday l0"></i><i class="acday l1"></i><i class="acday l2"></i><i class="acday l3"></i><i class="acday l4"></i>More</div>
+    <div class="acdaybox"></div>`;
+  const sc=el.querySelector('.acscroll');requestAnimationFrame(()=>{sc.scrollLeft=sc.scrollWidth});
+  if(ACT.day)actDay(el.querySelector('.acdaybox'),D,ACT.day);
+}
+function actDay(box,D,key){
+  const d=D.days.get(key),dt=new Date(key+'T12:00');
+  if(!d||!(d.q+d.b+d.r)){box.innerHTML=`<div class="acdayh">${dt.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}: a day off.</div>`;return}
+  const rows=[...d.convs].sort((a,b)=>(b[1].q+b[1].b+b[1].r)-(a[1].q+a[1].b+a[1].r));
+  box.innerHTML=`<div class="acdayh">${dt.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})}</div>`+rows.map(([cid,e])=>{const c=D.byId.get(cid),t=c?c.title||'New conversation':(([...CARDS.values()].find(k=>k.conv===cid)||{}).convTitle||'A deleted conversation');
+    return `<button class="acrow" ${c?`data-aconv="${esc(cid)}"`:'disabled'}><span class="t">${esc(t)}</span><span class="m">${[e.q&&plural(e.q,'question'),e.b&&(e.b+' branch'+(e.b>1?'es':'')),e.r&&plural(e.r,'review')].filter(Boolean).join(' · ')}</span></button>`}).join('');
+}
+// --- what you remember (FSRS: recall after t days is (1 + 19/81·t/S)^-0.5, 90% at t = S) ---
+const knownAt=(f,at,ahead)=>!!f&&f.state==='review'&&f.S>=(at-f.last)/DAY+ahead;
+const recallAt=(f,at)=>!f?0:Math.pow(1+19/81*Math.max(0,(at-f.last)/DAY)/f.S,-0.5);   // the odds you'd recall it at that moment
+function actMemory(el,D){
+  const now=Date.now(),kept=D.cards.filter(c=>c.status==='active'),known=Math.round(kept.reduce((s,c)=>s+recallAt(c.fsrs,now),0)),month=kept.filter(c=>knownAt(c.fsrs,now,30)).length;
+  const rev30=D.cards.flatMap(c=>(c.reviews||[]).filter(r=>r.at>now-30*DAY)),pass=rev30.filter(r=>r.g>1).length;
+  if(!kept.length&&!rev30.length){el.innerHTML=`<h2>What you remember</h2><div class="acnone">No flashcards yet. Turn them on in a conversation (the cards button in its header) and this fills in as you review.</div>`;return}
+  // how many cards you'd recall (the sum of each one's odds), over time: each card's reviews replayed through the scheduler; from your first review
+  // (at most 26 weeks back), in at most 26 steps
+  const pts=[];const hist=kept.filter(c=>(c.reviews||[]).length).map(c=>{let f=null;return (c.reviews||[]).slice().sort((a,b)=>a.at-b.at).map(r=>{f=fsrsNext(f,r.g,r.at).fsrs;return f})});
+  const t0=Math.max(now-182*DAY,Math.min(now,...hist.map(h=>h[0].last))),step=Math.max(DAY,(now-t0)/25);
+  for(let at=t0;at<now+step/2;at+=step){const t=Math.min(at,now);let n=0;for(const h of hist){let f=null;for(const s of h){if(s.last>t)break;f=s}n+=recallAt(f,t)}pts.push(Math.round(n))}
+  if(pts.length)pts[pts.length-1]=known;   // today as the headline says (the card's own state: a fix may have restarted it)
+  const firstUse=hist.length?0:-1;
+  // what's coming due: the next 14 days (anything overdue counts as today)
+  const today=new Date();today.setHours(0,0,0,0);const due=Array(14).fill(0);
+  for(const c of kept){if(c.fix)continue;const i=Math.max(0,Math.floor(((c.due||0)-today)/DAY));if(i<14)due[i]++}
+  const hard=D.cards.map(c=>[c,(c.reviews||[]).filter(r=>r.g===1).length]).filter(([c,n])=>n>=2&&c.status!=='inbox').sort((a,b)=>b[1]-a[1]).slice(0,5);
+  el.innerHTML=`<h2>What you remember</h2>
+    <div class="acnums"><div class="acnum"><b>~${known}</b><span>of your ${kept.length} cards you’d recall right now</span><small>${month?`${month} solid for a month or more · `:''}FSRS’s estimate</small></div>
+    <div class="acnum"><b>${rev30.length?Math.round(100*pass/rev30.length)+'%':'–'}</b><span>recalled, over the last 30 days</span><small>${plural(rev30.length,'review')}</small></div></div>
+    <div class="accharts"><figure class="acfig"><figcaption>Cards you’d recall, over time</figcaption>${firstUse<0?'<div class="acnone">Review a few cards and this starts to climb.</div>':lineChart(pts,[new Date(t0).toLocaleDateString(undefined,{month:'short',day:'numeric'}),'Today'])}</figure>
+    <figure class="acfig"><figcaption>Coming due, next two weeks</figcaption>${barChart(due,today)}</figure></div>
+    ${hard.length?`<div class="achard"><div class="acsub">The ones that keep slipping</div>${hard.map(([c,n])=>`<button class="acrow" data-acard="${esc(c.id)}"><span class="t">${esc(trunc(plain(c.front).replace(/\s+/g,' '),110))}</span><span class="m">missed ${n} times</span></button>`).join('')}</div>`:''}`;
+}
+function lineChart(p,ends){
+  const W=320,H=90,max=Math.max(1,...p),x=(i)=>p.length<2?W/2:4+i*(W-8)/(p.length-1),y=(v)=>H-8-(v/max)*(H-22);
+  const line=p.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)).join(' ');
+  return `<svg class="acline" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Cards known each week, now ${p.at(-1)}"><path class="area" d="${line} L${x(p.length-1).toFixed(1)} ${H} L${x(0).toFixed(1)} ${H} Z"/><path class="ln" d="${line}"/><circle cx="${x(p.length-1)}" cy="${y(p.at(-1))}" r="3"/><text x="${Math.min(W-4,x(p.length-1))}" y="${Math.max(10,y(p.at(-1))-8)}" text-anchor="end">${p.at(-1)}</text>${ends?`<text class="ax" x="2" y="${H+12}">${esc(ends[0])}</text><text class="ax" x="${W-2}" y="${H+12}" text-anchor="end">${ends[1]}</text>`:''}</svg>`;
+}
+function barChart(v,today){
+  const W=320,H=90,max=Math.max(1,...v),bw=(W-4)/v.length;
+  return `<svg class="acbars" viewBox="0 0 ${W} ${H}" role="img" aria-label="Cards due each day for two weeks">${v.map((n,i)=>{const h=n?Math.max(3,(n/max)*(H-30)):0,d=new Date(+today+i*DAY);
+    return `<g><title>${i===0?'Today':d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})}: ${n} due</title><rect x="${2+i*bw+2}" y="${H-16-h}" width="${bw-4}" height="${h}" rx="2" class="${i===0?'now':''}"/>${n?`<text x="${2+i*bw+bw/2}" y="${H-20-h}" text-anchor="middle">${n}</text>`:''}<text class="ax" x="${2+i*bw+bw/2}" y="${H-3}" text-anchor="middle">${i===0?'T':d.toLocaleDateString(undefined,{weekday:'narrow'})}</text></g>`}).join('')}</svg>`;
+}
+// --- rabbit holes: how deep and where you dug ---
+function actHoles(el,D){
+  const branches=(c)=>Object.values(c.threads).filter(t=>t.parent&&!t.alt);
+  const nameOf=(t)=>t.id==='main'?'Main':trunc(String(t.title||t.anchorText||'Branch').replace(/\s+/g,' '),48);
+  let deep=null;
+  for(const c of D.convs)for(const t of branches(c)){const path=[];let x=t;while(x&&x.id!=='main'&&path.length<60){if(!x.alt)path.unshift(x);x=c.threads[x.parent]}if(!deep||path.length>deep.path.length)deep={c,path}}
+  const most=D.convs.map(c=>[c,branches(c).length]).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  const spots=new Map();for(const c of D.convs)for(const t of branches(c)){const a=String(t.anchorText||'').replace(/\s+/g,' ').trim();if(!a||t.anchorMsg==null)continue;const key=c.id+'|'+t.anchorMsg+'|'+a.toLowerCase();const e=spots.get(key)||spots.set(key,{c,a,n:0,t}).get(key);e.n++}
+  const again=[...spots.values()].filter(e=>e.n>=2).sort((a,b)=>b.n-a.n).slice(0,3);
+  const nb=D.convs.reduce((s,c)=>s+branches(c).length,0),nt=D.convs.reduce((s,c)=>s+Object.values(c.msgs||{}).filter(m=>m&&m.role==='note').length,0),nd=D.convs.filter(c=>c.doc).length;
+  if(!nb){el.innerHTML=`<h2>Rabbit holes</h2><div class="acnone">No branches yet. Highlight anything in a reply to ask about it, and your dives show up here.</div>`;return}
+  el.innerHTML=`<h2>Rabbit holes</h2>
+    <div class="actotal">${[plural(D.convs.length,'conversation'),nb+' branch'+(nb>1?'es':''),nt&&plural(nt,'takeaway'),nd&&plural(nd,'document')].filter(Boolean).join(' · ')}</div>
+    ${deep&&deep.path.length>1?`<div class="acsub">Your deepest dive: ${deep.path.length} levels down</div><div class="acpath" style="--c:var(--accent)"><button class="acstep" data-aconv="${esc(deep.c.id)}">${esc(trunc(deep.c.title||'New conversation',40))}</button>${deep.path.map((t,i)=>`<span class="acarr">›</span><button class="acstep" data-aconv="${esc(deep.c.id)}" data-athread="${esc(t.id)}" style="--i:${i}">${esc(nameOf(t))}</button>`).join('')}</div>`:''}
+    <div class="acsub">Most branched</div><div class="acmost">${most.map(([c,n])=>`<button class="acrow acbar" data-aconv="${esc(c.id)}" style="--w:${Math.round(100*n/most[0][1])}%"><span class="t">${esc(c.title||'New conversation')}</span><span class="m">${n}</span></button>`).join('')}</div>
+    ${again.length?`<div class="acsub">Passages you kept coming back to</div>${again.map(e=>`<button class="acrow" data-aconv="${esc(e.c.id)}" data-athread="${esc(e.t.id)}"><span class="t">“${esc(trunc(e.a,90))}”</span><span class="m">${e.n} branches</span></button>`).join('')}`:''}`;
+}
+async function actGo(cid,tid){
+  closeActivity();if(!conv||conv.id!==cid)await openConv(cid);
+  if(!tid||!conv||conv.id!==cid||!T(tid))return;
+  if(conv.ui.view==='canvas'){focusCard(tid);return}
+  openThread(tid);conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==tid);layout();renderMap();revealPane(tid);
+}
+$('#activity').addEventListener('click',e=>{
+  const t=e.target.closest('[data-aact],[data-akind],[data-aday],[data-aconv],[data-acard]');if(!t)return;
+  if(t.dataset.aact==='close')closeActivity();
+  else if(t.dataset.akind){ACT.kind=t.dataset.akind;renderActivity()}
+  else if(t.dataset.aday){ACT.day=ACT.day===t.dataset.aday?null:t.dataset.aday;const sc=$('#activity .acscroll'),l=sc?sc.scrollLeft:0;actGridSection($('#activity .acgridsec'),ACT.data);requestAnimationFrame(()=>{const n=$('#activity .acscroll');if(n)n.scrollLeft=l})}
+  else if(t.dataset.aconv)actGo(t.dataset.aconv,t.dataset.athread);
+  else if(t.dataset.acard){const c=CARDS.get(t.dataset.acard);if(c){closeActivity();KS.focus=c.id;openCards(c.conv,'all')}}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.defaultPrevented&&$('#activity').classList.contains('show')&&!$('#cardsModal').classList.contains('show')){e.preventDefault();closeActivity()}});
+$('#actBtn').addEventListener('click',openActivity);
+
 /* ---------- context for the model ---------- */
 function branchPrefix(t){
   const quote=(x)=>'> '+String(x||'').replace(/\n+/g,'\n> ');
@@ -2275,11 +2453,43 @@ async function generate(m,ctx,lockTid,o={}){
   if(conv!==st.conv)return;
   delete m.pending;delete m.run;delete m.runFrom;delete m.toolNow;delete m.live;delete m.t0;if(m.reads&&!m.reads.length)delete m.reads;m.ver++;streaming.delete(lockTid);
   if(!seenNow(m.thread))unread.add(m.thread);   // finished out of sight: badge it until it's opened
-  cardsAfterReply(m);
+  cardsAfterReply(m);nameAfterReply(m);
   renderPane(m.thread);updateComposer(lockTid);renderMap();save();
   if(conv.ui.view==='canvas')renderCanvas();
   markReplies();
 }
+// --- titles: a conversation or branch is named by its first question; a long or vague one gets a short title from
+// a fast model once its first reply ends. Never over a title you set (titleKept) or one that's no longer the question.
+const MODEL_FAM=(id)=>/claude|haiku|sonnet|opus/i.test(id||'')?'claude':/gpt|^o\d/i.test(id||'')?'gpt':null;
+// the fast model of the family this conversation uses (Haiku or Terra): the one family its replies came from, else its
+// kept model's, else the reply's; with only one provider connected, that one
+function titleModel(c,hint){
+  const ids=io.llm.models().map(x=>x[0]),fast={claude:ids.find(x=>/haiku/i.test(x)),gpt:ids.find(x=>/terra/i.test(x))||ids.find(x=>/mini|luna/i.test(x))};
+  const avail=Object.keys(fast).filter(k=>fast[k]);if(!avail.length)return hint||settings.model;if(avail.length===1)return fast[avail[0]];
+  const used=new Set(Object.values(c.msgs).filter(m=>m.role==='assistant'&&m.model).map(m=>MODEL_FAM(m.model)).filter(Boolean));
+  const f=used.size===1?[...used][0]:MODEL_FAM(c.llm&&c.llm[0])||MODEL_FAM(hint);return fast[f]||fast[avail[0]];
+}
+const qText=(m)=>String((m&&(m.content||m.text))||'').replace(/\s+/g,' ').trim();
+// the question names it well enough as it is: short and more than a word or two
+const goodAsTitle=(q,max)=>q.length<=max&&q.split(' ').length>=3;
+async function nameAfterReply(m){
+  if(!m||m.error||!io.llm||!io.llm.models||io.offline)return;
+  const c0=conv,tid=m.thread,t=T(tid);if(!t||t.alt)return;
+  const ord=c0.order[tid]||[],q=c0.msgs[ord.find(id=>c0.msgs[id].role==='user')];
+  if(!q||ord.find(id=>c0.msgs[id].role==='assistant')!==m.id)return;   // only after a thread's first reply
+  const question=qText(q);if(!question)return;
+  const isMain=tid==='main',limit=isMain?120:48,cur=()=>isMain?c0.title:T(tid)&&T(tid).title;
+  const was=trunc(q.content||(isMain?'Question about an image':'About an image'),limit);
+  const still=()=>conv===c0&&(isMain?!c0.titleKept:!(T(tid)||{}).titleKept)&&cur()===was;
+  if(!still()||goodAsTitle(question,isMain?50:48))return;
+  try{
+    const r=await io.llm.complete({system:PROMPTS.title.system,messages:[{role:'user',content:PROMPTS.title.ask({kind:isMain?'conversation':'branch',question:trunc(question,600),reply:trunc(plain(m.content||''),1500),passage:isMain?'':trunc(t.regionText||t.anchorText||'',300),doc:c0.doc&&c0.doc.name})}],model:titleModel(c0,m.model),effort:'low',web:false});
+    const name=cleanTitle(r.text);if(!name||!still())return;
+    if(isMain){c0.title=name;delete c0.autoTitle;renderTitle()}else{T(tid).title=name;delete T(tid).autoTitle;refreshAnchorsFor(tid);updateHeader(tid)}
+    renderMap();if(conv.ui.view==='canvas')renderCanvas();save();
+  }catch(e){console.warn('no title',e)}
+}
+const cleanTitle=(s)=>{let x=String(s||'').split('\n').map(l=>l.trim()).find(Boolean)||'';x=x.replace(/^(title:\s*)/i,'').replace(/^["'“”‘’*#\s]+|["'“”‘’*.\s]+$/g,'');return x.length>=2&&x.length<=80?x:''};
 // Stop: tell the server to stop the model, and stop reading
 function stopReply(s){if(!s)return;s.stopped=true;if(s.run&&io.llm&&io.llm.stop)io.llm.stop(s.run);s.ctrl.abort()}
 // replies saved as still being written (m.run): from this page before a reload, or from another device.
@@ -2969,7 +3179,7 @@ function paneEl(tid){
   const title=el.querySelector('.ph-title');
   title.addEventListener('dblclick',()=>{if(isMain)return;title.contentEditable='true';title.focus();document.getSelection().selectAllChildren(title)});
   title.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();title.blur()}});
-  title.addEventListener('blur',()=>{if(title.contentEditable!=='true')return;title.contentEditable='false';const v=title.textContent.trim();if(v&&T(tid)){T(tid).title=v;delete T(tid).autoTitle;refreshAnchorsFor(tid);renderMap();save()}});
+  title.addEventListener('blur',()=>{if(title.contentEditable!=='true')return;title.contentEditable='false';const v=title.textContent.trim();if(v&&T(tid)){const ch=v!==T(tid).title;T(tid).title=v;if(ch)T(tid).titleKept=true;delete T(tid).autoTitle;refreshAnchorsFor(tid);renderMap();save()}});
   el.querySelector('.pb').addEventListener('scroll',()=>{wiresSoon();updateJump(el)},{passive:true});
   paneEls.set(tid,el);originRO.observe(el);return el;
 }
@@ -5003,7 +5213,8 @@ function resultRow(r,i,terms){
    Step 2 (findPick, only when asked): short snippets of the best candidates go to the model, which picks
    the ones that match, with a reason. Both are one-off calls: nothing is added to any conversation or saved. */
 const canAskModel=()=>io.llm&&io.llm.kind!=='none'&&!io.offline;
-function fastModel(){const ids=io.llm.models().map(x=>x[0]);return ids.find(x=>/haiku/i.test(x))||ids.find(x=>/mini/i.test(x))||settings.model}
+// one-off calls (Describe it instead): the fast model of the family in use, as for titles (Haiku or Terra)
+function fastModel(){return titleModel(conv||{msgs:{}},settings.model)}
 function scopeTitles(){
   if(PAL.scope==='thread'&&conv){if(PAL.stid==='doc')return [conv.doc?conv.doc.name:'The document'];return [conv.title,...ancestors(PAL.stid).filter(id=>id!=='main').map(id=>T(id).title)].filter(Boolean)}   // its path: the conversation, then each thread down to this one
   if(PAL.scope==='conv'&&conv)return [conv.title,...Object.values(conv.threads).filter(t=>t.parent).map(t=>t.title),...(conv.doc?[conv.doc.name]:[])].filter(Boolean);
@@ -5964,7 +6175,7 @@ for(const w of document.querySelectorAll('.sfoldw')){const k=w.dataset.fold,b=w.
 $('#archToggle').onclick=()=>{archOpen=!archOpen;try{localStorage.setItem('sq:arch',archOpen?'1':'')}catch(e){}renderConvList()};
 $('#trashToggle').querySelector('.chev').innerHTML=$('#archToggle').querySelector('.chev').innerHTML;
 $('#trashToggle').onclick=()=>{trashOpen=!trashOpen;try{localStorage.setItem('digress:trash',trashOpen?'1':'')}catch(e){}renderConvList()};
-$('#newConv').innerHTML=ic('plus')+'New conversation';$('#newDoc').innerHTML=ic('doc')+'New from a document';$('#newDoc').onclick=openDocModal;
+$('#newConv').innerHTML=ic('plus')+'New conversation';$('#actBtn').innerHTML=ic('activity')+'Activity';$('#newDoc').innerHTML=ic('doc')+'New from a document';$('#newDoc').onclick=openDocModal;
 ['cols','rows','canvas'].forEach(v=>{document.querySelector(`[data-v="${v}"] span`).outerHTML=ic(v)});
 const mSel=$('#mSel'),eSel=$('#eSel'),webT=$('#webT');
 MODELS.forEach(([v,l])=>mSel.add(new Option(l,v)));EFFORTS.forEach(([v,l])=>eSel.add(new Option(l,v)));
@@ -6009,6 +6220,7 @@ function closeTopmost(){
   if(pop.classList.contains('show')){hidePop();return true}
   if(document.querySelector('.docpane.snipping')){setSnip(false);return true}
   if($('#cardsModal').classList.contains('show')){closeCards();return true}
+  if($('#activity').classList.contains('show')){closeActivity();return true}
   if($('#guide').classList.contains('open')){closeGuide();return true}
   const app=$('#app');
   if(app.classList.contains('zenside')){zenSideAway();return true}

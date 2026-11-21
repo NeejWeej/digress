@@ -139,7 +139,7 @@ async def main():
             check_script('Claude Code', reply)
             await check_trail(pg, 'Claude Code')
             await pg.screenshot(path=OUT + '/doc_tools.png')
-            cc = [l for l in lines(cc_log) if 'model' in l]
+            cc = [l for l in lines(cc_log) if 'model' in l and not str(l.get('system', '')).startswith('You name notes')]
             first = cc[-1]
             check('Claude Code: offered exactly our three tools through our MCP server', [l for l in lines(cc_log) if 'mcpTools' in l][-1]['mcpTools'] == ['search', 'read_pages', 'view_page'])
             check('Claude Code: only those tools are allowed (WebSearch is listed, so Web on or off sends the same tools, but not allowed)', first['tools'] in ('', 'WebSearch') and first['allowed'] == 'mcp__digress__search,mcp__digress__read_pages,mcp__digress__view_page', first)
@@ -163,7 +163,7 @@ async def main():
             # the starting point never changes between questions (one prompt cache for the conversation)
             await pg.select_option('#mSel', 'auto')
             await ask(pg, 'A follow-up about something else entirely: transformers in general?')
-            sys2 = [l for l in lines(cc_log) if 'model' in l][-1]['system']
+            sys2 = [l for l in lines(cc_log) if 'model' in l and not str(l.get('system', '')).startswith('You name notes')][-1]['system']
             check('a different question starts from exactly the same instructions', sys2 == sys1)
 
             # a branch about a passage on p. 30 carries pp. 29–31
@@ -175,14 +175,14 @@ async def main():
               document.dispatchEvent(new MouseEvent('mouseup', {bubbles: true})); return true; } } return false; }''')
             check('selected a passage on p. 30', ok)
             n = await replies(pg); await pg.locator('#popIn').fill('What is this marker?'); await pg.locator('#popIn').press('Enter'); await wait_idle(pg, n + 1)
-            br = [l for l in lines(cc_log) if 'model' in l][-1]
+            br = [l for l in lines(cc_log) if 'model' in l and not str(l.get('system', '')).startswith('You name notes')][-1]
             check('a branch about a passage brings the text of its page and the pages either side', '[The text of pp. 29–31, around it:]' in br['prompt'] and 'ZEBRA-29' in br['prompt'] and 'ZEBRA-31' in br['prompt'] and 'ZEBRA-32' not in br['prompt'], br['prompt'][:400])
             check('…and still the same instructions', br['system'] == sys1)
 
             # a small document still goes whole, and only view_page is suggested
             await new_doc(pg, FIX + '/paper.pdf')
             await ask(pg, 'Summarize this.')
-            sm = [l for l in lines(cc_log) if 'model' in l][-1]
+            sm = [l for l in lines(cc_log) if 'model' in l and not str(l.get('system', '')).startswith('You name notes')][-1]
             check('a short document is sent whole, with the tools still there for figures', 'full extracted text is below' in sm['system'] and '<contents>' not in sm['system'] and sm['mcp'], sm['system'][-300:])
             check('no page errors (server 1)', not errs, errs[:3])
             await ctx.close()

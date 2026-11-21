@@ -69,6 +69,26 @@ Each conversation keeps the model and effort it started with: its first question
 
 The ☆ changes what a new conversation starts with. Pick a model and click the ☆ beside the picker, and it becomes the default on all your devices (kept in `data/prefs.json`). Without that, when the picker says **Default**, Digress uses `DEFAULT_MODEL` if it's set (`claude-opus-5-5` out of the box), otherwise the first model of the default connection. `LLM_PROVIDER` picks that connection: `claude-code`, `anthropic` or `chatgpt`. It defaults to `anthropic` when there's an API key and `claude-code` otherwise.
 
+### Which model does what
+
+Besides your replies, Digress makes a few calls of its own. Each uses one of two models:
+
+| Call | Model | Effort |
+| --- | --- | --- |
+| Replies, takeaways, Continue and Retry | the model in the picker (the conversation's own, see above) | the picker's |
+| Flashcard drafts and **Fix…** on a card | the model in the picker, with the conversation's context and document tools | low |
+| **Ask about Digress** | the model in the picker | low |
+| Titles for conversations and branches | the fast model (below) | low |
+| Search's **Describe it instead** | the fast model | low |
+
+The **fast model** is Claude's Haiku or ChatGPT's Terra (the newest one listed; a "mini" or Luna model if there's no Terra), chosen by family:
+
+- with only one of Claude and ChatGPT connected, that one's;
+- otherwise the family the conversation's replies came from, if they all came from one;
+- otherwise the family of the conversation's model (or of the picker's).
+
+Titles: a conversation or branch starts out named by its first question. When its first reply ends, if that question is long or vague (over about 50 characters, or under three words), the fast model gets the question, the start of the reply and, for a branch, the passage you highlighted, and returns a short title. It never replaces a title you set yourself, or one that has changed since; if the topic isn't clear yet (the reply asked what you meant), it leaves the question as the title. Offline or without a model, nothing changes.
+
 ## Web search
 
 The **Web** button in the top bar is off until you turn it on, and it applies to new replies only. When it's on:

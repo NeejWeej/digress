@@ -341,6 +341,7 @@ None of this makes a rogue certificate impossible; it makes it quick to notice a
       const system = body.system || '', msgs = body.messages || [], last = msgs.length ? textOf(msgs[msgs.length - 1].content) : '';
       if (/^You answer questions about Digress/.test(system)) return guide(system, msgs);
       if (/^You help someone find something/.test(system)) return find(msgs);
+      if (/^You name notes in a learner's study app/.test(system)) return '';   // no made-up titles: the question stays the title
       if (/\[Flashcards\] Make spaced-repetition flashcards/.test(last)) return cards(system, msgs, last);
       if (/Write a short takeaway from this side branch/.test(last)) return takeaway(msgs);
       return chat(system, msgs);
