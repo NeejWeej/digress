@@ -18,7 +18,12 @@ async function cacheFirst(req) {
   const c = await caches.open(CACHE);
   const hit = await c.match(req);
   if (hit) return hit;
-  const res = await fetch(req);
+  let res;
+  try { res = await fetch(req); }
+  catch (e) {   // offline, never saved: the font stylesheet is optional (the page falls back to system fonts), so it's empty, not an error
+    if (/^https:\/\/fonts\.googleapis\.com\//.test(req.url)) return new Response('', { headers: { 'content-type': 'text/css' } });
+    throw e;
+  }
   if (res.ok || res.type === 'opaque') c.put(req, res.clone());
   return res;
 }

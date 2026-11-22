@@ -1,5 +1,6 @@
 # Every test (tests/run_all.py) on each push and pull request: the real server with fake Claude Code / Anthropic /
-# OpenAI (tests/fakes/), and the page in headless Chromium. Nothing here talks to a real model or needs a secret.
+# OpenAI (tests/fakes/), and the page in headless Chromium and, side by side, in WebKit (Safari's engine: an iPad,
+# an iPhone; DIGRESS_BROWSER in tests/common.py). Nothing here talks to a real model or needs a secret.
 name: Tests
 on:
   push:
@@ -12,8 +13,15 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test:
+    name: test (${{ matrix.browser }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false   # a failure in one engine doesn't cancel the other
+      matrix:
+        browser: [chromium, webkit]
+    env:
+      DIGRESS_BROWSER: ${{ matrix.browser }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -27,13 +35,13 @@ jobs:
           cache: pip
           cache-dependency-path: tests/requirements.txt
       - run: pip install -r tests/requirements.txt
-      - run: python -m playwright install --with-deps chromium
+      - run: python -m playwright install --with-deps ${{ matrix.browser }}
       - run: python tests/run_all.py
       - name: Keep the logs and screenshots of a failed run
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: test-artifacts
+          name: test-artifacts-${{ matrix.browser }}
           path: tests/.artifacts/
           include-hidden-files: true   # .artifacts starts with a dot
           retention-days: 7

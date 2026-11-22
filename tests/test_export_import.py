@@ -71,7 +71,7 @@ async def main():
 
         sent.clear()
         path, fname = await export('digress', cards=True, name='a')
-        check('the file is named after the conversation', fname == 'Backprop, explained.digress', fname)
+        check('the file is named after the conversation', fname.replace('_', ' ') == 'Backprop, explained.digress', fname)   # (WebKit's downloads turn spaces into _)
         raw = open(path, 'rb').read()
         check('it is gzipped', raw[:2] == b'\x1f\x8b')
         f = json.loads(gzip.decompress(raw))

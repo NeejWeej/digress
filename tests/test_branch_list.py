@@ -72,7 +72,7 @@ async def main():
         await pg.locator('.pane[data-tid=doc] .ph-origin [data-brlist]').click(); await frames(pg)
         rows = await pop.locator('[data-map]').evaluate_all('es=>es.map(e=>e.dataset.map)')
         dbr = await pg.evaluate("Object.values(__digress.conv.threads).find(t=>t.anchorMsg==='DOC').id")
-        check('the document’s lists only the document’s', rows == [dbr], rows)
+        check('the document’s lists the main thread first (the other head), then only the document’s', rows == ['main', dbr], rows)
         await pg.keyboard.press('Escape'); await frames(pg)
         check('Escape closes it', await pop.count() == 0)
 

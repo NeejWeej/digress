@@ -7,7 +7,8 @@
 Asserts and exits non-zero."""
 import asyncio, os, sys, tempfile
 from playwright.async_api import async_playwright
-from common import ROOT, OUT, CORS, launch_args, goto_app, booted, PDF_DRAWN_JS
+from common import ROOT, OUT, CORS, launch_args, goto_app, booted, PDF_DRAWN_JS, chromium_only
+chromium_only('it prints its test PDF with Chromium (page.pdf)')
 
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',

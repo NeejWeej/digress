@@ -5,7 +5,7 @@ with tests/fakes/page-server.js standing in for the server, and its CDN librarie
 node_modules (run `npm install` first), so they need no network.
 Set CHROME_PATH to use a specific Chrome; otherwise Playwright's own Chromium is used.
 """
-import asyncio, json, os, re, time
+import asyncio, json, os, re, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
@@ -17,7 +17,22 @@ os.makedirs(OUT, exist_ok=True)
 CHROME = os.environ.get('CHROME_PATH')
 
 
+# DIGRESS_BROWSER=webkit runs every test in WebKit, Safari's engine (an iPad, an iPhone): the tests all launch
+# p.chromium, which then gives WebKit. A test that needs a Chromium-only tool says so with chromium_only().
+BROWSER = os.environ.get('DIGRESS_BROWSER', 'chromium')
+if BROWSER != 'chromium':
+    from playwright.async_api import Playwright
+    Playwright.chromium = property(lambda self: getattr(self, BROWSER))
+
+
+def chromium_only(why):
+    """Skip this test (passing) outside Chromium, saying why: it needs a tool only Chromium has."""
+    if BROWSER != 'chromium':
+        print(f'skipped in {BROWSER}: {why}'); sys.exit(0)
+
+
 def launch_args():
+    if BROWSER != 'chromium': return {}
     args = {'args': ['--no-sandbox']}
     if CHROME:
         args['executable_path'] = CHROME
@@ -259,6 +274,7 @@ async def goto_site(pg, site, path=''):
     import mimetypes
     async def route(r):
         u = r.request.url.split('#')[0].split('?')[0]
+        if not u.startswith('http'): return await r.continue_()   # blob: and data: (WebKit routes the page's own in-memory reads through here)
         if u.startswith(SITE_URL):
             f = os.path.join(site, u[len(SITE_URL):] or 'index.html')
             if os.path.isdir(f): f = os.path.join(f, 'index.html')
