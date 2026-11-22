@@ -5,7 +5,7 @@ brings that branch's card into view beside it (not behind it), it survives
 the canvas redrawing, and switching back to Columns puts the pane back where it was. Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import soon, ROOT, FIX, OUT, launch_args, goto_app, booted, answered, PDF_DRAWN_JS
+from common import soon, ROOT, FIX, OUT, launch_args, goto_app, booted, answered, PDF_DRAWN_JS, settle
 from common import CORS
 
 MAP = {
@@ -60,7 +60,7 @@ async def main():
 
         cam0 = await pg.evaluate("document.getElementById('world').style.transform")
         pb = pg.locator('#dock .docpane .pb'); bb = await pb.bounding_box()
-        await pg.mouse.move(bb['x'] + bb['width'] / 2, bb['y'] + bb['height'] / 2); await pg.mouse.wheel(0, 600); await pg.wait_for_timeout(300)
+        await pg.mouse.move(bb['x'] + bb['width'] / 2, bb['y'] + bb['height'] / 2); await pg.mouse.wheel(0, 600); await settle(pg, 300)
         check('scrolling over it scrolls the PDF, not the canvas', await pb.evaluate('e=>e.scrollTop') > 100 and await pg.evaluate("document.getElementById('world').style.transform") == cam0)
 
         await host.locator('[data-gopage]').click(); await host.locator('.pgin').fill('2'); await host.locator('.pgin').press('Enter')
@@ -71,18 +71,18 @@ async def main():
         check('docked, it has no buttons for panes (reorder, collapse, focus)', all(hidden), hidden)
 
         # look elsewhere on the canvas, then follow a branch marker: its card comes into view beside the dock, not behind it
-        await pg.mouse.move(1300, 500); await pg.mouse.down(); await pg.mouse.move(1450, 850, steps=6); await pg.mouse.up(); await pg.wait_for_timeout(300)
-        await pg.locator('#dock .docpane .pb').evaluate('e=>e.scrollTop=0'); await pg.wait_for_timeout(300)
-        await host.locator(f'.dpage sup.fn[data-tid="{bt}"], .dpage .anchor[data-tid="{bt}"]').first.click(); await pg.wait_for_timeout(700)
+        await pg.mouse.move(1300, 500); await pg.mouse.down(); await pg.mouse.move(1450, 850, steps=6); await pg.mouse.up(); await settle(pg, 300)
+        await pg.locator('#dock .docpane .pb').evaluate('e=>e.scrollTop=0'); await settle(pg, 300)
+        await host.locator(f'.dpage sup.fn[data-tid="{bt}"], .dpage .anchor[data-tid="{bt}"]').first.click(); await settle(pg, 700)
         check('a branch marker in it goes to that branch’s card', await pg.locator(f'#cv .cnode[data-ctid="{bt}"].flash').count() == 1)
         seen = await pg.evaluate(f"""(()=>{{const n=document.querySelector('#cv .cnode[data-ctid="{bt}"]').getBoundingClientRect(),d=document.querySelector('#dock .docpanecard').getBoundingClientRect(),
           c=document.getElementById('cv').getBoundingClientRect();return [n.left>=d.right-1||n.right<=d.left+1, n.left>=c.left&&n.right<=c.right&&n.top>=c.top&&n.top<c.bottom-40]}})()""")
         check('…and that card is in view, not behind the docked document', all(seen), seen)
 
         # a branch card's quote (where it came from) scrolls the docked document to the passage and flashes it
-        await pg.locator('#dock .docpane .pb').evaluate('e=>e.scrollTop=e.scrollHeight'); await pg.wait_for_timeout(300)
+        await pg.locator('#dock .docpane .pb').evaluate('e=>e.scrollTop=e.scrollHeight'); await settle(pg, 300)
         await pg.evaluate(f"document.querySelector('#world .cnode[data-ctid=\"{bt}\"] .cq').scrollIntoView({{block:'center'}})")
-        await pg.locator(f'#world .cnode[data-ctid="{bt}"] .cq').click(); await pg.wait_for_timeout(900)
+        await pg.locator(f'#world .cnode[data-ctid="{bt}"] .cq').click(); await settle(pg, 900)
         src = await pg.evaluate(f"""(()=>{{const pb=document.querySelector('#dock .docpane .pb'),a=pb.querySelector('.anchor[data-tid="{bt}"]'),r=a.getBoundingClientRect(),p=pb.getBoundingClientRect();
           return [r.top>=p.top&&r.bottom<=p.bottom,a.classList.contains('flash')]}})()""")
         check('a branch card’s quote scrolls the docked document to its passage, and flashes it', all(src), src)
@@ -97,14 +97,14 @@ async def main():
         # a browser can still extend a selection under a captured pointer (reported in Brave): make one mid-drag, as it would
         await pg.evaluate("""() => { const w=document.createTreeWalker(document.querySelector('#dock .docpane .textLayer'),NodeFilter.SHOW_TEXT); let t=w.nextNode(); while(t&&t.nodeValue.trim().length<12)t=w.nextNode();
           const r=document.createRange(); r.setStart(t,0); r.setEnd(t,10); getSelection().removeAllRanges(); getSelection().addRange(r); }""")
-        await pg.mouse.up(); await pg.wait_for_timeout(300)
+        await pg.mouse.up(); await settle(pg, 300)
         check('while the canvas is dragged, no text can be selected (not even in the docked document)', off == 'none', off)
         check('…and letting go opens no branch popup, whatever got selected', not await pg.locator('#pop.show').count())
         await pg.evaluate("getSelection().removeAllRanges()")
         on = await pg.evaluate("getComputedStyle(document.querySelector('#dock .docpane .textLayer span')).userSelect")
         check('…and afterwards the document’s text can be highlighted again', on != 'none', on)
 
-        await pg.evaluate("document.querySelector('#zTidy').click()"); await pg.wait_for_timeout(500)
+        await pg.evaluate("document.querySelector('#zTidy').click()"); await settle(pg, 500)
         check('it survives the canvas redrawing', await host.locator('.pane.docpane .dpage canvas').count() > 0)
 
         # its "open in the pane view" button goes to Columns with the document open (it used to do nothing while docked)
@@ -121,7 +121,7 @@ async def main():
         await pg.evaluate("document.querySelector('#viewSeg button[data-v=canvas]').click()")
         await pg.wait_for_function("!!document.querySelector('#dock .docpanecard .cdocpane > .pane.docpane')", timeout=5000)
         check('…and on the canvas again it’s still docked', True)
-        await pg.locator('#dock .docpanecard [data-cact=restore]').click(); await pg.wait_for_timeout(400)
+        await pg.locator('#dock .docpanecard [data-cact=restore]').click(); await settle(pg, 400)
         check('putting it back makes it a card on the canvas again', await pg.locator('#dock .docpanecard').count() == 0 and await pg.locator('#world .cnode[data-ctid="doc"]').count() == 1)
         # snapping: drag the document's card to the right edge
         ch = pg.locator('#world .cnode[data-ctid="doc"] .ch .ct'); cb = await ch.bounding_box(); cvb = await pg.locator('#cv').bounding_box()

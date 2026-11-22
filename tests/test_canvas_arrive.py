@@ -4,7 +4,7 @@ about either layout changes: a round trip leaves conv.ui (open panes, order, siz
 cards) and the panes' scroll exactly as they were. Asserts and exits non-zero."""
 import asyncio, json, sys
 from playwright.async_api import async_playwright
-from common import ROOT, OUT, launch_args, goto_app, booted, answered, frames, calm
+from common import ROOT, OUT, launch_args, goto_app, booted, answered, frames, calm, settle
 from common import CORS
 
 MAP = {
@@ -71,11 +71,11 @@ async def main():
         await view('canvas'); await calm(pg)
         cvb = await pg.locator('#cv').bounding_box()
         bx, by = cvb['x'] + 30, cvb['y'] + cvb['height'] - 60   # empty background, bottom left
-        await pg.mouse.move(bx, by); await pg.mouse.wheel(0, 40); await pg.wait_for_timeout(200)
-        await pg.mouse.down(); await pg.mouse.move(bx + 80, by - 40, steps=6); await pg.mouse.up(); await pg.wait_for_timeout(200)
+        await pg.mouse.move(bx, by); await pg.mouse.wheel(0, 40); await settle(pg, 200)
+        await pg.mouse.down(); await pg.mouse.move(bx + 80, by - 40, steps=6); await pg.mouse.up(); await settle(pg, 200)
         check('looking around (zoom, pan) keeps the mark', await pg.locator('#cv .cnode.here').count() == 1 and await pg.locator('#cvHereTag').count() == 1)
         # wander far off, then the toolbar button glides back
-        await pg.mouse.move(bx, by); await pg.mouse.down(); await pg.mouse.move(bx + 1500, by - 1200, steps=10); await pg.mouse.up(); await pg.wait_for_timeout(200)
+        await pg.mouse.move(bx, by); await pg.mouse.down(); await pg.mouse.move(bx + 1500, by - 1200, steps=10); await pg.mouse.up(); await settle(pg, 200)
         off = await pg.evaluate("(()=>{const c=document.getElementById('cv').getBoundingClientRect(),h=document.querySelector('#cv .cnode.here .ch').getBoundingClientRect();return h.right<c.left||h.left>c.right||h.bottom<c.top||h.top>c.bottom})()")
         check('(the test wandered off: the marked card is out of view)', off)
         btn = pg.locator('#zHere')
@@ -84,14 +84,14 @@ async def main():
         await pg.screenshot(path=OUT + '/canvas_here_button.png')
         back = await pg.evaluate("(()=>{const c=document.getElementById('cv').getBoundingClientRect(),h=document.querySelector('#cv .cnode.here .ch').getBoundingClientRect();return h.left>=c.left&&h.right<=c.right&&h.top>=c.top&&h.bottom<=c.bottom})()")
         check('…which glides back to the card, and the mark stays', back and await pg.locator('#cv .cnode.here').count() == 1)
-        await pg.locator('#cv .cnode[data-ctid="main"] .ch .ct').click(); await pg.wait_for_timeout(200)
+        await pg.locator('#cv .cnode[data-ctid="main"] .ch .ct').click(); await settle(pg, 200)
         check('it lasts the whole visit: clicking a card keeps it', await pg.locator('#cv .cnode.here').count() == 1 and await btn.is_visible())
         # drag the marked card: the label goes with it
         hh = pg.locator('#cv .cnode.here .ch .ct'); hb = await hh.bounding_box()
-        await pg.mouse.move(hb['x'] + 10, hb['y'] + 5); await pg.mouse.down(); await pg.mouse.move(hb['x'] + 130, hb['y'] + 95, steps=8); await pg.mouse.up(); await pg.wait_for_timeout(300)
+        await pg.mouse.move(hb['x'] + 10, hb['y'] + 5); await pg.mouse.down(); await pg.mouse.move(hb['x'] + 130, hb['y'] + 95, steps=8); await pg.mouse.up(); await settle(pg, 300)
         gap = await pg.evaluate("(()=>{const c=document.querySelector('#cv .cnode.here').getBoundingClientRect(),t=document.getElementById('cvHereTag').getBoundingClientRect();return [Math.round(t.left-c.left),Math.round(c.top-t.bottom)]})()")
         check('dragging the marked card moves its label with it', 0 <= gap[0] <= 20 and 0 <= gap[1] <= 12 and await pg.locator('#cv .cnode.here').count() == 1, gap)
-        await pg.locator('#zHereX').click(); await pg.wait_for_timeout(150)
+        await pg.locator('#zHereX').click(); await settle(pg, 150)
         check('× beside the button removes the mark (and the button)', await pg.locator('#cv .cnode.here').count() == 0 and await pg.locator('#cvHereTag').count() == 0 and not await btn.is_visible())
         await view('cols'); await calm(pg); await view('canvas'); await calm(pg)   # a new visit marks again
         await view('cols'); await calm(pg)

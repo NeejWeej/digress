@@ -5,7 +5,7 @@
 Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import launch_args, goto_app, booted, frames, OUT
+from common import launch_args, goto_app, booted, frames, OUT, settle
 
 fails = []
 def check(name, ok, detail=''):
@@ -47,7 +47,7 @@ async def main():
         await pg.add_style_tag(content='.pane .pb{overflow-anchor:none !important}')
         await pg.wait_for_selector('.pane[data-tid=b2] .msg.assistant .body p')
         await pg.evaluate("(() => { const m = document.querySelector('.pane[data-tid=main] .pb'); m.scrollTop = m.scrollHeight * 0.55; const b = document.querySelector('.pane[data-tid=b2] .pb'); b.scrollTop = b.scrollHeight })()")
-        await pg.wait_for_timeout(400)
+        await settle(pg, 400)
         here = await pg.evaluate(AT_LINE, 'main'); await pg.evaluate(NOTE_CHAR, 'main')
         width = lambda: pg.evaluate("document.querySelector('.pane[data-tid=main] .pb').clientWidth")
         w0 = await width()
@@ -67,7 +67,7 @@ async def main():
         check('closing a branch: still in place', await pg.evaluate(AT_LINE, 'main') == here, [here, await pg.evaluate(AT_LINE, 'main')])
         check('…exactly, after expanding, hiding the sidebar and closing', abs(await pg.evaluate(CHAR_OFF, 'main')) <= 2, await pg.evaluate(CHAR_OFF, 'main'))
         # scrolling yourself afterwards moves the remembered place
-        await pg.evaluate("(() => { const m = document.querySelector('.pane[data-tid=main] .pb'); m.scrollTop = m.scrollHeight * 0.2 })()"); await pg.wait_for_timeout(400)
+        await pg.evaluate("(() => { const m = document.querySelector('.pane[data-tid=main] .pb'); m.scrollTop = m.scrollHeight * 0.2 })()"); await settle(pg, 400)
         there = await pg.evaluate(AT_LINE, 'main')
         await pg.locator('#tSide').click(); await frames(pg, 6)
         check('a place you scrolled to since is the one kept', there != here and await pg.evaluate(AT_LINE, 'main') == there, [here, there, await pg.evaluate(AT_LINE, 'main')])

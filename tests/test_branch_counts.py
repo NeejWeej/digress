@@ -6,7 +6,7 @@
 Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import ROOT, FIX, OUT, launch_args, goto_app, booted, answered, frames, PDF_DRAWN_JS
+from common import ROOT, FIX, OUT, launch_args, goto_app, booted, answered, frames, PDF_DRAWN_JS, settle
 from common import CORS
 
 MAP = {
@@ -50,7 +50,7 @@ async def main():
         # a branch off the document (a whole-page question), with one question in it
         await pg.locator('.pane[data-tid=doc] .dpage').first.hover(); await pg.locator('.pane[data-tid=doc] [data-pask="1"]').click()
         await pg.locator('#popIn').fill('What is on this page?'); await answered(pg, pg.locator('#popIn').press('Enter'))
-        await pg.wait_for_timeout(300)
+        await settle(pg, 300)
         check('(set up: one branch off the document)', 'branch' in await origin(pg, 'doc'), await origin(pg, 'doc'))
         check('the document’s header counts it', '1 branch' in await origin(pg, 'doc'), await origin(pg, 'doc'))
         check('…and main’s doesn’t (no branch off main)', await origin(pg, 'main') == '0 branches', await origin(pg, 'main'))
@@ -64,7 +64,7 @@ async def main():
 
         await pg.evaluate(SELECT.replace('.pane .msg', f'.pane[data-tid="{mbr}"] .msg'), 'attention')
         await pg.locator('#popIn').fill('What is attention?'); await answered(pg, pg.locator('#popIn').press('Enter'))
-        await pg.wait_for_timeout(300)
+        await settle(pg, 300)
         check('a sub-branch: its branch says “· 1 branch”', (await origin(pg, mbr)).endswith('· 1 branch'), await origin(pg, mbr))
         check('…and main counts both levels', await origin(pg, 'main') == '2 branches', await origin(pg, 'main'))
         await pg.screenshot(path=OUT + '/branch_counts.png')

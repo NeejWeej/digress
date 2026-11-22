@@ -3,7 +3,7 @@ grows), expanding them again (it shrinks), hiding the sidebar, and several of th
 Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import launch_args, goto_app, booted, frames, soon, FIX, PDF_DRAWN_JS, answered, OUT
+from common import launch_args, goto_app, booted, frames, soon, FIX, PDF_DRAWN_JS, answered, OUT, settle
 
 fails = []
 def check(name, ok, detail=''):
@@ -32,7 +32,7 @@ async def main():
         check('expanding it again: narrower, to fit', await soon(pg, FITS) and abs((await pg.evaluate(FIT))[0] - w0[0]) < 8, [w0, await pg.evaluate(FIT)])
         # several changes in quick succession (as a slow device sees them): it still ends up fitting
         for _ in range(3):
-            await pg.locator('#tSide').click(); await pg.wait_for_timeout(120)
+            await pg.locator('#tSide').click(); await pg.wait_for_timeout(120)   # deliberate: quick changes one after another
         check('after quick changes one after another, it ends up fitting', await soon(pg, FITS), await pg.evaluate(FIT))
         await pg.screenshot(path=OUT + '/pdf_refit.png')
         check('no page errors', not errs, errs[:3])

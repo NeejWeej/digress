@@ -7,7 +7,7 @@
 Asserts and exits non-zero."""
 import asyncio, os, re, sys
 from playwright.async_api import async_playwright
-from common import launch_args, goto_app, booted, frames, OUT, REPO
+from common import launch_args, goto_app, booted, frames, OUT, REPO, settle
 
 fails = []
 def check(name, ok, detail=''):
@@ -82,7 +82,7 @@ async def main():
         ph = await b.new_page(viewport={'width': 390, 'height': 800}, has_touch=True, is_mobile=True)
         ph.on('pageerror', lambda e: errs.append(str(e)))
         await ph.add_init_script(FAKE); await goto_app(ph); await booted(ph)
-        await ph.evaluate("document.activeElement && document.activeElement.blur()"); await ph.keyboard.press('Shift+Slash'); await ph.wait_for_timeout(400)
+        await ph.evaluate("document.activeElement && document.activeElement.blur()"); await ph.keyboard.press('Shift+Slash'); await settle(ph, 400)
         box = await ph.locator('#keysPanel').bounding_box()
         check('on a phone it’s a sheet along the bottom', box and box['x'] <= 1 and box['width'] >= 388 and abs(box['y'] + box['height'] - 800) < 2, box)
         check('no page errors', not errs, errs[:3])

@@ -6,7 +6,7 @@
 Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import launch_args, goto_app, booted, answered, soon, frames
+from common import launch_args, goto_app, booted, answered, soon, frames, settle
 
 # the fake server lists Claude and GPT models (its own list has Claude only)
 MODELS = r"""
@@ -64,7 +64,7 @@ async def main():
         ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill(LONG + ' again'); await answered(pg, ta.press('Enter'))
         await soon(pg, f"() => {TITLES} === 3")
         await pg.evaluate("(()=>{const t=document.getElementById('cTitle');t.focus();t.textContent='My own name';t.blur()})()")
-        await pg.evaluate("window.__go()"); await frames(pg, 6); await pg.wait_for_timeout(300)
+        await pg.evaluate("window.__go()"); await frames(pg, 6); await settle(pg, 300)
         check('a title you set while it ran is kept', await pg.evaluate("__digress.conv.title") == 'My own name', await pg.evaluate("__digress.conv.title"))
         await pg.evaluate("window.__hold = null")
 
@@ -72,7 +72,7 @@ async def main():
         await pg.locator('#newConv').click(); await frames(pg)
         n = await pg.evaluate(TITLES)
         ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Explain the Raft consensus algorithm'); await answered(pg, ta.press('Enter'))
-        await pg.wait_for_timeout(400)
+        await settle(pg, 400)
         check('a short, clear question stays the title (no call)', await pg.evaluate(TITLES) == n and await pg.evaluate("__digress.conv.title") == 'Explain the Raft consensus algorithm')
 
         # a GPT conversation: Terra

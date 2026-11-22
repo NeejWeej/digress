@@ -8,7 +8,7 @@
 Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import ROOT, FIX, OUT, launch_args, goto_app, booted, frames, calm, saved, PDF_DRAWN_JS, CORS
+from common import ROOT, FIX, OUT, launch_args, goto_app, booted, frames, calm, saved, PDF_DRAWN_JS, CORS, settle
 
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
@@ -50,7 +50,7 @@ async def main():
 
         await pg.evaluate("document.querySelector('#viewSeg button[data-v=canvas]').click()"); await calm(pg)
         await pg.evaluate("document.querySelector('#cv .cnode[data-ctid=doc] [data-cact=docdock]').click()")
-        await pg.wait_for_function("!!document.querySelector('#dock .docpanecard .pane.docpane .dpage canvas')", timeout=15000); await pg.wait_for_timeout(500)
+        await pg.wait_for_function("!!document.querySelector('#dock .docpanecard .pane.docpane .dpage canvas')", timeout=15000); await settle(pg, 500)
         w = await pg.evaluate(CARD)
         check('Expand fills the canvas', w[0] >= w[1] - 22, w)
         check('…and its zoom buttons are showing, inside the card', await pg.evaluate(ZOOM_SHOWN, '#dock .docpanecard'))

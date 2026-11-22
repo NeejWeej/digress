@@ -60,15 +60,18 @@ async def main():
         fit = await pg.evaluate("(()=>{const b=document.querySelector('#panes'),cs=getComputedStyle(b);return b.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight)-10})()")
         await pg.mouse.move(edge[0] - 2, y); await pg.wait_for_timeout(200)
         check('a moment at the edge doesn’t grow it yet (a drag that just ends there stays as dragged)', abs((await size(br))[0] - w1) < 30, [w1, await size(br)])
+        # note when it snaps (in the page's own clock), to tell "waits there" from "a slow machine took longer than the hold"
+        await pg.evaluate("window.__snapAt = 0; new MutationObserver(() => { if (!window.__snapAt && document.querySelector('.gut.snap')) window.__snapAt = performance.now() }).observe(document.getElementById('panes'), {attributes: true, subtree: true, attributeFilter: ['class']})")
         try:
             await pg.wait_for_function("document.querySelector('.gut.snap')", timeout=4000); snapped = True
         except Exception: snapped = False
         ws = (await size(br))[0]
         check('held there, it grows until the pane fills the window, and stops', snapped and abs(ws - fit) < 2, [w1, ws, fit])
         check('…saying so', await pg.evaluate("!!document.querySelector('#snapTag.on')") and 'Fits the window' in await pg.locator('#snapTag').inner_text())
+        await pg.wait_for_timeout(300)   # deliberate: part-way into the hold (700 ms)
+        held, since = await pg.evaluate(f"[document.querySelector('#panes > .pane[data-tid=\"{br}\"]').getBoundingClientRect().width, performance.now() - window.__snapAt]")
+        check('…and waits there', abs(held - fit) < 2 or since > 650, [held, fit, round(since)])   # (past the hold already: this machine is too slow to see it)
         await pg.screenshot(path=OUT + '/pane_edge_snap.png')
-        await pg.wait_for_timeout(400)
-        check('…and waits there', abs((await size(br))[0] - fit) < 2, [await size(br), fit])
         await pg.wait_for_timeout(1300)
         w2 = (await size(br))[0]; sl = (await scroll())[0]
         check('still held, it carries on past the screen', w2 > fit + 150, [w0, w1, fit, w2])
