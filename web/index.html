@@ -453,7 +453,8 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .ph.oexp .ph-orow{flex-basis:100%;order:99;padding-left:18px}
 .ph.oexp .ph-origin{white-space:normal;overflow-wrap:break-word}
 .ph.oexp .pox .i{transform:rotate(180deg)}
-.ph-origin q{font-family:var(--serif);font-style:italic;quotes:"\201C" "\201D";cursor:pointer}
+.ph-origin button.crumb,.ph-origin .oqt{border:0;background:none;padding:0;margin:0;font:inherit;color:inherit;cursor:pointer;vertical-align:baseline;text-align:left}
+.ph-origin .oqt{font-family:var(--serif);font-style:italic}.ph-origin .oqt::before{content:'\201C'}.ph-origin .oqt::after{content:'\201D'}
 .ph-origin .crumb{cursor:pointer}
 .ph-origin .pgn{font:inherit;color:inherit;padding:0;border-bottom:1px dotted var(--faint);cursor:pointer}
 .ph-origin .bcount{font:inherit;color:inherit;padding:0;border:0;background:none;border-bottom:1px dotted var(--faint);cursor:pointer}
@@ -469,7 +470,8 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .cnode .cthumb img{width:100%;display:block}
 .cnode .cthumb::after{content:"";position:absolute;inset:auto 0 0 0;height:28px;background:linear-gradient(transparent,var(--panel))}
 .ph-origin .docsrc{color:inherit;text-decoration:underline;text-underline-offset:2px}
-.ph-origin .crumb:hover,.ph-origin q:hover{text-decoration:underline;color:var(--ink)}
+.ph-origin .crumb:hover,.ph-origin .oqt:hover{text-decoration:underline;color:var(--ink)}
+.ph-origin button.crumb:focus-visible,.ph-origin .oqt:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1px;border-radius:3px}
 .ph-act{display:flex;gap:0;flex-wrap:wrap;justify-content:flex-end}
 /* a narrow pane (or the document docked on the canvas): the buttons wrap onto a row under the title rather than
    squeezing it to a letter, and onto another row if need be; none are hidden (zoom must stay reachable on a phone) */
@@ -3382,8 +3384,8 @@ function paneEl(tid){
     <div class="ph-act"><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button></div>${isMain?'':`<button class="tb" data-act="back" title="Go back to where this branched from">${ic('back')}<span class="tl">Back</span></button><button class="tb" data-act="take" title="Add a short takeaway from this branch to its parent">${ic('take')}<span class="tl">Takeaway</span></button><button class="tb kmk" data-act="mkcards" title="Have the model draft flashcards from this branch into your inbox">${ic('cards')}<span class="tl">Cards</span></button>`}${isMain?`<button class="ib kicon" data-act="cards" title="Flashcards for this conversation">${ic('cards')}</button><button class="ib" data-act="restart" title="Start the main thread over: an empty main thread, from just the document. What was in it is kept as another version (Branches in the sidebar), with its branches and flashcards; “Use this version” there brings it back.">${ic('restart')}</button>`:''}
     <button class="ib" data-act="pin"></button><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it. (⌘\\ / Ctrl+\\ for the pane you’re in)">${ic('collapse')}</button><button class="ib" data-act="focus"></button>${isMain?`<button class="ib" data-act="close" title="Close the main thread’s pane. Main thread, under Branches in the sidebar, brings it back. (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`:`<button class="ib dz" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button><button class="ib" data-act="close" title="Close this pane. Branches open under it stay open; the branch stays saved. (Back goes to where it came from.) (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`}</div></div>
     <div class="pb"><div class="msgs"></div></div>
-    ${isMain?'':`<div class="tk"><div class="tkb"><span class="tkl">Takeaway to parent</span><input placeholder="Optional: what to focus on" autocomplete="off"><button class="go" title="Generate 2–4 takeaway bullets and add them to the end of the parent thread">Add</button><button class="ib" data-act="take" title="Cancel">${ic('x')}</button></div></div>`}
     <div class="jumpw"><div class="jump"><button class="ib js" data-act="jsearch" title="Search this thread">${ic('search')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button><button class="ib jl" data-act="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib je" data-act="jend" title="Jump to the very bottom">${ic('jend')}</button></div></div>
+    ${isMain?'':`<div class="tk"><div class="tkb"><span class="tkl">Takeaway to parent</span><input placeholder="Optional: what to focus on" autocomplete="off"><button class="go" title="Generate 2–4 takeaway bullets and add them to the end of the parent thread">Add</button><button class="ib" data-act="take" title="Cancel">${ic('x')}</button></div></div>`}
     <form class="composer"><div class="cbox"><textarea rows="1"></textarea><button class="sendb" type="submit"></button></div></form>
     <div class="rail-label"><span class="dot"></span><span class="rl"></span></div>`;
   const ta=el.querySelector('textarea');
@@ -3392,6 +3394,9 @@ function paneEl(tid){
   ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();submit(tid)}});
   el.querySelector('form').addEventListener('submit',e=>{e.preventDefault();const s=streaming.get(tid);if(s){stopReply(s);return}submit(tid)});
   const tk=el.querySelector('.tk');
+  // the takeaway bar goes away with its ✕, Esc, or a swipe (sideways or down; not from inside the text field)
+  if(tk){let sw=null;tk.addEventListener('touchstart',e=>{sw=e.target.closest('input,button')?null:{x:e.touches[0].clientX,y:e.touches[0].clientY}},{passive:true});
+    tk.addEventListener('touchmove',e=>{if(!sw)return;const dx=e.touches[0].clientX-sw.x,dy=e.touches[0].clientY-sw.y;if(Math.abs(dx)>60||dy>40){sw=null;tk.classList.remove('show')}},{passive:true})}
   if(tk){const inp=tk.querySelector('input');const go=()=>{tk.classList.remove('show');const f=inp.value.trim();inp.value='';bringBack(tid,f)};
     tk.querySelector('.go').addEventListener('click',go);inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();go()}else if(e.key==='Escape')tk.classList.remove('show')})}
   const title=el.querySelector('.ph-title');
@@ -3497,9 +3502,10 @@ function updateHeader(tid){
     // the last one (the direct parent) shows where this branch starts, as the quote does
     const crumbs=path.slice(0,-1).map((id,i)=>{const via=path[i+1],name=id==='main'?(isDocBranch(T(via))?'the document':'the main thread'):`“${T(id).title}”`;
       const label=esc(trunc(id==='main'?(isDocBranch(T(via))?'Document':'Main'):T(id).title,22));
-      if(via===tid)return `<span class="crumb" data-crumb="${id}" data-via="${via}" title="${esc(`Show where this branch starts in ${name}`)}">${label}</span>`;
-      return `<span class="crumb" data-crumb="${id}" data-via="${via}" title="${esc(`Show where “${T(via).title}” branches off ${name}`)}">${label}</span>`}).join(' › ');
-    o.innerHTML=`↳ ${crumbs} <sup style="font-size:10px;color:${color(t)}">${branchNum(t)}</sup>${t.anchorText?` · <q data-back="1" title="Show this passage in its source">${esc(trunc(t.anchorText,70))}</q>`:t.alt?' · another version':' · whole reply'}${nb?` · ${brCount(tid,nb)}`:''}`;
+      // real buttons, not styled spans: a phone's tap goes to the nearest thing that is clickable, which a span isn't (the tap landed on the line around it and did nothing)
+      if(via===tid)return `<button type="button" class="crumb" data-crumb="${id}" data-via="${via}" title="${esc(`Show where this branch starts in ${name}`)}">${label}</button>`;
+      return `<button type="button" class="crumb" data-crumb="${id}" data-via="${via}" title="${esc(`Show where “${T(via).title}” branches off ${name}`)}">${label}</button>`}).join(' › ');
+    o.innerHTML=`↳ ${crumbs} <sup style="font-size:10px;color:${color(t)}">${branchNum(t)}</sup>${t.anchorText?` · <button type="button" class="oqt" data-back="1" title="Show this passage in its source">${esc(trunc(t.anchorText,70))}</button>`:t.alt?' · another version':' · whole reply'}${nb?` · ${brCount(tid,nb)}`:''}`;
   }else o.innerHTML=brCount(tid,nb);
   const pb_=el.querySelector('[data-act="pin"]');if(pb_){const pinned=tid==='main'?!!conv.pinned:!!t.pinned;pb_.innerHTML=ic('pin');pb_.classList.toggle('pinned',pinned);pb_.title=tid==='main'?(pinned?'Unpin this conversation':'Pin this conversation to the top of the sidebar'):(pinned?'Unpin this branch':'Pin this branch to the top of the sidebar, so you can jump straight back to it')}
   const f=el.querySelector('[data-act="focus"]');const on=isFocused(tid);f.innerHTML=ic('focus');f.setAttribute('aria-pressed',on?'true':'false');f.title=on?'Expand the other panes again (Esc)':'Collapse the other panes';f.classList.toggle('on',on);

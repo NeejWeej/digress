@@ -58,7 +58,7 @@ async def main():
         check(['main', 't1'] in fl, 'clicking Main flashes where t1 branches off the main thread')
         # the quote still goes to where t3 starts in t1
         # (dispatched: with three panes the quote is clipped under the header buttons)
-        await o.locator('q[data-back]').dispatch_event('click'); await calm(pg)
+        await o.locator('.oqt[data-back]').dispatch_event('click'); await calm(pg)
         fl = await pg.evaluate("[...document.querySelectorAll('.anchor.flash')].map(a=>[a.closest('.pane').dataset.tid,a.dataset.tid])")
         check(['t1', 't3'] in fl, 'the quote flashes where t3 starts in t1')
         # in a narrow window the line is cut off: a ⌄ shows; it wraps the line, and folds it back
