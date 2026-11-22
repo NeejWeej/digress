@@ -93,9 +93,20 @@ BOOT_WATCH = r"""(() => {
       if (/\/api\/store\/cards$/.test(u.pathname) && !(init && init.method && init.method !== 'GET')) window.__booted = true;
       if (/\/api\/store\/convs\//.test(u.pathname) && u.searchParams.has('rev')) window.__revChecks = (window.__revChecks || 0) + 1;   // catchUp asking for the version
     } catch (e) { /* not a URL we care about */ }
-    return f.apply(this, arguments);
+    window.__inflight = (window.__inflight || 0) + 1;   // requests not yet answered (see quiet())
+    const p = f.apply(this, arguments);
+    p.then(() => { window.__inflight--; }, () => { window.__inflight--; });
+    return p;
   };
 })();"""
+
+
+async def quiet(pg, timeout=15000):
+    """Wait until the page has no request in flight (its saves and checks answered), for a few frames in a row. Before
+    a reload or closing a page: WebKit reports a request cut off by navigation as a page error."""
+    await pg.wait_for_function("""() => { const s = window.__quiet || (window.__quiet = {n: 0});
+      if (window.__inflight) { s.n = 0; return false } return ++s.n >= 10 }""", polling='raf', timeout=timeout)
+    await pg.evaluate("delete window.__quiet")
 
 
 async def booted(pg, timeout=30000):
