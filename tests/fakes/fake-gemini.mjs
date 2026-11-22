@@ -22,6 +22,8 @@ const MODELS = [
   { name: 'models/gemini-3.5-flash-lite', displayName: 'Gemini 3.5 Flash-Lite', inputTokenLimit: 1048576, supportedGenerationMethods: ['generateContent'] },
   { name: 'models/gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', inputTokenLimit: 1048576, supportedGenerationMethods: ['generateContent'] },
   { name: 'models/gemini-old-1', displayName: 'Gemini Old', inputTokenLimit: 32768, supportedGenerationMethods: ['generateContent'] },
+  { name: 'models/gemini-nano-banana-2.1', displayName: 'Nano Banana 2.1', supportedGenerationMethods: ['generateContent'] },
+  { name: 'models/gemini-omni-1.2-flash', displayName: 'Gemini Omni 1.2 Flash', supportedGenerationMethods: ['generateContent'] },
   { name: 'models/gemini-embedding-001', displayName: 'Embedding', supportedGenerationMethods: ['embedContent'] },
 ];
 const textOf = (c) => (c.parts || []).map((p) => p.text || '').join('');

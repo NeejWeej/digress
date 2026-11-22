@@ -44,7 +44,7 @@ def main():
         check(os.path.exists(kf) and stat.S_IMODE(os.stat(kf).st_mode) == 0o600 and json.load(open(kf)).get('gemini') == KEY, 'it’s kept in data/keys.json, readable only by this user (0600)', oct(stat.S_IMODE(os.stat(kf).st_mode)) if os.path.exists(kf) else 'missing')
 
         ids = [m[0] for m in json.loads(req(base, 'GET', '/api/models')[1])['models']]
-        check('gemini-3.8-flash' in ids and 'gemini-3.5-flash-lite' in ids and not any('embedding' in i for i in ids), 'its chat models are listed, not embeddings', ids)
+        check('gemini-3.8-flash' in ids and 'gemini-3.5-flash-lite' in ids and not any(x in i for i in ids for x in ('embedding', 'nano-banana', 'omni')), 'its chat models are listed, not embeddings, the image model or Omni', ids)
         st, text, lines = chat(base, {'system': 'Be brief.', 'messages': [{'role': 'user', 'content': 'Hello'}], 'model': 'gemini-3.8-flash', 'effort': 'high', 'web': False})
         done = lines[-1] if lines else {}
         check(st == 200 and text.startswith('gemini reply web=false thinking=high n=1 system=true') and done.get('done'), 'a reply streams from Gemini (system prompt, effort as a thinking level)', [st, text, lines[-1:]])
