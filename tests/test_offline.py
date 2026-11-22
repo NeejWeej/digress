@@ -20,8 +20,8 @@ def check(name, ok, detail=''):
 
 
 def run_server(port, data):
-    env = {k: v for k, v in os.environ.items() if not k.startswith(('ANTHROPIC_', 'LLM_', 'CLAUDE_BIN', 'CHATGPT_'))}
-    env.update({'PORT': str(port), 'HOST': '127.0.0.1', 'DATA_DIR': data, 'LLM_PROVIDER': 'claude-code', 'CLAUDE_BIN': os.path.join(FAKES, 'fake-claude.mjs'), 'CHATGPT_AUTH_FILE': '/nonexistent'})
+    env = {k: v for k, v in os.environ.items() if not k.startswith(('ANTHROPIC_', 'LLM_', 'CLAUDE_BIN', 'CHATGPT_', 'GEMINI_', 'GOOGLE_'))}
+    env.update({'ANTHROPIC_API_KEY': '', 'GEMINI_API_KEY': '', 'GOOGLE_API_KEY': '', 'PORT': str(port), 'HOST': '127.0.0.1', 'DATA_DIR': data, 'LLM_PROVIDER': 'claude-code', 'CLAUDE_BIN': os.path.join(FAKES, 'fake-claude.mjs'), 'CHATGPT_AUTH_FILE': '/nonexistent'})
     p = subprocess.Popen(['node', SERVER], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for _ in range(100):
         try: urllib.request.urlopen(f'http://127.0.0.1:{port}/api/health', timeout=1); break

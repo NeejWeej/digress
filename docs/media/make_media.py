@@ -246,7 +246,7 @@ def start_server(tmp):
     rep = os.path.join(tmp, 'replies.json'); json.dump(REPLIES, open(rep, 'w'))
     port = free_port()
     env = {**os.environ, 'PORT': str(port), 'HOST': '127.0.0.1', 'DATA_DIR': os.path.join(tmp, 'data'),
-           'LLM_PROVIDER': 'claude-code', 'CLAUDE_BIN': cli, 'ANTHROPIC_API_KEY': '', 'DEFAULT_MODEL': 'claude-opus-5-5',
+           'LLM_PROVIDER': 'claude-code', 'CLAUDE_BIN': cli, 'ANTHROPIC_API_KEY': '', 'GEMINI_API_KEY': '', 'GOOGLE_API_KEY': '', 'DEFAULT_MODEL': 'claude-opus-5-5',
            'CHATGPT_AUTH_FILE': os.path.join(tmp, 'no-chatgpt.json'), 'DEV': '0', 'MEDIA_REPLIES': rep, 'MEDIA_PACE': os.path.join(tmp, 'pace.json')}
     pace(tmp)
     proc = subprocess.Popen(['node', os.path.join(REPO, 'server', 'server.mjs')], env=env, cwd=tmp,

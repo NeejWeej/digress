@@ -60,7 +60,21 @@
     const method = (init.method || 'GET').toUpperCase();
     const p = url.pathname.split('/').filter(Boolean).map(decodeURIComponent); // ['api', ...]
     if (p[1] === 'health') { const ok = !!(await waitForModel()); return json({ app: 'digress', llm: ok, provider: 'fake', providers: ok ? ['fake'] : [], web: true, why: 'No fake model in this test.' }); }
-    if (p[1] === 'models') return json({ models: window.fakeModels || [['claude-opus-5-5', 'Opus 5.5'], ['claude-sonnet-5-5', 'Sonnet 5.5'], ['claude-haiku-5-5', 'Haiku 5.5']], defaultLabel: 'Opus 5.5' });   // a test can list others (window.fakeModels)
+    // Connections: Claude Code on; a Gemini key can be added (gemini-test-key-0000000000 is the one Google "accepts")
+    const conn = window.__fakeConn || (window.__fakeConn = { gemini: null });
+    const gemModels = [['gemini-3.8-flash', 'Gemini 3.8 Flash'], ['gemini-3.5-flash-lite', 'Gemini 3.5 Flash-Lite']];
+    if (p[1] === 'connections') {
+      const list = () => json({ providers: [
+        { id: 'claude-code', name: 'Claude Code', kind: 'cli', on: true, note: 'Your Claude subscription, through the Claude Code CLI' },
+        { id: 'anthropic', name: 'Anthropic API', kind: 'key', on: false, from: null },
+        { id: 'chatgpt', name: 'ChatGPT', kind: 'login', on: false, note: 'ChatGPT is not connected.' },
+        { id: 'gemini', name: 'Google Gemini', kind: 'key', on: !!conn.gemini, ...(conn.gemini ? { from: 'app', last4: conn.gemini.slice(-4) } : { from: null }) }] });
+      if (!p[2] && method === 'GET') return list();
+      if (p[2] === 'gemini' && method === 'PUT') { const k = JSON.parse(init.body).key; if (k !== 'gemini-test-key-0000000000') return json({ error: 'Google rejected the Gemini API key. Check it in Connections.' }, 400); conn.gemini = k; return list(); }
+      if (p[2] === 'gemini' && method === 'DELETE') { conn.gemini = null; return list(); }
+      return json({ error: 'Not found' }, 404);
+    }
+    if (p[1] === 'models') return json({ models: [...(window.fakeModels || [['claude-opus-5-5', 'Opus 5.5'], ['claude-sonnet-5-5', 'Sonnet 5.5'], ['claude-haiku-5-5', 'Haiku 5.5']]), ...(conn.gemini ? gemModels : [])], defaultLabel: 'Opus 5.5' });   // a test can list others (window.fakeModels)
     if (p[1] === 'chat' && p[2] === 'stop' && method === 'POST') { const c = runs.get(JSON.parse(init.body).chat); if (c) c.abort(); return json({ ok: true }); }
     if (p[1] === 'chat' && p[2] === 'run') return json({ error: 'Not found' }, 404);   // reconnecting isn't faked (test_runs.py covers the real server)
     if (p[1] === 'chat' && method === 'POST') {
