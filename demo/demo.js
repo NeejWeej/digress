@@ -107,6 +107,7 @@
     if (p[0] === 'health') return json({ app: 'digress', llm: true, provider: 'demo', providers: ['demo'], web: false, why: '' });
     if (p[0] === 'models') return json({ models: [['demo', 'Demo replies']], defaultLabel: 'Demo replies', default: 'demo', chosen: 'auto' });
     if (p[0] === 'prefs') return json({ defaultModel: 'auto' });
+    if (p[0] === 'connections') return json({ error: 'This is the demo: there’s no server, and replies here were written in advance. In your own Digress, Connections is where you add an Anthropic or Gemini key.' }, 404);
     if (p[0] === 'guide') return realFetch('demo/guide.json');
     if (p[0] === 'chat') {
       if (p[1] === 'stop') { const r = runs.get((await body()).chat); if (r) r.abort(); return json({ ok: true }); }

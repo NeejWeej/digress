@@ -207,9 +207,13 @@ async def app_checks(tmp, b):
     with open(os.open(auth, os.O_WRONLY | os.O_CREAT, 0o600), 'w') as f:
         json.dump({'client_id': 'app_123', 'host_id': 'urn:uuid:test', 'access_token': 'tok-1', 'refresh_token': 'ref-1', 'scopes': ['chatgpt.tokens.use.direct'], 'expires_at': int(time.time() * 1000) + 3600_000}, f)
     cc_log = os.path.join(tmp, 'claude2.log'); open(cc_log, 'w').close()
+    gport = free_port(); g_log = os.path.join(tmp, 'gemini2.log'); open(g_log, 'w').close()
+    fg = subprocess.Popen(['node', os.path.join(FAKES, 'fake-gemini.mjs'), str(gport)], stdout=subprocess.PIPE, env={**os.environ, 'FAKE_LOG': g_log})
+    wait_port(gport)
     data = os.path.join(tmp, 'd3')
     proc, base = start({'LLM_PROVIDER': 'claude-code', 'CLAUDE_BIN': os.path.join(FAKES, 'fake-claude.mjs'), 'DATA_DIR': data, 'FAKE_LOG': cc_log,
-                        'CHATGPT_AUTH_FILE': auth, 'CHATGPT_AUTH_BASE': obase, 'CHATGPT_API_BASE': obase + '/v1'})
+                        'CHATGPT_AUTH_FILE': auth, 'CHATGPT_AUTH_BASE': obase, 'CHATGPT_API_BASE': obase + '/v1',
+                        'GEMINI_API_KEY': 'gemini-test-key-0000000000', 'GEMINI_API_BASE': f'http://127.0.0.1:{gport}/v1beta'})
     files_dir = os.path.join(data, 'files')
     try:
         ctx = await b.new_context(viewport={'width': 1500, 'height': 950})
@@ -256,6 +260,12 @@ async def app_checks(tmp, b):
                 stream = ''.join(x['text'] if 'text' in x else IMG.format(x['sha256']) for x in got['blocks'])
                 got_imgs = [x['sha256'] for x in got['blocks'] if 'sha256' in x]
                 system = got['system']
+            elif provider == 'gemini':
+                got = [l for l in lines(g_log) if l.get('gemini')][-1]
+                part = lambda p: p['text'] if 'text' in p else IMG.format(sha(base64.b64decode(p['inlineData']['data']))) if 'inlineData' in p else ''
+                stream = ''.join('\x00ROLE\x00' + ''.join(part(p) for p in c['parts']) for c in got['contents'])
+                got_imgs = [sha(base64.b64decode(p['inlineData']['data'])) for c in got['contents'] for p in c['parts'] if 'inlineData' in p]
+                system = got['systemInstruction']['parts'][0]['text']
             else:
                 got = lines(oa_log)[-1]
                 stream = ''.join(('\x00ROLE\x00' + flat_content(m['content'])) for m in got['input'][1:])
@@ -351,6 +361,11 @@ async def app_checks(tmp, b):
         conv = await saved_conv()
         gimgs, _, _ = verify(conv, nb['id'], 'ChatGPT, branch off the snip branch', provider='openai')
         check(len(gimgs) == 2 and snip_imgs[0] in gimgs, 'ChatGPT gets the same snip and screenshot')
+        await pg.select_option('#mSel', 'gemini-3.8-flash')
+        await ask(nb['id'], 'Q-nested-gemini: the same branch, now on Gemini')
+        conv = await saved_conv()
+        mimgs, msys, _ = verify(conv, nb['id'], 'Gemini, branch off the snip branch', provider='gemini')
+        check(len(mimgs) == 2 and snip_imgs[0] in mimgs, 'Gemini gets the same snip and screenshot')
 
         await pg.reload(); await booted(pg); await soon(pg, "!!document.querySelector('.msg.user .uimg img')")
         check(await pg.locator('.msg.user .uimg img').count() >= 1, 'after a reload, sent screenshots still show')
@@ -358,7 +373,7 @@ async def app_checks(tmp, b):
         check(not errs, 'no page errors: ' + '; '.join(errs[:3]))
         await ctx.close()
     finally:
-        proc.kill(); fo.kill()
+        proc.kill(); fo.kill(); fg.kill()
 
 
 async def main():

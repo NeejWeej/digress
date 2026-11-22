@@ -6,6 +6,8 @@
 //   GET  /api/health                   {app:'digress', llm:bool, provider, web:bool, why}
 //   GET  /api/models                   {models:[[id,label]], defaultLabel, default, chosen}
 //   GET|PUT /api/prefs                 {defaultModel}: preferences shared by every device
+//   GET /api/connections               the model providers and how each is connected (never a key, only its last 4)
+//   PUT|DELETE /api/connections/:id    {key}: add (checked with the provider first) or remove an API key (anthropic, gemini)
 //   GET  /api/guide                    {docs:[{name,file,text}]}: Digress's own documentation (Ask about Digress)
 //   POST /api/chat                     {system, messages, model, effort, web} -> streamed lines: {d}, {search}, {sources},
 //                                      then {done,model,truncated} or {error}  (see PROVIDERS)
@@ -24,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import os from 'node:os';
 import * as chatgpt from './chatgpt.mjs';
+import * as gemini from './gemini.mjs';
 import { fetchDocument, WARNINGS } from './fetchdoc.mjs';
 import { normalizeMessages, toAnthropic, toClaudeCodeBlocks, IMAGE_TYPES, isImage } from './content.mjs';
 import { createRun, getRun, DETACH_MS } from './runs.mjs';
@@ -49,7 +52,10 @@ loadDotEnv(path.join(ROOT, '.env'));
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || '127.0.0.1'; // localhost only by default; expose it with `tailscale serve`
 const DATA = path.resolve(process.env.DATA_DIR || path.join(ROOT, 'data'));
-const API_KEY = process.env.ANTHROPIC_API_KEY || '';
+// API keys: from .env, or pasted in the app (Connections) and kept in data/keys.json, which only this server's user
+// can read (0600). .env wins. A key is never sent back to the page: only whether one is set, where from, and its
+// last 4 characters.
+const ENV_KEYS = { anthropic: process.env.ANTHROPIC_API_KEY || '', gemini: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '' };
 const API_BASE = (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/$/, '');
 const DEFAULT_MODEL = process.env.DEFAULT_MODEL || 'claude-opus-5-5';
 const MAX_TOKENS = Number(process.env.MAX_TOKENS || 16000);
@@ -84,10 +90,21 @@ async function readJson(req, limit = MAX_JSON) {
 }
 
 // write via a temp file + rename, so a crash never leaves half a conversation on disk
-async function writeAtomic(file, data) {
+async function writeAtomic(file, data, mode) {
   const tmp = file + '.' + crypto.randomBytes(4).toString('hex') + '.tmp';
-  await fs.writeFile(tmp, data);
+  await fs.writeFile(tmp, data, mode ? { mode } : undefined);
   await fs.rename(tmp, file);
+}
+const KEYS_FILE = path.join(DATA, 'keys.json');
+let appKeys = {};
+try { appKeys = JSON.parse(readFileSync(KEYS_FILE, 'utf8')); } catch { /* none yet */ }
+const apiKey = (k) => ENV_KEYS[k] || appKeys[k] || '';
+async function setAppKey(k, v) {
+  return withLock(KEYS_FILE, async () => {   // one change at a time (two keys added at once mustn't lose one)
+    const next = { ...appKeys }; if (v) next[k] = v; else delete next[k];
+    await fs.mkdir(DATA, { recursive: true }); await writeAtomic(KEYS_FILE, JSON.stringify(next), 0o600); await fs.chmod(KEYS_FILE, 0o600).catch(() => {});
+    appKeys = next;
+  });
 }
 // one write at a time per file
 const locks = new Map();
@@ -213,8 +230,13 @@ const PROVIDERS = {
     why: `The server could not find the Claude Code CLI ("${CLAUDE_BIN}"). Install it, run \`claude\` once to sign in, then restart the server.`,
   },
   anthropic: {
-    label: 'Anthropic API', web: true, tools: true, available: () => !!API_KEY, models: anthropicModels, chat: chatViaApi,
-    why: 'The server has no Anthropic API key. Add ANTHROPIC_API_KEY to .env and restart it.',
+    label: 'Anthropic API', web: true, tools: true, available: () => !!apiKey('anthropic'), models: anthropicModels, chat: chatViaApi,
+    why: 'The server has no Anthropic API key. Add one in Connections (or ANTHROPIC_API_KEY in .env).',
+  },
+  gemini: {
+    label: 'Google Gemini API', web: true, tools: true, available: () => !!apiKey('gemini'), models: () => gemini.listModels(apiKey('gemini')),
+    chat: (payload, res) => gemini.chat(payload, res, { startStream, sourcesLine, fail }, apiKey('gemini')),
+    why: 'The server has no Gemini API key. Add one in Connections (or GEMINI_API_KEY in .env).',
   },
   chatgpt: {
     label: 'ChatGPT (your ChatGPT plan)', web: true, tools: true, available: chatgpt.available, why: chatgpt.WHY, models: chatgpt.listModels,
@@ -222,11 +244,13 @@ const PROVIDERS = {
   },
 };
 // LLM_PROVIDER picks the default (used when the picker says "Default"); the others still work when available.
-const PRIMARY = (process.env.LLM_PROVIDER || (API_KEY ? 'anthropic' : 'claude-code')).toLowerCase();
-const CLAUDE_SIDE = ['anthropic', 'claude-code'].includes(PRIMARY) ? PRIMARY : API_KEY ? 'anthropic' : 'claude-code';
-const CANDIDATES = [...new Set([PRIMARY, CLAUDE_SIDE, 'chatgpt'])].filter((k) => PROVIDERS[k]);
-const enabled = () => CANDIDATES.filter((k) => PROVIDERS[k].available()); // checked per request: signing in needs no restart
-const llmWhy = () => (PROVIDERS[PRIMARY] ? PROVIDERS[PRIMARY].why : `Unknown LLM_PROVIDER "${PRIMARY}". Use ${Object.keys(PROVIDERS).join(', ')}.`);
+// Worked out per request, since keys can be added or removed in the app: the Claude side is the Anthropic API when it
+// has a key, else Claude Code (or whichever LLM_PROVIDER names)
+const primary = () => (process.env.LLM_PROVIDER || (apiKey('anthropic') ? 'anthropic' : 'claude-code')).toLowerCase();
+const claudeSide = () => { const p = primary(); return ['anthropic', 'claude-code'].includes(p) ? p : apiKey('anthropic') ? 'anthropic' : 'claude-code'; };
+const candidates = () => [...new Set([primary(), claudeSide(), 'chatgpt', 'gemini'])].filter((k) => PROVIDERS[k]);
+const enabled = () => candidates().filter((k) => PROVIDERS[k].available()); // checked per request: signing in or adding a key needs no restart
+const llmWhy = () => { const p = primary(); return PROVIDERS[p] ? PROVIDERS[p].why : `Unknown LLM_PROVIDER "${p}". Use ${Object.keys(PROVIDERS).join(', ')}.`; };
 const WEB_ALLOWED = !/^(0|false|no|off)$/i.test(process.env.WEB_SEARCH || '');
 const webOk = (k) => WEB_ALLOWED && !!(PROVIDERS[k] && PROVIDERS[k].web);
 const MAX_SEARCHES = Number(process.env.MAX_SEARCHES || 5);
@@ -272,16 +296,38 @@ async function providerFor(model) {
   const k = owner.get(model);
   if (k && on.includes(k)) return k;
   // not in any list (an older Claude model id, say): Claude ids go to the Claude provider
-  return /^claude/i.test(model) && on.includes(CLAUDE_SIDE) ? CLAUDE_SIDE : on[0];
+  if (/^gemini/i.test(model) && on.includes('gemini')) return 'gemini';
+  return /^claude/i.test(model) && on.includes(claudeSide()) ? claudeSide() : on[0];
+}
+// ---- Connections ----
+const KEY_CHECKS = {
+  anthropic: async (key) => {
+    try {
+      const r = await fetch(API_BASE + '/v1/models?limit=1', { headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' } });
+      return r.ok ? { ok: true } : { error: r.status === 401 ? 'Anthropic rejected that key.' : 'Anthropic answered ' + r.status + '.' };
+    } catch (e) { return { error: 'Could not reach Anthropic: ' + e.message }; }
+  },
+  gemini: (key) => gemini.checkKey(key),
+};
+function resetModelLists() { anthropicCache = null; gemini.resetModels(); owner.clear(); }
+const keyInfo = (k) => { const v = apiKey(k); return v ? { from: ENV_KEYS[k] ? 'env' : 'app', last4: v.slice(-4) } : { from: null }; };
+async function connections() {
+  const on = enabled();
+  return [
+    { id: 'claude-code', name: 'Claude Code', kind: 'cli', on: on.includes('claude-code'), available: PROVIDERS['claude-code'].available(), note: on.includes('claude-code') ? 'Your Claude subscription, through the Claude Code CLI' : (apiKey('anthropic') ? 'Not used while an Anthropic API key is set' : PROVIDERS['claude-code'].why) },
+    { id: 'anthropic', name: 'Anthropic API', kind: 'key', on: on.includes('anthropic'), ...keyInfo('anthropic') },
+    { id: 'chatgpt', name: 'ChatGPT', kind: 'login', on: on.includes('chatgpt'), note: on.includes('chatgpt') ? 'Your ChatGPT plan' : chatgpt.WHY },
+    { id: 'gemini', name: 'Google Gemini', kind: 'key', on: on.includes('gemini'), ...keyInfo('gemini') },
+  ];
 }
 let anthropicCache = null;
 const apiWindows = new Map();   // model id -> context window (max_input_tokens, from the Models API)
 async function anthropicModels() {
   if (anthropicCache && Date.now() - anthropicCache.at < 10 * 60 * 1000) return anthropicCache.list;
   let list = [];
-  if (API_KEY) {
+  if (apiKey('anthropic')) {
     try {
-      const r = await fetch(API_BASE + '/v1/models?limit=100', { headers: { 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' } });
+      const r = await fetch(API_BASE + '/v1/models?limit=100', { headers: { 'x-api-key': apiKey('anthropic'), 'anthropic-version': '2023-06-01' } });
       if (r.ok) { const data = (await r.json()).data || []; list = data.map((m) => [m.id, m.display_name || m.id]); for (const m of data) if (Number.isFinite(m.max_input_tokens)) apiWindows.set(m.id, m.max_input_tokens); }
     } catch (e) { console.warn('model list failed:', e.message); }
   }
@@ -508,7 +554,7 @@ function anthropicRequest({ system, messages, model, effort, web, session, final
   if (final && tools.length) body.tool_choice = { type: 'none' }; // the tool loop ran out of rounds: answer from what was read
   return fetch(API_BASE + '/v1/messages', {
     method: 'POST', signal,
-    headers: { 'content-type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' },
+    headers: { 'content-type': 'application/json', 'x-api-key': apiKey('anthropic'), 'anthropic-version': '2023-06-01' },
     body: JSON.stringify(body),
   });
 }
@@ -574,7 +620,7 @@ async function chatViaApi(payload, res) {
 }
 function errorText(txt, status) {
   try { const j = JSON.parse(txt); if (j.error && j.error.message) return j.error.message; } catch { /* not JSON */ }
-  if (status === 401) return 'The Anthropic API key was rejected. Check ANTHROPIC_API_KEY in .env.';
+  if (status === 401) return 'The Anthropic API key was rejected. Check it in Connections (or ANTHROPIC_API_KEY in .env).';
   return 'The model request failed (' + status + ').';
 }
 
@@ -720,7 +766,7 @@ async function route(req, res) {
 
   if (parts[1] === 'health' && req.method === 'GET') {
     const on = enabled();
-    return send(res, 200, { app: 'digress', llm: on.length > 0, provider: on[0] || PRIMARY, providers: on, web: on.some(webOk), tools: on.length > 0 && on.every((k) => PROVIDERS[k].tools), why: on.length ? undefined : llmWhy() });
+    return send(res, 200, { app: 'digress', llm: on.length > 0, provider: on[0] || primary(), providers: on, web: on.some(webOk), tools: on.length > 0 && on.every((k) => PROVIDERS[k].tools), why: on.length ? undefined : llmWhy() });
   }
   if (parts[1] === 'models' && req.method === 'GET') {
     const models = await listModels(), def = await defaultModel();
@@ -744,6 +790,26 @@ async function route(req, res) {
         if (!(await listModels()).some((x) => x[0] === m)) return fail(res, 400, 'No connected provider offers that model');
       }
       return send(res, 200, await setPrefs({ defaultModel: m || null }));
+    }
+    return fail(res, 405, 'Method not allowed');
+  }
+  // Connections: which providers are on, and API keys added or removed from the app (kept in data/keys.json, 0600).
+  // A key goes in, is checked with its provider, and never comes back out: only its source and last 4 characters.
+  if (parts[1] === 'connections') {
+    if (parts.length === 2 && req.method === 'GET') return send(res, 200, { providers: await connections() });
+    const k = parts[2];
+    if (parts.length !== 3 || !KEY_CHECKS[k]) return fail(res, 404, 'Not found');
+    if (req.method === 'DELETE') {
+      if (ENV_KEYS[k]) return fail(res, 409, 'This key is set in .env. Remove it there (and restart) to disconnect.');
+      await setAppKey(k, null); resetModelLists(); return send(res, 200, { providers: await connections() });
+    }
+    if (req.method === 'PUT') {
+      const p = await readJson(req, 4096), key = p && typeof p.key === 'string' ? p.key.trim() : '';
+      if (!/^[A-Za-z0-9_\-.]{20,200}$/.test(key)) return fail(res, 400, 'That doesn’t look like an API key.');
+      if (ENV_KEYS[k]) return fail(res, 409, 'A key for this is already set in .env, which takes precedence.');
+      const ok = await KEY_CHECKS[k](key);
+      if (!ok.ok) return fail(res, 400, ok.error || 'The provider rejected that key.');
+      await setAppKey(k, key); resetModelLists(); return send(res, 200, { providers: await connections() });
     }
     return fail(res, 405, 'Method not allowed');
   }

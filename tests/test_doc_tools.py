@@ -50,7 +50,7 @@ async def main():
             b = await p.chromium.launch(**launch_args())
             big = os.path.join(tmp, 'big.pdf'); await make_pdf(b, big, 60)
 
-            # fakes: OpenAI (ChatGPT plan route) and the Anthropic API; Claude Code is a fake CLI
+            # fakes: OpenAI (ChatGPT plan route), the Anthropic API and Gemini (server 3); Claude Code is a fake CLI
             oport, aport = free_port(), free_port()
             oa_log, api_log, cc_log = (os.path.join(tmp, n) for n in ('openai.log', 'api.log', 'claude.log'))
             for f in (oa_log, api_log, cc_log): open(f, 'w').close()
@@ -199,6 +199,33 @@ async def main():
             check('Anthropic API: tools sent on every round, 3 requests', len(api) >= 3 and all(set(['search', 'read_pages', 'view_page']) <= set(l['tools']) for l in api[-3:]))
             check('Anthropic API: the model\'s text before the tools and its answer are both kept, as separate paragraphs', reply.startswith('Let me look in the document.') and '\nDOCREPLY' in reply, reply[:120])
             check('no page errors (server 2)', not errs, errs[:3])
+            await ctx.close()
+
+            # ---- server 3: Google Gemini (only it connected)
+            gport = free_port(); g_log = os.path.join(tmp, 'gemini.log'); open(g_log, 'w').close()
+            procs.append(subprocess.Popen(['node', os.path.join(FAKES, 'fake-gemini.mjs'), str(gport)], stdout=subprocess.PIPE, env={**os.environ, 'FAKE_LOG': g_log}))
+            wait_port(gport)
+            s3, base3 = start({'LLM_PROVIDER': 'claude-code', 'CLAUDE_BIN': '/nonexistent/claude', 'GEMINI_API_KEY': 'gemini-test-key-0000000000',
+                               'GEMINI_API_BASE': f'http://127.0.0.1:{gport}/v1beta', 'DATA_DIR': os.path.join(tmp, 'd3')})
+            procs.append(s3)
+            ctx, pg, errs = await open_app(base3)
+            await pg.wait_for_function("[...document.querySelectorAll('#mSel option')].some(o=>o.value==='gemini-3.8-flash')")
+            await pg.select_option('#mSel', 'gemini-3.8-flash')
+            await new_doc(pg, big)
+            await pg.select_option('#mSel', 'gemini-3.8-flash')
+            await ask(pg, 'READDOC what is in section 42?')
+            reply = await last_reply(pg)
+            check_script('Gemini', reply)
+            await check_trail(pg, 'Gemini')
+            gm = [l for l in lines(g_log) if l.get('gemini') and 'READDOC' in json.dumps(l.get('contents', []))]
+            check('Gemini: the tools went as function declarations on every round, 3 requests', len(gm) >= 3 and all(any('functionDeclarations' in t for t in l.get('tools', [])) for l in gm[-3:]), len(gm))
+            check('Gemini: each tool call went back with its thought signature (the fake refuses one without)', 'DOCREPLY' in reply)
+            check('Gemini: its private thinking isn’t shown', 'thinking about it' not in reply, reply[:200])
+            check('Gemini: the same starting point (contents + first pages) as its system instruction', '<contents>' in gm[-1]['systemInstruction']['parts'][0]['text'])
+            await ask(pg, 'NEVERSTOP keep looking')
+            reply = await last_reply(pg)
+            check('Gemini: a model that keeps calling tools gets one last request with tools off, and answers', 'FINALANSWER after' in reply, reply[:200])
+            check('no page errors (server 3)', not errs, errs[:3])
             await ctx.close()
             await b.close()
     finally:

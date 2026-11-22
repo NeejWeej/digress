@@ -57,9 +57,10 @@ def wait_until(fn, timeout=10):
 
 def start(env_extra):
     port = free_port()
-    env = {k: v for k, v in os.environ.items() if not k.startswith(('ANTHROPIC_', 'LLM_', 'CLAUDE_BIN', 'CHATGPT_'))}
-    # never pick up a real ChatGPT sign-in from this machine
-    env.update({'PORT': str(port), 'HOST': '127.0.0.1', 'CHATGPT_AUTH_FILE': '/nonexistent/chatgpt.json'}, **env_extra)
+    env = {k: v for k, v in os.environ.items() if not k.startswith(('ANTHROPIC_', 'LLM_', 'CLAUDE_BIN', 'CHATGPT_', 'GEMINI_', 'GOOGLE_'))}
+    # never pick up a real ChatGPT sign-in or API key from this machine: set (empty), so the server's .env can't fill them in
+    env.update({'PORT': str(port), 'HOST': '127.0.0.1', 'CHATGPT_AUTH_FILE': '/nonexistent/chatgpt.json',
+                'ANTHROPIC_API_KEY': '', 'GEMINI_API_KEY': '', 'GOOGLE_API_KEY': ''}, **env_extra)
     proc = subprocess.Popen(['node', SERVER], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     for _ in range(100):
         try:

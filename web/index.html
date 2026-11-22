@@ -132,6 +132,8 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .ib{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;color:var(--muted);flex:none}
 .ib:hover{background:var(--user-bg);color:var(--ink)}
 .ib.on{background:var(--user-bg);color:var(--ink)}
+/* Collapse others, while on: the same icon, pressed in the accent colour (a different icon looked like the Columns view) */
+.ib[data-act=focus].on{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
 .tb{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 8px;border-radius:7px;color:var(--muted);font-size:12px}
 .tb:hover{background:var(--user-bg);color:var(--ink)}
 .tb svg.i{width:14px;height:14px}
@@ -268,6 +270,19 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
   background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 12px) 55%,calc(100% - 8px) 55%;background-size:4px 4px;background-repeat:no-repeat}
 .sel .mpick:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1px}
 .mmenu{min-width:240px}.mmenu .mcount{margin-left:auto;flex:none;font-size:11.5px;color:var(--faint)}
+.mmenu.mfind{z-index:96}
+#connModal .mbox.conn{width:min(560px,100%);max-height:min(88vh,820px);overflow:auto}
+.cnsub{margin-bottom:8px}.cnlist{display:flex;flex-direction:column;gap:8px}
+.cnrow{border:1px solid var(--line);border-radius:10px;padding:10px 12px}.cnrow.on{border-color:color-mix(in srgb,var(--accent) 35%,var(--line2))}
+.cnh{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink)}.cnh .cnstate{margin-left:auto;font-size:12px;color:var(--muted);text-align:right}
+.cndot{width:8px;height:8px;border-radius:50%;background:var(--line2);flex:none}.cnrow.on .cndot{background:var(--accent)}
+.cnnote{font-size:12.5px;line-height:1.5;color:var(--muted);margin-top:4px}
+.cnact{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}.cnact .cnkey{flex:1 1 220px;min-width:0;padding:6px 9px;border:1px solid var(--line2);border-radius:8px;background:var(--bg);color:var(--ink);font:13px var(--mono)}
+.cnget{font-size:12.5px;color:var(--accent)}.cnfaint{font-size:12.5px;color:var(--faint)}.cnerr{margin-top:6px;font-size:12.5px;color:var(--danger)}   /* over the search box */
+.mmenu .mnote{font-size:11.5px;line-height:1.45;color:var(--faint);padding:2px 8px 6px;max-width:250px}
+.mmenu .mconn{margin-top:4px;border-top:1px solid var(--line)}.mmenu .mconn>.i{width:15px;height:15px;color:var(--muted);flex:none}
+.pr .paimodel{flex:none;align-self:center;margin-left:8px;border:1px solid var(--line2);background:var(--panel);color:var(--muted);border-radius:7px;padding:2px 8px;font:12px var(--sans);cursor:pointer;white-space:nowrap}
+.pr .paimodel:hover{color:var(--ink);border-color:color-mix(in srgb,var(--accent) 45%,var(--line2))}
 .mmenu .molder{font-size:12px;color:var(--muted);gap:8px}.mmenu .molder .chev{flex:none;display:inline-flex;color:var(--faint);transform:rotate(-90deg);transition:transform .15s}.mmenu .molder .chev svg.i{width:12px;height:12px}
 .mmenu .molder[aria-expanded=true] .chev{transform:none}.mmenu .molder[aria-expanded=false]+.molist{display:none}.mmenu .molist{padding-left:14px}
 .mdef{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;color:var(--faint)}
@@ -1270,12 +1285,13 @@ const I={
  rows:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18M3 14.5h18"/>',
  canvas:'<rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="14" width="7" height="6" rx="1.5"/><rect x="14" y="4" width="7" height="6" rx="1.5"/><path d="M10 7h4M17.5 10v4"/>',
  focus:'<rect x="8" y="4" width="8" height="16" rx="1.5"/><path d="M4 6v12M20 6v12"/>',
- unfocus:'<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="9.5" y="4" width="5" height="16" rx="1"/><rect x="16" y="4" width="5" height="16" rx="1"/>',
+ unfocus:'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',   // (the canvas card's "put it back")
  fitw:'<path d="M4 5v14M20 5v14M7.5 12h9M10 9.5 7.5 12l2.5 2.5M14 9.5l2.5 2.5-2.5 2.5"/>',
  collapse:'<path d="M6 12h12"/>',
  x:'<path d="M6 6l12 12M18 6L6 18"/>',
  swap:'<path d="M7 7h12l-3-3M17 17H5l3 3"/>',
  download:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+ plug:'<path d="M9 3v5M15 3v5M7 8h10v3a5 5 0 0 1-10 0zM12 16v5"/>',
  back:'<path d="M15 6l-6 6 6 6"/>',
  up:'<path d="M12 19V5M6 11l6-6 6 6"/>',
  send:'<path d="M12 19V5M6 11l6-6 6 6"/>',
@@ -1521,6 +1537,12 @@ function serverLlm(info){
     async loadModels(){
       try{const j=await (await okOrThrow(await fetch('api/models'))).json();models=[['auto','Default'+(j.defaultLabel?' ('+j.defaultLabel+')':'')],...j.models];llm.defaultModel=j.default||null}catch(e){console.warn('model list failed',e)}
     },
+    // Connections: which providers are on; API keys added or removed here are kept on the server, never sent back
+    async connections(){return (await okOrThrow(await fetch('api/connections'))).json()},
+    async setKey(id,key){const r=await fetch('api/connections/'+encodeURIComponent(id),{method:id&&key?'PUT':'DELETE',headers:{'content-type':'application/json'},body:key?JSON.stringify({key}):undefined});
+      const j=await r.json().catch(()=>({}));if(!r.ok)throw {message:j.error||('The server answered '+r.status)};await llm.refresh();return j},
+    // the providers changed (a key added or removed): what the server offers now, without a reload
+    async refresh(){try{const h=await (await okOrThrow(await fetch('api/health',{cache:'no-store'}))).json();Object.assign(info,h);llm.supportsWeb=!!(h.llm&&h.web);llm.supportsTools=!!(h.llm&&h.tools);if(h.why)llm.why=h.why}catch(e){console.warn(e)}await llm.loadModels()},
     // what "Default" means on every device (stored by the server); then the list is reloaded with its new label
     async setDefault(id){await okOrThrow(await fetch('api/prefs',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({defaultModel:id})}));await llm.loadModels()},
     // tools: {run(name,input) → {parts}|{error}} lets the model use the document tools (server/doctools.mjs):
@@ -1582,7 +1604,9 @@ function serverLlm(info){
         if(st.n||resume||wait>400)await new Promise(ok=>setTimeout(ok,wait));
         let g;try{g=await fetch('api/chat/run/'+chat+'?from='+st.n,{signal,cache:'no-store'})}catch(e){if(signal&&signal.aborted)throw e;continue}
         if(g.status===404)throw fail(st.n||resume?{message:'The server no longer has this reply, so it stops here.',cut:true}:{message:'Couldn’t reach the server.'});
-        if(!g.ok){if(g.status>=500&&g.status!==500)continue;await okOrThrow(g)}
+        // a 5xx with no JSON is the server restarting or a proxy in front of it: try again. One with {error} is the
+        // server's own answer (the model was busy, say): show it rather than retrying for minutes.
+        if(!g.ok){if(g.status>=500&&g.status!==500){let j=null;try{j=await g.clone().json()}catch(e){}if(!(j&&j.error))continue}await okOrThrow(g)}
         state=await read(g);
       }
       if(st.error)throw fail({message:st.error});
@@ -2653,11 +2677,11 @@ async function generate(m,ctx,lockTid,o={}){
 }
 // --- titles: a conversation or branch is named by its first question; a long or vague one gets a short title from
 // a fast model once its first reply ends. Never over a title you set (titleKept) or one that's no longer the question.
-const MODEL_FAM=(id)=>/claude|haiku|sonnet|opus/i.test(id||'')?'claude':/gpt|^o\d/i.test(id||'')?'gpt':null;
+const MODEL_FAM=(id)=>/claude|haiku|sonnet|opus/i.test(id||'')?'claude':/gpt|^o\d/i.test(id||'')?'gpt':/^gemini/i.test(id||'')?'google':null;
 // the fast model of the family this conversation uses (Haiku or Terra): the one family its replies came from, else its
 // kept model's, else the reply's; with only one provider connected, that one
 function titleModel(c,hint){
-  const ids=io.llm.models().map(x=>x[0]),fast={claude:ids.find(x=>/haiku/i.test(x)),gpt:ids.find(x=>/terra/i.test(x))||ids.find(x=>/mini|luna/i.test(x))};
+  const ids=io.llm.models().map(x=>x[0]),fast={claude:ids.find(x=>/haiku/i.test(x)),gpt:ids.find(x=>/terra/i.test(x))||ids.find(x=>/mini|luna/i.test(x)),google:ids.find(x=>/^gemini.*flash-lite/i.test(x))||ids.find(x=>/^gemini.*flash/i.test(x))};
   const avail=Object.keys(fast).filter(k=>fast[k]);if(!avail.length)return hint||settings.model;if(avail.length===1)return fast[avail[0]];
   const used=new Set(Object.values(c.msgs).filter(m=>m.role==='assistant'&&m.model).map(m=>MODEL_FAM(m.model)).filter(Boolean));
   const f=used.size===1?[...used][0]:MODEL_FAM(c.llm&&c.llm[0])||MODEL_FAM(hint);return fast[f]||fast[avail[0]];
@@ -3477,7 +3501,7 @@ function updateHeader(tid){
     o.innerHTML=`↳ ${crumbs} <sup style="font-size:10px;color:${color(t)}">${branchNum(t)}</sup>${t.anchorText?` · <q data-back="1" title="Show this passage in its source">${esc(trunc(t.anchorText,70))}</q>`:t.alt?' · another version':' · whole reply'}${nb?` · ${brCount(tid,nb)}`:''}`;
   }else o.innerHTML=brCount(tid,nb);
   const pb_=el.querySelector('[data-act="pin"]');if(pb_){const pinned=tid==='main'?!!conv.pinned:!!t.pinned;pb_.innerHTML=ic('pin');pb_.classList.toggle('pinned',pinned);pb_.title=tid==='main'?(pinned?'Unpin this conversation':'Pin this conversation to the top of the sidebar'):(pinned?'Unpin this branch':'Pin this branch to the top of the sidebar, so you can jump straight back to it')}
-  const f=el.querySelector('[data-act="focus"]');const on=isFocused(tid);f.innerHTML=ic(on?'unfocus':'focus');f.title=on?'Expand the other panes again (Esc)':'Collapse the other panes';f.classList.toggle('on',on);
+  const f=el.querySelector('[data-act="focus"]');const on=isFocused(tid);f.innerHTML=ic('focus');f.setAttribute('aria-pressed',on?'true':'false');f.title=on?'Expand the other panes again (Esc)':'Collapse the other panes';f.classList.toggle('on',on);
   el.querySelector('.rl').textContent=tid==='main'?'Main':t.title;
   const sd=el.querySelector('.sdot');if(sd){sd.classList.toggle('res',!!t.resolved);sd.title=t.resolved?'Resolved. Click to mark as still open.':'Open. Click to mark as resolved once you\'ve got it.'}
   el.classList.toggle('res',!!t.resolved);
@@ -4629,7 +4653,7 @@ function updateDocHeader(){
   }else o.innerHTML=bl;
   // opened from a link: show where it came from
   const src=conv.doc.source;if(src&&/^https?:\/\//i.test(src)&&docState&&docState.loaded){try{const a=document.createElement('a');a.href=src;a.target='_blank';a.rel='noopener noreferrer';a.className='docsrc';a.textContent=new URL(src).hostname;a.title=src;o.append(' · ',a)}catch(e){}}
-  const f=el.querySelector('[data-act="focus"]');const on=isFocused('doc');f.innerHTML=ic(on?'unfocus':'focus');f.title=on?'Expand the other panes again (Esc)':'Collapse the other panes';f.classList.toggle('on',on);
+  const f=el.querySelector('[data-act="focus"]');const on=isFocused('doc');f.innerHTML=ic('focus');f.setAttribute('aria-pressed',on?'true':'false');f.title=on?'Expand the other panes again (Esc)':'Collapse the other panes';f.classList.toggle('on',on);
   el.querySelector('.rl').textContent=conv.doc.name;
 }
 function renderDocPane(force){
@@ -5494,6 +5518,15 @@ function resultRow(r,i,terms){
 const canAskModel=()=>io.llm&&io.llm.kind!=='none'&&!io.offline;
 // one-off calls (Describe it instead): the fast model of the family in use, as for titles (Haiku or Terra)
 function fastModel(){return titleModel(conv||{msgs:{}},settings.model)}
+/* Describe it instead is the one thing that reaches across conversations (titles; snippets if you let it pick), so it
+   has its own model, picked beside it (settings.findModel). By default the quick model of the family in use, but never
+   a Gemini one unless that's all there is: a free-tier Gemini key lets Google use what's sent. */
+function findModel(){
+  const ids=io.llm?io.llm.models().map(x=>x[0]):[];
+  if(settings.findModel&&ids.includes(settings.findModel))return settings.findModel;
+  const f=fastModel();if(MODEL_FAM(f)!=='google')return f;
+  return ids.find(x=>/haiku/i.test(x))||ids.find(x=>/terra/i.test(x))||ids.find(x=>/mini|luna/i.test(x))||f;
+}
 function scopeTitles(){
   if(PAL.scope==='thread'&&conv){if(PAL.stid==='doc')return [conv.doc?conv.doc.name:'The document'];return [conv.title,...ancestors(PAL.stid).filter(id=>id!=='main').map(id=>T(id).title)].filter(Boolean)}   // its path: the conversation, then each thread down to this one
   if(PAL.scope==='conv'&&conv)return [conv.title,...Object.values(conv.threads).filter(t=>t.parent).map(t=>t.title),...(conv.doc?[conv.doc.name]:[])].filter(Boolean);
@@ -5502,10 +5535,19 @@ function scopeTitles(){
 }
 const AIQ={seq:0};
 async function askFind(text){
-  const r=await io.llm.complete({system:PROMPTS.find.system,messages:[{role:'user',content:text}],model:fastModel(),effort:'low',web:false});
+  const r=await io.llm.complete({system:PROMPTS.find.system,messages:[{role:'user',content:text}],model:findModel(),effort:'low',web:false});
   return r.text||'';
 }
-function aiRows(box,rows){for(const r of rows){const i=PAL.results.length;PAL.results.push(r);box.appendChild(resultRow(r,i,[]))}}
+function aiRows(box,rows){for(const r of rows){const i=PAL.results.length;PAL.results.push(r);const el=resultRow(r,i,[]);box.appendChild(el);if(r.ai)el.appendChild(findModelButton())}}
+// "Asks: Haiku 5.5 ▾": which model Describe it instead uses; opens the same grouped menu as the top bar's
+function findModelButton(){
+  const b=document.createElement('button');b.type='button';b.className='paimodel';b.setAttribute('aria-haspopup','true');
+  const id=findModel(),l=(io.llm.models().find(x=>x[0]===id)||[0,id])[1];b.textContent='Asks: '+l;b.title='The model Describe it instead asks (what you typed and titles; snippets only if you let it pick)';
+  b.addEventListener('click',e=>{e.stopPropagation();e.preventDefault();if(modelsOpen()&&menuFor&&menuFor.anchor===b)return closeModels();
+    openModelMenu({anchor:b,find:true,cur:()=>findModel(),pick:(v)=>{settings.findModel=v||null;saveSettings();for(const x of document.querySelectorAll('.paimodel'))x.textContent='Asks: '+(io.llm.models().find(m=>m[0]===findModel())||[0,findModel()])[1]}})});
+  b.addEventListener('mousedown',e=>e.stopPropagation());
+  return b;
+}
 function aiExpandRow(box,none){
   if(!canAskModel()||PAL.q.length<3)return;
   aiRows(box,[{ai:'expand',label:none?'Nothing matched. Describe it instead: find it with AI':'Describe it instead: find it with AI',
@@ -6624,6 +6666,7 @@ function closeTopmost(){
   if($('#pal').classList.contains('show')){closePalette();return true}
   if(themeMenu.classList.contains('open')){closeThemes();return true}
   if(modelsOpen()){closeModels();return true}
+  if(connModal.classList.contains('show')){closeConnections();return true}
   if(moreMenu.classList.contains('open')){closeMore();return true}
   const vw=$('#cvViews');if(vw&&vw.classList.contains('open')){closeViews();return true}
   if(brPop){closeBrList();return true}
@@ -6903,12 +6946,67 @@ mDef.onclick=async(e)=>{e.preventDefault();e.stopPropagation();const id=settings
 // another device may have changed the default: refresh the list when this tab comes back
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&io.llm&&io.llm.setDefault)io.llm.loadModels().then(fillModelPicker)});
 eSel.onchange=()=>{settings.effort=eSel.value;if(stickLlm(pickerTid())&&hasMsgs())save()};
+/* ---------- Connections: the model providers, and API keys added or removed here ----------
+   A key goes to this computer's Digress server (data/keys.json, readable only by its user), is checked with its
+   provider, and is never shown or sent back: only "Connected · key ending …1234". A key set in .env shows as such
+   and is changed there. Claude Code and ChatGPT sign in outside the app (their notes say how). */
+const connModal=document.createElement('div');connModal.className='modal';connModal.id='connModal';
+connModal.innerHTML='<div class="mbox wide conn" role="dialog" aria-modal="true" aria-label="Connections"></div>';document.body.appendChild(connModal);
+const CONN_NOTES={
+  anthropic:'Calls the Anthropic API with your key (billed to that account); while it’s set, Claude models go through it instead of Claude Code. The key stays on this computer’s Digress server and is sent only to Anthropic.',
+  gemini:'Calls Google’s Gemini API with your key. The key stays on this computer’s Digress server and is sent only to Google. Free-tier keys: Google may use what you send to improve its products, and people may read it, so don’t send anything sensitive; web search isn’t available on the free tier. A key made in AI Studio works as it is; restricting it to the Gemini API there (API keys → Restrict to Gemini API only) is good practice. A Google Cloud API key has to be restricted to the Gemini API.',
+};
+const CONN_HELP={anthropic:'https://console.anthropic.com/settings/keys',gemini:'https://aistudio.google.com/apikey'};
+async function openConnections(){
+  const box=connModal.querySelector('.mbox');connModal.classList.add('show');
+  box.innerHTML='<div class="mt">Connections</div><div class="cnload">Checking…</div>';
+  if(!io.llm||!io.llm.connections){box.innerHTML='<div class="mt">Connections</div><div class="mb">Connections are set on the Digress server, so they need it running. In the demo there’s no server: replies there are written in advance.</div><div class="ma"><button class="mbtn primary" data-cx="close">Close</button></div>';return}
+  let list;try{list=(await io.llm.connections()).providers}catch(e){box.innerHTML='<div class="mt">Connections</div><div class="mb"></div><div class="ma"><button class="mbtn primary" data-cx="close">Close</button></div>';box.querySelector('.mb').textContent=(e&&e.message)||'The server didn’t answer.';return}
+  renderConnections(list);
+}
+function renderConnections(list,err){
+  const box=connModal.querySelector('.mbox');
+  box.innerHTML=`<div class="mt">Connections</div><div class="mb cnsub">Which models Digress can use. A provider you connect here shows up in the model picker at once.</div><div class="cnlist"></div><div class="ma"><button class="mbtn primary" data-cx="close">Done</button></div>`;
+  const ul=box.querySelector('.cnlist');
+  for(const p of list){
+    const row=document.createElement('div');row.className='cnrow'+(p.on?' on':'');row.dataset.cid=p.id;
+    const head=`<div class="cnh"><span class="cndot"></span><b></b><span class="cnstate"></span></div>`;
+    row.innerHTML=head+'<div class="cnnote"></div>';
+    row.querySelector('b').textContent=p.name;
+    const state=row.querySelector('.cnstate'),note=row.querySelector('.cnnote');
+    if(p.kind==='key'){
+      state.textContent=p.from?`Connected · key ending …${p.last4}${p.from==='env'?' (from .env)':''}`:'Not connected';
+      note.textContent=CONN_NOTES[p.id]||'';
+      const act=document.createElement('div');act.className='cnact';
+      if(p.from==='app')act.innerHTML=`<button class="mbtn" data-cx="remove" data-cid="${p.id}">Remove key</button>`;
+      else if(p.from==='env')act.innerHTML=`<span class="cnfaint">Set in .env: change or remove it there.</span>`;
+      else act.innerHTML=`<input type="password" class="cnkey" placeholder="Paste an API key" autocomplete="off" spellcheck="false" aria-label="${esc(p.name)} API key"><button class="mbtn primary" data-cx="add" data-cid="${p.id}">Connect</button><a class="cnget" href="${CONN_HELP[p.id]}" target="_blank" rel="noopener noreferrer">Get a key</a>`;
+      row.appendChild(act);
+    }else{state.textContent=p.on?'Connected':'Not connected';note.textContent=p.note||''}
+    if(err&&err.id===p.id){const e=document.createElement('div');e.className='cnerr';e.textContent=err.message;row.appendChild(e)}
+    ul.appendChild(row);
+  }
+}
+connModal.addEventListener('click',async e=>{
+  if(e.target===connModal)return closeConnections();
+  const b=e.target.closest('[data-cx]');if(!b)return;
+  if(b.dataset.cx==='close')return closeConnections();
+  const id=b.dataset.cid,row=b.closest('.cnrow');
+  try{
+    let key='';if(b.dataset.cx==='add'){key=row.querySelector('.cnkey').value.trim();if(!key)return;b.disabled=true;b.textContent='Checking…'}
+    const j=await io.llm.setKey(id,b.dataset.cx==='add'?key:'');
+    fillModelPicker();showBanner(!(await io.llm.ready()),io.llm.why);
+    renderConnections(j.providers);setStatus(b.dataset.cx==='add'?'Connected':'Key removed');
+  }catch(err){let list;try{list=(await io.llm.connections()).providers}catch(_){list=[]}renderConnections(list,{id,message:(err&&err.message)||'That didn’t work.'})}
+});
+connModal.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList.contains('cnkey')){e.preventDefault();e.target.closest('.cnrow').querySelector('[data-cx=add]').click()}if(e.key==='Escape'){e.stopPropagation();closeConnections()}});
+function closeConnections(){connModal.classList.remove('show');connModal.querySelectorAll('.cnkey').forEach(i=>{i.value=''})}
 /* The model picker: a button that opens a menu of the models grouped by who makes them (Anthropic, OpenAI), each
    group folding like Appearance's sections: opened, the group with the current model is unfolded and the others
    folded, so a long list (OpenAI's) is out of the way. With one family, it's a plain list. The <select> (#mSel)
    stays, hidden, as the source of truth: picking here sets it and fires its change, so everything that reads or
    sets it (the tests, the ⋯ menu moving it) is unchanged. */
-const FAMILIES=[['claude','Anthropic'],['gpt','OpenAI']];
+const FAMILIES=[['claude','Anthropic'],['gpt','OpenAI'],['google','Google']];
 const famOf=(v)=>{const f=MODEL_FAM(v);return FAMILIES.some(([k])=>k===f)?f:'other'};
 // a model's version, as the numbers in its id (gpt-6.2-sol → [6,2], claude-opus-5-5 → [5,5]); compared part by part
 const modelVer=(v)=>(String(v).match(/\d+/g)||[]).map(Number);
@@ -6918,14 +7016,18 @@ mSel.after(mPick);mSel.classList.add('mnative');mSel.tabIndex=-1;mSel.setAttribu
 const modelMenu=document.createElement('div');modelMenu.className='thmenu mmenu';modelMenu.setAttribute('role','menu');document.body.appendChild(modelMenu);
 function syncPick(){const o=mSel.selectedOptions[0];mPick.textContent=o?o.textContent:'Model'}
 mSel.addEventListener('change',syncPick);
+let menuFor=null;   // {anchor, cur(), pick(id), find}: the top bar's picker, or Describe it instead's
 function fillModelMenu(){
-  const cur=mSel.value,opts=[...mSel.options].map(o=>[o.value,o.textContent]);
+  const find=!!(menuFor&&menuFor.find),cur=menuFor?menuFor.cur():mSel.value;
+  const opts=[...mSel.options].map(o=>[o.value,o.textContent]).filter(([v])=>!(find&&v==='auto'));
   const item=(v,l)=>{const b=document.createElement('button');b.type='button';b.dataset.model=v;b.setAttribute('role','menuitemradio');b.setAttribute('aria-checked',v===cur?'true':'false');
     b.innerHTML=`<span></span><span class="ck">${ic('check')}</span>`;b.firstChild.textContent=l;return b};
-  const head=document.createElement('div');head.className='thh';head.textContent='Model';modelMenu.replaceChildren(head);
+  const head=document.createElement('div');head.className='thh';head.textContent=find?'Describe it instead asks':'Model';modelMenu.replaceChildren(head);
+  if(find){const n=document.createElement('div');n.className='mnote';n.textContent='It gets what you typed and your conversations’ titles; short snippets only if you let it pick.';modelMenu.append(n)}
   const auto=opts.find(([v])=>v==='auto'),rest=opts.filter(([v])=>v!=='auto');if(auto)modelMenu.append(item(...auto));
   const fams=[...FAMILIES,['other','Other']].map(([k,n])=>[k,n,rest.filter(([v])=>famOf(v)===k)]).filter(f=>f[2].length);
-  if(fams.length<2){for(const [v,l] of rest)modelMenu.append(item(v,l));return}
+  const tail=()=>{if(find)return;const c=document.createElement('button');c.type='button';c.className='thwire mconn';c.dataset.conn='1';c.innerHTML=`${ic('plug')}<span>Connections…</span>`;c.title='Which providers are connected; add or remove an API key (Anthropic, Google Gemini)';modelMenu.append(c)};
+  if(fams.length<2){for(const [v,l] of rest)modelMenu.append(item(v,l));if(fams.length&&fams[0][0]==='google')modelMenu.append(geminiNote());tail();return}
   let open=famOf(cur==='auto'?resolvedModel():cur);   // Default: the family of the model it stands for
   if(!fams.some(f=>f[0]===open))open=fams[0][0];   // (not known yet: the first)
   for(const [k,n,ms] of fams){
@@ -6934,6 +7036,7 @@ function fillModelMenu(){
     g.querySelector('.thgn').textContent=n;g.querySelector('.mcount').textContent=ms.length;
     const c=ms.find(([v])=>v===cur);if(c)g.querySelector('.thcur').textContent=c[1];   // folded, it still says which is picked
     const list=document.createElement('div');list.className='thlist';list.setAttribute('role','group');
+    if(k==='google')list.append(geminiNote());
     // the newest of each kind first (another Opus, another GPT Sol); earlier versions fold under Older, opened when
     // the current model is one of them
     const newest=new Map();for(const [v] of ms){const t=modelTier(v),n=modelVer(v);if(!newest.has(t)||verCmp(n,newest.get(t))>0)newest.set(t,n)}
@@ -6947,27 +7050,33 @@ function fillModelMenu(){
     }
     modelMenu.append(g,list);
   }
+  tail();
 }
+function geminiNote(){const n=document.createElement('div');n.className='mnote';n.textContent='Free-tier Gemini keys: Google may use what you send to improve its products, and people may read it.';return n}
 function placeModels(){
-  const r=mPick.getBoundingClientRect(),vh=(window.visualViewport?visualViewport.height:innerHeight);
+  const r=(menuFor?menuFor.anchor:mPick).getBoundingClientRect(),vh=(window.visualViewport?visualViewport.height:innerHeight);
   modelMenu.style.maxHeight=(vh-16)+'px';const h=modelMenu.offsetHeight;
   modelMenu.style.top=Math.max(8,Math.min(r.bottom+6,vh-h-8))+'px';
   modelMenu.style.left=Math.max(8,Math.min(innerWidth-modelMenu.offsetWidth-8,r.left))+'px';
 }
 const modelsOpen=()=>modelMenu.classList.contains('open');
-function closeModels(){if(!modelsOpen())return;modelMenu.classList.remove('open');mPick.setAttribute('aria-expanded','false')}
-mPick.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();if(modelsOpen())return closeModels();
-  closeThemes();fillModelMenu();modelMenu.classList.add('open');mPick.setAttribute('aria-expanded','true');modelMenu.scrollTop=0;placeModels();
-  const ck=modelMenu.querySelector('button[aria-checked=true]');if(ck&&ck.offsetParent)ck.focus({preventScroll:true})});
+function closeModels(){if(!modelsOpen())return;modelMenu.classList.remove('open');const a=menuFor&&menuFor.anchor;if(a)a.setAttribute('aria-expanded','false')}
+function openModelMenu(m){
+  menuFor=m;closeThemes();fillModelMenu();modelMenu.classList.toggle('mfind',!!m.find);modelMenu.classList.add('open');m.anchor.setAttribute('aria-expanded','true');modelMenu.scrollTop=0;placeModels();
+  const ck=modelMenu.querySelector('button[aria-checked=true]');if(ck&&ck.offsetParent)ck.focus({preventScroll:true});
+}
+const mainPick={anchor:mPick,cur:()=>mSel.value,pick:(v)=>{if(mSel.value!==v){mSel.value=v;mSel.dispatchEvent(new Event('change'))}}};
+mPick.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();if(modelsOpen()&&menuFor===mainPick)return closeModels();openModelMenu(mainPick)});
 modelMenu.addEventListener('click',e=>{e.stopPropagation();
   const o=e.target.closest('.molder');if(o){o.setAttribute('aria-expanded',o.getAttribute('aria-expanded')==='true'?'false':'true');placeModels();return}
   const g=e.target.closest('.thgrp');
   if(g){g.setAttribute('aria-expanded',g.getAttribute('aria-expanded')==='true'?'false':'true');placeModels();
     if(g.getAttribute('aria-expanded')==='true'){const l=g.nextElementSibling;if(l.getBoundingClientRect().bottom>modelMenu.getBoundingClientRect().bottom)g.scrollIntoView({block:'start',behavior:'smooth'})}return}
+  if(e.target.closest('[data-conn]')){closeModels();openConnections();return}
   const b=e.target.closest('button[data-model]');if(!b)return;
-  closeModels();if(mSel.value!==b.dataset.model){mSel.value=b.dataset.model;mSel.dispatchEvent(new Event('change'))}mPick.focus({preventScroll:true})});
+  const m=menuFor||mainPick;closeModels();m.pick(b.dataset.model);m.anchor.focus({preventScroll:true})});
 document.addEventListener('click',closeModels);
-addEventListener('keydown',e=>{if(e.key==='Escape'&&modelsOpen()){e.stopPropagation();closeModels();mPick.focus({preventScroll:true})}},true);
+addEventListener('keydown',e=>{if(e.key==='Escape'&&modelsOpen()){e.stopPropagation();e.preventDefault();const a=menuFor&&menuFor.anchor;closeModels();(a&&a.isConnected?a:mPick).focus({preventScroll:true})}},true);
 addEventListener('resize',()=>{if(modelsOpen())placeModels()});
 syncPick();
 $('#tSide').addEventListener('click',()=>{const app=$('#app');if(zen){app.classList.toggle('zenside');return}if(innerWidth<760){app.classList.toggle('sideopen')}else{app.classList.toggle('noside');try{localStorage.setItem('sq:noside',app.classList.contains('noside')?'1':'')}catch(e){}}setTimeout(()=>{wires();if(conv.ui.view==='canvas')applyCam()},50)});

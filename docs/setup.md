@@ -12,7 +12,9 @@ Settings go in a `.env` file in the repo folder (copy [`.env.example`](../.env.e
 
 ## Model connections
 
-You need at least one. Claude and ChatGPT can be connected at once: the model picker lists all their models and each reply goes to the connection that owns the model you picked.
+You need at least one. Claude, ChatGPT and Gemini can be connected at once: the model picker lists all their models, grouped by who makes them, and each reply goes to the connection that owns the model you picked.
+
+**Connections** (at the bottom of the model picker's menu) shows each one and whether it's on. API keys (Anthropic, Google Gemini) can be added and removed there instead of in `.env`: a key is checked with its provider, kept on this computer's Digress server in `data/keys.json` (readable only by the user running it), and never shown or sent back to the browser, only "key ending …1234". A key in `.env` takes precedence and is changed there. The server has no login, so anyone who can reach it (this machine, or your Tailscale devices) can see the providers and add or remove keys, just as they can already use the models through it.
 
 ### ChatGPT, with your ChatGPT plan
 
@@ -63,6 +65,25 @@ echo 'ANTHROPIC_API_KEY=sk-ant-...' >> .env
 
 The API path streams directly, caches the system prompt (handy for long PDFs) and lists every model your key can use. When a key is set it is used for Claude instead of the CLI, unless you set `LLM_PROVIDER=claude-code`.
 
+### Google Gemini, with an API key
+
+Make a key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). A key made there works as it is; restricting it to the Gemini API (**Restrict to Gemini API only**) is good practice. A key made in the Google Cloud console has to be restricted to the Gemini API, or Google refuses it. Add it in **Connections**, or:
+
+```sh
+echo 'GEMINI_API_KEY=...' >> .env
+```
+
+Gemini models appear under **Google** in the picker. Replies stream, the document tools work as with the others, and **Web** uses Google Search. Effort becomes Gemini's thinking level. The key goes to Google in a request header, never in the address.
+
+Before using a free key, know Google's terms ([Gemini API Additional Terms](https://aistudio.google.com/docs/terms)):
+
+- **Free-tier ("unpaid") use:** Google uses what you send and what comes back to improve its products, and people may read it (after it's disconnected from your account). Don't send anything sensitive, confidential or personal. Paid use isn't used that way. In the EEA, Switzerland and the UK, the paid terms apply to free use too.
+- **Web search isn't available on the free tier.** Google answers a free key's search with a plain "quota exceeded" (nothing about search), so with Web on Digress says that's the likely reason: turn Web off for Gemini, or use a paid key.
+- **Free-tier limits are low** (a few requests a minute, and a daily cap, per project). A question where the model reads a long document makes several requests, so it can hit them; Digress says so plainly when it does.
+- **You must be 18 or older** to use the Gemini API.
+
+Gemini only sees what you use it for: the conversation (and branch) you picked it in, the same as any model. Nothing else goes to it unless you choose it, for example as the ☆ default or as **Describe it instead**'s model.
+
 ### Which model is the default
 
 Each thread keeps the model and effort it started with: main's first question saves the actual model for the conversation (even when the picker said Default), and a branch's first question saves its own. A branch that hasn't asked anything yet uses the model of the thread it came from. The picker shows and changes the model of the thread you're in (the pane you last clicked, typed in or scrolled; on the canvas, the selected card), so opening a conversation again, after a reload or on another device, puts it back to that thread's model. Changing the picker or the effort changes only that thread's, from then on. A new conversation starts at Default. If a thread's model isn't available here (say you signed out of ChatGPT, or the conversation came from someone else's `.digress` file), it says so and uses the newest model of the same kind (another Opus for an Opus), else one of the same family (Claude or ChatGPT), else the default, until it's available again, without forgetting it. Web search is never kept: it's off until you turn it on.
@@ -79,11 +100,11 @@ Besides your replies, Digress makes a few calls of its own. Each uses one of two
 | Flashcard drafts and **Fix…** on a card | the model of the branch the card comes from, with the conversation's context and document tools (a card from a conversation that isn't open: the model in the picker) | low |
 | **Ask about Digress** | the model in the picker | low |
 | Titles for conversations and branches | the fast model (below) | low |
-| Search's **Describe it instead** | the fast model | low |
+| Search's **Describe it instead** | its own choice, in its row ("Asks: …"); by default the fast model, never a Gemini one unless that's all you have | low |
 
-The **fast model** is Claude's Haiku or ChatGPT's Terra (the newest one listed; a "mini" or Luna model if there's no Terra), chosen by family:
+The **fast model** is Claude's Haiku, ChatGPT's Terra (the newest one listed; a "mini" or Luna model if there's no Terra) or Gemini's Flash-Lite, chosen by family:
 
-- with only one of Claude and ChatGPT connected, that one's;
+- with only one family connected, that one's;
 - otherwise the family the conversation's replies came from, if they all came from one;
 - otherwise the family of the conversation's model (or of the picker's).
 
@@ -148,6 +169,8 @@ Back it up by copying the folder. It's git-ignored.
 | `CLAUDE_CODE_OAUTH_TOKEN` | | Token from `claude setup-token`, for headless machines |
 | `ANTHROPIC_API_KEY` | | Use the Anthropic API for Claude |
 | `ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | API address |
+| `GEMINI_API_KEY` | | Use Google's Gemini API (or add the key in Connections) |
+| `GEMINI_API_BASE` | `https://generativelanguage.googleapis.com/v1beta` | Gemini API address |
 | `MAX_TOKENS` | `16000` | Longest reply on the API path |
 | `CHATGPT_AUTH_FILE` | `~/.config/digress/chatgpt.json` | Where the ChatGPT sign-in is kept |
 | `CHATGPT_LOGIN_PORT` | `1457` | Port for the one-time sign-in callback |
