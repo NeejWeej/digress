@@ -239,8 +239,9 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .vchip:hover{color:var(--ink);border-color:var(--line2)}.vchip .i{width:12px;height:12px}
 .msg.user .uact.has-v{opacity:1}
 .origin .ol>button{white-space:nowrap}
-.origin .usev{margin-left:6px;font:12px var(--sans);border:1px solid var(--line2);background:var(--panel);border-radius:8px;padding:3px 9px;color:var(--ink);cursor:pointer;white-space:nowrap}
-.origin .usev:hover{border-color:var(--c)}
+.origin .usev,.cnode .cq .usev{margin-left:6px;font:12px var(--sans);border:1px solid var(--line2);background:var(--panel);border-radius:8px;padding:3px 9px;color:var(--ink);cursor:pointer;white-space:nowrap}
+.cnode .cq.cqv{display:flex;align-items:center;flex-wrap:wrap;gap:4px}.cnode .cq .usev{margin-left:auto;font-size:11.5px;padding:2px 8px}
+.origin .usev:hover,.cnode .cq .usev:hover{border-color:var(--c)}
 .mnode .mh{margin-left:2px;width:22px;height:22px}
 /* a branch row's pin / hide / delete overlay its end on hover, so they don't take width from the title */
 .mnode .macts{position:absolute;right:4px;top:2px;display:flex;opacity:0;pointer-events:none;padding-left:18px;border-radius:0 8px 8px 0;background:linear-gradient(to right,transparent,var(--user-bg) 16px)}
@@ -2822,7 +2823,7 @@ function useVersion(tid){
   if(t.parent==='main'&&!conv.titleKept&&oldFirst&&conv.title===trunc(conv.msgs[oldFirst].content||'Question about an image',120)){const q=conv.msgs[firstQ('main')];conv.title=trunc(q.content||'Question about an image',120);renderTitle()}
   const newQ=conv.msgs[conv.order[tid][0]];if(newQ&&newQ.role==='user')t.title='↻ '+trunc(newQ.content||'Another version',46);
   for(const id of [t.parent,tid])for(const m of conv.order[id])conv.msgs[m].ver++;
-  refreshAll();revealPane(t.parent);
+  refreshAll();if(conv.ui.view==='canvas')focusCard(t.parent);else revealPane(t.parent);
   setStatus('Now using this version; the other one is in “'+t.title+'”');
   // the old version is now that branch: one click to drop it (the usual delete, which asks about its cards)
   toast('Now using this version. The old one is in its own branch.',{label:'Delete the old version',fn:()=>{if(T(tid))confirmDeleteBranch(tid)}});
@@ -3867,7 +3868,10 @@ function renderCanvas(){
       (t.anchorText||(t.parent&&t.anchorMsg&&!isDocBranch(t))?'<div class="cq"></div>':'');   // a whole-reply branch has a line too, to jump to its reply
     n.querySelector('.ct').textContent=t.parent?t.title:(conv.title||'Main thread');
     const cq=n.querySelector('.cq');
-    if(cq&&t.anchorText){cq.textContent=t.anchorText;cq.title='Jump to this passage in the card it came from'}
+    if(cq&&t.alt){   // another version of a question: say so (not "The whole reply"), and offer to use it, as the pane's header does
+      const p=T(t.parent);cq.classList.add('cqw','cqv');cq.title='Show the version it\'s an alternative to, in the card it came from';
+      cq.innerHTML=`<span>Another version of a question in ${esc(p&&p.parent?'“'+trunc(p.title,30)+'”':'the main thread')}</span><button class="usev" data-usev="${t.id}" title="Make this the version ${esc(p&&p.parent?'“'+p.title+'”':'the main thread')} goes on with. The other one moves here; nothing is lost.">Use this version</button>`}
+    else if(cq&&t.anchorText){cq.textContent=t.anchorText;cq.title='Jump to this passage in the card it came from'}
     else if(cq){cq.textContent='The whole reply';cq.classList.add('cqw');cq.title='Jump to the reply this branch is about, in the card it came from'}
     const mids=(conv.order[t.id]||[]).filter(id=>conv.msgs[id]);
     if(exp){
@@ -6461,6 +6465,7 @@ document.addEventListener('click',e=>{
   if(cnode){
     const tid=cnode.dataset.ctid;
     const ca=e.target.closest('[data-cact]');if(ca){canvasAction(ca.dataset.cact,tid,ca);return}
+    const uv=e.target.closest('[data-usev]');if(uv){useVersion(uv.dataset.usev);return}
     const tkf=e.target.closest('[data-tkfrom]');if(tkf){goToTakeawaySource(tkf.dataset.tkfrom);return}
     const tkc=e.target.closest('[data-tknote]');if(tkc){goToTakeaway(tkc.dataset.tknote);return}
     const fn=e.target.closest('sup.fn,.anchor,.bchip');if(fn&&window.getSelection().isCollapsed){focusCard(fn.dataset.tid);return}
