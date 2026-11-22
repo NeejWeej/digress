@@ -11,11 +11,25 @@
 <script>
 /* Themes: [id, name, mode]. The colors are in the CSS (:root[data-theme=…]); 'system' follows the device's
    light or dark setting. Set here, before anything paints, so there's no flash of the wrong one. */
-window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['dark','Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['moon','Rosé Pine Moon','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark']];
+window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['eink','E-ink','light'],['tokyo-day','Tokyo Night Day','light'],['github-light','GitHub Light','light'],['dark','Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['moon','Rosé Pine Moon','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark'],['black','Pure black','dark'],['tokyo-night','Tokyo Night','dark'],['github-dark','GitHub Dark','dark']];
 /* How PDF pages look (pdf.js draws them as images, in the PDF's own colors): [id, name]. 'match' is dark pages with
    a dark theme. Only the page images are filtered (CSS), never what the model gets. */
 window.PDF_LOOKS=[['original','Original'],['match','Match the theme'],['dark','Dark'],['dim','Dim'],['sepia','Sepia']];
 window.applyPdfLook=function(id){document.documentElement.dataset.pdf=PDF_LOOKS.some(function(x){return x[0]===id})?id:'original'};
+/* Fonts: [id, name, stylesheets to load the first time it's used]. The CSS (:root[data-font=…]) sets --sans and --serif. */
+window.FONTS=[['default','Default',[]],['sans','Sans',[]],['serif','Serif',[]],['system','System',[]],['mono','Mono',[]],
+  ['literata','Literata',['https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap']],
+  ['newsreader','Newsreader',['https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap']],
+  ['plex','IBM Plex',['https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap']],
+  ['lexend','Lexend',['https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&display=swap']],
+  ['atkinson','Atkinson Hyperlegible',['https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&display=swap']],
+  ['inclusive','Inclusive Sans',['https://fonts.googleapis.com/css2?family=Inclusive+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap']],
+  ['comicneue','Comic Neue',['https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&display=swap']]];
+window.applyFont=function(id){
+  var f=FONTS.find(function(x){return x[0]===id})||FONTS[0];document.documentElement.dataset.font=f[0];
+  f[2].forEach(function(u){if(document.querySelector('link[data-fontcss="'+u+'"]'))return;var l=document.createElement('link');l.rel='stylesheet';l.href=u;l.dataset.fontcss=u;document.head.appendChild(l)});
+  return f[0];
+};
 window.applyTheme=function(id){
   var t=THEMES.find(function(x){return x[0]===id})||THEMES[0],dark=t[2]==='auto'?matchMedia('(prefers-color-scheme: dark)').matches:t[2]==='dark';
   var name=t[0]==='system'?(dark?'dark':'light'):t[0],r=document.documentElement;
@@ -25,7 +39,7 @@ window.applyTheme=function(id){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tc,{once:true});else tc();
   return t[0];
 };
-(function(){var s={};try{s=JSON.parse(localStorage.getItem('sq:settings')||'{}')}catch(e){}applyTheme(s.theme||'system');applyPdfLook(s.pdf)})();
+(function(){var s={};try{s=JSON.parse(localStorage.getItem('sq:settings')||'{}')}catch(e){}applyTheme(s.theme||'system');applyPdfLook(s.pdf);applyFont(s.font)})();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -125,6 +139,49 @@ window.applyTheme=function(id){
   --line:#313244;--line2:#45475a;--user-bg:#313244;--code-bg:#1b1b29;--accent:#cba6f7;--danger:#f38ba8;
   --hk:#cba6f7;--hs:#a6e3a1;--hn:#fab387;--ht:#89b4fa;--hy:#f9e2af;--hm:#94e2d5;
 }
+:root[data-theme=eink],.thsw[data-theme=eink]{   /* E-ink: black on white, almost no color */
+  --bg:#f4f4f2;--panel:#ffffff;--panel-2:#f9f9f8;--ink:#111111;--muted:#555555;--faint:#999999;
+  --line:#dddddd;--line2:#bbbbbb;--user-bg:#eeeeee;--code-bg:#f5f5f5;--accent:#222222;--danger:#a3271c;
+  --hk:#000000;--hs:#4d4d4d;--hn:#333333;--ht:#000000;--hy:#3d3d3d;--hm:#808080;
+}
+:root[data-theme=tokyo-day],.thsw[data-theme=tokyo-day]{   /* Tokyo Night Day */
+  --bg:#d0d5e3;--panel:#e1e2e7;--panel-2:#dadce5;--ink:#3760bf;--muted:#6172b0;--faint:#8990b3;
+  --line:#c8ccdc;--line2:#a8aecb;--user-bg:#d4d8e6;--code-bg:#d9dbe4;--accent:#2e7de9;--danger:#f52a65;
+  --hk:#9854f1;--hs:#587539;--hn:#b15c00;--ht:#2e7de9;--hy:#007197;--hm:#8c6c3e;
+}
+:root[data-theme=github-light],.thsw[data-theme=github-light]{   /* GitHub Light */
+  --bg:#f6f8fa;--panel:#ffffff;--panel-2:#f6f8fa;--ink:#1f2328;--muted:#59636e;--faint:#818b98;
+  --line:#d8dee4;--line2:#c3ccd6;--user-bg:#eef4fb;--code-bg:#f6f8fa;--accent:#0969da;--danger:#d1242f;
+  --hk:#cf222e;--hs:#0a3069;--hn:#0550ae;--ht:#8250df;--hy:#953800;--hm:#6e7781;
+}
+:root[data-theme=black],.thsw[data-theme=black]{   /* Pure black (OLED) */
+  --bg:#000000;--panel:#000000;--panel-2:#0b0b0b;--ink:#d6d6d6;--muted:#8c8c8c;--faint:#5a5a5a;
+  --line:#1e1e1e;--line2:#2e2e2e;--user-bg:#141414;--code-bg:#0e0e0e;--accent:#d9825b;--danger:#e5675a;
+  --hk:#c79bf2;--hs:#93c48b;--hn:#e9a06f;--ht:#7cb2ef;--hy:#dcc070;--hm:#a89a85;
+}
+:root[data-theme=tokyo-night],.thsw[data-theme=tokyo-night]{   /* Tokyo Night */
+  --bg:#16161e;--panel:#1a1b26;--panel-2:#1f2335;--ink:#c0caf5;--muted:#9aa5ce;--faint:#565f89;
+  --line:#292e42;--line2:#3b4261;--user-bg:#24283b;--code-bg:#16161e;--accent:#7aa2f7;--danger:#f7768e;
+  --hk:#bb9af7;--hs:#9ece6a;--hn:#ff9e64;--ht:#7aa2f7;--hy:#2ac3de;--hm:#e0af68;
+}
+:root[data-theme=github-dark],.thsw[data-theme=github-dark]{   /* GitHub Dark */
+  --bg:#010409;--panel:#0d1117;--panel-2:#151b23;--ink:#f0f6fc;--muted:#9198a1;--faint:#656c76;
+  --line:#262c36;--line2:#3d444d;--user-bg:#18202b;--code-bg:#151b23;--accent:#4493f8;--danger:#f85149;
+  --hk:#ff7b72;--hs:#a5d6ff;--hn:#79c0ff;--ht:#d2a8ff;--hy:#ffa657;--hm:#8b949e;
+}
+/* Fonts (Appearance → Font): FONTS in the <head> script; data-font on the root. Each sets the UI's (--sans)
+   and the replies' (--serif) font; code keeps --mono. */
+:root[data-font=sans]{--serif:'Inter',system-ui,sans-serif}
+:root[data-font=serif]{--sans:'Source Serif 4',Georgia,serif}
+:root[data-font=system]{--sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--serif:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+:root[data-font=mono]{--sans:'JetBrains Mono',ui-monospace,monospace;--serif:'JetBrains Mono',ui-monospace,monospace}
+:root[data-font=lexend]{--sans:'Lexend',system-ui,sans-serif;--serif:'Lexend',system-ui,sans-serif}
+:root[data-font=atkinson]{--sans:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',system-ui,sans-serif;--serif:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',system-ui,sans-serif}
+:root[data-font=literata]{--serif:'Literata',Georgia,serif}
+:root[data-font=newsreader]{--serif:'Newsreader',Georgia,serif}
+:root[data-font=plex]{--sans:'IBM Plex Sans',system-ui,sans-serif;--serif:'IBM Plex Serif',Georgia,serif}
+:root[data-font=inclusive]{--sans:'Inclusive Sans',system-ui,sans-serif;--serif:'Inclusive Sans',system-ui,sans-serif}
+:root[data-font=comicneue]{--sans:'Comic Neue',system-ui,sans-serif;--serif:'Comic Neue',system-ui,sans-serif}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
@@ -208,6 +265,16 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .pdsw.thdot{width:10px;height:10px;border-radius:50%;font-size:0}
 .pdsw{display:inline-flex;width:34px;height:20px;border-radius:4px;border:1px solid var(--line2);flex:none;align-items:center;justify-content:center;font:600 11px var(--serif);background:#fff;color:#222}
 .pdsw[data-p=dark]{background:#1c1c1c;color:#ddd}.pdsw[data-p=dim]{background:#c7c7c7;color:#1a1a1a}.pdsw[data-p=sepia]{background:#f3ead6;color:#3b2f1e}
+/* the menu keeps its own font: previewing a font that's bigger or wider would move its rows under the pointer, which
+   then previews another one, back and forth. Each font's "Aa" shows it instead. */
+.thmenu.thapp{--sans:'Inter',system-ui,sans-serif;--serif:'Source Serif 4',Georgia,serif;font-family:var(--sans)}
+.fnsw{display:inline-flex;width:34px;height:20px;border-radius:4px;border:1px solid var(--line2);flex:none;align-items:center;justify-content:center;font-size:12px;background:var(--panel-2);color:var(--ink)}
+.fnsw.thdot{width:10px;height:10px;border-radius:50%;font-size:0}
+.fnsw[data-f=default]{font-family:'Source Serif 4',Georgia,serif}.fnsw[data-f=sans]{font-family:'Inter',system-ui,sans-serif}.fnsw[data-f=serif]{font-family:'Source Serif 4',Georgia,serif}
+.fnsw[data-f=system]{font-family:system-ui,sans-serif}.fnsw[data-f=mono]{font-family:'JetBrains Mono',monospace}.fnsw[data-f=lexend]{font-family:'Lexend',sans-serif}
+.fnsw[data-f=atkinson]{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif}
+.fnsw[data-f=literata]{font-family:'Literata',serif}.fnsw[data-f=newsreader]{font-family:'Newsreader',serif}.fnsw[data-f=plex]{font-family:'IBM Plex Serif',serif}
+.fnsw[data-f=inclusive]{font-family:'Inclusive Sans',sans-serif}.fnsw[data-f=comicneue]{font-family:'Comic Neue',sans-serif}
 .pdsw[data-p=match]{background:linear-gradient(135deg,#fff 50%,#1c1c1c 50%);color:transparent}
 .thmenu button{display:flex;align-items:center;gap:10px;width:100%;padding:6px 8px;border-radius:8px;text-align:left;font-size:13px;color:var(--ink)}
 .thmenu button:hover,.thmenu button:focus-visible{background:var(--user-bg);outline:none}
@@ -6772,7 +6839,7 @@ $('#guideIn').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e
 $('#guideSend').onclick=()=>{if(GUIDE.busy)GUIDE.busy.stop();else askGuide($('#guideIn').value)};
 $('#guide').addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();closeGuide()}});
 const themeB=$('#themeB');themeB.innerHTML=ic('palette')+'<b class="mlbl">Appearance</b>';
-const themeMenu=document.createElement('div');themeMenu.className='thmenu';themeMenu.setAttribute('role','menu');themeMenu.innerHTML='<div class="thh">Appearance</div>';
+const themeMenu=document.createElement('div');themeMenu.className='thmenu thapp';themeMenu.setAttribute('role','menu');themeMenu.innerHTML='<div class="thh">Appearance</div>';
 const sw=(id)=>`<span class="thsw" data-theme="${id}"><i></i><i></i><i></i></span>`;
 // a section: its header (folds the list; folded, it shows a dot per choice and which one is picked) and its list
 function themeGroup(g,name,items,dot){
@@ -6795,6 +6862,15 @@ for(const [id,name] of PDF_LOOKS){
   const b=document.createElement('button');b.dataset.pdf=id;b.setAttribute('role','menuitemradio');
   b.title={original:'As the PDF is printed',match:'Dark pages with a dark theme, as printed with a light one',dark:'Light text on dark pages (pictures look like negatives)',dim:'Less bright, colors unchanged',sepia:'Warm paper'}[id];
   b.innerHTML=`<span class="pdsw" data-p="${id}">Aa</span><span></span><span class="ck">${ic('check')}</span>`;b.children[1].textContent=name;pdfList.appendChild(b);
+}
+const FONT_TIPS={default:'Sans for the app, serif for replies',sans:'Inter everywhere, replies too',serif:'Source Serif everywhere, the app too',system:'Your device’s own font',mono:'JetBrains Mono everywhere',
+  lexend:'Lexend: made to make reading easier, often suggested for dyslexia',atkinson:'Atkinson Hyperlegible: letters that are hard to mistake for each other (I l 1, O 0)',literata:'Literata for replies (made for reading books on screens), Inter for the app',newsreader:'Newsreader for replies (a calm newspaper serif), Inter for the app',
+  plex:'IBM Plex: Plex Sans for the app, Plex Serif for replies',inclusive:'Inclusive Sans: clear letter shapes, designed for accessibility',
+  comicneue:'Comic Neue: a cleaned-up Comic Sans; some dyslexic readers find this style easiest'};
+const fontList=themeGroup('font','Font',FONTS,([id])=>`<span class="fnsw thdot" data-f="${id}"></span>`);
+for(const [id,name] of FONTS){
+  const b=document.createElement('button');b.dataset.font=id;b.setAttribute('role','menuitemradio');b.title=FONT_TIPS[id]||'';
+  b.innerHTML=`<span class="fnsw" data-f="${id}">Aa</span><span></span><span class="ck">${ic('check')}</span>`;b.children[1].textContent=name;fontList.appendChild(b);
 }
 // one switch below the sections: the lines from a branch's pane to where it came from (Columns and Rows;
 // the canvas keeps its own lines). On unless turned off; kept on this device with the theme.
@@ -6834,27 +6910,33 @@ function placeThemes(){
 }
 function setPdfLook(id,keep){applyPdfLook(id);if(keep){settings.pdf=document.documentElement.dataset.pdf;saveSettings();themeMenu.querySelectorAll('button[data-pdf]').forEach(b=>b.setAttribute('aria-checked',b.dataset.pdf===settings.pdf?'true':'false'));themeHeads()}}
 setPdfLook(settings.pdf||'original',true);
+function setFont(id,keep){applyFont(id);if(keep){settings.font=document.documentElement.dataset.font;saveSettings();themeMenu.querySelectorAll('button[data-font]').forEach(b=>b.setAttribute('aria-checked',b.dataset.font===settings.font?'true':'false'));themeHeads()}}
+setFont(settings.font||'default',true);
 function setTheme(id,keep){
   const was=document.documentElement.dataset.theme;applyTheme(id);
   if(keep){settings.theme=id;saveSettings();themeMenu.querySelectorAll('button[data-theme]').forEach(b=>b.setAttribute('aria-checked',b.dataset.theme===settings.theme?'true':'false'));themeHeads()}
   if(document.documentElement.dataset.theme!==was&&mermaidOk){mermaidTheme();document.querySelectorAll('.mermaid-box[data-done]').forEach(b=>b.removeAttribute('data-done'));renderMermaid(document)}
 }
 setTheme(settings.theme,true);
-function closeThemes(){if(!themeMenu.classList.contains('open'))return;themeMenu.classList.remove('open');themeB.setAttribute('aria-expanded','false');setTheme(settings.theme);setPdfLook(settings.pdf)}
+function closeThemes(){if(!themeMenu.classList.contains('open'))return;themeMenu.classList.remove('open');themeB.setAttribute('aria-expanded','false');setTheme(settings.theme);setPdfLook(settings.pdf);setFont(settings.font)}
 themeB.onclick=(e)=>{e.stopPropagation();if(themeMenu.classList.contains('open'))return closeThemes();
   const cur=THEMES.find(t=>t[0]===settings.theme),g=cur&&cur[2]!=='auto'?cur[2]:document.documentElement.dataset.mode;
   for(const h of themeMenu.querySelectorAll('.thgrp'))h.setAttribute('aria-expanded',h.dataset.g===g?'true':'false');
   themeMenu.classList.add('open');themeB.setAttribute('aria-expanded','true');themeMenu.scrollTop=0;placeThemes()};
 // hovering previews (a theme, or how PDF pages look); leaving puts back what's chosen; clicking keeps it
-themeMenu.addEventListener('mouseover',e=>{const b=e.target.closest('button[data-theme],button[data-pdf]');if(!b)return;if(b.dataset.pdf)setPdfLook(b.dataset.pdf);else{setTheme(b.dataset.theme);setPdfLook(settings.pdf)}});
-themeMenu.addEventListener('mouseleave',()=>{setTheme(settings.theme);setPdfLook(settings.pdf)});
+// anything else in the menu (a section's header, the gaps, the rows below) shows what's chosen again, so a preview
+// doesn't stay on after the pointer has moved off its row
+const unpreview=()=>{setTheme(settings.theme);setPdfLook(settings.pdf);setFont(settings.font)};
+themeMenu.addEventListener('mouseover',e=>{const b=e.target.closest('button[data-theme],button[data-pdf],button[data-font]');if(!b)return unpreview();
+  if(b.dataset.font){setTheme(settings.theme);setPdfLook(settings.pdf);setFont(b.dataset.font);return}setFont(settings.font);if(b.dataset.pdf){setTheme(settings.theme);setPdfLook(b.dataset.pdf)}else{setTheme(b.dataset.theme);setPdfLook(settings.pdf)}});
+themeMenu.addEventListener('mouseleave',unpreview);
 themeMenu.addEventListener('click',e=>{e.stopPropagation();
   const h=e.target.closest('.thgrp');
   if(h){h.setAttribute('aria-expanded',h.getAttribute('aria-expanded')==='true'?'false':'true');placeThemes();
     if(h.getAttribute('aria-expanded')==='true'){const l=h.nextElementSibling;if(l.getBoundingClientRect().bottom>themeMenu.getBoundingClientRect().bottom)h.scrollIntoView({block:'start',behavior:'smooth'})}return}
   if(e.target.closest('button[data-wires]'))return setWires(settings.wires===false,true);
   if(e.target.closest('button[data-fitscreen]')){closeThemes();return fitScreen()}
-  const b=e.target.closest('button[data-theme],button[data-pdf]');if(!b)return;if(b.dataset.pdf)setPdfLook(b.dataset.pdf,true);else setTheme(b.dataset.theme,true)});
+  const b=e.target.closest('button[data-theme],button[data-pdf],button[data-font]');if(!b)return;if(b.dataset.font)setFont(b.dataset.font,true);else if(b.dataset.pdf)setPdfLook(b.dataset.pdf,true);else setTheme(b.dataset.theme,true)});
 document.addEventListener('click',closeThemes);
 addEventListener('keydown',e=>{if(e.key==='Escape'&&themeMenu.classList.contains('open')){e.stopPropagation();closeThemes()}},true);
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(settings.theme==='system')setTheme('system')});
