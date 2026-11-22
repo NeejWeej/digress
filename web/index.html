@@ -1942,6 +1942,11 @@ function regionText(pageNo,r){   // the PDF's own words that fall inside the box
 }
 let snipUpAt=0;   // a snip just ended: the click that follows isn't a click on what's under it (an image's zoom, a link)
 document.addEventListener('click',e=>{if(Date.now()-snipUpAt<400){e.preventDefault();e.stopPropagation()}},true);
+// how much bigger an element is on screen than in its own CSS pixels: a text pane's zoom (--pz), a canvas card's
+// zoom and the camera. Pointer positions are screen pixels; a position set in the element's style is its own.
+// Measured along the longer side: offsetWidth/Height are whole pixels, and a long document's height keeps the rounding
+// negligible (by its width, a box far down a zoomed document was still ~10 px off).
+const screenScale=(el)=>{const r=el.getBoundingClientRect(),w=el.offsetWidth,h=el.offsetHeight;return h>w&&h?r.height/h:w?r.width/w:1};
 function startSnip(e,el){   // on a PDF page (.dpage), or anywhere in a text document (.docbody)
   const pg=e.target.closest('.dpage,.docbody');if(!pg)return;
   e.preventDefault();e.stopPropagation();
@@ -1951,7 +1956,8 @@ function startSnip(e,el){   // on a PDF page (.dpage), or anywhere in a text doc
   try{pg.setPointerCapture(e.pointerId)}catch(_){}
   const move=ev=>{const b=pg.getBoundingClientRect(),x1=Math.min(Math.max(ev.clientX-b.left,0),b.width),y1=Math.min(Math.max(ev.clientY-b.top,0),b.height);
     rect={x:Math.min(x0,x1),y:Math.min(y0,y1),w:Math.abs(x1-x0),h:Math.abs(y1-y0),W:b.width,H:b.height};
-    Object.assign(box.style,{left:rect.x+'px',top:rect.y+'px',width:rect.w+'px',height:rect.h+'px'})};
+    const k=screenScale(pg);   // rect is in screen pixels; the box is drawn in the element's own (it was off by the zoom, more the further down)
+    Object.assign(box.style,{left:rect.x/k+'px',top:rect.y/k+'px',width:rect.w/k+'px',height:rect.h/k+'px'})};
   const up=()=>{pg.removeEventListener('pointermove',move);pg.removeEventListener('pointerup',up);pg.removeEventListener('pointercancel',up);
     if(rect)snipUpAt=Date.now();
     if(!rect||rect.w<12||rect.h<12){box.remove();return}
@@ -5492,7 +5498,8 @@ async function shotDocRegion(body,r){
   // the copy sits in a frame the size of the box, which crops it (html-to-image sizes the node it draws, so the copy
   // itself can't be the one drawn: its border would end up across the picture). The frame is on screen but invisible
   // and behind everything: placed off screen, it's drawn blank
-  const frame=document.createElement('div');frame.style.cssText=`position:fixed;left:0;top:0;width:${Math.round(r.w)}px;height:${Math.round(r.h)}px;overflow:hidden;opacity:0;pointer-events:none;z-index:-1`;
+  const z=screenScale(body),cw=Math.max(1,Math.round(r.w/z)),ch=Math.max(1,Math.round(r.h/z));   // r is in screen pixels; the copy is laid out in CSS pixels
+  const frame=document.createElement('div');frame.style.cssText=`position:fixed;left:0;top:0;width:${cw}px;height:${ch}px;overflow:hidden;opacity:0;pointer-events:none;z-index:-1`;
   const copy=document.createElement('div');copy.className='docbody docshot';
   copy.style.cssText=`position:absolute;left:0;top:0;width:${body.offsetWidth}px;max-width:none;margin:0`;frame.appendChild(copy);
   for(const k of kids){
@@ -5505,9 +5512,9 @@ async function shotDocRegion(body,r){
   body.parentElement.appendChild(frame);
   try{
     await Promise.all([...copy.querySelectorAll('img')].map(im=>im.decode().catch(()=>{})));
-    const y=r.y-(kids[0].getBoundingClientRect().top-b.top)+(copy.firstElementChild.getBoundingClientRect().top-copy.getBoundingClientRect().top);
-    copy.style.left=-r.x+'px';copy.style.top=-y+'px';
-    const k=Math.min(2,IMG_MAX/Math.max(r.w,r.h));
+    const y=(r.y-(kids[0].getBoundingClientRect().top-b.top)+(copy.firstElementChild.getBoundingClientRect().top-copy.getBoundingClientRect().top))/z;
+    copy.style.left=-r.x/z+'px';copy.style.top=-y+'px';
+    const k=Math.min(2,IMG_MAX/Math.max(cw,ch));
     const cv=await htmlToImage.toCanvas(frame,{pixelRatio:k,fontEmbedCSS:await docFontCss(body),imagePlaceholder:BLANK_PX,
       backgroundColor:getComputedStyle(body).backgroundColor,style:{position:'relative',left:'0',top:'0',opacity:'1',zIndex:'auto'}});
     const blob=await encodeCanvas(cv);return {blob,type:blob.type,w:cv.width,h:cv.height};

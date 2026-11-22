@@ -5,6 +5,8 @@
   - A box over a table: its words go along too.
   - A box inside one image is still a sharp crop of that image (anchorImg).
   - After a reload: the snip's text is still marked, its pane shows the picture, Show in source finds it.
+  - With the pane zoomed (CSS zoom) and far down the document, the box is drawn under the pointer (it was off by the
+    zoom, more the further down: off screen on a phone) and the picture is of what's inside it.
 Asserts and exits non-zero."""
 import asyncio, base64, json, struct, sys, zlib
 from playwright.async_api import async_playwright
@@ -34,6 +36,12 @@ Foxtrot golf hotel india.
 | one | two |
 
 Kilo lima mike.
+
+Filler paragraph 0 with words to make the document long.\n\nFiller paragraph 1 with words to make the document long.\n\nFiller paragraph 2 with words to make the document long.\n\nFiller paragraph 3 with words to make the document long.\n\nFiller paragraph 4 with words to make the document long.\n\nFiller paragraph 5 with words to make the document long.\n\nFiller paragraph 6 with words to make the document long.\n\nFiller paragraph 7 with words to make the document long.\n\nFiller paragraph 8 with words to make the document long.\n\nFiller paragraph 9 with words to make the document long.\n\nFiller paragraph 10 with words to make the document long.\n\nFiller paragraph 11 with words to make the document long.\n\nFiller paragraph 12 with words to make the document long.\n\nFiller paragraph 13 with words to make the document long.\n\nFiller paragraph 14 with words to make the document long.\n\nFiller paragraph 15 with words to make the document long.\n\nFiller paragraph 16 with words to make the document long.\n\nFiller paragraph 17 with words to make the document long.\n\nFiller paragraph 18 with words to make the document long.\n\nFiller paragraph 19 with words to make the document long.\n\nFiller paragraph 20 with words to make the document long.\n\nFiller paragraph 21 with words to make the document long.\n\nFiller paragraph 22 with words to make the document long.\n\nFiller paragraph 23 with words to make the document long.\n\nFiller paragraph 24 with words to make the document long.\n\nFiller paragraph 25 with words to make the document long.\n\nFiller paragraph 26 with words to make the document long.\n\nFiller paragraph 27 with words to make the document long.\n\nFiller paragraph 28 with words to make the document long.\n\nFiller paragraph 29 with words to make the document long.\n\nFiller paragraph 30 with words to make the document long.\n\nFiller paragraph 31 with words to make the document long.\n\nFiller paragraph 32 with words to make the document long.\n\nFiller paragraph 33 with words to make the document long.\n\nFiller paragraph 34 with words to make the document long.\n\nFiller paragraph 35 with words to make the document long.\n\nFiller paragraph 36 with words to make the document long.\n\nFiller paragraph 37 with words to make the document long.\n\nFiller paragraph 38 with words to make the document long.\n\nFiller paragraph 39 with words to make the document long.\n\nFiller paragraph 40 with words to make the document long.\n\nFiller paragraph 41 with words to make the document long.\n\nFiller paragraph 42 with words to make the document long.\n\nFiller paragraph 43 with words to make the document long.\n\nFiller paragraph 44 with words to make the document long.\n\nFiller paragraph 45 with words to make the document long.\n\nFiller paragraph 46 with words to make the document long.\n\nFiller paragraph 47 with words to make the document long.\n\nFiller paragraph 48 with words to make the document long.\n\nFiller paragraph 49 with words to make the document long.\n\nFiller paragraph 50 with words to make the document long.\n\nFiller paragraph 51 with words to make the document long.\n\nFiller paragraph 52 with words to make the document long.\n\nFiller paragraph 53 with words to make the document long.\n\nFiller paragraph 54 with words to make the document long.\n\nFiller paragraph 55 with words to make the document long.\n\nFiller paragraph 56 with words to make the document long.\n\nFiller paragraph 57 with words to make the document long.\n\nFiller paragraph 58 with words to make the document long.\n\nFiller paragraph 59 with words to make the document long.
+
+Target xray yankee zulu.
+
+![Red and blue again](data:image/png;base64,{RB})
 """
 SEED = r"""
 const now = Date.now(), text = %s;
@@ -60,10 +68,14 @@ DOC = '.pane[data-tid=doc]'
 rect = lambda pg, sel: pg.locator(sel).first.bounding_box()
 
 async def drag(pg, x0, y0, x1, y1):
+    """Snip from (x0, y0) to (x1, y1); returns where the box was drawn just before letting go."""
     await pg.locator(f'{DOC} [data-act=snip]').click()
     await pg.mouse.move(x0, y0); await pg.mouse.down()
-    await pg.mouse.move((x0 + x1) / 2, (y0 + y1) / 2, steps=5); await pg.mouse.move(x1, y1, steps=5); await pg.mouse.up()
+    await pg.mouse.move((x0 + x1) / 2, (y0 + y1) / 2, steps=5); await pg.mouse.move(x1, y1, steps=5); await frames(pg, 2)
+    drawn = await pg.evaluate("(() => { const r = document.querySelector('.snipbox').getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom] })()")
+    await pg.mouse.up()
     await pg.wait_for_function("(() => { const i = document.querySelector('#pop.show .pimg'); return i && i.naturalWidth })()", timeout=15000)
+    return drawn
 
 async def ask(pg, q):
     n = await pg.evaluate("window.__chatBodies ? " + ASKED + ".length : 0")
@@ -121,7 +133,7 @@ async def main():
         check('…and the picture', bool(got) and got[0] > 50, got)
 
         # 3. a box inside the image is still a crop of the image
-        await pg.locator(f'{DOC} .dimg').scroll_into_view_if_needed(); img = await rect(pg, f'{DOC} .dimg')
+        await pg.locator(f'{DOC} .dimg').first.scroll_into_view_if_needed(); img = await rect(pg, f'{DOC} .dimg')
         await drag(pg, img['x'] + 5, img['y'] + 5, img['x'] + img['width'] * 0.4, img['y'] + img['height'] - 5)
         await ask(pg, 'And this?')
         await quiet(pg)
@@ -144,6 +156,30 @@ async def main():
             await pg.locator(f'{pane} .ol [data-back]').click()
             await soon(pg, f"!!document.querySelector('{DOC} .anchor.flash[data-tid={shot['id']}]')")
             check('…and Show in source finds its text', True)
+        # 5. zoomed in, far down the document
+        for _ in range(2): await pg.locator(f'{DOC} [data-act=zin]').click(); await frames(pg, 2)
+        check('the document pane is zoomed', await pg.evaluate(f"getComputedStyle(document.querySelector('{DOC} .docwrap')).zoom") == '1.25')
+        target = pg.locator(f'{DOC} p', has_text='Target xray yankee zulu'); await target.scroll_into_view_if_needed(); await frames(pg, 4)
+        check('…and scrolled far down', await pg.evaluate(f"document.querySelector('{DOC} .pb').scrollTop") > 1500)
+        tp = await target.bounding_box(); im2 = await pg.locator(f'{DOC} .dimg').nth(1).bounding_box()
+        x0, y0, x1, y1 = tp['x'] - 6, tp['y'] - 6, im2['x'] + im2['width'] + 20, im2['y'] + im2['height'] * 0.5
+        drawn = await drag(pg, x0, y0, x1, y1)
+        check('…the box is drawn under the pointer', all(abs(a - b) < 3 for a, b in zip(drawn, [x0, y0, x1, y1])), [drawn, [x0, y0, x1, y1]])
+        await ask(pg, 'And down here?')
+        W, H = x1 - x0, y1 - y0
+        red_at = ((im2['x'] + im2['width'] * 0.25 - x0) / W, (im2['y'] + im2['height'] * 0.25 - y0) / H)
+        blue_at = ((im2['x'] + im2['width'] * 0.75 - x0) / W, red_at[1])
+        band = ((tp['y'] - y0) / H, (tp['y'] + tp['height'] - y0) / H)
+        got = await pg.evaluate(IMAGE, [[red_at, blue_at], band])
+        if got:
+            w, h, (red, blue), dark = got
+            check('…and the picture is of what was inside it: its shape', abs(w / h - W / H) < 0.08, [w, h, W, H])
+            check('…the image where it was', red[0] > 180 and red[2] < 90 and blue[2] > 180 and blue[0] < 90, [red, blue])
+            check('…the paragraph’s text', dark < 110, dark)
+        else: check('…and the picture is of what was inside it', False, got)
+        check('…with its words', 'Target xray yankee zulu' in await pg.evaluate(LAST_TEXT))
+        sent = await pg.evaluate(ASKED + ".at(-1).messages.flatMap(m => Array.isArray(m.content) ? m.content : []).find(p => p.type === 'image').data")
+        open(OUT + '/doc_snip_anywhere_zoomed.png', 'wb').write(base64.b64decode(sent))
         check('no page errors', not errs, errs[:3])
         await b.close()
     print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')
