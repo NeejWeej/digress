@@ -11,7 +11,7 @@
 <script>
 /* Themes: [id, name, mode]. The colors are in the CSS (:root[data-theme=…]); 'system' follows the device's
    light or dark setting. Set here, before anything paints, so there's no flash of the wrong one. */
-window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['eink','E-ink','light'],['tokyo-day','Tokyo Night Day','light'],['github-light','GitHub Light','light'],['dark','Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['moon','Rosé Pine Moon','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark'],['black','Pure black','dark'],['tokyo-night','Tokyo Night','dark'],['github-dark','GitHub Dark','dark']];
+window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['kanagawa-lotus','Kanagawa Lotus','light'],['eink','E-ink','light'],['tokyo-day','Tokyo Night Day','light'],['github-light','GitHub Light','light'],['dark','Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['moon','Rosé Pine Moon','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark'],['black','Pure black','dark'],['tokyo-night','Tokyo Night','dark'],['github-dark','GitHub Dark','dark']];
 /* How PDF pages look (pdf.js draws them as images, in the PDF's own colors): [id, name]. 'match' is dark pages with
    a dark theme. Only the page images are filtered (CSS), never what the model gets. */
 window.PDF_LOOKS=[['original','Original'],['match','Match the theme'],['dark','Dark'],['dim','Dim'],['sepia','Sepia']];
@@ -113,6 +113,11 @@ window.applyTheme=function(id){
   --bg:#f2f0e5;--panel:#fffcf0;--panel-2:#f7f5ea;--ink:#1c1b1a;--muted:#6f6e69;--faint:#878580;
   --line:#e6e4d9;--line2:#dad8ce;--user-bg:#e6e4d9;--code-bg:#f2f0e5;--accent:#24837b;--danger:#af3029;
   --hk:#66800b;--hs:#24837b;--hn:#5e409d;--ht:#bc5215;--hy:#ad8301;--hm:#a02f6f;
+}
+:root[data-theme=kanagawa-lotus],.thsw[data-theme=kanagawa-lotus]{   /* Kanagawa Lotus */
+  --bg:#e7dba0;--panel:#f2ecbc;--panel-2:#ebe3b2;--ink:#545464;--muted:#716e61;--faint:#8a8980;
+  --line:#e4d794;--line2:#d5cea3;--user-bg:#e5ddb0;--code-bg:#ebe3b2;--accent:#4d699b;--danger:#c84053;
+  --hk:#624c83;--hs:#6f894e;--hn:#b35b79;--ht:#4d699b;--hy:#597b75;--hm:#cc6d00;
 }
 :root[data-theme=flexoki],.thsw[data-theme=flexoki]{   /* Flexoki Dark */
   --bg:#100f0f;--panel:#1c1b1a;--panel-2:#232221;--ink:#cecdc3;--muted:#878580;--faint:#6f6e69;
