@@ -309,6 +309,7 @@ CDN = {   # every library the page loads from a CDN, from node_modules
     'mermaid.min.js': 'mermaid/dist/mermaid.min.js', 'minisearch@7.1.0/dist/umd/index.js': 'minisearch/dist/umd/index.js',
     'Readability.js': '@mozilla/readability/Readability.js', 'turndown@7.2.0/dist/turndown.js': 'turndown/dist/turndown.js',
     'turndown-plugin-gfm.js': 'turndown-plugin-gfm/dist/turndown-plugin-gfm.js',
+    'html-to-image.js': 'html-to-image/dist/html-to-image.js',
 }
 
 

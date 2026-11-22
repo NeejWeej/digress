@@ -48,16 +48,17 @@ localStorage.setItem('fakesrv:layout/ci', JSON.stringify({devices: {other: {at: 
 """ % json.dumps(TEXT)
 FAKE = "window.fakeLLM = {use: async () => async (m, o) => ({text: 'It is what it is.'})}; window.fakeImages = {%s: %s};" % (json.dumps(REMOTE), json.dumps(base64.b64encode(GREEN).decode()))
 
+ASKED = "window.__chatBodies.filter(b => !/^You name notes/.test(b.system || ''))"   # the questions, not the title calls
 # the image parts of chat request i, each as [width, height, [r,g,b] at 10%, 50% and 90% across the middle]
 IMAGES = """async (i) => { const out = [];
-  for (const m of window.__chatBodies[i].messages) for (const p of (Array.isArray(m.content) ? m.content : [])) {
+  for (const m of """ + ASKED + """[i].messages) for (const p of (Array.isArray(m.content) ? m.content : [])) {
     if (p.type !== 'image') continue;
     const bm = await createImageBitmap(await (await fetch('data:' + p.mediaType + ';base64,' + p.data)).blob());
     const cv = document.createElement('canvas'); cv.width = bm.width; cv.height = bm.height; const ctx = cv.getContext('2d'); ctx.drawImage(bm, 0, 0);
     const at = (f) => [...ctx.getImageData(Math.floor(bm.width * f), Math.floor(bm.height / 2), 1, 1).data.slice(0, 3)];
     out.push([bm.width, bm.height, at(.1), at(.5), at(.9)]) }
   return out }"""
-TEXT_OF = "(i) => window.__chatBodies[i].messages.map(m => typeof m.content === 'string' ? m.content : m.content.filter(p => p.type === 'text').map(p => p.text).join('')).join('\\n')"
+TEXT_OF = "(i) => " + ASKED + "[i].messages.map(m => typeof m.content === 'string' ? m.content : m.content.filter(p => p.type === 'text').map(p => p.text).join('')).join('\\n')"
 # text inside the image wrappers that anchors would count (the app's textWalker: everything but svg, math, mermaid, markers)
 DIMG_TEXT = """[...document.querySelectorAll('.pane[data-tid=doc] .dimg')].map(w => { const t = document.createTreeWalker(w, NodeFilter.SHOW_TEXT,
   {acceptNode: n => n.parentElement.closest('svg,.math,.mermaid-box,mjx-container,sup.fn') ? 2 : 1}); let s = '', n; while ((n = t.nextNode())) s += n.nodeValue; return s.trim() }).join('')"""
@@ -90,7 +91,7 @@ async def main():
         await pg.wait_for_function("(() => { const i = document.querySelector('#pop.show .pimg'); return i && i.naturalWidth })()")
         check('the popover shows the snip, not the lightbox', await pg.locator('.lightbox').count() == 0)
         await pg.locator('#popIn').fill('What color is this?'); await pg.keyboard.press('Enter')
-        await soon(pg, "window.__chatBodies && window.__chatBodies.length >= 1")
+        await soon(pg, "!!window.__chatBodies && " + ASKED + ".length >= 1")
         imgs = await pg.evaluate(IMAGES, 0)
         check('the branch’s question carries one image', len(imgs) == 1, imgs)
         if imgs:
@@ -120,8 +121,8 @@ async def main():
         await pg.wait_for_function("(() => { const i = document.querySelector('#pop.show .pimg'); return i && i.naturalWidth })()")
         check('the remote image was fetched by the server (fetch-doc), for the copy kept', REMOTE in (await pg.evaluate("window.__fetchedImages || []")))
         await pg.locator('#popIn').fill('What does the chart show?'); await pg.keyboard.press('Enter')
-        await soon(pg, "window.__chatBodies && window.__chatBodies.length >= 2")
-        n = await pg.evaluate("window.__chatBodies.length") - 1
+        await soon(pg, "!!window.__chatBodies && " + ASKED + ".length >= 2")
+        n = 1
         imgs = await pg.evaluate(IMAGES, n)
         check('the whole image goes to the model', len(imgs) == 1 and imgs[0][0] == 120 and imgs[0][1] == 120 and green(imgs[0][3]), imgs)
         check('…described as an image in the document', 'an image in the document ("Chart of growth")' in await pg.evaluate(TEXT_OF, n))

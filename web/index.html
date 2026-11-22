@@ -37,6 +37,7 @@ window.LIBS={
   'https://cdn.jsdelivr.net/npm/minisearch@7.1.0/dist/umd/index.js':['lib/minisearch@7.1.0/dist/umd/index.js','sha384-WYxvx105q0lClUQiJPNSSLCBKa8ha7WajFLCebXbbpsax4ywxgy3afY2BI2gaqra'],
   'https://cdn.jsdelivr.net/npm/@mozilla/readability@0.6.0/Readability.js':['lib/@mozilla/readability@0.6.0/Readability.js','sha384-e+TY0H9ZOYdOLMJKCM3iXGmTbjVVh+PJ+GTEKuGjQY0+bsSOJohq+GWUAmhGjKOi'],
   'https://cdn.jsdelivr.net/npm/turndown@7.2.0/dist/turndown.js':['lib/turndown@7.2.0/dist/turndown.js','sha384-OGauEFaI5hnS8jXK4qdSGShAUAObMBKoLXgcL1ORhRh7ulx5jPZH35qVpacIEA4Z'],
+  'https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js':['lib/html-to-image@1.11.13/dist/html-to-image.js','sha384-Tha/42qsYmpYmQ07pX+nJzkKumO0BzKJxK/uzVc7xyBQxVCUgQBhQIG8L7vXK+9C'],
   'https://cdn.jsdelivr.net/npm/turndown-plugin-gfm@1.0.2/dist/turndown-plugin-gfm.js':['lib/turndown-plugin-gfm@1.0.2/dist/turndown-plugin-gfm.js','sha384-2TroN1N6OfLQ+K4qttptnIfMREzUlMa3hW/nZqDZXv7Sm9BkESfGEupDEqCbzyRl'],
   'https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5.3.0/index.css':['lib/@fontsource-variable/inter@5.3.0/index.css','sha384-ZTIcl2CmY0wyM9ANOhomBco7rEUIlWztf6lGcLKCocKUrIgGCsfisuZyE+hadW8K'],
   'https://cdn.jsdelivr.net/npm/@fontsource-variable/source-serif-4@5.3.1/opsz.css':['lib/@fontsource-variable/source-serif-4@5.3.1/opsz.css','sha384-Ktdk96S1doSfVUF+A/SL6weKFW02MkWdMs7nF4jF8911fTOBtkpfEG/j5dNTdfCu'],
@@ -1261,7 +1262,7 @@ sup.fn.res{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px va
 .dimg:hover .iask,.dimg .iask:focus-visible{opacity:1}
 @media (hover:none){.dimg .iask{opacity:.85}}
 .dimg.flash{animation:pgflash 1.1s ease 2;border-radius:6px}
-.docpane.snipping .dimg{cursor:crosshair;touch-action:none}.docpane.snipping .dimg>*{pointer-events:none}.docpane.snipping .dimg .iask{display:none}
+.docpane.snipping .docbody{cursor:crosshair;touch-action:none;user-select:none;-webkit-user-select:none}.docpane.snipping .docbody *{pointer-events:none}.docpane.snipping .dimg .iask{display:none}
 @keyframes pgflash{0%,100%{box-shadow:0 1px 3px rgba(0,0,0,.12)}30%{box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 45%,transparent)}}
 .dpage.flash{animation:pgflash 1.1s ease 2}
 .textLayer{position:absolute;inset:0;overflow:hidden;line-height:1;text-align:initial;-webkit-text-size-adjust:none;text-size-adjust:none;forced-color-adjust:none;transform-origin:0 0;z-index:2}
@@ -1927,7 +1928,7 @@ document.addEventListener('click',e=>{
 function setSnip(on){
   const el=paneEls.get('doc');if(!el)return;el.classList.toggle('snipping',on);
   const b=el.querySelector('[data-act=snip]');if(b){b.classList.toggle('on',on);b.setAttribute('aria-pressed',on?'true':'false')}
-  if(on){hidePop();getSelection().removeAllRanges();toast(docState&&docState.kind!=='pdf'?'Drag a box over the part of an image you want to ask about. Esc cancels.':'Drag a box over the part of the page you want to ask about. Esc cancels.')}
+  if(on){hidePop();getSelection().removeAllRanges();toast(docState&&docState.kind!=='pdf'?'Drag a box over the part of the document you want to ask about. Esc cancels.':'Drag a box over the part of the page you want to ask about. Esc cancels.')}
 }
 function regionText(pageNo,r){   // the PDF's own words that fall inside the box, in reading order
   const pg=paneEls.get('doc')&&paneEls.get('doc').querySelector(`.dpage[data-page="${pageNo}"]`);const tl=pg&&pg.querySelector('.textLayer');if(!tl)return '';
@@ -1941,8 +1942,8 @@ function regionText(pageNo,r){   // the PDF's own words that fall inside the box
 }
 let snipUpAt=0;   // a snip just ended: the click that follows isn't a click on what's under it (an image's zoom, a link)
 document.addEventListener('click',e=>{if(Date.now()-snipUpAt<400){e.preventDefault();e.stopPropagation()}},true);
-function startSnip(e,el){   // on a PDF page (.dpage), or on an image in a text document (.dimg)
-  const pg=e.target.closest('.dpage,.dimg');if(!pg)return;
+function startSnip(e,el){   // on a PDF page (.dpage), or anywhere in a text document (.docbody)
+  const pg=e.target.closest('.dpage,.docbody');if(!pg)return;
   e.preventDefault();e.stopPropagation();
   document.querySelectorAll('.snipbox').forEach(b=>b.remove());
   const box=document.createElement('div');box.className='snipbox';pg.appendChild(box);
@@ -1956,7 +1957,13 @@ function startSnip(e,el){   // on a PDF page (.dpage), or on an image in a text 
     if(!rect||rect.w<12||rect.h<12){box.remove();return}
     setSnip(false);
     const reg={x:rect.x/rect.W,y:rect.y/rect.H,w:rect.w/rect.W,h:rect.h/rect.H};
-    if(pg.classList.contains('dimg'))openDocImgPop(pg,reg,box);else openImagePop(+pg.dataset.page,reg,box);
+    if(!pg.classList.contains('docbody')){openImagePop(+pg.dataset.page,reg,box);return}
+    // a text document: a box inside one image is a crop of that image (drawn sharp from it); any other box, a picture of that part
+    const b=pg.getBoundingClientRect(),L=b.left+rect.x,T_=b.top+rect.y,R_=L+rect.w,B_=T_+rect.h;
+    const w=[...pg.querySelectorAll('.dimg')].find(w=>{const q=w.getBoundingClientRect();return L>=q.left-2&&T_>=q.top-2&&R_<=q.right+2&&B_<=q.bottom+2});
+    if(w){const q=w.getBoundingClientRect(),c=(v)=>Math.min(1,Math.max(0,v));const x=c((L-q.left)/q.width),y=c((T_-q.top)/q.height);
+      openDocImgPop(w,{x,y,w:c((R_-q.left)/q.width)-x,h:c((B_-q.top)/q.height)-y},box)}
+    else openDocShotPop(pg,{x:rect.x,y:rect.y,w:rect.w,h:rect.h},box);
   };
   pg.addEventListener('pointermove',move);pg.addEventListener('pointerup',up);pg.addEventListener('pointercancel',up);
 }
@@ -2046,7 +2053,7 @@ function cardsAfterReply(m){
   const t=T(m.thread);
   if(m.role==='note'&&T(m.fromThread))queueDraft(m.fromThread,{takeaway:m.content,note:m.id,noteThread:m.thread,src:'takeaway',quiet:true});
   else if(m.role==='assistant'&&t&&t.parent&&(t.anchorText||t.anchorRegion)&&conv.order[t.id].filter(id=>conv.msgs[id].role==='assistant').length===1)
-    queueDraft(t.id,{src:t.anchorRegion?(isWholePage(t.anchorRegion)?'page':'snip'):t.anchorImg?'snip':'highlight',quiet:true});
+    queueDraft(t.id,{src:t.anchorRegion?(isWholePage(t.anchorRegion)?'page':'snip'):(t.anchorImg||t.anchorShot)?'snip':'highlight',quiet:true});
 }
 // A branch's Cards button: drafts from what's new in the branch since cards were last drafted from it (only that);
 // with nothing new, it opens the branch's cards. "Draft more" in that view drafts again on purpose.
@@ -2083,7 +2090,7 @@ async function draftCards(c0,tid,o){
   const have=[...CARDS.values()].filter(c=>c.conv===conv.id).map(c=>'- '+c.front.replace(/\s+/g,' ').slice(0,160)).slice(-80);
   // only what's new since the last draft: the question that starts it
   const ord=conv.order[tid]||[],from=o.since?ord.indexOf(o.since):-1,nextQ=from>=0?ord.slice(from+1).map(id=>conv.msgs[id]).find(m=>m&&m.role==='user'):null;
-  const ask=PROMPTS.cardsAsk({what:o.takeaway?'takeaway':tid==='main'?'main':'branch',about:t.anchorText?trunc(t.regionText||t.anchorText,120):'',takeaway:o.takeaway,snip:!!((t.anchorRegion&&!isWholePage(t.anchorRegion))||t.anchorImg),max:o.takeaway?4:3,have,after:nextQ?trunc(String(nextQ.text||nextQ.content||'').replace(/\s+/g,' '),140):''});
+  const ask=PROMPTS.cardsAsk({what:o.takeaway?'takeaway':tid==='main'?'main':'branch',about:t.anchorText?trunc(t.regionText||t.anchorText,120):'',takeaway:o.takeaway,snip:!!((t.anchorRegion&&!isWholePage(t.anchorRegion))||t.anchorImg||t.anchorShot),max:o.takeaway?4:3,have,after:nextQ?trunc(String(nextQ.text||nextQ.content||'').replace(/\s+/g,' '),140):''});
   const msgs=ctx.messages,last=msgs[msgs.length-1];if(last&&last.role==='user')appendText(last,'\n\n'+ask);else msgs.push({role:'user',content:ask});
   if(!io.llm)await io.ready;
   const rc=await resolveContext(ctx,!!io.llm.supportsImages);
@@ -2092,8 +2099,8 @@ async function draftCards(c0,tid,o){
   list=(Array.isArray(list)?list:[]).filter(x=>x&&typeof x.front==='string'&&typeof x.back==='string'&&x.front.trim()).slice(0,6);
   for(const x of list){const q=typeof x.quote==='string'&&findQuote(x.quote,o.note?[o.note]:conv.order[tid]||[]);x.q=q||null}
   let image=null;
-  if(list.length&&((t.anchorRegion&&!isWholePage(t.anchorRegion))||t.anchorImg)&&o.src!=='takeaway'){   // keep a copy of the snip (or image) with the card, so it can be reviewed without opening the document
-    try{const bl=await imageBlob(t.anchorImg?docImgRef(t):regionRef(t));const [im]=await storeImages([{blob:bl,type:bl.type}]);image=im}catch(e){console.warn('snip not kept with the card',e)}
+  if(list.length&&((t.anchorRegion&&!isWholePage(t.anchorRegion))||t.anchorImg||t.anchorShot)&&o.src!=='takeaway'){   // keep a copy of the snip (or image) with the card, so it can be reviewed without opening the document
+    try{const bl=await imageBlob(t.anchorShot?shotRef(t):t.anchorImg?docImgRef(t):regionRef(t));const [im]=await storeImages([{blob:bl,type:bl.type}]);image=im}catch(e){console.warn('snip not kept with the card',e)}
   }
   const at=o.note?{thread:o.noteThread,msg:o.note}:{thread:tid,msg:seen},where=tid==='main'?'Main thread':trunc(t.title||t.anchorText||'Branch',70);   // where to take the reader back to
   for(const x of list)await putCard({id:'k'+rid()+rid(),conv:c0.id,convTitle:c0.title||'',thread:tid,at,where,src:o.src,front:x.front.trim(),back:x.back.trim(),...(image?{image}:{}),...(x.q?{quote:x.q}:{}),status:'inbox',created:Date.now(),due:null,fsrs:null,reviews:[]});
@@ -2581,7 +2588,7 @@ async function convFull(id){
   const {rev,ui,...rest}=d;return JSON.parse(JSON.stringify({...rest,id}));
 }
 // every image record in a conversation (pasted into questions, an article's pictures): {asset|data, type, w, h}
-const imageRecs=(c)=>[...Object.values(c.msgs||{}).flatMap(m=>(m&&m.images)||[]),...Object.values((c.doc&&c.doc.images)||{})].filter(Boolean);
+const imageRecs=(c)=>[...Object.values(c.msgs||{}).flatMap(m=>(m&&m.images)||[]),...Object.values((c.doc&&c.doc.images)||{}),...Object.values(c.threads||{}).map(t=>t&&t.anchorShot)].filter(Boolean);
 async function digressFile(id,o={}){
   const c=await convFull(id),files={};
   const grab=async(assetId,type)=>{if(!assetId||files[assetId])return;const buf=await io.files.fetch(assetId);files[assetId]={type:type||'application/octet-stream',data:await blobB64(new Blob([buf]))}};
@@ -2676,6 +2683,7 @@ async function importDigress(file){
         if(a){const blob=b64Blob(a.data,a.type),pdf=c.doc.kind==='pdf';if(!await storeDocFile(c,c.doc.kind,blob,pdf?null:await blob.text()))c.doc.left=true}
         else if(c.doc.text==null)c.doc.left=true;
         for(const im of Object.values(c.doc.images||{}))await restore(im);
+        for(const t of Object.values(c.threads||{}))if(t&&t.anchorShot)await restore(t.anchorShot);
       }
     }
     try{const r=await io.store.save(id,c,0);if(!r||!r.rev)throw new Error('not saved')}catch(e){console.warn(e);toast('Couldn’t save the imported conversation.');continue}
@@ -2714,6 +2722,9 @@ function aroundParts(t){
 }
 function branchParts(t,tools){
   if(tools&&isDocBranch(t)&&docTooLong()&&Number.isInteger(t.anchorPage))return [...branchParts(t,false),...aroundParts(t)];
+  if(isDocBranch(t)&&t.anchorShot){
+    return [{type:'text',text:PROMPTS.branch.docShot(t.regionText)},{type:'image',ref:shotRef(t),label:'the snip of the document'},{type:'text',text:'\n\n'}];
+  }
   if(isDocBranch(t)&&t.anchorImg){
     const whole=isWholePage(t.anchorImg);
     return [{type:'text',text:PROMPTS.branch.docImage(docImgLabel(t),whole)},{type:'image',ref:docImgRef(t),label:whole?'the image':'the snip of an image'},{type:'text',text:'\n\n'}];
@@ -3143,6 +3154,7 @@ function createBranch(mid,anchorText,question,title,range,page,img){
   const r4=(v)=>Math.round(v*1e4)/1e4;
   if(isDoc&&img&&img.region){const g=img.region;t.anchorRegion={x:r4(g.x),y:r4(g.y),w:r4(g.w),h:r4(g.h)};if(img.regionText)t.regionText=img.regionText}
   if(isDoc&&img&&img.image){const g=img.image;t.anchorImg={key:g.key,n:g.n,x:r4(g.x),y:r4(g.y),w:r4(g.w),h:r4(g.h)}}
+  if(isDoc&&img&&img.shot){t.anchorShot=img.shot;if(img.regionText)t.regionText=img.regionText;if(!range&&img.near)t.anchorAt=img.near}
   if(title)t.title=title;else if(question)t.title=trunc(question,48);else{t.title=anchorText?trunc(anchorText,40):'Side question';t.autoTitle=!anchorText}
   conv.threads[t.id]=t;conv.order[t.id]=[];
   if(isDoc)refreshDocAnchors(t.anchorPage);else{m.ver++;renderPane(parent)}
@@ -3712,6 +3724,7 @@ function updateHeader(tid){
 }
 function originCard(t){
   const d=document.createElement('div');d.className='origin';d.style.setProperty('--c',color(t));
+  if(isDocBranch(t)&&t.anchorShot){const ref=shotRef(t);d.innerHTML=`<div class="ol"><span>Branched from a snip of the document</span><button data-back="1" title="Scroll the document to where it came from">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(ref).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The snip isn’t available, so it can’t be shown.'}))});d.querySelector('.oimg').__ref=ref;return d}
   if(isDocBranch(t)&&t.anchorImg){const whole=isWholePage(t.anchorImg),ref=docImgRef(t);d.innerHTML=`<div class="ol"><span>Branched from ${whole?'an image':'a snip of an image'} in the document</span><button data-back="1" title="Scroll the document to this image">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(ref).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The image isn’t kept with this conversation, so it can’t be shown.'}))});d.querySelector('.oimg').__ref=ref;return d}
   if(isDocBranch(t)&&t.anchorRegion){d.innerHTML=`<div class="ol"><span>Branched from ${isWholePage(t.anchorRegion)?'':'a snip of '}page ${t.anchorPage+1} of the document</span><button data-back="1" title="Scroll the document to this ${isWholePage(t.anchorRegion)?'page':'snip'}">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(regionRef(t)).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The document isn’t loaded, so the snip can’t be shown.'}))});d.querySelector('.oimg').__ref=regionRef(t);return d}
   if(isDocBranch(t)){d.innerHTML=`<div class="ol"><span>Branched from the document${conv.doc&&conv.doc.kind==='pdf'?`, page ${t.anchorPage+1}`:''}</span><button data-back="1" title="Scroll the document to the exact passage this branch came from">Show in source</button></div><div class="oq"></div>`;const oq0=d.querySelector('.oq');oq0.textContent=t.anchorText;oq0.dataset.back='1';oq0.title='Jump to this passage in the document';return d}
@@ -3750,7 +3763,7 @@ function applyPaneZoom(tid){
   if(pdf||v===1)el.style.removeProperty('--pz');else el.style.setProperty('--pz',v);
   const l=el.querySelector('.pzl');if(l){l.textContent=Math.round(v*100)+'%';l.title=pdf?'Click to type a zoom level (100% fits the page to the width)':'Click to type a zoom level'}
   el.classList.toggle('zoomed',v!==1);
-  const sn=el.querySelector('[data-act=snip]');if(sn)sn.style.display=pdf||(tid==='doc'&&el.querySelector('.docbody .dimg'))?'':'none';
+  const sn=el.querySelector('[data-act=snip]');if(sn)sn.style.display=tid==='doc'&&conv.doc?'':'none';
   const f=el.querySelector('.pzf');if(f){f.style.display=pdf?'':'none';f.disabled=v===1;f.title='Fit the width'}
 }
 // Click a zoom percentage to type one instead of stepping with − / +: Enter or clicking away applies it
@@ -4973,7 +4986,9 @@ function applyDocAnchorsPdf(pg,tl,pageIdx){
     const m=docMarker(t);m.style.top=Math.max(0,y)+'px';pg.appendChild(m);
   }
 }
-function applyDocAnchorsText(root){for(const t of docBranches())if(t.anchorText&&!t.anchorImg)wrapText(root,t.anchorText,t)}
+function applyDocAnchorsText(root){for(const t of docBranches()){
+  if(t.anchorShot){if(t.anchorRange&&t.regionText)wrapText(root,t.regionText,t);continue}   // a snip: its text, where there was some
+  if(t.anchorText&&!t.anchorImg)wrapText(root,t.anchorText,t)}}
 async function refreshDocAnchors(page){
   if(!conv.doc||!docState||!docState.loaded)return;
   const el=paneEls.get('doc');if(!el)return;
@@ -5438,14 +5453,81 @@ function docImages(root){
     const w=document.createElement('span');w.className='dimg';w.dataset.key=key;w.dataset.n=n;w.__src=src;
     const host=fig?im.closest('.aview')||im:im;host.replaceWith(w);w.appendChild(host);
     const ask=document.createElement('button');ask.className='ib iask';ask.dataset.iask='';ask.title='Open a side branch about this image; the AI gets the image';ask.innerHTML=ic('branch');w.appendChild(ask);
-    let i=0;for(const t of docBranches())if(t.anchorImg&&t.anchorImg.key===key&&t.anchorImg.n===n)imgMarker(w,t,i++);
+    let i=0;for(const t of docBranches()){const a=t.anchorImg||t.anchorAt;if(a&&a.key===key&&a.n===n)imgMarker(w,t,i++)}
   }
   const el=paneEls.get('doc');if(el&&root.isConnected)applyPaneZoom('doc');   // Snip shows once there's an image to snip
 }
 function imgMarker(w,t,i){
-  const r=t.anchorImg;
+  const r=t.anchorImg||{x:0,y:0,w:1,h:1};
   if(!isWholePage(r)){const d=document.createElement('div');d.className='dregion'+(t.resolved?' res':'');d.dataset.tid=t.id;d.style.cssText=`--c:${color(t)};left:${r.x*100}%;top:${r.y*100}%;width:${r.w*100}%;height:${r.h*100}%`;w.appendChild(d)}
   const m=docMarker(t);m.style.top=`calc(${isWholePage(r)?0:r.y*100}% + ${i*18}px)`;w.appendChild(m);
+}
+/* A picture of part of a text document (Snip anywhere but inside one image). The page has no way to photograph
+   itself, so the blocks the box touches are copied into an off-screen .docbody of the same width, with their images
+   swapped for the copies kept with the conversation (a remote one fetched by the server, never by the page) and
+   the markers, highlights and buttons left out, and html-to-image draws that copy (an SVG foreignObject) onto a
+   canvas. Its fonts are embedded once per font setting (docFontCss). The picture is kept as a file when the branch
+   is made (t.anchorShot): unlike a PDF, the text re-wraps with the pane's width, theme and font, so it can't be
+   drawn again the same. */
+const HTML_TO_IMAGE='https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js';
+const BLANK_PX='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+const shotRef=(t)=>{const a=t.anchorShot||{};return a.asset?{asset:a.asset,type:a.type}:{data:a.data||''}};
+let fontCssMemo=null;
+function docFontCss(node){
+  const k=(document.documentElement.dataset.font||'default')+(node.querySelector('code,pre')?'+mono':'');   // the families it uses
+  if(!fontCssMemo||fontCssMemo.k!==k)fontCssMemo={k,p:htmlToImage.getFontEmbedCSS(node).catch(e=>{fontCssMemo=null;console.warn('fonts not embedded in the snip',e);return ''})};
+  return fontCssMemo.p;
+}
+async function shotDocRegion(body,r){
+  await loadScript(HTML_TO_IMAGE);
+  const b=body.getBoundingClientRect(),T_=b.top+r.y,B_=T_+r.h,L=b.left+r.x,R_=L+r.w;
+  const hit=(q)=>q.bottom>=T_&&q.top<=B_&&q.right>=L&&q.left<=R_;
+  const kids=[...body.children].filter(c=>!c.classList.contains('snipbox')&&hit(c.getBoundingClientRect()));
+  if(!kids.length)throw new Error('There’s nothing in that box.');
+  const swap=new Map();   // img in the document → the kept copy's URL
+  for(const w of body.querySelectorAll('.dimg')){
+    if(!hit(w.getBoundingClientRect()))continue;const im=w.querySelector('img');if(!im)continue;
+    try{const rec=await docImageRec(w);swap.set(im,await imageURL(rec.asset?{asset:rec.asset,type:rec.type}:{data:rec.data}))}catch(e){swap.set(im,BLANK_PX)}
+  }
+  // the copy sits in a frame the size of the box, which crops it (html-to-image sizes the node it draws, so the copy
+  // itself can't be the one drawn: its border would end up across the picture). The frame is on screen but invisible
+  // and behind everything: placed off screen, it's drawn blank
+  const frame=document.createElement('div');frame.style.cssText=`position:fixed;left:0;top:0;width:${Math.round(r.w)}px;height:${Math.round(r.h)}px;overflow:hidden;opacity:0;pointer-events:none;z-index:-1`;
+  const copy=document.createElement('div');copy.className='docbody docshot';
+  copy.style.cssText=`position:absolute;left:0;top:0;width:${body.offsetWidth}px;max-width:none;margin:0`;frame.appendChild(copy);
+  for(const k of kids){
+    const c=k.cloneNode(true),srcImgs=[...k.querySelectorAll('img')],cImgs=[...c.querySelectorAll('img')];
+    srcImgs.forEach((im,i)=>{const u=swap.get(im);if(u&&cImgs[i])cImgs[i].src=u;else if(cImgs[i]&&/^https?:/i.test(cImgs[i].getAttribute('src')||''))cImgs[i].src=BLANK_PX});
+    c.querySelectorAll('.iask,.snipbox,.dmark,.dregion,sup.fn').forEach(x=>x.remove());
+    c.querySelectorAll('.anchor').forEach(x=>{x.className='';x.removeAttribute('style')});
+    copy.appendChild(c);
+  }
+  body.parentElement.appendChild(frame);
+  try{
+    await Promise.all([...copy.querySelectorAll('img')].map(im=>im.decode().catch(()=>{})));
+    const y=r.y-(kids[0].getBoundingClientRect().top-b.top)+(copy.firstElementChild.getBoundingClientRect().top-copy.getBoundingClientRect().top);
+    copy.style.left=-r.x+'px';copy.style.top=-y+'px';
+    const k=Math.min(2,IMG_MAX/Math.max(r.w,r.h));
+    const cv=await htmlToImage.toCanvas(frame,{pixelRatio:k,fontEmbedCSS:await docFontCss(body),imagePlaceholder:BLANK_PX,
+      backgroundColor:getComputedStyle(body).backgroundColor,style:{position:'relative',left:'0',top:'0',opacity:'1',zIndex:'auto'}});
+    const blob=await encodeCanvas(cv);return {blob,type:blob.type,w:cv.width,h:cv.height};
+  }finally{frame.remove()}
+}
+// the document's words inside a box (client coordinates), in order; where they are (anchorRange); and, with no
+// text, the first image it touched (anchorAt), so the branch still has a place in the document
+function docBoxText(body,L,T_,R_,B_){
+  const w=textWalker(body),words=[];let n;const rg=document.createRange();
+  while((n=w.nextNode())){
+    rg.selectNodeContents(n);const q=rg.getBoundingClientRect();if(q.bottom<T_||q.top>B_||q.right<L||q.left>R_)continue;
+    const re=/\S+/g,s=n.nodeValue;let m;
+    while((m=re.exec(s))){rg.setStart(n,m.index);rg.setEnd(n,m.index+m[0].length);const c=rg.getBoundingClientRect(),cx=c.left+c.width/2,cy=c.top+c.height/2;
+      if(c.width&&cx>=L&&cx<=R_&&cy>=T_&&cy<=B_)words.push([n,m.index,m.index+m[0].length,m[0]])}
+  }
+  let near=null;
+  if(!words.length){const im=[...body.querySelectorAll('.dimg')].find(x=>{const q=x.getBoundingClientRect();return q.bottom>=T_&&q.top<=B_&&q.right>=L&&q.left<=R_});if(im)near={key:im.dataset.key,n:+im.dataset.n};return {text:'',range:null,near}}
+  const s=charPos(body,words[0][0],words[0][1]),e=charPos(body,words.at(-1)[0],words.at(-1)[2]);
+  const t=words.map(x=>x[3]).join(' ');
+  return {text:t.length>600?t.slice(0,600)+' …(cut off; the image shows all of it)':t,range:s>=0&&e>s?{s,e}:null,near:null};
 }
 // the copy of an image kept with the conversation, made the first time it's asked about
 async function docImageRec(w){
@@ -6656,12 +6738,30 @@ function openDocImgPop(w,reg,anchorEl){
   showPopAt(anchorEl.getBoundingClientRect());
   if(!matchMedia('(hover:none)').matches)popIn.focus();
 }
+// …and for any other box on a text document: a picture of that part, with the text found inside it
+function openDocShotPop(body,r,anchorEl){
+  const b=body.getBoundingClientRect(),found=docBoxText(body,b.left+r.x,b.top+r.y,b.left+r.x+r.w,b.top+r.y+r.h);
+  const label='Snip of the document'+(found.text?`: ${trunc(found.text,60)}`:'');
+  const st=popState={doc:true,page:0,shot:true,regionText:found.text,range:found.range,near:found.near,text:label};
+  const q=$('#popQ');q.innerHTML='<img class="pimg" alt=""><div class="pimgcap"></div>';const cap=q.querySelector('.pimgcap');
+  cap.textContent='From the document'+(found.text?` · “${trunc(found.text,80)}”`:'');
+  const im=q.querySelector('img');im.alt=label;
+  $('#popHint').textContent='Opens a side branch. The AI gets this image along with the conversation so far.';
+  popIn.value='';popIn.style.height='';
+  pop.style.setProperty('--c',PALETTE[conv.nextColor%PALETTE.length]);
+  st.imgP=shotDocRegion(body,r).then(shot=>{st.shotImg=shot;im.src=URL.createObjectURL(shot.blob);if(popState===st)requestAnimationFrame(()=>showPopAt(anchorEl.getBoundingClientRect()))});
+  st.imgP.catch(e=>{cap.textContent='The picture couldn’t be made: '+((e&&e.message)||e)});
+  showPopAt(anchorEl.getBoundingClientRect());
+  if(!matchMedia('(hover:none)').matches)popIn.focus();
+}
 function hidePop(){pop.classList.remove('show');popState=null;document.querySelectorAll('.snipbox').forEach(b=>b.remove())}
 async function popSubmit(q,chip){
-  if(!popState)return;const {mid,text,range,doc,page,region,regionText:rt,image,imgP}=popState;
+  if(!popState)return;const st=popState,{mid,text,range,doc,page,region,regionText:rt,image,imgP,shot,near}=st;
   if(imgP){try{await imgP}catch(e){toast('That image couldn’t be loaded, so there’s nothing to ask about yet. '+((e&&e.message)||''));return}}
   hidePop();window.getSelection().removeAllRanges();
-  createBranch(doc?'DOC':mid,text,q||'',q&&chip?trunc(text,40):null,range,page,region?{region,regionText:rt}:image?{image}:null);
+  let kept=null;   // a picture of part of a text document is kept as a file (it can't be drawn again: the text re-wraps)
+  if(shot){try{[kept]=await storeImages([st.shotImg])}catch(e){toast('The picture couldn’t be saved: '+((e&&e.message)||e));return}}
+  createBranch(doc?'DOC':mid,text,q||'',q&&chip?trunc(text,40):null,range,page,region?{region,regionText:rt}:image?{image}:shot?{shot:kept,regionText:rt,near}:null);
 }
 popIn.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();popSubmit(popIn.value.trim())}else if(e.key==='Escape'){hidePop()}});
 popIn.addEventListener('input',()=>{

@@ -42,7 +42,7 @@ const ThreadOps = (() => {
 
   // what a message sees: the messages before it, with each prefix and takeaway label as it would be sent
   const noteTitle = (c, m) => (T(c, m.fromThread) ? T(c, m.fromThread).title : m.fromTitle || '(deleted)');
-  const prefixKey = (t) => JSON.stringify([t.anchorMsg, t.anchorText || '', t.anchorPage ?? null, t.anchorRegion || null, t.regionText || '', ...(t.anchorImg ? [t.anchorImg] : [])]);
+  const prefixKey = (t) => JSON.stringify([t.anchorMsg, t.anchorText || '', t.anchorPage ?? null, t.anchorRegion || null, t.regionText || '', ...(t.anchorImg ? [t.anchorImg] : []), ...(t.anchorShot ? [t.anchorShot.asset || (t.anchorShot.data || '').length] : [])]);
   function signature(c, mid, o = {}) {
     const m = c.msgs[mid], out = [];
     let stop = false;
