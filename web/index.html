@@ -11,7 +11,7 @@
 <script>
 /* Themes: [id, name, mode]. The colors are in the CSS (:root[data-theme=…]); 'system' follows the device's
    light or dark setting. Set here, before anything paints, so there's no flash of the wrong one. */
-window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['kanagawa-lotus','Kanagawa Lotus','light'],['eink','E-ink','light'],['tokyo-day','Tokyo Night Day','light'],['github-light','GitHub Light','light'],['dark','Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['moon','Rosé Pine Moon','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark'],['black','Pure black','dark'],['tokyo-night','Tokyo Night','dark'],['github-dark','GitHub Dark','dark']];
+window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['kanagawa-lotus','Kanagawa Lotus','light'],['eink','E-ink','light'],['tokyo-day','Tokyo Night Day','light'],['github-light','GitHub Light','light'],['ayu-light','Ayu Light','light'],['nord-light','Nord Light','light'],['alabaster','Alabaster','light'],['dark','Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['moon','Rosé Pine Moon','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark'],['black','Pure black','dark'],['tokyo-night','Tokyo Night','dark'],['github-dark','GitHub Dark','dark'],['kanagawa-dragon','Kanagawa Dragon','dark'],['rose-pine','Rosé Pine','dark'],['frappe','Catppuccin Frappé','dark'],['macchiato','Catppuccin Macchiato','dark'],['ayu-mirage','Ayu Mirage','dark'],['gruvbox-material','Gruvbox Material','dark'],['zenburn','Zenburn','dark']];
 /* How PDF pages look (pdf.js draws them as images, in the PDF's own colors): [id, name]. 'match' is dark pages with
    a dark theme. Only the page images are filtered (CSS), never what the model gets. */
 window.PDF_LOOKS=[['original','Original'],['match','Match the theme'],['dark','Dark'],['dim','Dim'],['sepia','Sepia']];
@@ -24,6 +24,7 @@ window.FONTS=[['default','Default',[]],['sans','Sans',[]],['serif','Serif',[]],[
   ['lexend','Lexend',['https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&display=swap']],
   ['atkinson','Atkinson Hyperlegible',['https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&display=swap']],
   ['inclusive','Inclusive Sans',['https://fonts.googleapis.com/css2?family=Inclusive+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap']],
+  ['sourcesans','Source Sans',['https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,500;0,600;1,400&display=swap']],
   ['comicneue','Comic Neue',['https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&display=swap']]];
 window.applyFont=function(id){
   var f=FONTS.find(function(x){return x[0]===id})||FONTS[0];document.documentElement.dataset.font=f[0];
@@ -174,6 +175,56 @@ window.applyTheme=function(id){
   --line:#262c36;--line2:#3d444d;--user-bg:#18202b;--code-bg:#151b23;--accent:#4493f8;--danger:#f85149;
   --hk:#ff7b72;--hs:#a5d6ff;--hn:#79c0ff;--ht:#d2a8ff;--hy:#ffa657;--hm:#8b949e;
 }
+:root[data-theme=ayu-light],.thsw[data-theme=ayu-light]{   /* Ayu Light */
+  --bg:#f3f4f5;--panel:#fcfcfc;--panel-2:#f8f9fa;--ink:#5c6166;--muted:#8a9199;--faint:#adaeb1;
+  --line:#e7eaed;--line2:#d8dce0;--user-bg:#eef0f2;--code-bg:#f3f4f5;--accent:#fa8d3e;--danger:#e65050;
+  --hk:#fa8d3e;--hs:#86b300;--hn:#a37acc;--ht:#399ee6;--hy:#55b4d4;--hm:#ed9366;
+}
+:root[data-theme=nord-light],.thsw[data-theme=nord-light]{   /* Nord Light */
+  --bg:#e5e9f0;--panel:#eceff4;--panel-2:#e8ebf1;--ink:#2e3440;--muted:#4c566a;--faint:#7b88a1;
+  --line:#d8dee9;--line2:#c6cedb;--user-bg:#e1e6ee;--code-bg:#e5e9f0;--accent:#5e81ac;--danger:#bf616a;
+  --hk:#5e81ac;--hs:#5f8a45;--hn:#9a6b94;--ht:#3f7a9c;--hy:#3b8a8c;--hm:#c2703d;
+}
+:root[data-theme=alabaster],.thsw[data-theme=alabaster]{   /* Alabaster */
+  --bg:#ececec;--panel:#f7f7f7;--panel-2:#f2f2f2;--ink:#000000;--muted:#666666;--faint:#999999;
+  --line:#e2e2e2;--line2:#d0d0d0;--user-bg:#ebebeb;--code-bg:#f0f0f0;--accent:#325cc0;--danger:#aa3731;
+  --hk:#000000;--hs:#448c27;--hn:#7a3e9d;--ht:#325cc0;--hy:#000000;--hm:#aa3731;
+}
+:root[data-theme=kanagawa-dragon],.thsw[data-theme=kanagawa-dragon]{   /* Kanagawa Dragon */
+  --bg:#0d0c0c;--panel:#181616;--panel-2:#1d1c19;--ink:#c5c9c5;--muted:#a6a69c;--faint:#737c73;
+  --line:#282727;--line2:#393836;--user-bg:#282727;--code-bg:#12120f;--accent:#8ba4b0;--danger:#c4746e;
+  --hk:#8992a7;--hs:#8a9a7b;--hn:#a292a3;--ht:#8ba4b0;--hy:#8ea4a2;--hm:#b6927b;
+}
+:root[data-theme=rose-pine],.thsw[data-theme=rose-pine]{   /* Rosé Pine */
+  --bg:#12101c;--panel:#191724;--panel-2:#1f1d2e;--ink:#e0def4;--muted:#908caa;--faint:#6e6a86;
+  --line:#26233a;--line2:#403d52;--user-bg:#26233a;--code-bg:#1f1d2e;--accent:#ebbcba;--danger:#eb6f92;
+  --hk:#31748f;--hs:#f6c177;--hn:#eb6f92;--ht:#ebbcba;--hy:#9ccfd8;--hm:#c4a7e7;
+}
+:root[data-theme=frappe],.thsw[data-theme=frappe]{   /* Catppuccin Frappé */
+  --bg:#292c3c;--panel:#303446;--panel-2:#353a4d;--ink:#c6d0f5;--muted:#a5adce;--faint:#838ba7;
+  --line:#414559;--line2:#51576d;--user-bg:#414559;--code-bg:#2b2f40;--accent:#ca9ee6;--danger:#e78284;
+  --hk:#ca9ee6;--hs:#a6d189;--hn:#ef9f76;--ht:#8caaee;--hy:#e5c890;--hm:#81c8be;
+}
+:root[data-theme=macchiato],.thsw[data-theme=macchiato]{   /* Catppuccin Macchiato */
+  --bg:#1e2030;--panel:#24273a;--panel-2:#292c40;--ink:#cad3f5;--muted:#a5adcb;--faint:#8087a2;
+  --line:#363a4f;--line2:#494d64;--user-bg:#363a4f;--code-bg:#202335;--accent:#c6a0f6;--danger:#ed8796;
+  --hk:#c6a0f6;--hs:#a6da95;--hn:#f5a97f;--ht:#8aadf4;--hy:#eed49f;--hm:#8bd5ca;
+}
+:root[data-theme=ayu-mirage],.thsw[data-theme=ayu-mirage]{   /* Ayu Mirage */
+  --bg:#1f2430;--panel:#242936;--panel-2:#282e3b;--ink:#cccac2;--muted:#9ba0a8;--faint:#707a8c;
+  --line:#2d3340;--line2:#3a4150;--user-bg:#2d3340;--code-bg:#1f2430;--accent:#ffcc66;--danger:#ff6666;
+  --hk:#ffad66;--hs:#d5ff80;--hn:#dfbfff;--ht:#ffd173;--hy:#73d0ff;--hm:#5ccfe6;
+}
+:root[data-theme=gruvbox-material],.thsw[data-theme=gruvbox-material]{   /* Gruvbox Material */
+  --bg:#1d1d1d;--panel:#282828;--panel-2:#2d2c2b;--ink:#d4be98;--muted:#a89984;--faint:#7c6f64;
+  --line:#32302f;--line2:#45403d;--user-bg:#32302f;--code-bg:#222222;--accent:#e78a4e;--danger:#ea6962;
+  --hk:#ea6962;--hs:#a9b665;--hn:#d3869b;--ht:#7daea3;--hy:#d8a657;--hm:#e78a4e;
+}
+:root[data-theme=zenburn],.thsw[data-theme=zenburn]{   /* Zenburn */
+  --bg:#333333;--panel:#3f3f3f;--panel-2:#444444;--ink:#dcdccc;--muted:#acac9c;--faint:#808070;
+  --line:#4f4f4f;--line2:#5f5f5f;--user-bg:#494949;--code-bg:#383838;--accent:#8cd0d3;--danger:#dc8c8c;
+  --hk:#f0dfaf;--hs:#cc9393;--hn:#8cd0d3;--ht:#efef8f;--hy:#7cb8bb;--hm:#dfaf8f;
+}
 /* Fonts (Appearance → Font): FONTS in the <head> script; data-font on the root. Each sets the UI's (--sans)
    and the replies' (--serif) font; code keeps --mono. */
 :root[data-font=sans]{--serif:'Inter',system-ui,sans-serif}
@@ -186,6 +237,7 @@ window.applyTheme=function(id){
 :root[data-font=newsreader]{--serif:'Newsreader',Georgia,serif}
 :root[data-font=plex]{--sans:'IBM Plex Sans',system-ui,sans-serif;--serif:'IBM Plex Serif',Georgia,serif}
 :root[data-font=inclusive]{--sans:'Inclusive Sans',system-ui,sans-serif;--serif:'Inclusive Sans',system-ui,sans-serif}
+:root[data-font=sourcesans]{--sans:'Source Sans 3',system-ui,sans-serif;--serif:'Source Sans 3',system-ui,sans-serif}
 :root[data-font=comicneue]{--sans:'Comic Neue',system-ui,sans-serif;--serif:'Comic Neue',system-ui,sans-serif}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased}
