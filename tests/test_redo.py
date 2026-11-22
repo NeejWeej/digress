@@ -1,6 +1,8 @@
 """Fixing a reply: Redo asks again with the model and effort selected now, Edit changes the question and asks
-again. In place only while nothing depends on that reply (it's the thread's last, no branch starts from it,
-no flashcard came from it); otherwise they make another version (tests/test_versions.py). Also what a reply shows while it works (a
+again. Both make a new branch starting just before the question, beside the original, which stays as it was, the
+same anywhere in a thread, the last question included (tests/test_versions.py). Use this version moves the branch onto
+the main line, and the toast's "Delete the old version" removes the old one. Only a reply that failed is retried in
+place. Also what a reply shows while it works (a
 shimmering line, the time, the steps so far) and under it when done (model and effort). Asserts, exits non-zero.
 """
 import asyncio, sys
@@ -15,6 +17,7 @@ window.__n = 0;
 window.fakeLLM = { use: async (n) => n === 'sample' ? async (msgs, opts) => {
   const q = msgs[msgs.length - 1].content.split('\n\n---\n\n').pop();
   window.__n++;
+  if (q.includes('FAILONCE') && !window.__failed) { window.__failed = true; throw new Error('the model failed'); }
   if (q.includes('SLOW')) {
     opts.onSearch('tide tables'); await new Promise(r => setTimeout(r, 900));
     opts.onSearch('moon phases'); await new Promise(r => setTimeout(r, 2600));
@@ -52,39 +55,51 @@ async def main():
         check('the latest reply can be redone', await replies.first.locator('[data-act=redo]').count() == 1)
         check('…and its question edited', await qs.first.locator('[data-act=edit]').count() == 1)
 
-        # redo with the right model
-        await pg.select_option('#mSel', 'claude-opus-5-5'); await pg.select_option('#eSel', 'auto')
-        await changed(pg, 'window.__n', replies.first.locator('[data-act=redo]').click()); await settled(pg)   # asked again, and answered
-        r1 = await replies.first.inner_text()
-        check('Redo asks again with the model selected now, replacing the reply', 'model=claude-opus-5-5' in r1 and await replies.count() == 1, r1)
-        check('…and the footer says so', (await replies.first.locator('.model').inner_text()).strip() == 'Opus 5.5 · auto effort')
+        threads = lambda: pg.evaluate("Object.keys(__digress.conv.threads).length")
+        def newest(): return pg.evaluate("Object.values(__digress.conv.threads).filter(t=>t.alt).sort((a,b)=>b.created-a.created)[0]?.id||null")
+        def reply_in(tid): return pg.evaluate("t => { const o = __digress.conv.order[t] || []; const m = o.map(id => __digress.conv.msgs[id]).filter(m => m.role === 'assistant').pop(); return m ? m.content : null }", tid)
 
-        # edit the question
+        # Redo: a new branch with a fresh answer; the original stays
+        await pg.select_option('#mSel', 'claude-opus-5-5'); await pg.select_option('#eSel', 'auto')
+        n0 = await threads()
+        await changed(pg, 'window.__n', replies.first.locator('[data-act=redo]').click()); await settled(pg)
+        b1 = await newest()
+        check('Redo asks again in a new branch, with the model selected now', await threads() == n0 + 1 and b1 and 'model=claude-opus-5-5' in (await reply_in(b1) or ''), [await threads(), b1])
+        check('…and the original answer stays as it was', 'model=claude-haiku-5-5' in await replies.first.inner_text() and await replies.count() == 1)
+        check('…the new branch opens beside it', await pg.locator(f'.pane[data-tid="{b1}"]').count() == 1)
+
+        # Edit: the edited question goes to a new branch from just before it; the original stays
         await qs.first.hover(); await qs.first.locator('[data-act=edit]').click(); await main.locator('.uedit textarea').wait_for()
         box = main.locator('.uedit textarea')
         check('Edit opens the question for editing', await box.count() == 1 and await box.input_value() == 'What is a tide?')
+        check('…saying it goes in a new branch (the last question too)', 'new branch' in await main.locator('.uedit .hint').inner_text())
         await box.press('Escape'); await frames(pg)
         check('Escape cancels, nothing changed', await main.locator('.uedit').count() == 0 and (await qs.first.locator('.body').inner_text()) == 'What is a tide?')
         await qs.first.hover(); await qs.first.locator('[data-act=edit]').click(); await box.wait_for()
+        n0 = await threads()
         await box.fill('What causes spring tides?'); await changed(pg, 'window.__n', box.press('Enter')); await settled(pg)
-        r1 = await replies.first.inner_text()
-        check('Enter sends the edited question and replaces the reply', 'q=What causes spring tides?' in r1 and await qs.count() == 1 and await replies.count() == 1, r1)
-        check('…the question shows the new text', (await qs.first.locator('.body').inner_text()) == 'What causes spring tides?')
-        check('…and the conversation title, taken from it, follows', (await pg.locator('#cTitle').inner_text()).strip() == 'What causes spring tides?')
-
-        # once the conversation goes on, the earlier ones are fixed
-        await ta.fill('And neap tides?'); await answered(pg, ta.press('Enter'))
+        b2 = await newest()
+        check('editing the last question asks it in a new branch', await threads() == n0 + 1 and 'q=What causes spring tides?' in (await reply_in(b2) or ''), [await threads(), b2])
+        check('…the original question and answer stay', (await qs.first.locator('.body').inner_text()) == 'What is a tide?' and 'q=What is a tide?' in await replies.first.inner_text())
+        check('…and so does the conversation’s title', (await pg.locator('#cTitle').inner_text()).strip() == 'What is a tide?')
         tip = "e => e.getAttribute('title') || e.dataset.tip || ''"   # hovering turns title= into data-tip=
         redo_t = lambda r: r.locator('[data-act=redo]').evaluate(tip)
         edit_t = lambda q: q.locator('[data-act=edit]').evaluate(tip)
-        check('after a follow-up, the earlier reply and question can only be redone/edited as another version (test_versions.py)',
-              (await redo_t(replies.first)).startswith('Redo as another version') and 'another version' in await edit_t(qs.first))
-        check('…the new ones in place', (await redo_t(replies.nth(1))).startswith('Redo: ') and 'replaces the reply' in await edit_t(qs.nth(1)))
+        check('the buttons say so: a new branch, this stays', (await redo_t(replies.first)).startswith('Redo in a new branch') and 'new branch' in await edit_t(qs.first))
 
-        # a branch from the latest reply: no more redo there
-        await replies.nth(1).locator('[data-act=wbranch]').click(); await pg.wait_for_function('Object.keys(__digress.conv.threads).length > 1'); await frames(pg)
-        check('a branch from a reply means it can’t be redone in place (the branch would lose its start)',
-              (await redo_t(replies.nth(1))).startswith('Redo as another version') and 'another version' in await edit_t(qs.nth(1)))
+        # Use this version: the branch goes onto the main line; the old one, now a branch, can go in one click
+        await pg.locator(f'.pane[data-tid="{b2}"] [data-usev]').first.click()
+        await soon(pg, "() => [...document.querySelectorAll('.toast.show')].some(t => /Delete the old version/.test(t.textContent))")
+        check('Use this version puts the edited question on the main line', (await qs.first.locator('.body').inner_text()) == 'What causes spring tides?')
+        await pg.locator('#toast .tact').click(); await pg.wait_for_selector('#modal.show'); await pg.locator('#mOk').click(); await frames(pg, 4)
+        check('…and “Delete the old version” removes the old one, keeping the new', not await pg.evaluate("t => !!__digress.conv.threads[t]", b2) and (await qs.first.locator('.body').inner_text()) == 'What causes spring tides?')
+
+        # a reply that failed: Retry fills it in place (there's nothing to keep)
+        await ta.fill('FAILONCE then answer'); await answered(pg, ta.press('Enter'))
+        n0 = await threads()
+        check('a failed reply offers Retry', await replies.last.locator('[data-act=retry]').count() == 1, await replies.last.inner_text())
+        await changed(pg, 'window.__n', replies.last.locator('[data-act=retry]').click()); await settled(pg)
+        check('…which answers in place, with no new branch', await threads() == n0 and 'q=FAILONCE' in await replies.last.inner_text())
 
         # while it works
         await ta.fill('SLOW what about the moon?'); await ta.press('Enter')
@@ -105,7 +120,7 @@ async def main():
         await pg.screenshot(path=OUT + '/redo-done.png')
         await saved(pg)
         await pg.reload(); await booted(pg)
-        check('after a reload, the same buttons (in place only for the last reply)', (await redo_t(replies.last)).startswith('Redo: ') and (await redo_t(replies.first)).startswith('Redo as another version'))
+        check('after a reload, the same buttons (a new branch, everywhere)', (await redo_t(replies.last)).startswith('Redo in a new branch') and (await redo_t(replies.first)).startswith('Redo in a new branch'))
         check('no page errors', not errs, errs[:3])
         await b.close()
     print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')

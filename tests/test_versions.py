@@ -48,7 +48,7 @@ async def main():
 
         r1 = main.locator('.msg.assistant').first
         title = await r1.locator('[data-act=redo]').get_attribute('title')
-        check('an earlier reply can still be redone, as another version', title.startswith('Redo as another version'), title)
+        check('an earlier reply can still be redone, in a new branch', title.startswith('Redo in a new branch'), title)
         await answered(pg, r1.locator('[data-act=redo]').click())
         check('it opens beside, asking the same question with the model selected now', await alts.count() == 1 and await qtexts(alts.first) == ['Q1 what is a tide?'] and 'ANSWER(claude-opus-5-5) to Q1' in await alts.first.locator('.msg.assistant').inner_text())
         check('…and sees only what the original saw: no later messages, no side-question prefix', pg and (await pg.evaluate('window.__calls.at(-1)')) == ['Q1 what is a tide?'], await pg.evaluate('window.__calls.at(-1)'))
@@ -62,7 +62,7 @@ async def main():
         # edit an earlier question: another version with the new text
         q1 = main.locator('.msg.user').first; await q1.hover(); await q1.locator('[data-act=edit]').click(); await main.locator('.uedit textarea').wait_for()
         hint = await main.locator('.uedit .hint').inner_text()
-        check('editing an earlier question says it becomes another version', 'another version' in hint, hint)
+        check('editing an earlier question says it goes in a new branch', 'new branch' in hint, hint)
         await main.locator('.uedit textarea').fill('Q1b why are there two tides a day?'); await answered(pg, main.locator('.uedit textarea').press('Enter'))
         check('…and it does: a third version, main untouched', await alts.count() == 2 and await qtexts(main) == ['Q1 what is a tide?', 'Q2 and neap tides?'] and '3 versions' in await chip.inner_text())
         vb = pg.locator('.pane', has=pg.locator('.msg.user .body', has_text='Q1b'))

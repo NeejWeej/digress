@@ -2751,10 +2751,17 @@ function redoBlock(mid){   // why this reply can't be redone in place, or '' if 
 }
 // Retry and Continue change a reply in place too, so the same rule: not once anything builds on it
 function retryBlock(mid){const m=conv.msgs[mid];if(!m||m.role!=='assistant')return '';const t=m.pending;m.pending=false;const w=redoBlock(mid);m.pending=t;return w==='busy'?'':w}
-const REDO_WHY={later:'the conversation has gone on after it',branches:'branches start from it',cards:'flashcards were drafted from it',busy:'a reply is being written'};
+const REDO_WHY={keep:'the answer you have is kept',later:'the conversation has gone on after it',branches:'branches start from it',cards:'flashcards were drafted from it',busy:'a reply is being written'};
 function questionOf(mid){const m=conv.msgs[mid],ord=conv.order[m.thread],i=ord.indexOf(mid);for(let k=i-1;k>=0;k--){const q=conv.msgs[ord[k]];if(q&&q.role==='user')return q;if(q&&q.role==='assistant')return null}return null}
 // the reply to a question, if it's right after it
 function replyTo(qid){const q=conv.msgs[qid],ord=conv.order[q.thread],n=conv.msgs[ord[ord.indexOf(qid)+1]];return n&&n.role==='assistant'?n:null}
+/* Edit and Redo never replace an answer: with one there, they ask again in a new branch that starts just before the
+   question (newVersion), beside the original, which stays as it was: the same anywhere in a thread, the last question
+   included. Only a reply that failed or never came (an error, nothing written) is replaced in
+   place, since there's nothing to keep. (Retry and Continue keep their own rule: retryBlock.) */
+const hasAnswer=(m)=>!!m&&m.role==='assistant'&&!m.error&&!!String(m.content||'').trim();
+const redoKeep=(mid)=>redoBlock(mid)||(hasAnswer(conv.msgs[mid])?'keep':'');
+const editKeep=(qid)=>{const w=editBlock(qid);if(w)return w;const r=replyTo(qid);return r&&hasAnswer(r)?'keep':''};
 function editBlock(qid){   // why this question can't be edited in place, or ''
   const q=conv.msgs[qid];if(!q||q.role!=='user')return 'busy';if(streaming.has(q.thread))return 'busy';
   const ord=conv.order[q.thread],r=replyTo(qid),last=r?r.id:qid;
@@ -2815,9 +2822,11 @@ function useVersion(tid){
   for(const id of [t.parent,tid])for(const m of conv.order[id])conv.msgs[m].ver++;
   refreshAll();revealPane(t.parent);
   setStatus('Now using this version; the other one is in “'+t.title+'”');
+  // the old version is now that branch: one click to drop it (the usual delete, which asks about its cards)
+  toast('Now using this version. The old one is in its own branch.',{label:'Delete the old version',fn:()=>{if(T(tid))confirmDeleteBranch(tid)}});
 }
 async function redo(mid){
-  const why=redoBlock(mid);
+  const why=redoKeep(mid);
   if(why){const q=questionOf(mid);if(why==='busy'||!q){toast(`This reply can’t be redone: ${REDO_WHY[why]}.`);return}return newVersion(q.id,q.content)}
   const m=conv.msgs[mid];
   m.content='';for(const k of ['error','model','effort','usage','docSeen','reads','searches','sources','web'])delete m[k];
@@ -2860,7 +2869,7 @@ async function newFromDoc(){
   toast('A new conversation on the same document. The other one is still in the sidebar.');
 }
 async function saveEdit(qid,text){
-  const why=editBlock(qid);if(why==='busy'){toast(`This question can’t be edited now: ${REDO_WHY[why]}.`);return false}
+  const why=editKeep(qid);if(why==='busy'){toast(`This question can’t be edited now: ${REDO_WHY[why]}.`);return false}
   if(why){if(!(text||'').trim()&&!(conv.msgs[qid].images||[]).length)return false;newVersion(qid,text);return false}
   const q=conv.msgs[qid],tid=q.thread,t=T(tid),old=q.content||'';text=(text||'').trim();
   if(!text&&!(q.images&&q.images.length))return false;
@@ -2873,10 +2882,10 @@ async function saveEdit(qid,text){
   await redo(r.id);return true;
 }
 function startEdit(el,qid){
-  const q=conv.msgs[qid];const why=editBlock(qid);if(why==='busy'){toast(`This question can’t be edited now: ${REDO_WHY[why]}.`);return}
+  const q=conv.msgs[qid];const why=editKeep(qid);if(why==='busy'){toast(`This question can’t be edited now: ${REDO_WHY[why]}.`);return}
   el.classList.add('editing');
   const box=document.createElement('div');box.className='uedit';
-  box.innerHTML=`<textarea rows="3"></textarea><div class="ubtns"><span class="hint">${why?'Asks it as another version next to this one, with the model and effort selected now. Nothing here changes.':'Asks again with the model and effort selected now, replacing the reply.'}</span><button class="mbtn" data-ue="cancel">Cancel</button><button class="mbtn primary" data-ue="save">Send</button></div>`;
+  box.innerHTML=`<textarea rows="3"></textarea><div class="ubtns"><span class="hint">${why?'Asks it in a new branch beside this one, with the model and effort selected now. This stays as it is.':'Asks again with the model and effort selected now.'}</span><button class="mbtn" data-ue="cancel">Cancel</button><button class="mbtn primary" data-ue="save">Send</button></div>`;
   const ta=box.querySelector('textarea');ta.value=q.content||'';
   [...el.children].forEach(c=>c.style.display='none');el.appendChild(box);ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);
   const close=()=>{box.remove();el.classList.remove('editing');[...el.children].forEach(c=>c.style.display='')};
@@ -3272,11 +3281,11 @@ function wrapText(root,needle,t,opts){
 /* ---------- message elements ---------- */
 function anchorsKey(m){return branchesOn(m.id).map(t=>t.id+t.title+(t.resolved?'r':'')+(hiddenNow(t.id)?'h':'')).join(',')}
 function msgEl(m){
-  const key=`${m.ver}|${m.pending?1:0}|${mathReady?1:0}|${m.role==='user'?editBlock(m.id)+versionsOf(m.id).length:m.role==='assistant'?redoBlock(m.id):''}|${m.role!=='user'?anchorsKey(m):''}|${m.role==='note'&&T(m.fromThread)?T(m.fromThread).title:''}`;
+  const key=`${m.ver}|${m.pending?1:0}|${mathReady?1:0}|${m.role==='user'?editKeep(m.id)+versionsOf(m.id).length:m.role==='assistant'?redoKeep(m.id):''}|${m.role!=='user'?anchorsKey(m):''}|${m.role==='note'&&T(m.fromThread)?T(m.fromThread).title:''}`;
   const c=msgCache.get(m.id);if(c&&c.key===key)return c.el;
   const el=document.createElement('div');el.className='msg '+m.role;el.dataset.mid=m.id;
-  if(m.role==='user'){userMsgBody(el,m);const eb=editBlock(m.id),vs=versionsOf(m.id);
-    if(eb!=='busy'||vs.length>1)el.insertAdjacentHTML('beforeend',`<div class="uact${vs.length>1?' has-v':''}">${vs.length>1?`<button class="vchip" data-vers="${m.id}" title="This question was asked more than once from here. Open the other versions side by side.">${ic('versions')}${vs.length} versions</button>`:''}${eb!=='busy'?`<button class="ib" data-act="edit" title="${eb?'Edit and ask as another version (this conversation stays as it is)':'Edit this question and ask again (replaces the reply)'}">${ic('edit')}</button>`:''}</div>`)}
+  if(m.role==='user'){userMsgBody(el,m);const eb=editKeep(m.id),vs=versionsOf(m.id);
+    if(eb!=='busy'||vs.length>1)el.insertAdjacentHTML('beforeend',`<div class="uact${vs.length>1?' has-v':''}">${vs.length>1?`<button class="vchip" data-vers="${m.id}" title="This question was asked more than once from here. Open the other versions side by side.">${ic('versions')}${vs.length} versions</button>`:''}${eb!=='busy'?`<button class="ib" data-act="edit" title="${eb?'Edit and ask again in a new branch beside this one (this stays as it is)':'Edit this question and ask again'}">${ic('edit')}</button>`:''}</div>`)}
   else if(m.role==='note'){
     const src=T(m.fromThread);el.style.setProperty('--c',src?color(src):'var(--faint)');
     el.innerHTML=`<div class="nh"><span class="d"></span>Takeaway from ${src?`<button class="nl" data-tkfrom="${m.id}" title="Open the branch at the last reply this takeaway saw"></button>`:'<i>deleted branch</i>'}<span style="flex:1"></span>${m.error?`<button class="ib" data-act="retry" title="Retry">${ic('retry')}</button>`:''}<button class="ib" data-act="delnote" title="Remove takeaway">${ic('x')}</button></div><div class="body"></div>`;
@@ -3309,7 +3318,7 @@ function ctxLabel(u){
   return `<span class="model ctxu" title="${esc(tip)}">${ktok(ctx)}${w?` / ${ktok(w)}`:''} context</span>`;
 }
 function buildFoot(f,m){
-  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(m.cut&&!retryBlock(m.id)?`<button class="tb" data-act="continue" title="Ask the model to carry on from where it stopped">${ic('send')}Continue</button>`:'')+(m.error?`<button class="ib" data-act="retry" title="${m.role==='assistant'&&retryBlock(m.id)?'Ask again as another version, next to this one ('+REDO_WHY[retryBlock(m.id)]+'). Nothing here changes.':m.cut?'Ask again from the start':'Retry'}">${ic('retry')}</button>`:m.role==='assistant'&&redoBlock(m.id)!=='busy'&&questionOf(m.id)?`<button class="ib" data-act="redo" title="${redoBlock(m.id)?'Redo as another version: asks again with the model and effort selected now, next to this one. Nothing here changes.':'Redo: ask again with the model and effort selected now (replaces this reply)'}">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}${m.effort?` · ${esc(effortLabel(m.effort))}`:''}</span>`:'')+ctxLabel(m.usage);
+  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(m.cut&&!retryBlock(m.id)?`<button class="tb" data-act="continue" title="Ask the model to carry on from where it stopped">${ic('send')}Continue</button>`:'')+(m.error?`<button class="ib" data-act="retry" title="${m.role==='assistant'&&retryBlock(m.id)?'Ask again as another version, next to this one ('+REDO_WHY[retryBlock(m.id)]+'). Nothing here changes.':m.cut?'Ask again from the start':'Retry'}">${ic('retry')}</button>`:m.role==='assistant'&&redoBlock(m.id)!=='busy'&&questionOf(m.id)?`<button class="ib" data-act="redo" title="${redoKeep(m.id)?'Redo in a new branch beside this one, with the model and effort selected now. This answer stays as it is.':'Redo: ask again with the model and effort selected now'}">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}${m.effort?` · ${esc(effortLabel(m.effort))}`:''}</span>`:'')+ctxLabel(m.usage);
   const w=branchChips(m.id);if(w)f.appendChild(w);
 }
 // a chip under a reply for each branch off it (the only way into a branch about the whole reply, which has no
