@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GUIDE_DOCS } from '../server/guide.mjs';
-import { LIBS, libFile } from '../server/libs.mjs';
+import { libPaths, libFile } from '../server/libs.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.resolve(process.argv[2] || path.join(ROOT, '_site'));
@@ -27,8 +27,8 @@ fs.writeFileSync(path.join(OUT, 'index.html'), html);
 for (const f of fs.readdirSync(from('web'))) if (f !== 'index.html' && f !== 'sw.js') fs.copyFileSync(from('web', f), path.join(OUT, f));
 for (const f of ['demo.js', 'replies.js', 'sample.pdf', 'seed.json']) fs.copyFileSync(from('demo', f), path.join(OUT, 'demo', f));
 
-// the libraries, from node_modules when installed (lib/, as the server serves them); the page uses a CDN for any missing
-for (const l of LIBS) {
+// the libraries and fonts, from node_modules when installed (lib/, as the server serves them); the page uses a CDN for any missing
+for (const l of libPaths()) {
   const f = libFile(l);
   if (f) { fs.mkdirSync(path.dirname(path.join(OUT, 'lib', l)), { recursive: true }); fs.copyFileSync(f, path.join(OUT, 'lib', l)); }
 }

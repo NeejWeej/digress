@@ -1,12 +1,12 @@
 // Digress's service worker: keeps the app usable without a connection, for reviewing flashcards.
 //  - The page itself, prompts.js and threads.js: network first, so you always get the latest; the cached copy only when offline.
-//  - Libraries (this server's lib/ copies, or the CDNs') and fonts: versioned URLs that never change, so cache first.
+//  - Libraries and fonts (this server's lib/ copies, or the CDNs'): versioned URLs that never change, so cache first.
 //  - GET /api/files/<id> (pasted screenshots, snips kept with cards): ids are never reused, so cache first.
 //  - Everything else under /api/ (conversations, chat, cards) always goes to the server; the page keeps
 //    its own offline copy of your cards and sends changes once the server is back.
 // Only runs on https or localhost (a browser rule), e.g. Tailscale Serve or 127.0.0.1.
-const CACHE = 'digress-v2';   // v2: libraries now load with integrity hashes (CORS); v1's opaque copies can't be checked
-const LIBS = /^https:\/\/(cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com)\//;
+const CACHE = 'digress-v3';   // v3: fonts from this server, not Google (drops v2's copies of Google's); v2: libraries load with integrity hashes
+const LIBS = /^https:\/\/(cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com)\//;
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil((async () => {
@@ -18,12 +18,7 @@ async function cacheFirst(req) {
   const c = await caches.open(CACHE);
   const hit = await c.match(req);
   if (hit) return hit;
-  let res;
-  try { res = await fetch(req); }
-  catch (e) {   // offline, never saved: the font stylesheet is optional (the page falls back to system fonts), so it's empty, not an error
-    if (/^https:\/\/fonts\.googleapis\.com\//.test(req.url)) return new Response('', { headers: { 'content-type': 'text/css' } });
-    throw e;
-  }
+  const res = await fetch(req);   // offline and not kept: an error; a font's stylesheet then falls back to system fonts
   if (res.ok || res.type === 'opaque') c.put(req, res.clone());
   return res;
 }

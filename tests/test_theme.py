@@ -94,7 +94,7 @@ async def main():
         check('…and moving off it puts the chosen font back', await font() == 'default')
         await pg.locator('.thmenu.open button[data-font=literata]').click(); await frames(pg)
         check('clicking a font keeps it, and a web font’s stylesheet is loaded only now', await font() == 'literata'
-              and await pg.evaluate("[...document.querySelectorAll('link[data-fontcss]')].some(l=>l.href.includes('Literata'))"))
+              and await pg.evaluate("[...document.querySelectorAll('link[data-fontcss]')].some(l=>l.dataset.fontcss.includes('/literata@'))"))
         await pg.keyboard.press('Escape'); await quiet(pg); await pg.reload(); await booted(pg)
         check('the font stays after a reload', await font() == 'literata')
 

@@ -53,17 +53,45 @@ APP_URL = 'http://digress.test/'
 LIBS = json.load(open(os.path.join(REPO, 'server', 'libs.json')))
 
 
+LIB_RE = r'^((?:@[^/@]+/)?[^/@]+)@([^/]+)/(.+)$'
+
+
+def _lib_paths():
+    """Every lib/ path the server may serve: libs.json's, plus the .woff2 files its font stylesheets name (server/libs.mjs)."""
+    out = set(LIBS)
+    for l in LIBS:
+        if not l.endswith('.css'): continue
+        pkg, _, file = re.match(LIB_RE, l).groups()
+        try: css = open(ROOT + pkg + '/' + file, encoding='utf-8').read()
+        except OSError: continue
+        out |= {l[:l.rindex('/') + 1] + f for f in re.findall(r'url\(\./(files/[\w.-]+\.woff2)\)', css)}
+    return out
+LIB_PATHS = _lib_paths()
+
+
 def lib_path(rest):
     """node_modules' copy of a lib/ path (package@version/file), as server/libs.mjs finds it; None if it's not one."""
-    if rest not in LIBS: return None
-    pkg, _, file = re.match(r'^((?:@[^/@]+/)?[^/@]+)@([^/]+)/(.+)$', rest).groups()
+    if rest not in LIB_PATHS: return None
+    pkg, _, file = re.match(LIB_RE, rest).groups()
     return ROOT + pkg + '/' + file
+
+
+def lib_type(f):
+    return 'text/css; charset=utf-8' if f.endswith('.css') else 'font/woff2' if f.endswith('.woff2') else 'text/javascript; charset=utf-8'
+
+
+def cdn_font(url):
+    """node_modules' copy of a font file on jsDelivr (@fontsource stylesheets and the .woff2 files they name), or None."""
+    m = re.match(r'^https://cdn\.jsdelivr\.net/npm/(@fontsource(?:-variable)?/[^/@]+)@[^/]+/([\w./-]+)$', url.split('?')[0])
+    if not m or '..' in m.group(2): return None
+    f = ROOT + m.group(1) + '/' + m.group(2)
+    return f if os.path.isfile(f) else None
 
 
 async def serve_lib(r):
     f = lib_path(r.request.url.split('/lib/', 1)[1].split('?')[0])
     if not f: return await r.fulfill(status=404, body='not found')
-    await r.fulfill(path=f, content_type='text/javascript; charset=utf-8')
+    await r.fulfill(path=f, content_type=lib_type(f))
 PAGE_SERVER = open(os.path.join(HERE, 'fakes', 'page-server.js'), encoding='utf-8').read()
 
 
@@ -306,7 +334,8 @@ async def goto_site(pg, site, path=''):
             return await r.fulfill(path=f, content_type=(mimetypes.guess_type(f)[0] or 'application/octet-stream'))
         for k, v in CDN.items():
             if u.endswith(k): return await r.fulfill(path=ROOT + v, content_type='application/javascript', headers=CORS)
-        if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
+        f = cdn_font(u)
+        if f: return await r.fulfill(path=f, content_type=lib_type(f), headers=CORS)
         await r.abort()   # the demo makes no other requests
     await pg.route('**/*', route)
     await pg.goto(SITE_URL + path)

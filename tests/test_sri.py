@@ -4,9 +4,11 @@
     node_modules itself), so bumping a version without its hash fails here, not in someone's browser.
   - The <script> tags use LIBS's hash for their lib/ copy, and load with CORS (crossorigin), which the check needs.
   - server/libs.json (what the server will serve) lists exactly LIBS's lib/ copies.
+  - Fonts too: every stylesheet the page loads for a font (BASE_FONTS, FONTS) is in LIBS with its hash, the .woff2
+    files each names are installed, and nothing comes from Google Fonts.
 No browser needed. Asserts and exits non-zero."""
 import base64, hashlib, os, re, sys
-from common import REPO, LIBS, lib_path
+from common import REPO, LIBS, LIB_PATHS, lib_path
 
 fails = []
 def check(name, ok, detail=''):
@@ -34,5 +36,15 @@ for src, h in tags:
     check(f'<script src="{src}"> has LIBS’s hash for it', byl.get(src) == h, [h, byl.get(src)])
 nocors = re.findall(r'<script[^>]*integrity="[^"]+"(?![^>]*crossorigin)[^>]*>', page)
 check('every <script> with a hash is loaded with CORS (crossorigin), which the hash check needs', not nocors, nocors)
+
+fonts = sorted(set(re.findall(r"'(https://cdn\.jsdelivr\.net/npm/@fontsource[^']+\.css)'", page[page.index('window.FONTS='):page.index('window.applyFont=')])))
+check('the fonts’ stylesheets are listed (BASE_FONTS and FONTS)', len(fonts) >= 20, fonts)
+for u in fonts:
+    l, h = libs.get(u, (None, None))
+    f = l and lib_path(l[4:])
+    check(f'{u.split("npm/")[1]}: in LIBS, with a copy here and the file’s hash', bool(f) and os.path.isfile(f) and h == sha(f), {'lib': l, 'page': h, 'node_modules': f and os.path.isfile(f) and sha(f)})
+woff = [p for p in LIB_PATHS if p.endswith('.woff2')]
+check('the stylesheets name their .woff2 files, and each is installed', len(woff) >= 50 and all(os.path.isfile(lib_path(p)) for p in woff), len(woff))
+check('nothing from Google Fonts', 'fonts.googleapis.com' not in page and 'fonts.gstatic.com' not in page)
 print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')
 sys.exit(1 if fails else 0)
