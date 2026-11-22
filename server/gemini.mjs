@@ -20,7 +20,8 @@ const windows = new Map();   // model id -> context window (the model list's inp
 let cache = null;
 export const resetModels = () => { cache = null; };
 // chat models only: what can generateContent, without the special-purpose ones (embeddings, images, speech, live)
-const SPECIAL = /embedding|image|imagen|tts|audio|live|transcribe|aqa|veo|lyria|genie|robotics|computer-use/i;
+// (Nano Banana makes images; the Omni models aren't on the free tier and run differently: neither answers a chat here)
+const SPECIAL = /embedding|image|imagen|nano-banana|omni|tts|audio|live|transcribe|aqa|veo|lyria|genie|robotics|computer-use/i;
 export async function listModels(key) {
   if (!key) return [];
   if (cache && cache.key === key && Date.now() - cache.at < 10 * 60 * 1000) return cache.list;
