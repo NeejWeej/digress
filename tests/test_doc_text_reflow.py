@@ -4,7 +4,7 @@
 Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import launch_args, goto_app, booted, frames, OUT
+from common import launch_args, goto_app, booted, frames, OUT, settle
 
 fails = []
 def check(name, ok, detail=''):
@@ -34,7 +34,7 @@ async def main():
         await goto_app(pg); await booted(pg)
         await pg.wait_for_selector('.pane[data-tid=doc] .docbody p'); await pg.wait_for_selector('.pane[data-tid=b1]')
         await pg.evaluate("(() => { const pb = document.querySelector('.pane[data-tid=doc] .pb'); pb.scrollTop = pb.scrollHeight * 0.6 })()")
-        await pg.wait_for_timeout(400)   # the spot is noted 150 ms after scrolling stops
+        await settle(pg, 400)   # the spot is noted 150 ms after scrolling stops
         before = await pg.evaluate(AT_LINE); w0 = await pg.evaluate("document.querySelector('.pane[data-tid=doc] .pb').clientWidth")
         await pg.locator('.pane[data-tid=b1] [data-act=close]').click(); await frames(pg, 6)
         w1 = await pg.evaluate("document.querySelector('.pane[data-tid=doc] .pb').clientWidth")

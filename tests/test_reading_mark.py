@@ -8,7 +8,7 @@
 Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import ROOT, FIX, OUT, launch_args, goto_app, booted, frames, soon, PDF_DRAWN_JS
+from common import ROOT, FIX, OUT, launch_args, goto_app, booted, frames, soon, PDF_DRAWN_JS, settle
 from common import CORS
 
 MAP = {
@@ -70,7 +70,7 @@ async def main():
         t = pg.locator('#toast.show')
         await soon(pg, "()=>!!document.querySelector('#toast.show .tact')")
         check('opening it again offers to go back to the mark', 'You left a mark at p. 2' in await t.inner_text(), await pg.locator('#toast').inner_text())
-        await t.locator('.tact').click(); await pg.wait_for_timeout(300)
+        await t.locator('.tact').click(); await settle(pg, 300)
         at = await pg.evaluate(MARK_AT)
         check('“Go back to it” scrolls the mark to the top of the view', at is not None and abs(at - 0.15) < 0.03, at)
 
@@ -83,7 +83,7 @@ async def main():
         await menu.locator('[data-mk=here]').click(); await frames(pg)
         m = await pg.evaluate(MARK)
         check('“Move it here” moves it to where you are now', m[1] == 2 and abs(m[2] - 0.75) < 0.02, m)
-        await scroll_to(1, 0.5); await jm.click(); await pg.locator('#markMenu.open [data-mk=go]').click(); await pg.wait_for_timeout(300)
+        await scroll_to(1, 0.5); await jm.click(); await pg.locator('#markMenu.open [data-mk=go]').click(); await settle(pg, 300)
         at = await pg.evaluate(MARK_AT)
         check('“Go back to it” from the menu', at is not None and abs(at - 0.15) < 0.03, at)
 
@@ -111,7 +111,7 @@ async def main():
         where = "(()=>{const d=document.querySelector('.docpane .dmark'),p=[...document.querySelectorAll('.docbody p')].find(e=>e.textContent.startsWith('Paragraph 30.'));return d&&p?d.getBoundingClientRect().top-p.getBoundingClientRect().top:null})()"
         d0 = await pg.evaluate(where)
         check('…drawn at the start of that paragraph', d0 is not None and abs(d0) < 14, d0)
-        await pg.set_viewport_size({'width': 900, 'height': 850}); await pg.wait_for_timeout(500)
+        await pg.set_viewport_size({'width': 900, 'height': 850}); await settle(pg, 500)
         d1 = await pg.evaluate(where)
         check('…and still there after the text reflows', d1 is not None and abs(d1) < 14, [d0, d1])
         await pg.screenshot(path=OUT + '/reading_mark_text.png')

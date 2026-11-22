@@ -7,7 +7,7 @@
 Asserts and exits non-zero."""
 import asyncio, os, sys, tempfile
 from playwright.async_api import async_playwright
-from common import ROOT, OUT, CORS, launch_args, goto_app, booted, PDF_DRAWN_JS, chromium_only
+from common import ROOT, OUT, CORS, launch_args, goto_app, booted, PDF_DRAWN_JS, chromium_only, settle
 chromium_only('it prints its test PDF with Chromium (page.pdf)')
 
 MAP = {
@@ -58,9 +58,9 @@ async def main():
         await goto_app(pg); await booted(pg)
         await pg.locator('#newDoc').click(); await pg.set_input_files('#docFile', big)
         await pg.locator('#docGo').click(); await pg.wait_for_function(PDF_DRAWN_JS, timeout=30000)
-        async def view(v): await pg.evaluate(f"document.querySelector('#viewSeg button[data-v={v}]').click()"); await pg.wait_for_timeout(700)
+        async def view(v): await pg.evaluate(f"document.querySelector('#viewSeg button[data-v={v}]').click()"); await settle(pg, 700)
 
-        await pg.evaluate(GO, [95, 0.5]); await pg.wait_for_timeout(400)
+        await pg.evaluate(GO, [95, 0.5]); await settle(pg, 400)
         start = await pg.evaluate(SPOT)
         await view('canvas')
         check('canvas, document not docked: the pane is where it was', True)
@@ -68,7 +68,7 @@ async def main():
         check('…and back in Columns, still there', near(await pg.evaluate(SPOT), start), [start, await pg.evaluate(SPOT)])
         await view('canvas')
         await pg.locator('#cv .cnode[data-ctid="doc"] [data-cact=docdock]').click()
-        await pg.wait_for_function("!!document.querySelector('#dock .docpanecard .pane.docpane')"); await pg.wait_for_timeout(700)
+        await pg.wait_for_function("!!document.querySelector('#dock .docpanecard .pane.docpane')"); await settle(pg, 700)
         got = await pg.evaluate(SPOT)
         check('docked on the canvas: the same place (p. 95, half way down), not p. 1', near(got, start), [start, got])
         await pg.screenshot(path=OUT + '/doc_view_spot_dock.png')
@@ -78,26 +78,26 @@ async def main():
         await view('canvas'); got = await pg.evaluate(SPOT)
         check('to the canvas a second time (docked already): the same place', near(got, start), [start, got])
 
-        await pg.evaluate(GO, [40, 0.3]); await pg.wait_for_timeout(400); read = await pg.evaluate(SPOT)
+        await pg.evaluate(GO, [40, 0.3]); await settle(pg, 400); read = await pg.evaluate(SPOT)
         await view('cols'); got = await pg.evaluate(SPOT)
         check('read on in the dock, then Columns: where you got to (one spot for both views)', near(got, read), [read, got])
 
-        await pg.evaluate(GO, [60, 0.6]); await pg.wait_for_timeout(400); before = await pg.evaluate(SPOT)
+        await pg.evaluate(GO, [60, 0.6]); await settle(pg, 400); before = await pg.evaluate(SPOT)
         w0 = await pg.evaluate("document.querySelector('.pane[data-tid=doc] .dpage').offsetWidth")
         await pg.set_viewport_size({'width': 1100, 'height': 900})
-        await pg.wait_for_function(f"document.querySelector('.pane[data-tid=doc] .dpage').offsetWidth<{w0 - 40}", timeout=10000); await pg.wait_for_timeout(500)
+        await pg.wait_for_function(f"document.querySelector('.pane[data-tid=doc] .dpage').offsetWidth<{w0 - 40}", timeout=10000); await settle(pg, 500)
         got = await pg.evaluate(SPOT)
         check('the pane narrows and the PDF is laid out again: the same place, not the top of the page', near(got, before), [before, got])
-        await pg.set_viewport_size({'width': 1500, 'height': 900}); await pg.wait_for_timeout(900)
+        await pg.set_viewport_size({'width': 1500, 'height': 900}); await settle(pg, 900)
 
         # a text document
         await pg.locator('#newDoc').click(); await pg.set_input_files('#docFile', md); await pg.locator('#docGo').click()
         await pg.wait_for_function("!!document.querySelector('.pane[data-tid=doc] .docbody h2')", timeout=15000)
-        await pg.evaluate("(()=>{const pb=document.querySelector('.pane[data-tid=doc] .pb');pb.scrollTop=pb.scrollHeight*0.6})()"); await pg.wait_for_timeout(400)
+        await pg.evaluate("(()=>{const pb=document.querySelector('.pane[data-tid=doc] .pb');pb.scrollTop=pb.scrollHeight*0.6})()"); await settle(pg, 400)
         c0 = await pg.evaluate(CHAR)
         await view('canvas')
         if not await pg.evaluate("!!document.querySelector('#dock .docpanecard .pane.docpane')"):
-            await pg.locator('#cv .cnode[data-ctid="doc"] [data-cact=docdock]').click(); await pg.wait_for_timeout(700)
+            await pg.locator('#cv .cnode[data-ctid="doc"] [data-cact=docdock]').click(); await settle(pg, 700)
         c1 = await pg.evaluate(CHAR)
         await view('cols'); c2 = await pg.evaluate(CHAR)
         check('a text document: the same paragraph on the reading line, docked and back', c0 > 50 and abs(c1 - c0) <= 1 and abs(c2 - c0) <= 1, [c0, c1, c2])

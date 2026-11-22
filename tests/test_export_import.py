@@ -9,7 +9,7 @@
 Asserts and exits non-zero."""
 import asyncio, gzip, json, os, sys, tempfile
 from playwright.async_api import async_playwright
-from common import launch_args, goto_app, booted, frames, soon, OUT
+from common import launch_args, goto_app, booted, frames, soon, OUT, settle
 
 fails = []
 def check(name, ok, detail=''):
@@ -66,7 +66,7 @@ async def main():
         check('the export dialog offers Digress, Markdown and Anki', await pg.locator('[name=xfmt]').count() == 3)
         check('…the document and the cards are left out unless ticked', not await pg.locator('#xDoc').is_checked() and not await pg.locator('#xCards').is_checked())
         check('…and it says nothing is uploaded', 'Nothing is uploaded' in await pg.locator('#mBody').inner_text())
-        await pg.wait_for_timeout(400); await pg.locator('#modal .mbox').screenshot(path=OUT + '/export_dialog.png')
+        await settle(pg, 400); await pg.locator('#modal .mbox').screenshot(path=OUT + '/export_dialog.png')
         await pg.locator('#mCancel').click()
 
         sent.clear()

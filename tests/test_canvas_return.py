@@ -8,7 +8,7 @@
 Asserts and exits non-zero."""
 import asyncio, json, sys
 from playwright.async_api import async_playwright
-from common import ROOT, OUT, launch_args, goto_app, booted, answered, frames, calm, CORS
+from common import ROOT, OUT, launch_args, goto_app, booted, answered, frames, calm, CORS, settle
 
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
@@ -75,14 +75,14 @@ async def main():
             await pg.evaluate(f"(()=>{{const f=document.querySelector('{card(parent)} .cfull');f.scrollTop=(f.scrollHeight-f.clientHeight)*0.66}})()"); await frames(pg, 3)   # reading two thirds down
             y0 = await pg.evaluate(TOP, card(parent))
             check(f'{what}: no Return before any jump', not await pg.evaluate(RET, card(parent)))
-            await pg.evaluate(f"document.querySelector('{card(child)} .cq').click()"); await pg.wait_for_timeout(900)
+            await pg.evaluate(f"document.querySelector('{card(child)} .cq').click()"); await settle(pg, 900)
             y1 = await pg.evaluate(TOP, card(parent))
             check(f'{what}: the branch’s quote scrolls the parent card to the passage', y1 < y0 - 200, [y0, y1])
             check(f'{what}: …and the parent card offers Return', await pg.evaluate(RET, card(parent)))
             if parent == 'main': await pg.screenshot(path=OUT + '/canvas_return.png')
             await pg.evaluate("document.querySelector('#zTidy').click()"); await calm(pg)
             check(f'{what}: Return is still there after the canvas redraws', await pg.evaluate(RET, card(parent)))
-            await pg.evaluate(f"document.querySelector('{card(parent)} .cjump .cjp').click()"); await pg.wait_for_timeout(900)
+            await pg.evaluate(f"document.querySelector('{card(parent)} .cjump .cjp').click()"); await settle(pg, 900)
             y2 = await pg.evaluate(TOP, card(parent))
             check(f'{what}: Return scrolls back to where you were reading', abs(y2 - y0) < 30, [y0, y2])
             check(f'{what}: …and then goes away', not await pg.evaluate(RET, card(parent)))
@@ -93,16 +93,16 @@ async def main():
         check('a branch about a whole reply has a line to jump to it', (await pg.locator(card(bw) + ' .cq').inner_text()).strip() == 'The whole reply')
         await jump_and_return('main', bw, 'a branch about a whole reply')
         mid = await pg.evaluate(f"__digress.conv.threads['{bw}'].anchorMsg")
-        await pg.evaluate(f"document.querySelector('{card(bw)} .cq').click()"); await pg.wait_for_timeout(900)
+        await pg.evaluate(f"document.querySelector('{card(bw)} .cq').click()"); await settle(pg, 900)
         at = await pg.evaluate(f"""(()=>{{const f=document.querySelector('{card('main')} .cfull'),m=f.querySelector('.msg[data-mid="{mid}"]'),r=m.getBoundingClientRect(),c=f.getBoundingClientRect();
           return [r.top<c.bottom&&r.bottom>c.top, m.classList.contains('flash')]}})()""")
         check('…its line scrolls the parent to that reply and flashes it', all(at), at)
-        await pg.evaluate(f"document.querySelector('{card('main')} .cjump .cjp').click()"); await pg.wait_for_timeout(600)
+        await pg.evaluate(f"document.querySelector('{card('main')} .cjump .cjp').click()"); await settle(pg, 600)
 
         # scrolling back near the spot by hand also clears it
-        await pg.evaluate(f"document.querySelector('{card(b2)} .cq').click()"); await pg.wait_for_timeout(1200)   # past the jump's own scrolling
+        await pg.evaluate(f"document.querySelector('{card(b2)} .cq').click()"); await settle(pg, 1200)   # past the jump's own scrolling
         check('(the jump offers Return again)', await pg.evaluate(RET, card(b1)))
-        await pg.evaluate(f"(()=>{{const f=document.querySelector('{card(b1)} .cfull');f.scrollTop={y0}}})()"); await pg.wait_for_timeout(300)
+        await pg.evaluate(f"(()=>{{const f=document.querySelector('{card(b1)} .cfull');f.scrollTop={y0}}})()"); await settle(pg, 300)
         check('scrolling back to the spot yourself makes Return go away', not await pg.evaluate(RET, card(b1)))
         check('no page errors', not errs, errs[:3])
         await b.close()

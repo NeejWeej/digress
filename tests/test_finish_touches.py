@@ -7,7 +7,7 @@
 Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import launch_args, goto_app, booted, frames, answered, soon, OUT
+from common import launch_args, goto_app, booted, frames, answered, soon, OUT, settle
 
 fails = []
 def check(name, ok, detail=''):
@@ -69,7 +69,7 @@ async def main():
             check('…how many come back soon', 'to see again soon' in t, t)
             check('…when the next card is due', 'Next card due in' in t, t)
             check('…a bar of the ratings', await pg.locator('#cardsModal .kdbar i').count() == 2)
-            await pg.wait_for_timeout(400); await pg.locator('#cardsModal .kbox').screenshot(path=OUT + '/review_done.png')
+            await settle(pg, 400); await pg.locator('#cardsModal .kbox').screenshot(path=OUT + '/review_done.png')
             await pg.locator('#cardsModal [data-kact=activity]').click(); await frames(pg)
             check('“See your activity” goes there', await soon(pg, "()=>document.getElementById('activity').classList.contains('show')") and not await pg.locator('#cardsModal.show').count())
         check('no page errors', not errs, errs[:3])

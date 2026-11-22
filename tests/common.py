@@ -109,6 +109,16 @@ async def quiet(pg, timeout=15000):
     await pg.evaluate("delete window.__quiet")
 
 
+async def settle(pg, ms=0, timeout=10000):
+    """After an action: wait ms (the time it used to wait, so never less), then until nothing on the page is moving
+    (the camera, scrolls in panes and cards, panes and cards changing size: see calm()), giving up quietly after
+    timeout. Slow machines (CI's WebKit) finish a glide or a smooth scroll later than a fixed wait allows."""
+    if ms: await pg.wait_for_timeout(ms)
+    try: await calm(pg, timeout=timeout)
+    except Exception as e:
+        if 'Timeout' not in type(e).__name__ and 'Timeout' not in str(e): raise
+
+
 async def booted(pg, timeout=30000):
     """The page has finished starting up (connected, listed conversations, opened the latest one)."""
     await pg.wait_for_function('window.__booted === true', timeout=timeout)

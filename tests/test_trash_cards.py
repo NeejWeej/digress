@@ -9,7 +9,7 @@
 Asserts and exits non-zero."""
 import asyncio, json, os, sys, tempfile, time
 from playwright.async_api import async_playwright
-from common import ROOT, OUT, launch_args, goto_app, booted, answered, saved, frames, new_conv, soon
+from common import ROOT, OUT, launch_args, goto_app, booted, answered, saved, frames, new_conv, soon, settle
 from common import CORS
 from test_server import start
 
@@ -37,12 +37,12 @@ def card(i, conv, thread='main'):
 
 async def seed_cards(pg, cards):
     await pg.evaluate("(cs)=>{for(const c of cs)localStorage.setItem('fakesrv:cards/'+c.id,JSON.stringify(c))}", cards)
-    await pg.reload(); await booted(pg); await pg.wait_for_timeout(500)
+    await pg.reload(); await booted(pg); await settle(pg, 500)
 
 due = lambda pg: pg.evaluate("[...document.querySelectorAll('#cardsModal .kfront')].length")
 async def review_fronts(pg):
     """The fronts of every card due, in review over all conversations (skipping through them)."""
-    await pg.locator('#reviewBtn').click(); await pg.wait_for_timeout(300)
+    await pg.locator('#reviewBtn').click(); await settle(pg, 300)
     seen = []
     for _ in range(20):
         f = pg.locator('#cardsModal .kfront')
@@ -103,11 +103,11 @@ async def page_part(p):
     # unticked: they stay, with a note and Restore
     await row(A).hover(); await row(A).locator('[data-del]').click(); await pg.locator('#modal.show').wait_for(); await pg.locator('#mOk').click()
     await soon(pg, f"() => [...document.querySelectorAll('#xlist .citem')].some(r=>r.dataset.conv==='{A}')")
-    await pg.locator('#reviewBtn').click(); await pg.wait_for_timeout(300)
+    await pg.locator('#reviewBtn').click(); await settle(pg, 300)
     note = await pg.locator('#cardsModal .ksrcnote').inner_text() if await pg.locator('#cardsModal .ksrcnote').count() else ''
     check('unticked: they stay in review, saying the conversation is in the trash', 'in the trash' in note and 'Restore it' in note, note)
     await pg.screenshot(path=OUT + '/trash_cards_note.png')
-    await pg.locator('#cardsModal .ksrcnote button').click(); await pg.wait_for_timeout(300)
+    await pg.locator('#cardsModal .ksrcnote button').click(); await settle(pg, 300)
     check('…and Restore there brings the conversation back', await pg.locator('#cardsModal .ksrcnote').count() == 0 and A not in await pg.evaluate("[...document.querySelectorAll('#xlist .citem')].map(r=>r.dataset.conv)"))
     await close_cards(pg)
 
@@ -126,17 +126,17 @@ async def page_part(p):
     await soon(pg, f"() => [...document.querySelectorAll('#xlist .citem')].some(r=>r.dataset.conv==='{B}')")
     await row(B, 'xlist').hover(); await row(B, 'xlist').locator('[data-delnow]').click(); await pg.locator('#modal.show').wait_for()
     check('Delete for good of an unticked one says the cards stay', 'stays in your review' in await pg.locator('#mBody').inner_text())
-    await pg.locator('#mOk').click(); await pg.wait_for_timeout(400)
-    await pg.locator('#reviewBtn').click(); await pg.wait_for_timeout(300)
+    await pg.locator('#mOk').click(); await settle(pg, 400)
+    await pg.locator('#reviewBtn').click(); await settle(pg, 300)
     note = await pg.locator('#cardsModal .ksrcnote').inner_text() if await pg.locator('#cardsModal .ksrcnote').count() else ''
     check('…and in review the card says where it came from was deleted', 'was deleted' in note, note)
     await close_cards(pg)
 
     # a conversation without cards: no question
     await row(D).first.hover() if await row(D).count() else None
-    await pg.locator(f'.citem[data-conv="{D}"] [data-del]').first.click(); await pg.wait_for_timeout(300)
+    await pg.locator(f'.citem[data-conv="{D}"] [data-del]').first.click(); await settle(pg, 300)
     check('without cards, it goes straight to the trash', await pg.locator('#modal.show').count() == 0)
-    await pg.locator('#toast .tact').click(); await pg.wait_for_timeout(300)
+    await pg.locator('#toast .tact').click(); await settle(pg, 300)
 
     # a branch with cards
     await pg.locator(f'.citem[data-conv="{D}"]').first.click(); await soon(pg, f"() => __digress.conv.id === '{D}'")

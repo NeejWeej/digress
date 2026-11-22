@@ -7,7 +7,7 @@
 Asserts and exits non-zero."""
 import asyncio, json, sys
 from playwright.async_api import async_playwright
-from common import ROOT, OUT, launch_args, goto_app, booted, answered
+from common import ROOT, OUT, launch_args, goto_app, booted, answered, settle
 from common import CORS
 
 MAP = {
@@ -69,7 +69,7 @@ async def main():
 
         # an index in the old format (whole messages, cut at 6,000) is rebuilt
         await pg.evaluate("""id=>{const k='fakesrv:index/'+id,d=JSON.parse(localStorage.getItem(k));delete d.v;d.e=d.e.filter(e=>!/matching/i.test(e.x));localStorage.setItem(k,JSON.stringify(d))}""", long_id)
-        await pg.locator(f'#side .citem[data-conv]').filter(has_text='zebras').first.click(); await pg.wait_for_timeout(300)
+        await pg.locator(f'#side .citem[data-conv]').filter(has_text='zebras').first.click(); await settle(pg, 300)
         await pg.reload(); await booted(pg)
         await pg.keyboard.press('Control+k'); await pg.locator('#pal.show').wait_for()
         await pg.wait_for_function("id=>(JSON.parse(localStorage.getItem('fakesrv:index/'+id))||{}).v===2", arg=long_id, timeout=15000)

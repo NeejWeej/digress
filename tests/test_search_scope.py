@@ -3,7 +3,7 @@ thread; the magnifier in a pane's floating buttons opens search already narrowed
 outside the scope don't show, and opening one lands in its thread. Asserts and exits non-zero."""
 import asyncio, json, sys
 from playwright.async_api import async_playwright
-from common import ROOT, OUT, launch_args, goto_app, booted, answered
+from common import ROOT, OUT, launch_args, goto_app, booted, answered, settle
 from common import CORS
 
 MAP = {
@@ -63,13 +63,13 @@ async def main():
         r = await results('quokka')
         check('only that thread’s matches show', any('Rottnest' in x for x in r) and not any('marsupial' in x or 'Elsewhere' in x for x in r), r)
         await pg.screenshot(path=OUT + '/search_scope.png')
-        await pg.keyboard.press('Tab'); await pg.wait_for_timeout(300)   # the chips go Everywhere · This conversation · This thread; Tab wraps
+        await pg.keyboard.press('Tab'); await settle(pg, 300)   # the chips go Everywhere · This conversation · This thread; Tab wraps
         r = await rows()
         check('Tab: everywhere', any('Elsewhere' in x for x in r), r)
-        await pg.keyboard.press('Tab'); await pg.wait_for_timeout(300)
+        await pg.keyboard.press('Tab'); await settle(pg, 300)
         r = await rows()
         check('Tab again: this conversation (main and branch, not the other conversation)', any('Rottnest' in x for x in r) and any('marsupial' in x for x in r) and not any('Elsewhere' in x for x in r), r)
-        await pg.keyboard.press('Tab'); await pg.wait_for_timeout(300)   # back to this thread
+        await pg.keyboard.press('Tab'); await settle(pg, 300)   # back to this thread
         await pg.locator('#palRes .pr').first.click()
         await pg.wait_for_function("()=>!document.querySelector('#pal.show')&&!!CSS.highlights.get('digress-hit')", timeout=10000)
         check('opening a thread result lands in that thread', await pg.evaluate("!!CSS.highlights.get('digress-hit')&&[...CSS.highlights.get('digress-hit')][0].startContainer.parentElement.closest('.pane').dataset.tid") == tid)

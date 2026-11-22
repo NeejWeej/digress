@@ -11,7 +11,7 @@ Built fresh from web/ here, so a change to the page that breaks the demo fails t
 Asserts and exits non-zero."""
 import asyncio, json, os, sys, tempfile
 from playwright.async_api import async_playwright
-from common import OUT, launch_args, build_site, goto_site, booted, answered, soon, frames, PDF_DRAWN_JS
+from common import OUT, launch_args, build_site, goto_site, booted, answered, soon, frames, PDF_DRAWN_JS, settle
 
 fails = []
 def check(name, ok, detail=''):
@@ -48,7 +48,7 @@ async def main():
               const a=(c.order[t.id]||[]).map(id=>c.msgs[id]).find(m=>m.role==='assistant');return {page:t.anchorPage,text:t.regionText||'',reply:a?(a.content||a.text||''):''}})()""")
             fp = await pg.evaluate("""(()=>{const c=__digress.conv,t=Object.values(c.threads).find(t=>/false-positive rate/.test(t.title||''));if(!t)return null;
               const last=c.order[t.id].map(id=>c.msgs[id]).filter(m=>m.role==='assistant').at(-1);return {id:t.id,last:(last.content||'').slice(0,60)}})()""")
-            await pg.locator('#tree .mnode', has_text='false-positive rate').first.click(); await pg.wait_for_timeout(800)
+            await pg.locator('#tree .mnode', has_text='false-positive rate').first.click(); await settle(pg, 800)
             cut = pg.locator(f'.pane[data-tid="{fp["id"]}"] .tkcut') if fp else None
             check('the false-positive branch goes on after its takeaway, and a line shows where the takeaway ends',
                   fp and fp['last'].startswith('Then a positive result means') and await cut.count() == 1, fp)

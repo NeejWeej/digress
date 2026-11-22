@@ -12,7 +12,7 @@
 Asserts and exits non-zero."""
 import asyncio, json, os, sys, tempfile, time
 from playwright.async_api import async_playwright
-from common import ROOT, OUT, launch_args, goto_app, booted, answered, saved, frames, new_conv, soon
+from common import ROOT, OUT, launch_args, goto_app, booted, answered, saved, frames, new_conv, soon, settle
 from common import CORS
 from test_server import start, req
 
@@ -73,9 +73,9 @@ async def page_part(p):
     check('Trash says how long is left', left == '7 days left', left)
     await pg.screenshot(path=OUT + '/trash.png')
     # search leaves it out
-    await pg.keyboard.press('ControlOrMeta+k'); await pg.locator('#palIn').fill('zebras'); await pg.wait_for_timeout(600)
+    await pg.keyboard.press('ControlOrMeta+k'); await pg.locator('#palIn').fill('zebras'); await settle(pg, 600)
     res = await pg.evaluate("[...document.querySelectorAll('#palRes [data-i]')].map(r=>r.className+': '+r.textContent.slice(0,60))")
-    await pg.locator('#palIn').fill(''); await pg.wait_for_timeout(300)
+    await pg.locator('#palIn').fill(''); await settle(pg, 300)
     recents = await pg.locator('#palRes').inner_text()
     check('search leaves out what’s in the trash', not any('zebra' in r.lower() and 'describe' not in r.lower() for r in res) and 'zebras' not in recents.lower(), [res, recents[:200]])
     await pg.keyboard.press('Escape')
@@ -119,7 +119,7 @@ async def page_part(p):
     await pg.keyboard.press('Escape'); await frames(pg)
 
     # startup doesn't open a trashed conversation
-    await pg.reload(); await booted(pg); await pg.wait_for_timeout(800)
+    await pg.reload(); await booted(pg); await settle(pg, 800)
     check('startup doesn’t open what’s in the trash', await pg.evaluate(f"{C}.id") != nid)
     check('no page errors', not errs, errs[:3])
     await b.close()

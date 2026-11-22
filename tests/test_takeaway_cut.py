@@ -8,7 +8,7 @@
 Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import ROOT, OUT, launch_args, goto_app, booted, answered, frames, calm, CORS
+from common import ROOT, OUT, launch_args, goto_app, booted, answered, frames, calm, CORS, settle
 
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
@@ -69,14 +69,14 @@ async def main():
         # the divider goes to the takeaway in the parent
         main_pb = '.pane[data-tid="main"] .pb'
         await pg.evaluate(f"document.querySelector('{main_pb}').scrollTop=0"); await frames(pg)
-        await cut.click(); await pg.wait_for_timeout(700)
+        await cut.click(); await settle(pg, 700)
         seen = await pg.evaluate(SEEN, [main_pb, note['id']])
         check('clicking the divider brings the takeaway into view in the parent, and flashes it', seen and all(seen), seen)
 
         # the takeaway's header goes to the last reply it saw
         bpb = f'.pane[data-tid="{bt}"] .pb'
         await pg.evaluate(f"document.querySelector('{bpb}').scrollTop=document.querySelector('{bpb}').scrollHeight"); await frames(pg)
-        await pg.locator(f'.pane[data-tid="main"] .msg.note .nl').click(); await pg.wait_for_timeout(700)
+        await pg.locator(f'.pane[data-tid="main"] .msg.note .nl').click(); await settle(pg, 700)
         seen = await pg.evaluate(SEEN, [bpb, last])
         check('the branch’s name in the takeaway goes to the last reply it saw, and flashes it', seen and all(seen), seen)
 
@@ -94,12 +94,12 @@ async def main():
         card = f'#cv .cnode[data-ctid="{bt}"] .cfull'
         check('on the canvas, the branch’s card shows the divider too', await pg.locator(card + ' .tkcut').count() == 1)
         await pg.evaluate(f"document.querySelector('{card}').scrollTop=document.querySelector('{card}').scrollHeight"); await frames(pg)
-        await pg.evaluate("document.querySelector('#cv .cnode[data-ctid=\"main\"] .msg.note .nl').click()"); await pg.wait_for_timeout(800)
+        await pg.evaluate("document.querySelector('#cv .cnode[data-ctid=\"main\"] .msg.note .nl').click()"); await settle(pg, 800)
         seen = await pg.evaluate(SEEN, [card, last])
         check('…the takeaway’s header goes to the last reply it saw, in the branch’s card', seen and all(seen), seen)
         mcard = '#cv .cnode[data-ctid="main"] .cfull'
         await pg.evaluate(f"document.querySelector('{mcard}').scrollTop=0"); await frames(pg)
-        await pg.evaluate(f"document.querySelector('{card} .tkcut').click()"); await pg.wait_for_timeout(800)
+        await pg.evaluate(f"document.querySelector('{card} .tkcut').click()"); await settle(pg, 800)
         seen = await pg.evaluate(SEEN, [mcard, note['id']])
         check('…and the divider goes to the takeaway, in the parent’s card', seen and all(seen), seen)
         check('no page errors', not errs, errs[:3])
