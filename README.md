@@ -47,6 +47,7 @@ The model can also read the document itself. It can search it, read pages and lo
 - Page references in answers, like [p. 2], are links that scroll the document there.
 - The document's header lists its branches ("3 branches"), and the main thread at the top of that list: the chat about the whole document is one tap away, even with its pane closed.
 - Ask about a whole page, or snip a figure, table or equation, and the model gets a sharp image of it, rendered from the PDF.
+- Images in a Markdown document or a web article work the same way: the branch button on an image asks about all of it, and **Snip** drags a box over part of one. The model gets that image (or that part of it); a remote image is downloaded once, by the server, and a copy is kept with the conversation.
 
 Want a clean slate? **Start over** in the main thread's header empties main, so the next question starts from just the document. Nothing is lost: what was in main becomes another version of it (under Branches, with its branches and flashcards), and **Use this version** brings it back. Branches off the document itself stay where they are. For a completely separate start, **New conversation from this document** (in the document's header) opens a fresh conversation on the same file and leaves this one as it is.
 

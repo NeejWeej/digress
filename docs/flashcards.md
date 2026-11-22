@@ -16,8 +16,8 @@ Once they're on, the model drafts cards on its own from the moments that show wh
 
 - **A highlight you branched from.** When a side branch about a highlighted passage gets its first answer,
   the model drafts cards from that branch.
-- **A snip or page of a PDF.** The same, and the card keeps a copy of the snipped image, so you can review
-  it without opening the PDF.
+- **A snip or page of a PDF, or an image in a text document.** The same, and the card keeps a copy of the
+  snipped image, so you can review it without opening the document.
 - **A takeaway.** When you carry a takeaway back from a branch, the model drafts cards from it.
 
 You can also ask:

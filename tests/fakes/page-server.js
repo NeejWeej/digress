@@ -28,6 +28,7 @@
   }
 
   function chat(body, signal) {
+    (window.__chatBodies = window.__chatBodies || []).push(body);   // as sent, images included (the fake model gets text)
     const msgs = body.messages.map((m) => ({ role: m.role, content: textOf(m.content) }));
     if (body.system && msgs.length) msgs[0] = { role: 'user', content: body.system + '\n\n---\n\n' + msgs[0].content };
     const enc = new TextEncoder();
@@ -120,7 +121,12 @@
       const f = JSON.parse(v);
       return new Response(unb64(f.data), { headers: { 'content-type': f.type } });
     }
-    if (p[1] === 'fetch-doc') return json({ error: 'Opening links isn’t faked in the UI tests (see test_server.py).' }, 502);
+    if (p[1] === 'fetch-doc') {   // images only, from window.fakeImages ({url: base64 PNG}); opening documents from links isn't faked here (see test_server.py)
+      const b = JSON.parse(init.body || '{}'), img = b.image && window.fakeImages && window.fakeImages[b.url];
+      (window.__fetchedImages = window.__fetchedImages || []).push(b.url);
+      if (img) return new Response(unb64(img), { headers: { 'content-type': 'image/png' } });
+      return json({ error: 'Opening links isn’t faked in the UI tests (see test_server.py).' }, 502);
+    }
     return json({ error: 'Not found' }, 404);
   };
 })();
