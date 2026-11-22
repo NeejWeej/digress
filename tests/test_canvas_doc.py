@@ -131,6 +131,19 @@ async def main():
         await pg.wait_for_function("!!document.querySelector('#dock .docpanecard .cdocpane > .pane.docpane')", timeout=5000)
         r = await pg.evaluate("(()=>{const c=document.getElementById('cv').getBoundingClientRect(),h=document.querySelector('#dock .docpanecard').getBoundingClientRect();return [Math.round(h.left-c.left),Math.round(c.width)]})()")
         check('dragging the document card to an edge snaps it there, as the document', r[0] > r[1] * 0.4, r)
+
+        # docked, its bottom edge changes its height (only the sides and corners did)
+        card = pg.locator('#dock .docpanecard'); sh = card.locator('.rzh[data-dir=s]')
+        check('the docked document has a handle on its bottom edge', await sh.count() == 1)
+        before = await card.bounding_box(); hb = await sh.bounding_box()
+        x, y = hb['x'] + hb['width'] / 2, hb['y'] + hb['height'] / 2
+        await pg.mouse.move(x, y); await pg.mouse.down()
+        for i in range(1, 11): await pg.mouse.move(x, y - 200 * i / 10); await pg.wait_for_timeout(15)   # deliberate: a drag
+        await pg.mouse.up(); await settle(pg, 300)
+        after = await card.bounding_box()
+        check('…dragging it up makes it shorter, keeping its top and width', abs(after['height'] - (before['height'] - 200)) < 4 and abs(after['y'] - before['y']) < 2 and abs(after['width'] - before['width']) < 2, [before, after])
+        kept = await pg.evaluate("__digress.conv.ui.cv.dock.doc")
+        check('…and the new height is kept', kept and kept['h'] < 0.9, kept)
         check('no page errors', not errs, errs[:3])
         await b.close()
     print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')

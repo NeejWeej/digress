@@ -4,7 +4,7 @@ then lose the connection (the server stops and the network is cut). Reloading st
 an outbox and reach the server once it is back. Asserts and exits non-zero."""
 import asyncio, base64, json, os, shutil, subprocess, sys, tempfile, time, urllib.request
 from playwright.async_api import async_playwright
-from common import OUT, launch_args, BOOT_WATCH, booted, soon, frames, poll
+from common import OUT, launch_args, BOOT_WATCH, booted, soon, frames, poll, quiet
 
 CACHED = r"""async (asset) => { const c = await caches.open('digress-v1'), keys = new Set((await c.keys()).map(r => r.url));
   const want = [new URL('./', location.href).href, location.origin + '/prompts.js', location.origin + '/threads.js', location.origin + '/api/files/' + asset,
@@ -58,12 +58,14 @@ async def main():
             pg.on('pageerror', lambda e: errs.append(str(e)))
             await pg.add_init_script(BOOT_WATCH); await pg.goto(base + '/'); await booted(pg)
             check('the service worker installs', await pg.evaluate("navigator.serviceWorker.ready.then(r=>!!r.active)"))
+            await quiet(pg)   # WebKit reports a request cut off by a reload (the cards' images, fetched to keep offline) as a page error
             await pg.reload(); await booted(pg)   # now the page and its libraries go through the worker, which keeps them
             check('the page is controlled by it', await pg.evaluate('!!navigator.serviceWorker.controller'))
             check('online: the Review button shows the 2 due cards', '2 due' in await pg.locator('#reviewBtn').text_content())
             await pg.wait_for_function(CACHED, arg=asset, polling=100)
 
             # lose the connection: the server goes away and the network is cut
+            await quiet(pg)   # (as above: nothing in flight when the server goes and the page reloads)
             srv.kill(); srv.wait()
             await ctx.set_offline(True)
             await pg.reload(); await booted(pg); await soon(pg, "() => (document.getElementById('reviewBtn').textContent || '').includes('2 due')")

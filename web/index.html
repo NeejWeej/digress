@@ -1014,6 +1014,8 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .cnode .rzh[data-dir=e],.cnode .rzh[data-dir=w]{top:34px;bottom:16px;width:7px;cursor:ew-resize}
 .cnode .rzh[data-dir=e]{right:0}.cnode .rzh[data-dir=w]{left:0}
 .cnode .rzh[data-dir=e]:hover,.cnode .rzh[data-dir=w]:hover{background:color-mix(in srgb,var(--c) 22%,transparent)}
+.cnode .rzh[data-dir=s]{left:14px;right:14px;bottom:0;height:7px;cursor:ns-resize}
+.cnode .rzh[data-dir=s]:hover{background:color-mix(in srgb,var(--c) 22%,transparent)}
 .cnode .rzh.cor{width:14px;height:14px}
 .cnode .rzh[data-dir=se]{right:0;bottom:0;cursor:nwse-resize}.cnode .rzh[data-dir=nw]{left:0;top:0;cursor:nwse-resize}
 .cnode .rzh[data-dir=sw]{left:0;bottom:0;cursor:nesw-resize}.cnode .rzh[data-dir=ne]{right:0;top:0;cursor:nesw-resize}
@@ -1023,7 +1025,7 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .cnode .rzh[data-dir=sw]::after{left:3px;bottom:3px;border-left-width:1.5px;border-bottom-width:1.5px}
 .cnode .rzh[data-dir=ne]::after{right:3px;top:3px;border-right-width:1.5px;border-top-width:1.5px}
 .cnode .rzh[data-dir=nw]::after{left:3px;top:3px;border-left-width:1.5px;border-top-width:1.5px}
-@media (pointer:coarse){.cnode .rzh[data-dir=e],.cnode .rzh[data-dir=w]{width:16px}.cnode .rzh.cor{width:26px;height:26px}}
+@media (pointer:coarse){.cnode .rzh[data-dir=e],.cnode .rzh[data-dir=w]{width:16px}.cnode .rzh[data-dir=s]{height:16px;left:26px;right:26px}.cnode .rzh.cor{width:26px;height:26px}}
 .cnode.sizing{transition:none}
 /* search */
 .sbox{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;margin-bottom:8px;border-radius:9px;border:1px solid var(--line2);background:var(--panel);color:var(--faint);font-size:13px;cursor:text}
@@ -4194,8 +4196,9 @@ function addSizing(n,tid,exp,S){
   applyCardZoom(n,tid,exp);
   if(sz&&!docked){const f=n.querySelector('.cfull');if(f&&sz.h){f.style.height=sz.h+'px';f.style.maxHeight='none'}}
   // edges change width; corners (on expanded cards, whose height is adjustable) change both
-  const dirs=exp||docked?['e','w','se','sw','ne','nw']:['e','w'];
-  for(const d of dirs){const h=document.createElement('div');h.className='rzh'+(d.length===2?' cor':'');h.dataset.dir=d;h.title=d.length===2?'Drag to resize. Double-click to reset.':'Drag to change the width. Double-click to reset.';n.appendChild(h)}
+  // and the bottom edge changes the height (the top edge is the title bar, which moves the card)
+  const dirs=exp||docked?['e','w','s','se','sw','ne','nw']:['e','w'];
+  for(const d of dirs){const h=document.createElement('div');h.className='rzh'+(d.length===2?' cor':'');h.dataset.dir=d;h.title=d.length===2?'Drag to resize. Double-click to reset.':d==='s'?'Drag to change the height. Double-click to reset.':'Drag to change the width. Double-click to reset.';n.appendChild(h)}
 }
 /* ---- snapping and sticking cards to the screen ----
    S.dock[tid] = region as fractions of the canvas view; S.pre[tid] = where it sat on the canvas before */
