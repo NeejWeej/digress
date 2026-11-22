@@ -4,7 +4,8 @@
     once, under Google, with a note about free-tier keys.
   - Describe it instead says which model it asks ("Asks: …"), never a Gemini one by default, and opens the same grouped
     menu (no Default there) to pick another, which it then uses.
-  - Collapse others keeps one icon: on, the button is pressed (aria-pressed, the accent colour).
+  - Collapse others keeps one icon: on, the button is pressed (aria-pressed, the accent colour). The canvas's
+    expand button keeps its own icon (corners out).
 Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
@@ -79,6 +80,11 @@ async def main():
         check('…and shows it’s on (pressed)', await f.get_attribute('aria-pressed') == 'true' and await f.evaluate("e=>e.classList.contains('on')"))
         await f.click(); await frames(pg, 3)
         check('…and off again', await f.get_attribute('aria-pressed') == 'false')
+        # the canvas keeps its own expand icon (corners out), not Collapse others' (it once took it by mistake)
+        await pg.evaluate("document.querySelector('#viewSeg button[data-v=canvas]').click()"); await frames(pg, 4)
+        exp = await pg.locator('#cv .cnode[data-ctid=main] [data-cact=exp]').inner_html()
+        check('on the canvas, a card’s expand button has its own icon, not Collapse others’', exp != icon0 and 'M4 9V4h5' in exp, exp[:120])
+        await pg.locator('#cv .cnode[data-ctid=main]').screenshot(path=OUT + '/canvas_card_icons.png')
         check('no page errors', not errs, errs[:3])
         await b.close()
     print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')
