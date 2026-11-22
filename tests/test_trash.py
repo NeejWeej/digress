@@ -145,7 +145,7 @@ def server_part():
     try:
         ex = lambda *p: os.path.exists(os.path.join(data, *p))
         for _ in range(50):
-            if not ex('convs', 'old1.json') and not ex('convs', 'old2.json'): break
+            if not ex('convs', 'old1.json') and not ex('convs', 'old2.json') and not ex('files', Y): break   # (the file goes a moment after its conversation)
             time.sleep(0.1)
         check('server: trashed over 7 days ago is deleted at startup, with its layout and search index', not ex('convs', 'old1.json') and not ex('layouts', 'old1.json') and not ex('index', 'old1.json') and not ex('convs', 'old2.json'))
         check('server: …its file goes when nothing else uses it', not ex('files', Y))
