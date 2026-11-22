@@ -70,11 +70,12 @@ async def main():
         check('a title that fits gets no tooltip', not await pg.locator('#tipbox').evaluate("e=>e.classList.contains('show')"))
 
         async def tip_after_hover(x, y, during=None):
-            await pg.mouse.move(700, 500); await pg.wait_for_function("!document.getElementById('tipbox').classList.contains('show')")
+            await pg.mouse.move(700, 500); await pg.wait_for_function("!document.getElementById('tipbox').classList.contains('show')"); await pg.evaluate("delete window.__tipText")
             await pg.mouse.move(x, y, steps=3)
             if during: await pg.wait_for_timeout(150); await during()   # part-way into the hover (before the 380 ms tooltip delay)
-            await soon(pg, "() => document.getElementById('tipbox').classList.contains('show')", timeout=3000)
-            return await pg.evaluate("[document.getElementById('tipbox').classList.contains('show'),document.getElementById('tipbox').textContent]")
+            # read it while it shows (a second rebuild of the list, as the save lands, can hide it for a moment on a slow machine)
+            shown = await soon(pg, "() => { const t = document.getElementById('tipbox'); if (t.classList.contains('show')) window.__tipText = t.textContent; return t.classList.contains('show') }", timeout=3000)
+            return [shown, await pg.evaluate("window.__tipText || document.getElementById('tipbox').textContent")]
         row = pg.locator('#clist .citem:not(.cur)').filter(has_text='attention heads').first
         rb = await row.bounding_box(); ab = await row.locator('.acts').bounding_box()
         s_, t_ = await tip_after_hover(ab['x'] + 6, rb['y'] + rb['height'] / 2)

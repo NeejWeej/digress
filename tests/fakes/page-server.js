@@ -75,6 +75,8 @@
       d.devices[url.searchParams.get('device')] = { ui: JSON.parse(init.body), at: Date.now() }; localStorage.setItem(k, JSON.stringify(d)); return json({ ok: true });
     }
     if (p[1] === 'store') {
+      if (window.fakeOffline && method !== 'GET') throw new TypeError('Failed to fetch');   // a test can drop the connection for saves (window.fakeOffline)
+      if (method !== 'GET') window.__saves = (window.__saves || 0) + 1;
       const coll = p[2], id = p[3], k = KEY + coll + '/';
       if (!id && method === 'GET') return json(keys(k).map((key) => ({ id: key.slice(k.length), data: JSON.parse(localStorage.getItem(key)) })));
       if (method === 'GET' && url.searchParams.has('rev')) { const v = localStorage.getItem(k + id); return v ? json({ rev: JSON.parse(v).rev || 0 }) : json({ error: 'Not found' }, 404); }
