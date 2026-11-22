@@ -11,23 +11,67 @@
 <script>
 /* Themes: [id, name, mode]. The colors are in the CSS (:root[data-theme=…]); 'system' follows the device's
    light or dark setting. Set here, before anything paints, so there's no flash of the wrong one. */
-window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['eink','E-ink','light'],['tokyo-day','Tokyo Night Day','light'],['github-light','GitHub Light','light'],['dark','Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['moon','Rosé Pine Moon','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark'],['black','Pure black','dark'],['tokyo-night','Tokyo Night','dark'],['github-dark','GitHub Dark','dark']];
+window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['kanagawa-lotus','Kanagawa Lotus','light'],['eink','E-ink','light'],['tokyo-day','Tokyo Night Day','light'],['github-light','GitHub Light','light'],['ayu-light','Ayu Light','light'],['nord-light','Nord Light','light'],['alabaster','Alabaster','light'],['dark','Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['moon','Rosé Pine Moon','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark'],['black','Pure black','dark'],['tokyo-night','Tokyo Night','dark'],['github-dark','GitHub Dark','dark'],['kanagawa-dragon','Kanagawa Dragon','dark'],['rose-pine','Rosé Pine','dark'],['frappe','Catppuccin Frappé','dark'],['macchiato','Catppuccin Macchiato','dark'],['ayu-mirage','Ayu Mirage','dark'],['gruvbox-material','Gruvbox Material','dark'],['zenburn','Zenburn','dark']];
 /* How PDF pages look (pdf.js draws them as images, in the PDF's own colors): [id, name]. 'match' is dark pages with
    a dark theme. Only the page images are filtered (CSS), never what the model gets. */
 window.PDF_LOOKS=[['original','Original'],['match','Match the theme'],['dark','Dark'],['dim','Dim'],['sepia','Sepia']];
 window.applyPdfLook=function(id){document.documentElement.dataset.pdf=PDF_LOOKS.some(function(x){return x[0]===id})?id:'original'};
 /* Fonts: [id, name, stylesheets to load the first time it's used]. The CSS (:root[data-font=…]) sets --sans and --serif. */
 window.FONTS=[['default','Default',[]],['sans','Sans',[]],['serif','Serif',[]],['system','System',[]],['mono','Mono',[]],
-  ['literata','Literata',['https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap']],
-  ['newsreader','Newsreader',['https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap']],
-  ['plex','IBM Plex',['https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap']],
-  ['lexend','Lexend',['https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&display=swap']],
-  ['atkinson','Atkinson Hyperlegible',['https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&display=swap']],
-  ['inclusive','Inclusive Sans',['https://fonts.googleapis.com/css2?family=Inclusive+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap']],
-  ['comicneue','Comic Neue',['https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@0,400;0,700;1,400&display=swap']]];
+  ['literata','Literata',['https://cdn.jsdelivr.net/npm/@fontsource-variable/literata@5.3.0/opsz.css','https://cdn.jsdelivr.net/npm/@fontsource-variable/literata@5.3.0/opsz-italic.css']],
+  ['newsreader','Newsreader',['https://cdn.jsdelivr.net/npm/@fontsource-variable/newsreader@5.3.0/opsz.css','https://cdn.jsdelivr.net/npm/@fontsource-variable/newsreader@5.3.0/opsz-italic.css']],
+  ['plex','IBM Plex',['https://cdn.jsdelivr.net/npm/@fontsource-variable/ibm-plex-sans@5.3.0/index.css','https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-serif@5.3.0/400.css','https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-serif@5.3.0/600.css','https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-serif@5.3.0/400-italic.css']],
+  ['lexend','Lexend',['https://cdn.jsdelivr.net/npm/@fontsource-variable/lexend@5.3.0/index.css']],
+  ['atkinson','Atkinson Hyperlegible',['https://cdn.jsdelivr.net/npm/@fontsource-variable/atkinson-hyperlegible-next@5.3.0/index.css']],
+  ['inclusive','Inclusive Sans',['https://cdn.jsdelivr.net/npm/@fontsource-variable/inclusive-sans@5.3.0/index.css','https://cdn.jsdelivr.net/npm/@fontsource-variable/inclusive-sans@5.3.0/wght-italic.css']],
+  ['sourcesans','Source Sans',['https://cdn.jsdelivr.net/npm/@fontsource-variable/source-sans-3@5.3.1/index.css','https://cdn.jsdelivr.net/npm/@fontsource-variable/source-sans-3@5.3.1/wght-italic.css']],
+  ['comicneue','Comic Neue',['https://cdn.jsdelivr.net/npm/@fontsource/comic-neue@5.3.0/400.css','https://cdn.jsdelivr.net/npm/@fontsource/comic-neue@5.3.0/700.css','https://cdn.jsdelivr.net/npm/@fontsource/comic-neue@5.3.0/400-italic.css']]];
+window.LIBS={
+  'https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js':['lib/marked@12.0.2/marked.min.js','sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi'],
+  'https://cdn.jsdelivr.net/npm/dompurify@3.4.17/dist/purify.min.js':['lib/dompurify@3.4.17/dist/purify.min.js','sha384-P0JNneQf81HOl9VwNXK76cQ9VMD6Nfsnepxb0cCOg8+UzEdzgPHAPV4wVQrvYQSx'],
+  'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js':['lib/@highlightjs/cdn-assets@11.9.0/highlight.min.js','sha384-F/bZzf7p3Joyp5psL90p/p89AZJsndkSoGwRpXcZhleCWhd8SnRuoYo4d0yirjJp'],
+  'https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg-full.js':['lib/mathjax@3.2.2/es5/tex-svg-full.js','sha384-4kE/rQ11E8xT9QgrCBTyvenkuPfQo8rXYQvJZuMgxyPOoUfpatjQPlgdv6V5yhUK'],
+  'https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js':['lib/mermaid@11.17.2/dist/mermaid.min.js','sha384-EOXBFmc3gx5mb+vn0vPvvGqACToJD24hhacX5Yx+8NUUQrHIle/Qi5Bg9o3zKwW2'],
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js':['lib/pdfjs-dist@3.11.174/build/pdf.min.js','sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e'],
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js':['lib/pdfjs-dist@3.11.174/build/pdf.worker.min.js','sha384-SnzOobpRMLXZ52iJvZm/C0fYw0OQemTXzTjIsdsfMcrCtCEe9qgzxTd3RSklO5x2'],
+  'https://cdn.jsdelivr.net/npm/minisearch@7.1.0/dist/umd/index.js':['lib/minisearch@7.1.0/dist/umd/index.js','sha384-WYxvx105q0lClUQiJPNSSLCBKa8ha7WajFLCebXbbpsax4ywxgy3afY2BI2gaqra'],
+  'https://cdn.jsdelivr.net/npm/@mozilla/readability@0.6.0/Readability.js':['lib/@mozilla/readability@0.6.0/Readability.js','sha384-e+TY0H9ZOYdOLMJKCM3iXGmTbjVVh+PJ+GTEKuGjQY0+bsSOJohq+GWUAmhGjKOi'],
+  'https://cdn.jsdelivr.net/npm/turndown@7.2.0/dist/turndown.js':['lib/turndown@7.2.0/dist/turndown.js','sha384-OGauEFaI5hnS8jXK4qdSGShAUAObMBKoLXgcL1ORhRh7ulx5jPZH35qVpacIEA4Z'],
+  'https://cdn.jsdelivr.net/npm/turndown-plugin-gfm@1.0.2/dist/turndown-plugin-gfm.js':['lib/turndown-plugin-gfm@1.0.2/dist/turndown-plugin-gfm.js','sha384-2TroN1N6OfLQ+K4qttptnIfMREzUlMa3hW/nZqDZXv7Sm9BkESfGEupDEqCbzyRl'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5.3.0/index.css':['lib/@fontsource-variable/inter@5.3.0/index.css','sha384-ZTIcl2CmY0wyM9ANOhomBco7rEUIlWztf6lGcLKCocKUrIgGCsfisuZyE+hadW8K'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/source-serif-4@5.3.1/opsz.css':['lib/@fontsource-variable/source-serif-4@5.3.1/opsz.css','sha384-Ktdk96S1doSfVUF+A/SL6weKFW02MkWdMs7nF4jF8911fTOBtkpfEG/j5dNTdfCu'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/source-serif-4@5.3.1/opsz-italic.css':['lib/@fontsource-variable/source-serif-4@5.3.1/opsz-italic.css','sha384-E4O6zmht8FYvPd86XLa0A/YqSVbj8hkmkNQ6AgFev+P4t+I8amS3Myp9vk0z0N6Z'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/jetbrains-mono@5.3.0/index.css':['lib/@fontsource-variable/jetbrains-mono@5.3.0/index.css','sha384-bNykZ+bGB4FclZiYvLmgUfE8clWCvZlLOJ3v63czgIEgamTe0EhkaLXIbptJkvmW'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/literata@5.3.0/opsz.css':['lib/@fontsource-variable/literata@5.3.0/opsz.css','sha384-VHXqF7tAe7fuRqubvYOAcSeQ9689cgfVwEsK0b/u2CizH8nS/yOrZdDDSb8FF3B3'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/literata@5.3.0/opsz-italic.css':['lib/@fontsource-variable/literata@5.3.0/opsz-italic.css','sha384-EJhQjZ1us6W8IwjJQqXdinQV7R/02Cjsu44bv6qPfz8ZJK5UE/gT7kzSP7zKXMoq'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/newsreader@5.3.0/opsz.css':['lib/@fontsource-variable/newsreader@5.3.0/opsz.css','sha384-LZLr4sjjCN788gLS455bc26wsHns6ibwmHX8pC5DG2C82hBKY98FU2GwNJjLzFfe'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/newsreader@5.3.0/opsz-italic.css':['lib/@fontsource-variable/newsreader@5.3.0/opsz-italic.css','sha384-9zsf+3LjIsSBUIDJNe0Qb6wyf4wH7/aSaev7lMbi0Mlct23g/841LqGMWk9qrxog'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/ibm-plex-sans@5.3.0/index.css':['lib/@fontsource-variable/ibm-plex-sans@5.3.0/index.css','sha384-p+nB7oJHBnqNkZKvfMBDSTY3erZR1x7nsRQQAlmDX1yTR4zjcXDyFniQ4fne3bBi'],
+  'https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-serif@5.3.0/400.css':['lib/@fontsource/ibm-plex-serif@5.3.0/400.css','sha384-IGK1uM5wbfhWlJOxcVkig3iuHGhefLCJh8sQVgvrbnUGmNUL25gDketuPLBFmdCe'],
+  'https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-serif@5.3.0/600.css':['lib/@fontsource/ibm-plex-serif@5.3.0/600.css','sha384-eNMrXhTm7Hp8R08LbFyDVWwoO3NfkOftuqu2AwT+B03GbILY/1X5tRmvhqWcsbH4'],
+  'https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-serif@5.3.0/400-italic.css':['lib/@fontsource/ibm-plex-serif@5.3.0/400-italic.css','sha384-O7EHio08Ru2Np6oAfkXGRgwtW3wJHIpnhyHlYdF0CbRNoW7MqyGeU2+dZRtKkI2y'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/lexend@5.3.0/index.css':['lib/@fontsource-variable/lexend@5.3.0/index.css','sha384-/Wv/lZ7LAxJ4nRUrlboB8ko3yVRKBVk3R/AbNwvRYbaKjXieoOIdzGMT1ssfcFMt'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/atkinson-hyperlegible-next@5.3.0/index.css':['lib/@fontsource-variable/atkinson-hyperlegible-next@5.3.0/index.css','sha384-FCseDsHoKcEBM2m0ROvFzt/BHbmI1yGWHHBEiadKScJTLu/yPsDemuXEWAwmiLcM'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/inclusive-sans@5.3.0/index.css':['lib/@fontsource-variable/inclusive-sans@5.3.0/index.css','sha384-ufvw5jTTAA7Ca166WZ5X5Y/88yMiVw56DnQsj+K4g1fYdYINTE867FuY258W52Us'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/inclusive-sans@5.3.0/wght-italic.css':['lib/@fontsource-variable/inclusive-sans@5.3.0/wght-italic.css','sha384-TSYUMXPK65G/fmUupisYpVn7PecJm6qaEJfkss6ARdpHCaqqnmclNvh15B2ASTAe'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/source-sans-3@5.3.1/index.css':['lib/@fontsource-variable/source-sans-3@5.3.1/index.css','sha384-Y985HdWhYRMh47MSMCK0+aY7KdzM4k/oioAZyUkmLZN+8uG+B5GueNjw10hBh2xL'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/source-sans-3@5.3.1/wght-italic.css':['lib/@fontsource-variable/source-sans-3@5.3.1/wght-italic.css','sha384-tKHKiW0lybGpTndEey82QwZ9aSxc6ElQ6/Hu6sHJ3aqRQpAO0yqZKO7073glqs9Y'],
+  'https://cdn.jsdelivr.net/npm/@fontsource/comic-neue@5.3.0/400.css':['lib/@fontsource/comic-neue@5.3.0/400.css','sha384-K1DosZW63giE8Pd9GSh9ExGbbomieyy+GNy0yZfsZlpACouLtqz9lEodpx0B8rTZ'],
+  'https://cdn.jsdelivr.net/npm/@fontsource/comic-neue@5.3.0/700.css':['lib/@fontsource/comic-neue@5.3.0/700.css','sha384-gfUFTi/VVml1wvXIfL3yZ8I2aULaGKhlBtPL4fsnRQ+H5qnsw/K849SjCGP61hSB'],
+  'https://cdn.jsdelivr.net/npm/@fontsource/comic-neue@5.3.0/400-italic.css':['lib/@fontsource/comic-neue@5.3.0/400-italic.css','sha384-TaRlR0gr4VkprLLZSaU+VVDcWHutLAXz2loF7SjZGFUQ+sjtzSHlKuKI1OsmlGhr'],
+};
+/* A font's stylesheet (a CDN address, a key of LIBS): this server's copy, else the CDN's, both checked against its
+   hash, like the libraries; the .woff2 files it names come from the same place. Without either, system fonts. */
+window.fontCss=function(u){
+  if(document.querySelector('link[data-fontcss="'+u+'"]'))return;
+  var l=document.createElement('link');l.rel='stylesheet';l.href=LIBS[u][0];l.integrity=LIBS[u][1];l.crossOrigin='anonymous';l.dataset.fontcss=u;
+  l.onerror=function(){var c=l.cloneNode();c.href=u;l.replaceWith(c)};   // a copy keeps the attributes, not the handler
+  document.head.appendChild(l);
+};
+window.BASE_FONTS=['https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5.3.0/index.css','https://cdn.jsdelivr.net/npm/@fontsource-variable/source-serif-4@5.3.1/opsz.css','https://cdn.jsdelivr.net/npm/@fontsource-variable/source-serif-4@5.3.1/opsz-italic.css','https://cdn.jsdelivr.net/npm/@fontsource-variable/jetbrains-mono@5.3.0/index.css'];
 window.applyFont=function(id){
   var f=FONTS.find(function(x){return x[0]===id})||FONTS[0];document.documentElement.dataset.font=f[0];
-  f[2].forEach(function(u){if(document.querySelector('link[data-fontcss="'+u+'"]'))return;var l=document.createElement('link');l.rel='stylesheet';l.href=u;l.dataset.fontcss=u;document.head.appendChild(l)});
+  f[2].forEach(fontCss);
   return f[0];
 };
 window.applyTheme=function(id){
@@ -39,16 +83,14 @@ window.applyTheme=function(id){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tc,{once:true});else tc();
   return t[0];
 };
-(function(){var s={};try{s=JSON.parse(localStorage.getItem('sq:settings')||'{}')}catch(e){}applyTheme(s.theme||'system');applyPdfLook(s.pdf);applyFont(s.font)})();
+(function(){var s={};try{s=JSON.parse(localStorage.getItem('sq:settings')||'{}')}catch(e){}applyTheme(s.theme||'system');applyPdfLook(s.pdf);BASE_FONTS.forEach(fontCss);applyFont(s.font)})();
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root,.thsw[data-theme=light]{
   --bg:#f5f3ee;--panel:#fffdf9;--panel-2:#faf8f3;--ink:#1f1d19;--muted:#6d695f;--faint:#a29d92;
   --line:#e7e2d8;--line2:#d7d0c3;--user-bg:#efebe3;--code-bg:#f4f1ea;--accent:#c4643c;--danger:#c0392b;--shadow:0 12px 32px rgba(40,30,10,.14);
   --hk:#a0439a;--hs:#3b7d3b;--hn:#b5562a;--ht:#2d6cb5;--hy:#9a6a00;--hm:#8a6d3b;   /* code: keyword, string, number, title, type, meta */
-  --sans:'Inter',system-ui,sans-serif;--serif:'Source Serif 4',Georgia,serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --sans:'Inter Variable',system-ui,sans-serif;--serif:'Source Serif 4 Variable',Georgia,serif;--mono:'JetBrains Mono Variable',ui-monospace,monospace;
   color-scheme:light;
 }
 /* Themes (the palette button in the top bar). THEMES in the <head> script lists them; data-theme is set
@@ -114,6 +156,11 @@ window.applyTheme=function(id){
   --line:#e6e4d9;--line2:#dad8ce;--user-bg:#e6e4d9;--code-bg:#f2f0e5;--accent:#24837b;--danger:#af3029;
   --hk:#66800b;--hs:#24837b;--hn:#5e409d;--ht:#bc5215;--hy:#ad8301;--hm:#a02f6f;
 }
+:root[data-theme=kanagawa-lotus],.thsw[data-theme=kanagawa-lotus]{   /* Kanagawa Lotus */
+  --bg:#e7dba0;--panel:#f2ecbc;--panel-2:#ebe3b2;--ink:#545464;--muted:#716e61;--faint:#8a8980;
+  --line:#e4d794;--line2:#d5cea3;--user-bg:#e5ddb0;--code-bg:#ebe3b2;--accent:#4d699b;--danger:#c84053;
+  --hk:#624c83;--hs:#6f894e;--hn:#b35b79;--ht:#4d699b;--hy:#597b75;--hm:#cc6d00;
+}
 :root[data-theme=flexoki],.thsw[data-theme=flexoki]{   /* Flexoki Dark */
   --bg:#100f0f;--panel:#1c1b1a;--panel-2:#232221;--ink:#cecdc3;--muted:#878580;--faint:#6f6e69;
   --line:#282726;--line2:#343331;--user-bg:#282726;--code-bg:#171616;--accent:#3aa99f;--danger:#d14d41;
@@ -169,18 +216,69 @@ window.applyTheme=function(id){
   --line:#262c36;--line2:#3d444d;--user-bg:#18202b;--code-bg:#151b23;--accent:#4493f8;--danger:#f85149;
   --hk:#ff7b72;--hs:#a5d6ff;--hn:#79c0ff;--ht:#d2a8ff;--hy:#ffa657;--hm:#8b949e;
 }
+:root[data-theme=ayu-light],.thsw[data-theme=ayu-light]{   /* Ayu Light */
+  --bg:#f3f4f5;--panel:#fcfcfc;--panel-2:#f8f9fa;--ink:#5c6166;--muted:#8a9199;--faint:#adaeb1;
+  --line:#e7eaed;--line2:#d8dce0;--user-bg:#eef0f2;--code-bg:#f3f4f5;--accent:#fa8d3e;--danger:#e65050;
+  --hk:#fa8d3e;--hs:#86b300;--hn:#a37acc;--ht:#399ee6;--hy:#55b4d4;--hm:#ed9366;
+}
+:root[data-theme=nord-light],.thsw[data-theme=nord-light]{   /* Nord Light */
+  --bg:#e5e9f0;--panel:#eceff4;--panel-2:#e8ebf1;--ink:#2e3440;--muted:#4c566a;--faint:#7b88a1;
+  --line:#d8dee9;--line2:#c6cedb;--user-bg:#e1e6ee;--code-bg:#e5e9f0;--accent:#5e81ac;--danger:#bf616a;
+  --hk:#5e81ac;--hs:#5f8a45;--hn:#9a6b94;--ht:#3f7a9c;--hy:#3b8a8c;--hm:#c2703d;
+}
+:root[data-theme=alabaster],.thsw[data-theme=alabaster]{   /* Alabaster */
+  --bg:#ececec;--panel:#f7f7f7;--panel-2:#f2f2f2;--ink:#000000;--muted:#666666;--faint:#999999;
+  --line:#e2e2e2;--line2:#d0d0d0;--user-bg:#ebebeb;--code-bg:#f0f0f0;--accent:#325cc0;--danger:#aa3731;
+  --hk:#000000;--hs:#448c27;--hn:#7a3e9d;--ht:#325cc0;--hy:#000000;--hm:#aa3731;
+}
+:root[data-theme=kanagawa-dragon],.thsw[data-theme=kanagawa-dragon]{   /* Kanagawa Dragon */
+  --bg:#0d0c0c;--panel:#181616;--panel-2:#1d1c19;--ink:#c5c9c5;--muted:#a6a69c;--faint:#737c73;
+  --line:#282727;--line2:#393836;--user-bg:#282727;--code-bg:#12120f;--accent:#8ba4b0;--danger:#c4746e;
+  --hk:#8992a7;--hs:#8a9a7b;--hn:#a292a3;--ht:#8ba4b0;--hy:#8ea4a2;--hm:#b6927b;
+}
+:root[data-theme=rose-pine],.thsw[data-theme=rose-pine]{   /* Rosé Pine */
+  --bg:#12101c;--panel:#191724;--panel-2:#1f1d2e;--ink:#e0def4;--muted:#908caa;--faint:#6e6a86;
+  --line:#26233a;--line2:#403d52;--user-bg:#26233a;--code-bg:#1f1d2e;--accent:#ebbcba;--danger:#eb6f92;
+  --hk:#31748f;--hs:#f6c177;--hn:#eb6f92;--ht:#ebbcba;--hy:#9ccfd8;--hm:#c4a7e7;
+}
+:root[data-theme=frappe],.thsw[data-theme=frappe]{   /* Catppuccin Frappé */
+  --bg:#292c3c;--panel:#303446;--panel-2:#353a4d;--ink:#c6d0f5;--muted:#a5adce;--faint:#838ba7;
+  --line:#414559;--line2:#51576d;--user-bg:#414559;--code-bg:#2b2f40;--accent:#ca9ee6;--danger:#e78284;
+  --hk:#ca9ee6;--hs:#a6d189;--hn:#ef9f76;--ht:#8caaee;--hy:#e5c890;--hm:#81c8be;
+}
+:root[data-theme=macchiato],.thsw[data-theme=macchiato]{   /* Catppuccin Macchiato */
+  --bg:#1e2030;--panel:#24273a;--panel-2:#292c40;--ink:#cad3f5;--muted:#a5adcb;--faint:#8087a2;
+  --line:#363a4f;--line2:#494d64;--user-bg:#363a4f;--code-bg:#202335;--accent:#c6a0f6;--danger:#ed8796;
+  --hk:#c6a0f6;--hs:#a6da95;--hn:#f5a97f;--ht:#8aadf4;--hy:#eed49f;--hm:#8bd5ca;
+}
+:root[data-theme=ayu-mirage],.thsw[data-theme=ayu-mirage]{   /* Ayu Mirage */
+  --bg:#1f2430;--panel:#242936;--panel-2:#282e3b;--ink:#cccac2;--muted:#9ba0a8;--faint:#707a8c;
+  --line:#2d3340;--line2:#3a4150;--user-bg:#2d3340;--code-bg:#1f2430;--accent:#ffcc66;--danger:#ff6666;
+  --hk:#ffad66;--hs:#d5ff80;--hn:#dfbfff;--ht:#ffd173;--hy:#73d0ff;--hm:#5ccfe6;
+}
+:root[data-theme=gruvbox-material],.thsw[data-theme=gruvbox-material]{   /* Gruvbox Material */
+  --bg:#1d1d1d;--panel:#282828;--panel-2:#2d2c2b;--ink:#d4be98;--muted:#a89984;--faint:#7c6f64;
+  --line:#32302f;--line2:#45403d;--user-bg:#32302f;--code-bg:#222222;--accent:#e78a4e;--danger:#ea6962;
+  --hk:#ea6962;--hs:#a9b665;--hn:#d3869b;--ht:#7daea3;--hy:#d8a657;--hm:#e78a4e;
+}
+:root[data-theme=zenburn],.thsw[data-theme=zenburn]{   /* Zenburn */
+  --bg:#333333;--panel:#3f3f3f;--panel-2:#444444;--ink:#dcdccc;--muted:#acac9c;--faint:#808070;
+  --line:#4f4f4f;--line2:#5f5f5f;--user-bg:#494949;--code-bg:#383838;--accent:#8cd0d3;--danger:#dc8c8c;
+  --hk:#f0dfaf;--hs:#cc9393;--hn:#8cd0d3;--ht:#efef8f;--hy:#7cb8bb;--hm:#dfaf8f;
+}
 /* Fonts (Appearance → Font): FONTS in the <head> script; data-font on the root. Each sets the UI's (--sans)
    and the replies' (--serif) font; code keeps --mono. */
-:root[data-font=sans]{--serif:'Inter',system-ui,sans-serif}
-:root[data-font=serif]{--sans:'Source Serif 4',Georgia,serif}
+:root[data-font=sans]{--serif:'Inter Variable',system-ui,sans-serif}
+:root[data-font=serif]{--sans:'Source Serif 4 Variable',Georgia,serif}
 :root[data-font=system]{--sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--serif:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
-:root[data-font=mono]{--sans:'JetBrains Mono',ui-monospace,monospace;--serif:'JetBrains Mono',ui-monospace,monospace}
-:root[data-font=lexend]{--sans:'Lexend',system-ui,sans-serif;--serif:'Lexend',system-ui,sans-serif}
-:root[data-font=atkinson]{--sans:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',system-ui,sans-serif;--serif:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',system-ui,sans-serif}
-:root[data-font=literata]{--serif:'Literata',Georgia,serif}
-:root[data-font=newsreader]{--serif:'Newsreader',Georgia,serif}
-:root[data-font=plex]{--sans:'IBM Plex Sans',system-ui,sans-serif;--serif:'IBM Plex Serif',Georgia,serif}
-:root[data-font=inclusive]{--sans:'Inclusive Sans',system-ui,sans-serif;--serif:'Inclusive Sans',system-ui,sans-serif}
+:root[data-font=mono]{--sans:'JetBrains Mono Variable',ui-monospace,monospace;--serif:'JetBrains Mono Variable',ui-monospace,monospace}
+:root[data-font=lexend]{--sans:'Lexend Variable',system-ui,sans-serif;--serif:'Lexend Variable',system-ui,sans-serif}
+:root[data-font=atkinson]{--sans:'Atkinson Hyperlegible Next Variable',system-ui,sans-serif;--serif:'Atkinson Hyperlegible Next Variable',system-ui,sans-serif}
+:root[data-font=literata]{--serif:'Literata Variable',Georgia,serif}
+:root[data-font=newsreader]{--serif:'Newsreader Variable',Georgia,serif}
+:root[data-font=plex]{--sans:'IBM Plex Sans Variable',system-ui,sans-serif;--serif:'IBM Plex Serif',Georgia,serif}
+:root[data-font=inclusive]{--sans:'Inclusive Sans Variable',system-ui,sans-serif;--serif:'Inclusive Sans Variable',system-ui,sans-serif}
+:root[data-font=sourcesans]{--sans:'Source Sans 3 Variable',system-ui,sans-serif;--serif:'Source Sans 3 Variable',system-ui,sans-serif}
 :root[data-font=comicneue]{--sans:'Comic Neue',system-ui,sans-serif;--serif:'Comic Neue',system-ui,sans-serif}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased}
@@ -267,14 +365,14 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .pdsw[data-p=dark]{background:#1c1c1c;color:#ddd}.pdsw[data-p=dim]{background:#c7c7c7;color:#1a1a1a}.pdsw[data-p=sepia]{background:#f3ead6;color:#3b2f1e}
 /* the menu keeps its own font: previewing a font that's bigger or wider would move its rows under the pointer, which
    then previews another one, back and forth. Each font's "Aa" shows it instead. */
-.thmenu.thapp{--sans:'Inter',system-ui,sans-serif;--serif:'Source Serif 4',Georgia,serif;font-family:var(--sans)}
+.thmenu.thapp{--sans:'Inter Variable',system-ui,sans-serif;--serif:'Source Serif 4 Variable',Georgia,serif;font-family:var(--sans)}
 .fnsw{display:inline-flex;width:34px;height:20px;border-radius:4px;border:1px solid var(--line2);flex:none;align-items:center;justify-content:center;font-size:12px;background:var(--panel-2);color:var(--ink)}
 .fnsw.thdot{width:10px;height:10px;border-radius:50%;font-size:0}
-.fnsw[data-f=default]{font-family:'Source Serif 4',Georgia,serif}.fnsw[data-f=sans]{font-family:'Inter',system-ui,sans-serif}.fnsw[data-f=serif]{font-family:'Source Serif 4',Georgia,serif}
-.fnsw[data-f=system]{font-family:system-ui,sans-serif}.fnsw[data-f=mono]{font-family:'JetBrains Mono',monospace}.fnsw[data-f=lexend]{font-family:'Lexend',sans-serif}
-.fnsw[data-f=atkinson]{font-family:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',sans-serif}
-.fnsw[data-f=literata]{font-family:'Literata',serif}.fnsw[data-f=newsreader]{font-family:'Newsreader',serif}.fnsw[data-f=plex]{font-family:'IBM Plex Serif',serif}
-.fnsw[data-f=inclusive]{font-family:'Inclusive Sans',sans-serif}.fnsw[data-f=comicneue]{font-family:'Comic Neue',sans-serif}
+.fnsw[data-f=default]{font-family:'Source Serif 4 Variable',Georgia,serif}.fnsw[data-f=sans]{font-family:'Inter Variable',system-ui,sans-serif}.fnsw[data-f=serif]{font-family:'Source Serif 4 Variable',Georgia,serif}
+.fnsw[data-f=system]{font-family:system-ui,sans-serif}.fnsw[data-f=mono]{font-family:'JetBrains Mono Variable',monospace}.fnsw[data-f=lexend]{font-family:'Lexend Variable',sans-serif}
+.fnsw[data-f=atkinson]{font-family:'Atkinson Hyperlegible Next Variable',sans-serif}
+.fnsw[data-f=literata]{font-family:'Literata Variable',serif}.fnsw[data-f=newsreader]{font-family:'Newsreader Variable',serif}.fnsw[data-f=plex]{font-family:'IBM Plex Serif',serif}
+.fnsw[data-f=inclusive]{font-family:'Inclusive Sans Variable',sans-serif}.fnsw[data-f=sourcesans]{font-family:'Source Sans 3 Variable',sans-serif}.fnsw[data-f=comicneue]{font-family:'Comic Neue',sans-serif}
 .pdsw[data-p=match]{background:linear-gradient(135deg,#fff 50%,#1c1c1c 50%);color:transparent}
 .thmenu button{display:flex;align-items:center;gap:10px;width:100%;padding:6px 8px;border-radius:8px;text-align:left;font-size:13px;color:var(--ink)}
 .thmenu button:hover,.thmenu button:focus-visible{background:var(--user-bg);outline:none}
@@ -1294,19 +1392,7 @@ a.pref:hover{border-bottom-style:solid}
    one place the page can always reach. Either way the file must match its hash (Subresource Integrity), so neither
    copy can run anything but the exact file. tests/test_sri.py checks every hash against node_modules, and
    tests/test_local_libs.py both routes; update the hash with a version. */
-window.LIBS={
-  'https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js':['lib/marked@12.0.2/marked.min.js','sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi'],
-  'https://cdn.jsdelivr.net/npm/dompurify@3.4.17/dist/purify.min.js':['lib/dompurify@3.4.17/dist/purify.min.js','sha384-P0JNneQf81HOl9VwNXK76cQ9VMD6Nfsnepxb0cCOg8+UzEdzgPHAPV4wVQrvYQSx'],
-  'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js':['lib/@highlightjs/cdn-assets@11.9.0/highlight.min.js','sha384-F/bZzf7p3Joyp5psL90p/p89AZJsndkSoGwRpXcZhleCWhd8SnRuoYo4d0yirjJp'],
-  'https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg-full.js':['lib/mathjax@3.2.2/es5/tex-svg-full.js','sha384-4kE/rQ11E8xT9QgrCBTyvenkuPfQo8rXYQvJZuMgxyPOoUfpatjQPlgdv6V5yhUK'],
-  'https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js':['lib/mermaid@11.17.2/dist/mermaid.min.js','sha384-EOXBFmc3gx5mb+vn0vPvvGqACToJD24hhacX5Yx+8NUUQrHIle/Qi5Bg9o3zKwW2'],
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js':['lib/pdfjs-dist@3.11.174/build/pdf.min.js','sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e'],
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js':['lib/pdfjs-dist@3.11.174/build/pdf.worker.min.js','sha384-SnzOobpRMLXZ52iJvZm/C0fYw0OQemTXzTjIsdsfMcrCtCEe9qgzxTd3RSklO5x2'],
-  'https://cdn.jsdelivr.net/npm/minisearch@7.1.0/dist/umd/index.js':['lib/minisearch@7.1.0/dist/umd/index.js','sha384-WYxvx105q0lClUQiJPNSSLCBKa8ha7WajFLCebXbbpsax4ywxgy3afY2BI2gaqra'],
-  'https://cdn.jsdelivr.net/npm/@mozilla/readability@0.6.0/Readability.js':['lib/@mozilla/readability@0.6.0/Readability.js','sha384-e+TY0H9ZOYdOLMJKCM3iXGmTbjVVh+PJ+GTEKuGjQY0+bsSOJohq+GWUAmhGjKOi'],
-  'https://cdn.jsdelivr.net/npm/turndown@7.2.0/dist/turndown.js':['lib/turndown@7.2.0/dist/turndown.js','sha384-OGauEFaI5hnS8jXK4qdSGShAUAObMBKoLXgcL1ORhRh7ulx5jPZH35qVpacIEA4Z'],
-  'https://cdn.jsdelivr.net/npm/turndown-plugin-gfm@1.0.2/dist/turndown-plugin-gfm.js':['lib/turndown-plugin-gfm@1.0.2/dist/turndown-plugin-gfm.js','sha384-2TroN1N6OfLQ+K4qttptnIfMREzUlMa3hW/nZqDZXv7Sm9BkESfGEupDEqCbzyRl'],
-};
+/* (window.LIBS is in the <head> script, since the fonts load from it before anything paints) */
 // a library the code below needs as it starts: when this server's copy didn't load, the CDN's, written in right here
 // so it still runs before that code
 window.needLib=function(cdn,there){if(!there())document.write('<script src="'+cdn+'" integrity="'+LIBS[cdn][1]+'" crossorigin="anonymous"><\/script>')};
@@ -6868,7 +6954,7 @@ for(const [id,name] of PDF_LOOKS){
 }
 const FONT_TIPS={default:'Sans for the app, serif for replies',sans:'Inter everywhere, replies too',serif:'Source Serif everywhere, the app too',system:'Your device’s own font',mono:'JetBrains Mono everywhere',
   lexend:'Lexend: made to make reading easier, often suggested for dyslexia',atkinson:'Atkinson Hyperlegible: letters that are hard to mistake for each other (I l 1, O 0)',literata:'Literata for replies (made for reading books on screens), Inter for the app',newsreader:'Newsreader for replies (a calm newspaper serif), Inter for the app',
-  plex:'IBM Plex: Plex Sans for the app, Plex Serif for replies',inclusive:'Inclusive Sans: clear letter shapes, designed for accessibility',
+  plex:'IBM Plex: Plex Sans for the app, Plex Serif for replies',inclusive:'Inclusive Sans: clear letter shapes, designed for accessibility',sourcesans:'Source Sans: a plain, open sans-serif, the app and replies alike',
   comicneue:'Comic Neue: a cleaned-up Comic Sans; some dyslexic readers find this style easiest'};
 const fontList=themeGroup('font','Font',FONTS,([id])=>`<span class="fnsw thdot" data-f="${id}"></span>`);
 for(const [id,name] of FONTS){
