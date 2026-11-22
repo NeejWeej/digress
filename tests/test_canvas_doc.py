@@ -108,15 +108,16 @@ async def main():
         check('it survives the canvas redrawing', await host.locator('.pane.docpane .dpage canvas').count() > 0)
 
         # its "open in the pane view" button goes to Columns with the document open (it used to do nothing while docked)
-        await host.locator('[data-cact=panes]').click(); await pg.wait_for_timeout(600)
-        check('docked, its “open in the pane view” button switches to Columns with the document open',
-              await pg.evaluate("__digress.conv.ui.view") == 'panes' and await pg.locator('#panes .pane.docpane .dpage canvas').count() > 0, await pg.evaluate("__digress.conv.ui.view"))
+        await host.locator('[data-cact=panes]').click()
+        shown = await soon(pg, "(()=>__digress.conv.ui.view==='panes'&&!!document.querySelector('#panes .pane.docpane .dpage canvas'))()")   # (it redraws at the new width: slow machines take a moment)
+        check('docked, its “open in the pane view” button switches to Columns with the document open', shown, await pg.evaluate("__digress.conv.ui.view"))
         await pg.evaluate("document.querySelector('#viewSeg button[data-v=canvas]').click()")
         await pg.wait_for_function("!!document.querySelector('#dock .docpanecard .cdocpane > .pane.docpane')", timeout=5000)
 
-        await pg.evaluate("document.querySelector('#viewSeg button[data-v=cols]').click()"); await pg.wait_for_timeout(600)
+        await pg.evaluate("document.querySelector('#viewSeg button[data-v=cols]').click()")
+        drawn = await soon(pg, "(()=>!!document.querySelector('#panes .pane.docpane .dpage canvas'))()")   # (redrawn at the pane's width: slow machines take a moment)
         back = await pg.evaluate("[...document.querySelectorAll('#panes>.pane')].map(p=>p.dataset.tid)")
-        check('back in Columns, the pane is where it was', back == cols_order and await pg.locator('#panes .pane.docpane .dpage canvas').count() > 0, [cols_order, back])
+        check('back in Columns, the pane is where it was', back == cols_order and drawn, [cols_order, back, drawn])
         await pg.evaluate("document.querySelector('#viewSeg button[data-v=canvas]').click()")
         await pg.wait_for_function("!!document.querySelector('#dock .docpanecard .cdocpane > .pane.docpane')", timeout=5000)
         check('…and on the canvas again it’s still docked', True)

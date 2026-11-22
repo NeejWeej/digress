@@ -4,7 +4,7 @@ on every device, for every reply that asks for Default. Asserts and exits non-ze
 import asyncio, json, os, shutil, sys, tempfile
 from playwright.async_api import async_playwright
 sys.path.insert(0, os.path.dirname(__file__))
-from common import OUT, launch_args, booted, answered, BOOT_WATCH
+from common import saved, quiet, OUT, launch_args, booted, answered, BOOT_WATCH
 from common import CORS
 from test_server import start, req, CDN, FAKES
 
@@ -56,6 +56,7 @@ async def main():
             v, l = await label(B)
             check(await auto(B) == 'Default (Sonnet 5.5)', 'another device sees the same default', await auto(B))
             check(v == 'claude-sonnet-5-5', '…and the conversation started with it shows the model it started with, by name', [v, l])
+            await saved(A); await quiet(A)   # not in the middle of a save or a check: WebKit reports a request cut off by the reload as a page error
             await A.reload(); await booted(A)   # BOOT_WATCH is an init script, so it runs again
             await A.wait_for_function("document.querySelector('#mSel option[value=auto]')?.textContent.includes('(')")
             check(await auto(A) == 'Default (Sonnet 5.5)' and (await label(A))[0] == 'claude-sonnet-5-5', 'and it lasts across reloads', [await auto(A), await label(A)])

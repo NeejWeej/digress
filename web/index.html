@@ -166,7 +166,7 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 /* what doesn't fit in the top bar goes in the "more" menu (fitTop) */
 .tmore{position:fixed;z-index:60;display:none;flex-direction:column;align-items:stretch;gap:8px;padding:10px;border:1px solid var(--line2);border-radius:12px;background:var(--panel);box-shadow:var(--shadow);min-width:230px;max-width:calc(100vw - 16px)}
 .tmore.open{display:flex}
-.tmore .sel{justify-content:space-between;padding:3px 3px 3px 10px}.tmore .sel span{display:inline !important}.tmore .sel select{max-width:none !important}
+.tmore .sel{justify-content:space-between;padding:3px 3px 3px 10px}.tmore .sel span{display:inline !important}.tmore .sel select,.tmore .sel .mpick{max-width:none !important}
 .tmore .seg{justify-content:stretch}.tmore .seg button{flex:1;justify-content:center}.tmore .lbl{display:inline !important}
 .tmore .webt{justify-content:center;padding:7px 9px}
 .tmore #themeB,.tmore #zenB{width:auto;height:32px;justify-content:center;gap:6px;background:var(--user-bg);color:var(--ink)}
@@ -263,6 +263,13 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .wsrc .wq{color:var(--faint);margin:4px 0}
 .wsrc ol{margin:4px 0 6px;padding-left:20px}.wsrc li{margin:2px 0;overflow-wrap:anywhere}.wsrc .wh{color:var(--faint);font-size:11.5px}
 .sel select{font:13px var(--sans);color:var(--ink);background-color:var(--panel);border:0;border-radius:7px;padding:4px 24px 4px 8px;outline:none;cursor:pointer}
+.sel{position:relative}.sel select.mnative{position:absolute;left:0;bottom:0;width:1px;height:1px;padding:0;opacity:0;pointer-events:none}
+.sel .mpick{font:13px var(--sans);color:var(--ink);background-color:var(--panel);border:0;border-radius:7px;padding:4px 24px 4px 8px;cursor:pointer;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 12px) 55%,calc(100% - 8px) 55%;background-size:4px 4px;background-repeat:no-repeat}
+.sel .mpick:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 55%,transparent);outline-offset:1px}
+.mmenu{min-width:240px}.mmenu .mcount{margin-left:auto;flex:none;font-size:11.5px;color:var(--faint)}
+.mmenu .molder{font-size:12px;color:var(--muted);gap:8px}.mmenu .molder .chev{flex:none;display:inline-flex;color:var(--faint);transform:rotate(-90deg);transition:transform .15s}.mmenu .molder .chev svg.i{width:12px;height:12px}
+.mmenu .molder[aria-expanded=true] .chev{transform:none}.mmenu .molder[aria-expanded=false]+.molist{display:none}.mmenu .molist{padding-left:14px}
 .mdef{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;color:var(--faint)}
 .mdef .i{width:14px;height:14px}
 .mdef:hover{color:var(--accent);background:var(--panel)}
@@ -1107,7 +1114,7 @@ a.pref:hover{border-bottom-style:solid}
 @media (max-width:760px){.sgrip{display:none}.app{grid-template-columns:0 1fr}.app .side{display:none}.app.sideopen .side{display:block;position:fixed;top:48px;bottom:0;left:0;width:min(300px,86vw);z-index:40;box-shadow:var(--shadow)}.pane{min-width:88vw}.sel span{display:none}
   /* phone top bar: what fits; the rest is in the "more" menu */
   .top{gap:4px;padding:0 6px}.brand{font-size:0;gap:0;margin:0 2px}.ctitle,.status{display:none}
-  .sel{padding:2px}.sel select{max-width:110px;font-size:12.5px}.seg button{padding:5px 8px}
+  .sel{padding:2px}.sel select,.sel .mpick{max-width:110px;font-size:12.5px}.seg button{padding:5px 8px}
   .panes{padding:8px}.pb{padding:6px 14px 8px}.composer{padding:6px 8px 10px}.ph{padding:10px 6px 8px 15px}
   .pop{width:auto;left:8px !important;right:8px}.pal{padding-top:8vh}}
 /* touch screens have no hover: show the controls that otherwise appear on hover */
@@ -1161,7 +1168,7 @@ a.pref:hover{border-bottom-style:solid}
         <li>In a branch, <b>Back</b> returns you to the exact spot it came from, and <b>Takeaway</b> adds a short summary to the parent.</li>
         <li><b>Search</b> finds everything: questions, answers, highlights, takeaways and documents. Typos are fine.</li>
         <li><b>Zen</b> is just the panes, for reading. The tab at the top brings the rest back.</li>
-        <li>Collapse any pane to a thin strip and click the strip to expand it again (drag a strip to move it). <b>Focus</b> collapses everything else.</li>
+        <li>Collapse any pane to a thin strip and click the strip to expand it again (drag a strip to move it). <b>Collapse others</b> (in a pane’s header) collapses every other pane; again, or Esc, brings them back.</li>
         <li><b>Canvas</b>: drag the background to pan and scroll to zoom; drag a card by its title to move it, or to an edge to dock it.</li>
       </ul>
       <div class="hkeys"><button type="button" class="hkbtn" data-keys="1">Keyboard shortcuts</button> <span>or press <kbd>?</kbd></span></div>
@@ -1262,8 +1269,9 @@ const I={
  cols:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
  rows:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18M3 14.5h18"/>',
  canvas:'<rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="14" width="7" height="6" rx="1.5"/><rect x="14" y="4" width="7" height="6" rx="1.5"/><path d="M10 7h4M17.5 10v4"/>',
- focus:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
- unfocus:'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
+ focus:'<rect x="8" y="4" width="8" height="16" rx="1.5"/><path d="M4 6v12M20 6v12"/>',
+ unfocus:'<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="9.5" y="4" width="5" height="16" rx="1"/><rect x="16" y="4" width="5" height="16" rx="1"/>',
+ fitw:'<path d="M4 5v14M20 5v14M7.5 12h9M10 9.5 7.5 12l2.5 2.5M14 9.5l2.5 2.5-2.5 2.5"/>',
  collapse:'<path d="M6 12h12"/>',
  x:'<path d="M6 6l12 12M18 6L6 18"/>',
  swap:'<path d="M7 7h12l-3-3M17 17H5l3 3"/>',
@@ -3398,7 +3406,14 @@ function charRect(node,off){
   const n=node.length;if(!n)return null;const a=Math.min(off,n-1),r=document.createRange();r.setStart(node,a);r.setEnd(node,a+1);
   const rs=r.getClientRects();return rs.length?rs[0]:r.getBoundingClientRect();
 }
-function notePaneSpot(el){if(el.__restoring)return;clearTimeout(el.__spotT);el.__spotT=setTimeout(()=>{const pb=el.querySelector('.pb');if(pb&&pb.clientWidth>100&&!el.__restoring){el.__spot=paneSpotNow(pb);el.__spotTop=pb.scrollTop}},120)}
+// the full spot is worked out once scrolling pauses (120 ms); whether it's at the bottom is noted at once (cheap), so a
+// width change right after scrolling to the end keeps it there instead of going back to the spot from before
+function notePaneSpot(el){if(el.__restoring)return;const pb=el.querySelector('.pb');
+  // a scroll while the width differs from the one last handled is the text re-wrapping (Safari fires one before the
+  // resize is handled), not the reader: it mustn't replace the spot that's about to be put back
+  if(pb&&pb.__tw&&Math.abs(pb.clientWidth-pb.__tw)>1)return;
+  if(pb&&pb.clientWidth>100){el.__lag=true;el.__atEnd=pb.scrollHeight-pb.scrollTop-pb.clientHeight<4}
+  clearTimeout(el.__spotT);el.__spotT=setTimeout(()=>{if(pb&&pb.clientWidth>100&&!el.__restoring){el.__spot=paneSpotNow(pb);el.__spotTop=pb.scrollTop;el.__lag=false}},120)}
 function putPaneSpot(el,sp){
   const pb=el.querySelector('.pb');if(!sp||!pb)return;
   el.__restoring=true;clearTimeout(el.__spotT);
@@ -3415,6 +3430,8 @@ const paneRO=new ResizeObserver(es=>{for(const e of es){
   if(w<100)continue;   // a collapsed strip: keep the width it had, so expanding it puts the place back too
   // unless something jumped it elsewhere meanwhile (a jump to a passage while panes open must win): restore if it hasn't
   // scrolled, or only a little (the browser's own scroll anchoring nudging it), i.e. it's still at about the same place
+  if(pb.__tw&&Math.abs(w-pb.__tw)>1&&el.__lag){   // scrolled moments ago: the noted spot is out of date
+    clearTimeout(el.__spotT);el.__spot=null;if(el.__atEnd)putPaneSpot(el,{bottom:true});el.__lag=false;pb.__tw=w;setTimeout(()=>notePaneSpot(el),60);continue}
   if(pb.__tw&&Math.abs(w-pb.__tw)>1&&el.__spot){const sp=el.__spot,now=Math.abs(pb.scrollTop-el.__spotTop)<2?null:paneSpotNow(pb);
     if(sp.bottom||!now||(now.mid===sp.mid&&Math.abs(now.i-sp.i)<=3))putPaneSpot(el,sp)}
   pb.__tw=w;
@@ -3460,7 +3477,7 @@ function updateHeader(tid){
     o.innerHTML=`↳ ${crumbs} <sup style="font-size:10px;color:${color(t)}">${branchNum(t)}</sup>${t.anchorText?` · <q data-back="1" title="Show this passage in its source">${esc(trunc(t.anchorText,70))}</q>`:t.alt?' · another version':' · whole reply'}${nb?` · ${brCount(tid,nb)}`:''}`;
   }else o.innerHTML=brCount(tid,nb);
   const pb_=el.querySelector('[data-act="pin"]');if(pb_){const pinned=tid==='main'?!!conv.pinned:!!t.pinned;pb_.innerHTML=ic('pin');pb_.classList.toggle('pinned',pinned);pb_.title=tid==='main'?(pinned?'Unpin this conversation':'Pin this conversation to the top of the sidebar'):(pinned?'Unpin this branch':'Pin this branch to the top of the sidebar, so you can jump straight back to it')}
-  const f=el.querySelector('[data-act="focus"]');const on=isFocused(tid);f.innerHTML=ic(on?'unfocus':'focus');f.title=on?'Show all panes (Esc)':'Focus: collapse every other pane';f.classList.toggle('on',on);
+  const f=el.querySelector('[data-act="focus"]');const on=isFocused(tid);f.innerHTML=ic(on?'unfocus':'focus');f.title=on?'Expand the other panes again (Esc)':'Collapse the other panes';f.classList.toggle('on',on);
   el.querySelector('.rl').textContent=tid==='main'?'Main':t.title;
   const sd=el.querySelector('.sdot');if(sd){sd.classList.toggle('res',!!t.resolved);sd.title=t.resolved?'Resolved. Click to mark as still open.':'Open. Click to mark as resolved once you\'ve got it.'}
   el.classList.toggle('res',!!t.resolved);
@@ -4415,13 +4432,13 @@ function openFromCanvas(tid,mid){
 function setView(v){
   if(v!=='canvas')clearHere();
   // the panes are hidden while the canvas shows, and Safari forgets a hidden element's scroll: note each pane's, to put back
-  if(v==='canvas'&&conv.ui.view!=='canvas')for(const [,el] of paneEls){const pb=el.querySelector(':scope>.pb');if(pb)el.__viewTop=pb.scrollTop}
+  if(v==='canvas'&&conv.ui.view!=='canvas')for(const [tid,el] of paneEls){if(tid==='doc')continue;const pb=el.querySelector(':scope>.pb');if(pb)el.__viewTop=pb.scrollTop}   // (the document keeps its own spot: noteDocSpot)
   if(v==='canvas'){const from=conv.ui.view!=='canvas'?focusedPane():null;conv.ui.view='canvas';$('#stage').classList.add('canvas');hidePop();renderCanvas();if(from)requestAnimationFrame(()=>cvArrive(from))}
   else{
     const was=conv.ui.view;conv.ui.view='panes';$('#stage').classList.remove('canvas');
     if(v!==conv.ui.layout){conv.ui.layout=v;conv.ui.sizes={}}
     layout();if(was==='canvas'){conv.ui.open.forEach(id=>renderPane(id));
-      for(const [,el] of paneEls){const pb=el.querySelector(':scope>.pb');if(pb&&el.__viewTop!=null&&el.isConnected&&Math.abs(pb.scrollTop-el.__viewTop)>1)pb.scrollTop=el.__viewTop;el.__viewTop=null}}
+      for(const [,el] of paneEls){const pb=el.querySelector(':scope>.pb');if(pb&&el.__viewTop!=null&&el.isConnected&&Math.abs(pb.scrollTop-el.__viewTop)>1)holdScroll(pb,el.__viewTop);el.__viewTop=null}}
   }
   syncViewSeg();save();
 }
@@ -4570,7 +4587,7 @@ async function docReady(){if(conv&&conv.doc&&docState)await docState.ready}
 function docPaneEl(){
   const el=document.createElement('section');el.className='pane docpane';el.dataset.tid='doc';
   el.innerHTML=`<div class="ph"><span class="pgrip" title="Drag to reorder panes"></span><span class="docico">${ic('doc')}</span><div class="ph-main"><div class="ph-title"></div><div class="ph-orow"><div class="ph-origin"></div><button class="pox" data-act="oexp" title="Show the whole line"></button></div></div>
-    <div class="ph-act"><button class="ib" data-act="newfromdoc" title="New conversation from this document: a fresh conversation on the same file. This one stays as it is.">${ic('docnew')}</button><button class="ib" data-act="snip" title="Snip: drag a box over part of a page (a figure, a table, an equation) to ask about it. Esc cancels.">${ic('snip')}</button><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button><button class="ib pzf" data-act="zfit">${ic('fit')}</button></div><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it. (⌘\\ / Ctrl+\\ for the pane you’re in)">${ic('collapse')}</button><button class="ib" data-act="focus"></button><button class="ib" data-act="close" title="Close the document’s pane. Its row at the top of Branches in the sidebar brings it back (so do page links and Show in source). (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button></div></div>
+    <div class="ph-act"><button class="ib" data-act="newfromdoc" title="New conversation from this document: a fresh conversation on the same file. This one stays as it is.">${ic('docnew')}</button><button class="ib" data-act="snip" title="Snip: drag a box over part of a page (a figure, a table, an equation) to ask about it. Esc cancels.">${ic('snip')}</button><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button><button class="ib pzf" data-act="zfit" title="Fit the pages to the pane’s width (100%)">${ic('fitw')}</button></div><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it. (⌘\\ / Ctrl+\\ for the pane you’re in)">${ic('collapse')}</button><button class="ib" data-act="focus"></button><button class="ib" data-act="close" title="Close the document’s pane. Its row at the top of Branches in the sidebar brings it back (so do page links and Show in source). (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button></div></div>
     <div class="pb"><div class="docwrap"></div></div>
     <div class="jumpw"><div class="jump"><button class="ib js" data-act="jsearch" title="Search this document">${ic('search')}</button><button class="ib jm" data-act="jmark" title="Mark where you got up to">${ic('mark')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button></div></div>
     <div class="rail-label"><span class="docico">${ic('doc')}</span><span class="rl"></span></div>`;
@@ -4612,7 +4629,7 @@ function updateDocHeader(){
   }else o.innerHTML=bl;
   // opened from a link: show where it came from
   const src=conv.doc.source;if(src&&/^https?:\/\//i.test(src)&&docState&&docState.loaded){try{const a=document.createElement('a');a.href=src;a.target='_blank';a.rel='noopener noreferrer';a.className='docsrc';a.textContent=new URL(src).hostname;a.title=src;o.append(' · ',a)}catch(e){}}
-  const f=el.querySelector('[data-act="focus"]');const on=isFocused('doc');f.innerHTML=ic(on?'unfocus':'focus');f.title=on?'Show all panes (Esc)':'Focus: collapse every other pane';f.classList.toggle('on',on);
+  const f=el.querySelector('[data-act="focus"]');const on=isFocused('doc');f.innerHTML=ic(on?'unfocus':'focus');f.title=on?'Expand the other panes again (Esc)':'Collapse the other panes';f.classList.toggle('on',on);
   el.querySelector('.rl').textContent=conv.doc.name;
 }
 function renderDocPane(force){
@@ -5681,7 +5698,7 @@ const KEYS=[
   ['Asking',[
     [['Enter'],'Send',['Enter']],
     [['Shift+Enter'],'A new line',['Shift+Enter']],
-    [['Esc'],'Close the question box; leave Focus',['Escape']],
+    [['Esc'],'Close the question box; expand the panes “Collapse others” folded',['Escape']],
   ]],
   ['In search',[
     [['↑','↓','Enter'],'Pick and open a result',['ArrowUp','ArrowDown']],
@@ -6101,8 +6118,19 @@ function applyContent(c,next){
 // redraw the panes without losing where each was scrolled: Safari resets a pane's scroll to the top when the layout
 // moves it (Chrome keeps it), so a pane that came back at the top is put back where it was
 function keepPaneTops(f){
-  const tops=[];for(const [,el] of paneEls){const pb=el.querySelector(':scope>.pb');if(pb&&pb.scrollTop>0)tops.push([el,pb,pb.scrollTop])}
-  f();for(const [el,pb,t] of tops)if(el.isConnected&&pb.scrollTop===0)pb.scrollTop=t;
+  const tops=[];for(const [tid,el] of paneEls){if(tid==='doc')continue;const pb=el.querySelector(':scope>.pb');if(pb&&pb.scrollTop>0)tops.push([el,pb,pb.scrollTop])}
+  f();for(const [el,pb,t] of tops)if(el.isConnected&&pb.scrollTop===0)holdScroll(pb,t);
+}
+// put a pane's scroll back to `top`, and keep it there for a moment while the pane is still being laid out (content
+// that renders a frame later, math, would otherwise leave it short: the first try is clamped to a shorter pane).
+// Stops at once if the reader scrolls, touches, clicks or types.
+function holdScroll(pb,top,ms=1000){
+  pb.scrollTop=top;const end=performance.now()+ms;let stop=false;
+  const quit=()=>{stop=true};const evs=['wheel','touchstart','pointerdown','keydown'];
+  for(const t of evs)pb.addEventListener(t,quit,{passive:true,once:true});
+  const tick=()=>{if(stop||performance.now()>end||!pb.isConnected){for(const t of evs)pb.removeEventListener(t,quit);return}
+    if(Math.abs(pb.scrollTop-top)>1&&pb.scrollHeight-pb.clientHeight>=top-1)pb.scrollTop=top;requestAnimationFrame(tick)};
+  requestAnimationFrame(tick);
 }
 // redraw the open conversation after it changed underneath (layout stays as it is on this device)
 function refreshAfterSync(){
@@ -6541,7 +6569,7 @@ const mSel=$('#mSel'),eSel=$('#eSel'),webT=$('#webT');
 MODELS.forEach(([v,l])=>mSel.add(new Option(l,v)));EFFORTS.forEach(([v,l])=>eSel.add(new Option(l,v)));
 function fillModelPicker(){
   const list=io.llm?io.llm.models():MODELS;mSel.replaceChildren();list.forEach(([v,l])=>mSel.add(new Option(l,v)));
-  applyConvLlm();
+  applyConvLlm();syncPick();
   eSel.closest('.sel').style.display=io.llm&&io.llm.supportsEffort?'':'none';
   webT.style.display=io.llm&&io.llm.supportsWeb?'':'none';
 }
@@ -6574,6 +6602,7 @@ function closeTopmost(){
   if($('#docModal').classList.contains('show')){closeDocModal();return true}
   if($('#pal').classList.contains('show')){closePalette();return true}
   if(themeMenu.classList.contains('open')){closeThemes();return true}
+  if(modelsOpen()){closeModels();return true}
   if(moreMenu.classList.contains('open')){closeMore();return true}
   const vw=$('#cvViews');if(vw&&vw.classList.contains('open')){closeViews();return true}
   if(brPop){closeBrList();return true}
@@ -6817,7 +6846,7 @@ function applyConvLlm(tid,quiet){
     if(EFFORTS.some(e=>e[0]===want[1]))effort=want[1];
   }
   settings.model=model;settings.effort=effort;mSel.value=model;if(!mSel.value)mSel.value=settings.model='auto';eSel.value=effort;
-  syncDefStar();
+  syncDefStar();syncPick();
   const lbl=mSel.closest('.sel');if(lbl)lbl.title=`Which model answers in ${tid==='main'?'the main thread':'this branch'}. A new branch starts with the model of the one it came from; each reply shows the model that answered.`;
   const said=conv.id+'|'+llmMissing;
   if(llmMissing&&llmMissSaid!==said&&!quiet){llmMissSaid=said;
@@ -6853,6 +6882,73 @@ mDef.onclick=async(e)=>{e.preventDefault();e.stopPropagation();const id=settings
 // another device may have changed the default: refresh the list when this tab comes back
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&io.llm&&io.llm.setDefault)io.llm.loadModels().then(fillModelPicker)});
 eSel.onchange=()=>{settings.effort=eSel.value;if(stickLlm(pickerTid())&&hasMsgs())save()};
+/* The model picker: a button that opens a menu of the models grouped by who makes them (Anthropic, OpenAI), each
+   group folding like Appearance's sections: opened, the group with the current model is unfolded and the others
+   folded, so a long list (OpenAI's) is out of the way. With one family, it's a plain list. The <select> (#mSel)
+   stays, hidden, as the source of truth: picking here sets it and fires its change, so everything that reads or
+   sets it (the tests, the ⋯ menu moving it) is unchanged. */
+const FAMILIES=[['claude','Anthropic'],['gpt','OpenAI']];
+const famOf=(v)=>{const f=MODEL_FAM(v);return FAMILIES.some(([k])=>k===f)?f:'other'};
+// a model's version, as the numbers in its id (gpt-6.2-sol → [6,2], claude-opus-5-5 → [5,5]); compared part by part
+const modelVer=(v)=>(String(v).match(/\d+/g)||[]).map(Number);
+const verCmp=(a,b)=>{for(let i=0;i<Math.max(a.length,b.length);i++){const d=(a[i]||0)-(b[i]||0);if(d)return d}return 0};
+const mPick=document.createElement('button');mPick.type='button';mPick.id='mPick';mPick.className='mpick';mPick.setAttribute('aria-haspopup','true');mPick.setAttribute('aria-expanded','false');
+mSel.after(mPick);mSel.classList.add('mnative');mSel.tabIndex=-1;mSel.setAttribute('aria-hidden','true');
+const modelMenu=document.createElement('div');modelMenu.className='thmenu mmenu';modelMenu.setAttribute('role','menu');document.body.appendChild(modelMenu);
+function syncPick(){const o=mSel.selectedOptions[0];mPick.textContent=o?o.textContent:'Model'}
+mSel.addEventListener('change',syncPick);
+function fillModelMenu(){
+  const cur=mSel.value,opts=[...mSel.options].map(o=>[o.value,o.textContent]);
+  const item=(v,l)=>{const b=document.createElement('button');b.type='button';b.dataset.model=v;b.setAttribute('role','menuitemradio');b.setAttribute('aria-checked',v===cur?'true':'false');
+    b.innerHTML=`<span></span><span class="ck">${ic('check')}</span>`;b.firstChild.textContent=l;return b};
+  const head=document.createElement('div');head.className='thh';head.textContent='Model';modelMenu.replaceChildren(head);
+  const auto=opts.find(([v])=>v==='auto'),rest=opts.filter(([v])=>v!=='auto');if(auto)modelMenu.append(item(...auto));
+  const fams=[...FAMILIES,['other','Other']].map(([k,n])=>[k,n,rest.filter(([v])=>famOf(v)===k)]).filter(f=>f[2].length);
+  if(fams.length<2){for(const [v,l] of rest)modelMenu.append(item(v,l));return}
+  let open=famOf(cur==='auto'?resolvedModel():cur);   // Default: the family of the model it stands for
+  if(!fams.some(f=>f[0]===open))open=fams[0][0];   // (not known yet: the first)
+  for(const [k,n,ms] of fams){
+    const g=document.createElement('button');g.type='button';g.className='thgrp';g.dataset.g=k;g.setAttribute('aria-expanded',k===open?'true':'false');
+    g.innerHTML=`<span class="chev">${ic('chev')}</span><span class="thgn"></span><span class="thcur"></span><span class="mcount"></span>`;
+    g.querySelector('.thgn').textContent=n;g.querySelector('.mcount').textContent=ms.length;
+    const c=ms.find(([v])=>v===cur);if(c)g.querySelector('.thcur').textContent=c[1];   // folded, it still says which is picked
+    const list=document.createElement('div');list.className='thlist';list.setAttribute('role','group');
+    // the newest of each kind first (another Opus, another GPT Sol); earlier versions fold under Older, opened when
+    // the current model is one of them
+    const newest=new Map();for(const [v] of ms){const t=modelTier(v),n=modelVer(v);if(!newest.has(t)||verCmp(n,newest.get(t))>0)newest.set(t,n)}
+    const old=ms.filter(([v])=>verCmp(modelVer(v),newest.get(modelTier(v)))<0);
+    for(const [v,l] of ms)if(!old.some(o=>o[0]===v))list.append(item(v,l));
+    if(old.length){
+      const ob=document.createElement('button');ob.type='button';ob.className='molder';ob.setAttribute('aria-expanded',old.some(([v])=>v===cur)?'true':'false');
+      ob.innerHTML=`<span class="chev">${ic('chev')}</span><span>Older</span><span class="mcount"></span>`;ob.querySelector('.mcount').textContent=old.length;
+      const ol=document.createElement('div');ol.className='molist';ol.setAttribute('role','group');for(const [v,l] of old)ol.append(item(v,l));
+      list.append(ob,ol);
+    }
+    modelMenu.append(g,list);
+  }
+}
+function placeModels(){
+  const r=mPick.getBoundingClientRect(),vh=(window.visualViewport?visualViewport.height:innerHeight);
+  modelMenu.style.maxHeight=(vh-16)+'px';const h=modelMenu.offsetHeight;
+  modelMenu.style.top=Math.max(8,Math.min(r.bottom+6,vh-h-8))+'px';
+  modelMenu.style.left=Math.max(8,Math.min(innerWidth-modelMenu.offsetWidth-8,r.left))+'px';
+}
+const modelsOpen=()=>modelMenu.classList.contains('open');
+function closeModels(){if(!modelsOpen())return;modelMenu.classList.remove('open');mPick.setAttribute('aria-expanded','false')}
+mPick.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();if(modelsOpen())return closeModels();
+  closeThemes();fillModelMenu();modelMenu.classList.add('open');mPick.setAttribute('aria-expanded','true');modelMenu.scrollTop=0;placeModels();
+  const ck=modelMenu.querySelector('button[aria-checked=true]');if(ck&&ck.offsetParent)ck.focus({preventScroll:true})});
+modelMenu.addEventListener('click',e=>{e.stopPropagation();
+  const o=e.target.closest('.molder');if(o){o.setAttribute('aria-expanded',o.getAttribute('aria-expanded')==='true'?'false':'true');placeModels();return}
+  const g=e.target.closest('.thgrp');
+  if(g){g.setAttribute('aria-expanded',g.getAttribute('aria-expanded')==='true'?'false':'true');placeModels();
+    if(g.getAttribute('aria-expanded')==='true'){const l=g.nextElementSibling;if(l.getBoundingClientRect().bottom>modelMenu.getBoundingClientRect().bottom)g.scrollIntoView({block:'start',behavior:'smooth'})}return}
+  const b=e.target.closest('button[data-model]');if(!b)return;
+  closeModels();if(mSel.value!==b.dataset.model){mSel.value=b.dataset.model;mSel.dispatchEvent(new Event('change'))}mPick.focus({preventScroll:true})});
+document.addEventListener('click',closeModels);
+addEventListener('keydown',e=>{if(e.key==='Escape'&&modelsOpen()){e.stopPropagation();closeModels();mPick.focus({preventScroll:true})}},true);
+addEventListener('resize',()=>{if(modelsOpen())placeModels()});
+syncPick();
 $('#tSide').addEventListener('click',()=>{const app=$('#app');if(zen){app.classList.toggle('zenside');return}if(innerWidth<760){app.classList.toggle('sideopen')}else{app.classList.toggle('noside');try{localStorage.setItem('sq:noside',app.classList.contains('noside')?'1':'')}catch(e){}}setTimeout(()=>{wires();if(conv.ui.view==='canvas')applyCam()},50)});
 try{if(localStorage.getItem('sq:noside'))$('#app').classList.add('noside')}catch(e){}
 (()=>{

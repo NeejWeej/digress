@@ -60,7 +60,7 @@
     const method = (init.method || 'GET').toUpperCase();
     const p = url.pathname.split('/').filter(Boolean).map(decodeURIComponent); // ['api', ...]
     if (p[1] === 'health') { const ok = !!(await waitForModel()); return json({ app: 'digress', llm: ok, provider: 'fake', providers: ok ? ['fake'] : [], web: true, why: 'No fake model in this test.' }); }
-    if (p[1] === 'models') return json({ models: [['claude-opus-5-5', 'Opus 5.5'], ['claude-sonnet-5-5', 'Sonnet 5.5'], ['claude-haiku-5-5', 'Haiku 5.5']], defaultLabel: 'Opus 5.5' });
+    if (p[1] === 'models') return json({ models: window.fakeModels || [['claude-opus-5-5', 'Opus 5.5'], ['claude-sonnet-5-5', 'Sonnet 5.5'], ['claude-haiku-5-5', 'Haiku 5.5']], defaultLabel: 'Opus 5.5' });   // a test can list others (window.fakeModels)
     if (p[1] === 'chat' && p[2] === 'stop' && method === 'POST') { const c = runs.get(JSON.parse(init.body).chat); if (c) c.abort(); return json({ ok: true }); }
     if (p[1] === 'chat' && p[2] === 'run') return json({ error: 'Not found' }, 404);   // reconnecting isn't faked (test_runs.py covers the real server)
     if (p[1] === 'chat' && method === 'POST') {
