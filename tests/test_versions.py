@@ -92,6 +92,18 @@ async def main():
         got = [await qtexts(pg.locator('.pane[data-tid=main]')), await pg.locator('.pane[data-tid=main] .msg.user').first.locator('.vchip').all_inner_texts()]
         check('after a reload it all stays', got[0] == ['Q1 what is a tide?', 'Q2 and neap tides?'] and '3 versions' in ''.join(got[1]), got)
         s = await saved(); check('the saved conversation is well formed', not s['bad'], s['bad'])
+
+        # on the canvas: the version's card says what it is and has “Use this version” too
+        await pg.click('[data-v=canvas]'); await frames(pg)
+        card = pg.locator(f'#cv .cnode[data-ctid="{vb_tid}"]')
+        line = await card.locator('.cq').inner_text()
+        await card.screenshot(path=OUT + '/versions_canvas_card.png')
+        check('on the canvas, a version’s card says it’s another version (not “The whole reply”)', 'Another version' in line and 'whole reply' not in line, line)
+        mainq = "() => __digress.conv.order.main.map(id => __digress.conv.msgs[id]).filter(m => m.role === 'user').map(m => m.content)"
+        await card.locator('[data-usev]').click(); await frames(pg)
+        check('…and its “Use this version” swaps it in', await pg.evaluate(mainq) == ['Q1b why are there two tides a day?', 'Q3 follow-up'], await pg.evaluate(mainq))
+        check('…the canvas stays, and the old one is offered for deleting', await pg.evaluate("__digress.conv.ui.view") == 'canvas' and 'Delete the old version' in await pg.locator('#toast').inner_text())
+        await page_saved(pg); s = await saved(); check('…and the saved conversation is well formed', not s['bad'], s['bad'])
         check('no page errors', not errs, errs[:3])
         await b.close()
     print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')
