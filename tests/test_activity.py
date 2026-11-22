@@ -32,7 +32,7 @@ def conv(cid, title, depth, extra_on_main=0, t0=now):
         order[tid] = []
     return {'id': cid, 'title': title, 'created': t0, 'updated': t0, 'rev': 1, 'threads': th, 'msgs': msgs, 'order': order, 'nextColor': 12}
 
-CONVS = [conv('cdeep', 'Deep one', 4, 0, now - 3 * DAY), conv('cwide', 'Wide one', 1, 3, now - 10 * DAY)]
+CONVS = [conv('cdeep', 'Deep one', 4, 0, now - 3 * DAY), conv('cwide', 'Wide one', 1, 4, now - 10 * DAY)]
 def card(i, reviews, status='active'):
     return {'id': f'k{i}', 'conv': 'cdeep', 'convTitle': 'Deep one', 'thread': 'b0', 'front': f'Card {i}?', 'back': 'A.', 'status': status, 'created': now - 9 * DAY,
             'due': now - DAY, 'fsrs': {'S': 4, 'D': 5, 'state': 'review', 'last': now - 2 * DAY, 'reps': len(reviews), 'lapses': 0} if reviews else None, 'reviews': reviews}
@@ -52,8 +52,8 @@ async def main():
         await goto_app(pg); await booted(pg)
         await pg.locator('#actBtn').click(); await pg.locator('#activity .acgrid').wait_for(); await frames(pg, 3)
         top = await pg.locator('#activity .actop').inner_text()
-        # questions: 1 + 4 (deep) + 1 + 1 (wide) = 7; branches: 4 + 1 + 3 = 8; reviews: 5
-        check('totals: questions, branches, reviews', '7 questions' in top.replace('\n', ' ') and '8 branches' in top.replace('\n', ' ') and '5 reviews' in top.replace('\n', ' '), top)
+        # questions: 1 + 4 (deep) + 1 + 1 (wide) = 7; branches: 4 + 1 + 4 = 9 (wide has more than deep: no tie to order by chance); reviews: 5
+        check('totals: questions, branches, reviews', '7 questions' in top.replace('\n', ' ') and '9 branches' in top.replace('\n', ' ') and '5 reviews' in top.replace('\n', ' '), top)
         lit = await pg.evaluate("[...document.querySelectorAll('#activity .acday[data-aday]:not(.l0)')].length")
         check('the grid lights the days something happened', lit == 5, lit)
         await pg.locator('#activity [data-akind=r]').click(); await frames(pg)
@@ -72,7 +72,7 @@ async def main():
         holes = await pg.locator('#activity .acholes').inner_text()
         check('rabbit holes: the deepest dive', '4 levels down' in holes.lower() and await pg.locator('#activity .acpath .acstep').count() == 5, holes[:300])
         check('…most branched first', holes.index('Wide one') < holes.index('Deep one', holes.index('MOST') if 'MOST' in holes else holes.index('Most')), holes)
-        check('…a passage you kept coming back to', 'softmax and keys' in holes and '3 branches' in holes)
+        check('…a passage you kept coming back to', 'softmax and keys' in holes and '4 branches' in holes)
         await pg.screenshot(path=OUT + '/activity.png', full_page=True)
 
         await pg.locator('#activity [data-acard=k1]').click(); await pg.locator('#cardsModal.show').wait_for(); await frames(pg, 3)

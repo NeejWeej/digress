@@ -13,7 +13,8 @@ the new endpoints refuse what they should. Asserts and exits non-zero.
 """
 import asyncio, json, os, re, shutil, subprocess, sys, tempfile, time
 from playwright.async_api import async_playwright
-from common import FIX, OUT, launch_args, BOOT_WATCH, booted, replies, settled, saved
+from common import FIX, OUT, launch_args, BOOT_WATCH, booted, replies, settled, saved, chromium_only
+chromium_only('it prints its test PDF with Chromium (page.pdf)')
 from common import CORS
 from test_server import FAKES, CDN, free_port, start, req, wait_port
 

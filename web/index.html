@@ -439,6 +439,7 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .brpop{position:fixed;z-index:60;background:var(--panel);border:1px solid var(--line2);border-radius:10px;box-shadow:var(--shadow);padding:6px;overflow:auto;overscroll-behavior:contain}
 .brpop .brhead{font-size:11.5px;color:var(--muted);padding:2px 8px 6px}
 .brpop ul.brtop{border-left:0;margin-left:0;padding-left:0}
+.brpop ul.brmain{border-bottom:1px solid var(--line);padding-bottom:4px;margin-bottom:6px}
 .ph-origin .pgn:hover{color:var(--ink);border-bottom-color:var(--ink)}
 .ph-origin .pgin{font:inherit;color:var(--ink);width:6ch;padding:0 3px;border:1px solid var(--line2);border-radius:5px;background:var(--panel);outline:none}
 .ph-origin .pgin:focus{border-color:var(--accent)}
@@ -2949,7 +2950,7 @@ function openThread(tid,from){
 // have rows in the sidebar's Branches that bring them back.
 function closeThread(tid,o={}){
   const t=T(tid),ui=conv.ui;if(!ui.open.includes(tid))return;
-  if(ui.open.length<2){toast('At least one pane stays open');return}
+  if(ui.open.length<2){if(tid==='main'&&isBlank(conv)){discardBlank();return}toast('At least one pane stays open');return}
   const kids=tid==='main'||tid==='doc'?[]:ui.open.filter(x=>isDesc(x,tid));   // open branches under it stay open (each one's crumb reopens this pane)
   ui.open=ui.open.filter(x=>x!==tid);ui.collapsed=ui.collapsed.filter(x=>ui.open.includes(x));
   if(!ui.open.some(x=>!isCollapsed(x)))ui.collapsed=[];   // never leave only strips
@@ -3364,9 +3365,60 @@ function paneEl(tid){
   title.addEventListener('dblclick',()=>{if(isMain)return;title.contentEditable='true';title.focus();document.getSelection().selectAllChildren(title)});
   title.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();title.blur()}});
   title.addEventListener('blur',()=>{if(title.contentEditable!=='true')return;title.contentEditable='false';const v=title.textContent.trim();if(v&&T(tid)){const ch=v!==T(tid).title;T(tid).title=v;if(ch)T(tid).titleKept=true;delete T(tid).autoTitle;refreshAnchorsFor(tid);renderMap();save()}});
-  el.querySelector('.pb').addEventListener('scroll',()=>{wiresSoon();updateJump(el)},{passive:true});
+  const pb=el.querySelector('.pb');
+  pb.addEventListener('scroll',()=>{wiresSoon();updateJump(el);notePaneSpot(el)},{passive:true});
+  paneRO.observe(pb);
   paneEls.set(tid,el);originRO.observe(el);return el;
 }
+/* Every thread pane keeps its place when its width changes (another pane collapsed, closed or opened, the sidebar
+   went, the window resized): text re-wraps at once, and the same scroll offset would point somewhere else. As you
+   scroll, a pane notes what's at its reading line (the message, the paragraph in it, how far into that) or that it's
+   at the bottom; a width change puts that back. Safari has no scroll anchoring of its own, and Chrome's misses this. */
+const PANE_BLOCKS='p,li,pre,blockquote,h1,h2,h3,h4,h5,h6,table,.mermaid-box,mjx-container[display],img,hr';
+function paneSpotNow(pb){
+  if(pb.scrollHeight-pb.scrollTop-pb.clientHeight<4)return {bottom:true};
+  const top=pb.getBoundingClientRect().top,y=top+pb.clientHeight*READ_LINE,msgs=[...pb.querySelectorAll(':scope .msgs>.msg')];
+  const m=msgs.find(x=>{const r=x.getBoundingClientRect();return r.bottom>y})||msgs[msgs.length-1];if(!m)return null;
+  const blocks=[...m.querySelectorAll(PANE_BLOCKS)].filter(b=>!b.parentElement.closest(PANE_BLOCKS));
+  const host=blocks.find(b=>b.getBoundingClientRect().bottom>y)||m,r=host.getBoundingClientRect();
+  const sp={mid:m.dataset.mid,i:host===m?-1:blocks.indexOf(host),f:r.height?Math.max(0,Math.min(1,(y-r.top)/r.height)):0};
+  // exactly: the character at the reading line, and how far below its line's top the reading line is
+  const c=caretAt(pb.getBoundingClientRect().left+pb.clientWidth/2,y);
+  // measured from the top of the pane, not of its scrolling part: the header can change height too (a narrow pane's
+  // buttons wrap onto a second row), and the text should stay where it is on screen
+  if(c&&pb.contains(c.node)){const cr=charRect(c.node,c.off);if(cr)sp.text={node:c.node,off:c.off,y:cr.top-pb.closest('.pane').getBoundingClientRect().top}}
+  return sp;
+}
+function caretAt(x,y){
+  if(document.caretRangeFromPoint){const r=document.caretRangeFromPoint(x,y);if(r&&r.startContainer.nodeType===3)return {node:r.startContainer,off:r.startOffset}}
+  else if(document.caretPositionFromPoint){const p=document.caretPositionFromPoint(x,y);if(p&&p.offsetNode.nodeType===3)return {node:p.offsetNode,off:p.offset}}
+  return null;
+}
+function charRect(node,off){
+  const n=node.length;if(!n)return null;const a=Math.min(off,n-1),r=document.createRange();r.setStart(node,a);r.setEnd(node,a+1);
+  const rs=r.getClientRects();return rs.length?rs[0]:r.getBoundingClientRect();
+}
+function notePaneSpot(el){if(el.__restoring)return;clearTimeout(el.__spotT);el.__spotT=setTimeout(()=>{const pb=el.querySelector('.pb');if(pb&&pb.clientWidth>100&&!el.__restoring){el.__spot=paneSpotNow(pb);el.__spotTop=pb.scrollTop}},120)}
+function putPaneSpot(el,sp){
+  const pb=el.querySelector('.pb');if(!sp||!pb)return;
+  el.__restoring=true;clearTimeout(el.__spotT);
+  const t=sp.text,cr=t&&t.node.isConnected&&pb.contains(t.node)&&charRect(t.node,t.off);
+  if(sp.bottom)pb.scrollTop=pb.scrollHeight;
+  else if(cr&&cr.height)pb.scrollTop+=cr.top-el.getBoundingClientRect().top-t.y;
+  else{const m=pb.querySelector(`.msgs>.msg[data-mid="${CSS.escape(sp.mid)}"]`);if(m){
+    const blocks=[...m.querySelectorAll(PANE_BLOCKS)].filter(b=>!b.parentElement.closest(PANE_BLOCKS)),host=sp.i>=0&&blocks[sp.i]||m,r=host.getBoundingClientRect();
+    pb.scrollTop+=r.top+sp.f*r.height-pb.getBoundingClientRect().top-pb.clientHeight*READ_LINE}}
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{el.__restoring=false;el.__spotTop=pb.scrollTop}));
+}
+const paneRO=new ResizeObserver(es=>{for(const e of es){
+  const pb=e.target,el=pb.closest('.pane');if(!el||el.dataset.tid==='doc')continue;const w=pb.clientWidth;
+  if(w<100)continue;   // a collapsed strip: keep the width it had, so expanding it puts the place back too
+  // unless something jumped it elsewhere meanwhile (a jump to a passage while panes open must win): restore if it hasn't
+  // scrolled, or only a little (the browser's own scroll anchoring nudging it), i.e. it's still at about the same place
+  if(pb.__tw&&Math.abs(w-pb.__tw)>1&&el.__spot){const sp=el.__spot,now=Math.abs(pb.scrollTop-el.__spotTop)<2?null:paneSpotNow(pb);
+    if(sp.bottom||!now||(now.mid===sp.mid&&Math.abs(now.i-sp.i)<=3))putPaneSpot(el,sp)}
+  pb.__tw=w;
+}});
 function updateJump(el){
   const pb=el.querySelector('.pb');if(!pb)return;
   el.classList.toggle('away',pb.scrollHeight-pb.scrollTop-pb.clientHeight>100);
@@ -3507,7 +3559,9 @@ function refreshAnchorsFor(tid){const t0=T(tid);if(isDocBranch(t0))refreshDocAnc
 function gutEl(tid){
   let g=gutEls.get(tid);if(g)return g;
   g=document.createElement('div');g.className='gut';g.dataset.left=tid;g.title='Drag to resize, double-click to reset';
-  g.addEventListener('pointerdown',e=>startDrag(e,g));
+  // no text selection or native drag while resizing: in Safari, a selection left elsewhere turned the press into a
+  // drag of that text, and the handle got no more pointer events
+  g.addEventListener('pointerdown',e=>{e.preventDefault();try{getSelection().removeAllRanges()}catch(_){}startDrag(e,g)});
   g.addEventListener('dblclick',()=>{const t=gutTarget(g);if(t){delete conv.ui.sizes[t.tid];layout();save()}});
   gutEls.set(tid,g);return g;
 }
@@ -3528,12 +3582,15 @@ function layout(){
   for(const [tid,el] of paneEls)if(!ui.open.includes(tid)||(!T(tid)&&!(tid==='doc'&&conv.doc))){el.remove();paneEls.delete(tid);gutEls.get(tid)&&gutEls.get(tid).remove();gutEls.delete(tid)}
   const seq=[],fresh=[];
   const inDock=docInDock(),dEl=paneEls.get('doc'),dWas=dEl&&dEl.parentNode,dSpot=dEl&&docSpotNow();
+  // the only pane not collapsed fills the space: a width you dragged it to is kept (it comes back when another pane
+  // opens) but only as its least, so collapsing the others doesn't leave it narrow beside empty space
+  const lone=ui.open.filter(x=>!isCollapsed(x)&&!(inDock&&x==='doc')).length===1;
   ui.open.forEach((tid,i)=>{
     if(inDock&&tid==='doc'){if(!paneEls.has(tid))fresh.push(tid);paneEl(tid);return}   // it's in its canvas card
     const isNew=!paneEls.has(tid);const el=paneEl(tid);
     const rail=isCollapsed(tid);el.classList.toggle('rail',rail);
     el.title=rail?'Click to expand':'';
-    const sz=ui.sizes[tid];el.style.flex=(sz&&!rail)?`0 0 ${sz}px`:'';el.classList.toggle('sized',!!(sz&&!rail));
+    const sz=ui.sizes[tid];el.style.flex=(sz&&!rail)?`${lone?1:0} 0 ${sz}px`:'';el.classList.toggle('sized',!!(sz&&!rail));
     seq.push(el);if(isNew)fresh.push(tid);else updateHeader(tid);
     if(i<ui.open.length-1||!rail){const g=gutEl(tid);g.classList.toggle('glast',i===ui.open.length-1);seq.push(g)}   // the last pane gets one too, so its size can be changed
   });
@@ -3644,7 +3701,9 @@ function startDrag(e,g){
     const was=parseFloat(d0.el.style.flex.split(' ')[2])||raw();
     d0.start-=grow;const now=set(size());
     if(d0.stuck!=null)d0.start=d0.at-(now-d0.size);   // stopped at the snap: no overshoot kept for later
-    const moved=now-was;if(moved>0){if(d0.cols)box.scrollLeft+=moved;else box.scrollTop+=moved}
+    // scroll by as much, kept as an exact number: Safari rounds scrollLeft to whole pixels, so += a fraction each frame
+    // fell behind (the handle ended up ~40px past the pointer)
+    const moved=now-was;if(moved>0){const k=d0.cols?'scrollLeft':'scrollTop';if(d0.scrollAt==null||Math.abs(box[k]-d0.scrollAt)>1)d0.scrollAt=box[k];d0.scrollAt+=moved;box[k]=d0.scrollAt}
     d0.raf=requestAnimationFrame(tick);
   };
   const edge=()=>{if(!d0.raf&&d0.sign===1&&edgeDist()<EDGE_ZONE){d0.t=0;d0.in=0;d0.go=0;d0.raf=requestAnimationFrame(tick)}};
@@ -4355,11 +4414,14 @@ function openFromCanvas(tid,mid){
 }
 function setView(v){
   if(v!=='canvas')clearHere();
+  // the panes are hidden while the canvas shows, and Safari forgets a hidden element's scroll: note each pane's, to put back
+  if(v==='canvas'&&conv.ui.view!=='canvas')for(const [,el] of paneEls){const pb=el.querySelector(':scope>.pb');if(pb)el.__viewTop=pb.scrollTop}
   if(v==='canvas'){const from=conv.ui.view!=='canvas'?focusedPane():null;conv.ui.view='canvas';$('#stage').classList.add('canvas');hidePop();renderCanvas();if(from)requestAnimationFrame(()=>cvArrive(from))}
   else{
     const was=conv.ui.view;conv.ui.view='panes';$('#stage').classList.remove('canvas');
     if(v!==conv.ui.layout){conv.ui.layout=v;conv.ui.sizes={}}
-    layout();if(was==='canvas')conv.ui.open.forEach(id=>renderPane(id));
+    layout();if(was==='canvas'){conv.ui.open.forEach(id=>renderPane(id));
+      for(const [,el] of paneEls){const pb=el.querySelector(':scope>.pb');if(pb&&el.__viewTop!=null&&el.isConnected&&Math.abs(pb.scrollTop-el.__viewTop)>1)pb.scrollTop=el.__viewTop;el.__viewTop=null}}
   }
   syncViewSeg();save();
 }
@@ -4439,7 +4501,7 @@ function startDoc(){
   const d=conv.doc,key=conv.id;
   if(docState&&docState.key===key)return docState.ready;
   if(docView.obs)docView.obs.disconnect();
-  docView.rendered=new Map();docView.current=1;docView.width=0;
+  docView.rendered=new Map();docView.current=1;docView.width=0;docView.stale=false;
   const st=docState={key,kind:d.kind,name:d.name,pages:null,n:d.pages||0,error:null,loaded:false,progress:0};
   st.ready=(async()=>{
     try{
@@ -4519,8 +4581,9 @@ function docPaneEl(){
     // a text document re-wraps the moment its width changes (another pane closed, the sidebar went): the same scroll
     // offset is now somewhere else, so put the reading spot back right away
     if(docState&&docState.loaded&&docState.kind!=='pdf'){const w=pb.clientWidth;if(pb.__tw&&w>100&&Math.abs(w-pb.__tw)>1){const sp=docSpotNow();if(sp)putDocSpot(sp)}pb.__tw=w;return}
-    if(!docState||!docState.loaded||docState.kind!=='pdf'||!docView.width)return;
-    if(Math.abs(pb.clientWidth-docView.width)<40||pb.clientWidth<100)return;
+    if(!docState||!docState.loaded||docState.kind!=='pdf')return;
+    // a redraw that was put off while the pane had no width (hidden, mid-move) happens now; otherwise only a real change
+    if(pb.clientWidth<100||(!docView.stale&&Math.abs(pb.clientWidth-docView.width)<40))return;
     // re-fit after the resize settles, but only if the same PDF is still open in this pane
     // (switching to another document inside the 250 ms used to rebuild the old one from the new state)
     const ds=docState;
@@ -4540,7 +4603,7 @@ function trackDocPage(){
 function updateDocHeader(){
   const el=paneEls.get('doc');if(!el||!conv.doc)return;
   el.querySelector('.ph-title').textContent=conv.doc.name;
-  const o=el.querySelector('.ph-origin'),nb=docBranches().filter(b=>!hiddenNow(b.id)).reduce((n,b)=>n+1+descendants(b.id).length,0),bl=brCount('doc',nb);
+  const o=el.querySelector('.ph-origin'),nb=docBranches().filter(b=>!hiddenNow(b.id)).reduce((n,b)=>n+1+descendants(b.id).length,0),bl=brCount('doc',nb,true);   // always a list: it has the main thread
   if(o.querySelector('.pgin'))return;   // typing a page number: don't redraw it out from under you
   if(!docState||(!docState.loaded&&!docState.error))o.textContent=docState&&docState.progress?`Reading ${docState.progress} of ${docState.n} pages…`:'Loading…';
   else if(docState.error)o.textContent='Couldn\'t load the document';
@@ -4577,7 +4640,12 @@ function renderDocPane(force){
 }
 async function buildPdfPages(el,wrap){
   const pdf=docState&&docState.pdf,pb=el.querySelector('.pb');if(!pdf)return;
+  // never at the width of a pane that's hidden or being moved (0: the pages came out at the 260px minimum and, with
+  // the width noted as 0, were never redrawn): put it off, and the resize watcher redraws once it has a real width
+  if(pb.clientWidth<100){docView.stale=true;return}
   const v1=(await pdf.getPage(1)).getViewport({scale:1});
+  if(pb.clientWidth<100){docView.stale=true;return}   // (hidden while the page was fetched)
+  docView.stale=false;
   const W=Math.max(260,pb.clientWidth-44-2);   // the padding, and nothing else: the scrollbar's space is already reserved (scrollbar-gutter)
   docView.scale=W/v1.width*paneZoom('doc');docView.width=pb.clientWidth;
   if(docView.obs)docView.obs.disconnect();
@@ -5674,18 +5742,22 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-keys]')){e.prev
 /* ---------- sidebar ---------- */
 function renderTitle(){const el=$('#cTitle');if(document.activeElement!==el)el.textContent=conv.title||'New conversation';updateHeader('main')}
 // the branch count in a pane's header opens a list of those branches (the sidebar's tree from that pane down)
-function brCount(tid,nb){const l=`${nb} branch${nb===1?'':'es'}`;return nb?`<button type="button" class="bcount" data-brlist="${tid}" title="See the branches off this">${l}</button>`:l}
+function brCount(tid,nb,always){const l=`${nb} branch${nb===1?'':'es'}`;return nb||always?`<button type="button" class="bcount" data-brlist="${tid}" title="${tid==='doc'?'See the branches off the document, and the main thread':'See the branches off this'}">${l}</button>`:l}
 let brPop=null;   // {tid, el, btn}
 function closeBrList(){if(!brPop)return;brPop.el.remove();brPop.btn&&brPop.btn.classList.remove('on');brPop=null}
 function fillBrList(){
   if(!brPop)return;const {tid,el}=brPop;
   if(!conv||brPop.conv!==conv.id||(tid!=='doc'&&!T(tid))||(tid==='doc'&&!conv.doc)){closeBrList();return}
   const kids=tid==='doc'?docBranches().filter(b=>!hiddenNow(b.id)):kidsOf(tid);
-  if(!kids.length){closeBrList();return}
+  if(!kids.length&&tid!=='doc'){closeBrList();return}
   const n=tid==='doc'?kids.reduce((n,b)=>n+1+descendants(b.id).length,0):descendants(tid).length;
   const h=document.createElement('div');h.className='brhead';h.textContent=`${n} branch${n===1?'':'es'} off ${tid==='doc'?'the document':tid==='main'?'the main thread':'“'+trunc(T(tid).title,40)+'”'}`;
   const ul=document.createElement('ul');ul.className='brtop';kids.forEach(c=>ul.appendChild(mapNode(c.id,{lite:true})));
-  el.replaceChildren(h,ul);placeBrList();
+  // the document's list starts with the main thread (the chat about the whole document): the other head of the
+  // conversation, one tap from the document even when its pane is closed. Just its row, not its branches.
+  const top=[];if(tid==='doc'){const li=mapNode('main',{lite:true}),sub=li.querySelector(':scope>ul');if(sub)sub.remove();li.firstChild.title='Open the main thread: the chat about the whole document';
+    const m=document.createElement('ul');m.className='brtop brmain';m.appendChild(li);top.push(m)}
+  el.replaceChildren(...top,h,...(kids.length?[ul]:[]));placeBrList();
 }
 function placeBrList(){
   if(!brPop)return;const {el}=brPop;
@@ -5837,9 +5909,15 @@ let convListLoaded=false;   // cardSource says nothing until the list is in
 let trashOpen=false;try{trashOpen=localStorage.getItem('digress:trash')==='1'}catch(e){}
 /* Deleting moves a conversation to the trash (shared: every device sees it there) for TRASH_DAYS; Restore brings it
    back. An empty conversation, or "Delete for good", is deleted at once (deleteConv). Its flashcards stay either way. */
+// a conversation with nothing in it yet (no question, no document): never saved, so there's nothing to keep
+const isBlank=(c)=>!!c&&!c.doc&&!(c.order.main||[]).length&&Object.keys(c.threads).length===1;
+// after the open conversation goes: the latest other one, else a fresh one
+async function openNextAfter(id){dirty=false;const next=convList.find(c=>c.id!==id&&!c.trashed&&!c.archived);if(next)await openConv(next.id);else setConv(newConv())}
+// put away an empty new conversation (✕ on its only pane, or Delete): saved, it's deleted; never saved, just dropped
+async function discardBlank(){const id=conv.id;if(convList.some(c=>c.id===id)){await deleteConv(id);return}await openNextAfter(id);renderConvList()}
 async function trashConv(id,o={}){
   const isOpen=conv&&conv.id===id;
-  if(isOpen&&!Object.keys(conv.msgs).length&&!conv.doc){deleteConv(id);return}
+  if(isOpen&&isBlank(conv)){discardBlank();return}
   const cards=[...CARDS.values()].filter(c=>c.conv===id);
   if(cards.length&&o.drop===undefined){
     const m=convInfo(id)||{};
@@ -6020,12 +6098,18 @@ function applyContent(c,next){
     if(m&&card.at.thread!==m.thread){if(card.thread===card.at.thread)card.thread=m.thread;card.at.thread=m.thread;putCard(card)}
   }
 }
+// redraw the panes without losing where each was scrolled: Safari resets a pane's scroll to the top when the layout
+// moves it (Chrome keeps it), so a pane that came back at the top is put back where it was
+function keepPaneTops(f){
+  const tops=[];for(const [,el] of paneEls){const pb=el.querySelector(':scope>.pb');if(pb&&pb.scrollTop>0)tops.push([el,pb,pb.scrollTop])}
+  f();for(const [el,pb,t] of tops)if(el.isConnected&&pb.scrollTop===0)pb.scrollTop=t;
+}
 // redraw the open conversation after it changed underneath (layout stays as it is on this device)
 function refreshAfterSync(){
   const ui=conv.ui,keep=x=>conv.threads[x]||(x==='doc'&&conv.doc);
   ui.open=ui.open.filter(keep);if(!ui.open.length)ui.open=['main'];ui.collapsed=(ui.collapsed||[]).filter(keep);
   for(const [tid,el] of paneEls)if(!ui.open.includes(tid)){el.remove();paneEls.delete(tid)}
-  layout();for(const id of ui.open)if(id!=='doc'&&T(id))renderPane(id);
+  keepPaneTops(()=>{layout();for(const id of ui.open)if(id!=='doc'&&T(id))renderPane(id)});
   renderTitle();renderMap();renderConvList();syncCardsUI();syncViewsUI();if(ui.view==='canvas')renderCanvas();
   placeMark();applyConvLlm();resumeRuns();
 }
@@ -6117,7 +6201,7 @@ async function deleteConv(id){
   if(dropK)for(const k of [...CARDS.values()].filter(k=>k.conv===id))await dropCard(k.id);
   idxDelete(id);
   convList=convList.filter(c=>c.id!==id);
-  if(conv&&conv.id===id){dirty=false;setConv(newConv())}else renderConvList();
+  if(conv&&conv.id===id)await openNextAfter(id);else renderConvList();
 }
 function setConv(c){
   clearHere();   // "You were here" belongs to this conversation's canvas visit

@@ -3,7 +3,8 @@ with a mouse and a press-and-hold on touch, so clicks, header buttons, double-cl
 between panes keep working. The order is saved. Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import OUT, launch_args, goto_app, booted, answered, saved, frames, calm
+from common import OUT, launch_args, goto_app, booted, answered, saved, frames, calm, chromium_only
+chromium_only('touch input through the Chrome DevTools Protocol')
 from common import CORS
 from test_pane_zoom import MAP
 

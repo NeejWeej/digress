@@ -5,7 +5,7 @@ brings that branch's card into view beside it (not behind it), it survives
 the canvas redrawing, and switching back to Columns puts the pane back where it was. Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import ROOT, FIX, OUT, launch_args, goto_app, booted, answered, PDF_DRAWN_JS
+from common import soon, ROOT, FIX, OUT, launch_args, goto_app, booted, answered, PDF_DRAWN_JS
 from common import CORS
 
 MAP = {
@@ -53,6 +53,7 @@ async def main():
         await pg.wait_for_function("!!document.querySelector('#dock .docpanecard .cdocpane > .pane.docpane .dpage canvas')", timeout=15000)
         check('Expand docks the real document pane beside the canvas', await host.locator('.pane.docpane').count() == 1 and await pg.locator('#panes .pane.docpane').count() == 0)
         await pg.wait_for_timeout(600)   # (deliberate: the PDF re-fits 250 ms after the pane changes width)
+        await soon(pg, "(()=>{const pb=document.querySelector('#dock .docpane .pb'),c=document.querySelector('#dock .docpane .dpage canvas');return !!c&&c.getBoundingClientRect().width>pb.clientWidth*0.75})()")   # (a slower engine may still be redrawing)
         fit = await pg.evaluate("(()=>{const pb=document.querySelector('#dock .docpane .pb'),c=document.querySelector('#dock .docpane .dpage canvas');return [Math.round(c.getBoundingClientRect().width),pb.clientWidth]})()")
         check('its pages are drawn to its width (sharp: not scaled by the canvas)', fit[0] > fit[1] * 0.75 and fit[0] <= fit[1], fit)
         await pg.screenshot(path=OUT + '/canvas_doc_docked.png')

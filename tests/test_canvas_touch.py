@@ -3,7 +3,8 @@ and scrolling inside a card without moving the canvas. Touches go through CDP so
 real gesture handling (touch-action, pointercancel) applies. Asserts and exits non-zero."""
 import asyncio, re, sys
 from playwright.async_api import async_playwright
-from common import ROOT, PAGE, OUT, launch_args, goto_app, booted, answered, calm
+from common import ROOT, PAGE, OUT, launch_args, goto_app, booted, answered, calm, chromium_only
+chromium_only('touch input through the Chrome DevTools Protocol')
 from common import CORS
 
 MAP = {

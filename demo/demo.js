@@ -12,13 +12,15 @@
   const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
 
   // ---- a key-value store in IndexedDB ----
+  // Files are kept as bytes (ArrayBuffer), not Blobs: Safari's private browsing can't store a Blob in IndexedDB, and
+  // then nothing loaded (the sample, its PDF).
   let dbp = null;
   const db = () => dbp || (dbp = new Promise((ok, no) => {
     const r = indexedDB.open('digress-demo', 1);
     r.onupgradeneeded = () => r.result.createObjectStore('kv');
     r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error);
   }));
-  const tx = async (mode, f) => { const d = await db(); return new Promise((ok, no) => { const t = d.transaction('kv', mode), s = t.objectStore('kv'); let out; const r = f(s); if (r) r.onsuccess = () => { out = r.result; }; t.oncomplete = () => ok(out); t.onerror = () => no(t.error); }); };
+  const tx = async (mode, f) => { const d = await db(); return new Promise((ok, no) => { const t = d.transaction('kv', mode), s = t.objectStore('kv'); let out; const r = f(s); if (r) r.onsuccess = () => { out = r.result; }; t.oncomplete = () => ok(out); t.onerror = t.onabort = () => no(t.error || new Error('the demo’s storage refused it')); }); };
   const kv = {
     get: (k) => tx('readonly', (s) => s.get(k)),
     put: (k, v) => tx('readwrite', (s) => s.put(v, k)),
@@ -42,8 +44,7 @@
     for (const k of old) await kv.del(k);
     for (const [id, c] of await kv.list('cards/')) if (c && gone.has(c.conv)) await kv.del('cards/' + id);
     for (const [id, f] of Object.entries(s.files || {})) {
-      const blob = await (await realFetch(f.src)).blob();
-      await kv.put('file/' + id, { type: f.type, blob });
+      await kv.put('file/' + id, { type: f.type, buf: await (await realFetch(f.src)).arrayBuffer() });
     }
     for (const [k, v] of Object.entries(s.store || {})) await kv.put(k, v);
     await kv.put('seededKeys', [...Object.keys(s.store || {}), ...Object.keys(s.files || {}).map((id) => 'file/' + id)]);
@@ -137,12 +138,12 @@
     if (p[0] === 'files') {
       if (method === 'POST') {
         const id = Array.from(crypto.getRandomValues(new Uint8Array(16)), (x) => x.toString(16).padStart(2, '0')).join('');
-        await kv.put('file/' + id, { type: url.searchParams.get('type') || 'application/octet-stream', blob: new Blob([init.body]), at: Date.now() });
+        await kv.put('file/' + id, { type: url.searchParams.get('type') || 'application/octet-stream', buf: await new Response(init.body).arrayBuffer(), at: Date.now() });
         return json({ id });
       }
       if (method === 'DELETE') { await kv.del('file/' + p[1]); return json({ ok: true }); }
       const f = await kv.get('file/' + p[1]);
-      return f ? new Response(f.blob, { headers: { 'content-type': f.type } }) : json({ error: 'Not found' }, 404);
+      return f ? new Response(f.buf || f.blob, { headers: { 'content-type': f.type } }) : json({ error: 'Not found' }, 404);   // (blob: saved before files were kept as bytes)
     }
     return json({ error: 'Not found' }, 404);
   };
@@ -152,10 +153,12 @@
 #demoNote b{color:var(--ink)}#demoNote a,#demoNote button.lk{color:var(--accent);background:none;border:0;padding:0;font:inherit;cursor:pointer;text-decoration:underline}
 #demoNote .x{position:absolute;right:6px;top:5px;border:0;background:none;color:var(--faint);font-size:15px;cursor:pointer;padding:2px 5px}
 #demoNote.small{padding:4px 10px;max-width:none}#demoNote.small .full,#demoNote:not(.small) .short{display:none}
-@media (max-width:700px){#demoNote{bottom:auto;top:52px;left:8px;right:8px;max-width:none}#demoNote.small{right:auto}}`;
+@media (max-width:700px){#demoNote{bottom:auto;top:52px;left:8px;right:8px;max-width:none}#demoNote.small{right:auto}}
+#demoNote{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}#demoNote.dragging{cursor:grabbing;opacity:.92}#demoNote a,#demoNote button{cursor:pointer}`;
   function note() {
     const st = document.createElement('style'); st.textContent = NOTE_CSS; document.head.appendChild(st);
     const n = document.createElement('div'); n.id = 'demoNote';
+    n.title = 'Drag to move it out of the way';
     n.innerHTML = `<div class="full"><b>This is a demo of Digress.</b> There's no model behind it: the sample's replies were written in advance, and other questions get the closest passages of the document. Everything stays in this browser. <button class="lk" data-demo="reset">Start over</button> · <a href="https://github.com/NeejWeej/digress#readme" target="_blank" rel="noopener">Get Digress</a></div>
 <div class="short"><button class="lk" data-demo="open">Demo</button> · <button class="lk" data-demo="reset">Start over</button></div><button class="x full" data-demo="hide" title="Make this smaller">×</button>`;
     let small = false; try { small = sessionStorage.getItem('digress:demo-note') === 'small'; } catch (e) { /* no storage */ }
@@ -166,12 +169,29 @@
         if (!confirm('Start the demo over? This removes everything you did here and brings back the sample.')) return;
         resetting = true;   // from here on this page saves nothing (a last save while it unloads would undo the reset)
         await kv.clear(); try { localStorage.clear(); } catch (err) { /* no storage */ }
-        location.hash = ''; location.reload(); return;
+        location.replace(location.href.split('#')[0]); return;   // one navigation: the page without its #c=… (a hash change then a reload is two)
       }
       const s = a.dataset.demo === 'hide'; n.classList.toggle('small', s);
       try { sessionStorage.setItem('digress:demo-note', s ? 'small' : 'big'); } catch (err) { /* no storage */ }
     });
+    // drag it anywhere (it can sit over the keyboard shortcuts or a pane's buttons); where it was is kept for this tab
+    const KEY = 'digress:demo-note-at', clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const place = (x, y) => { const r = n.getBoundingClientRect();
+      x = clamp(x, 4, innerWidth - r.width - 4); y = clamp(y, 4, innerHeight - r.height - 4);
+      Object.assign(n.style, { left: x + 'px', top: y + 'px', right: 'auto', bottom: 'auto' }); return [x, y]; };
+    let drag = null, at = null;
+    n.addEventListener('pointerdown', (e) => {
+      if (e.button || e.target.closest('a,button')) return;
+      const r = n.getBoundingClientRect(); drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+      n.setPointerCapture(e.pointerId); n.classList.add('dragging'); e.preventDefault();
+    });
+    n.addEventListener('pointermove', (e) => { if (drag) at = place(e.clientX - drag.dx, e.clientY - drag.dy); });
+    const end = () => { if (!drag) return; drag = null; n.classList.remove('dragging');
+      if (at) try { sessionStorage.setItem(KEY, JSON.stringify(at)); } catch (err) { /* no storage */ } };
+    n.addEventListener('pointerup', end); n.addEventListener('pointercancel', end);
     document.body.appendChild(n);
+    try { const s = JSON.parse(sessionStorage.getItem(KEY) || 'null'); if (s) at = place(s[0], s[1]); } catch (err) { /* no storage */ }
+    addEventListener('resize', () => { if (at) at = place(at[0], at[1]); });   // still on screen after the window shrinks
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', note); else note();
 

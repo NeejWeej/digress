@@ -153,6 +153,16 @@ async def main():
             check('…with its document', await pg.evaluate("!!__digress.conv.doc.assetId && !__digress.conv.doc.left"))
             check('…and nothing was sent anywhere (no request but GETs)', not sent, sent[:5])
 
+            # the note can be dragged out of the way (it can cover the keyboard shortcuts), and stays there
+            box0 = await note.bounding_box()
+            await pg.mouse.move(box0['x'] + 8, box0['y'] + box0['height'] - 6); await pg.mouse.down()
+            await pg.mouse.move(box0['x'] + 500, box0['y'] - 300, steps=8); await pg.mouse.up()
+            box1 = await note.bounding_box()
+            check('the demo note can be dragged out of the way', box1['x'] > box0['x'] + 400 and box1['y'] < box0['y'] - 200, [box0, box1])
+            await pg.reload(); await booted(pg)
+            box2 = await pg.locator('#demoNote').bounding_box()
+            check('…and stays there after a reload', abs(box2['x'] - box1['x']) < 3 and abs(box2['y'] - box1['y']) < 3, [box1, box2])
+
             # a phone: the note can be made small
             ph = await b.new_page(viewport={'width': 390, 'height': 800})
             ph.on('pageerror', lambda e: errs.append(str(e)))

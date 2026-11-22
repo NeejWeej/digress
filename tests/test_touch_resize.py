@@ -2,7 +2,8 @@
 narrower than the default phone width, instead of scrolling the page. Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import PAGE, OUT, launch_args, goto_app, booted, answered, saved, frames, calm
+from common import PAGE, OUT, launch_args, goto_app, booted, answered, saved, frames, calm, chromium_only
+chromium_only('touch input through the Chrome DevTools Protocol')
 from common import CORS
 from test_pane_zoom import MAP, FAKE
 
