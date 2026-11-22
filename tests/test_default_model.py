@@ -64,6 +64,12 @@ async def main():
             # changing it on B reaches A when A's tab comes back
             await B.locator('#mSel').select_option('claude-haiku-5-5'); await star(B).click()
             await B.wait_for_function("document.querySelector('#mSel').selectedOptions[0].textContent.includes('Haiku')")
+            # the picker shows Haiku as soon as it's picked; wait for the star's save to reach the server, or A may ask too early
+            # (it asks once, when its tab comes back, and then has nothing to make it ask again: this failed on CI)
+            for _ in range(100):
+                if models()['chosen'] == 'claude-haiku-5-5': break
+                await asyncio.sleep(0.1)
+            check(models()['chosen'] == 'claude-haiku-5-5', 'the star on B saves the new default on the server', models())
             await A.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
             await A.wait_for_function("document.querySelector('#mSel option[value=auto]').textContent.includes('Haiku')", timeout=10000)
             check(True, 'a change on one device shows on another when its tab comes back')
