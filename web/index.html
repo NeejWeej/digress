@@ -1285,7 +1285,8 @@ const I={
  rows:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18M3 14.5h18"/>',
  canvas:'<rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="14" width="7" height="6" rx="1.5"/><rect x="14" y="4" width="7" height="6" rx="1.5"/><path d="M10 7h4M17.5 10v4"/>',
  focus:'<rect x="8" y="4" width="8" height="16" rx="1.5"/><path d="M4 6v12M20 6v12"/>',
- unfocus:'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',   // (the canvas card's "put it back")
+ unfocus:'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',   // the canvas's shrink / put it back (corners in)
+ expand:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',   // the canvas's expand / fill (corners out); not Collapse others' icon
  fitw:'<path d="M4 5v14M20 5v14M7.5 12h9M10 9.5 7.5 12l2.5 2.5M14 9.5l2.5 2.5-2.5 2.5"/>',
  collapse:'<path d="M6 12h12"/>',
  x:'<path d="M6 6l12 12M18 6L6 18"/>',
@@ -3845,7 +3846,7 @@ function renderCanvas(){
       (kids.length?`<button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} the ${descendants(t.id).length} branch${descendants(t.id).length===1?'':'es'} below this card">${folded?'+'+descendants(t.id).length:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+kids.length}</button>`:'')+
       `<span class="czoom"><button class="ib" data-cact="zout" title="Make just this card smaller (or Alt+scroll over it)">−</button><span class="zl" data-cact="zedit" title="This card's own zoom. Click to type a zoom level.">100%</span><button class="ib" data-cact="zin" title="Make just this card bigger (or Alt+scroll over it)">+</button></span>`+
       `<button class="ib${docked?' stuck':''}" data-cact="stick" title="${docked?'Stuck to the screen: it stays put while you pan and zoom. Click to drop it onto the canvas where it is.':'Stick to the screen: keep this card in view at reading size while you pan and zoom around it.'}">${ic('pin')}</button>`+
-      (docked?`<button class="ib" data-cact="restore" title="Put it back where it was on the canvas (↓ or Esc)">${ic('unfocus')}</button>`:`<button class="ib" data-cact="exp" title="${exp?'Shrink back to a summary':'Expand to read the full thread here'} (⌘\\ / Ctrl+\\ for the selected card)">${ic(exp?'unfocus':'focus')}</button>`)+
+      (docked?`<button class="ib" data-cact="restore" title="Put it back where it was on the canvas (↓ or Esc)">${ic('unfocus')}</button>`:`<button class="ib" data-cact="exp" title="${exp?'Shrink back to a summary':'Expand to read the full thread here'} (⌘\\ / Ctrl+\\ for the selected card)">${ic(exp?'unfocus':'expand')}</button>`)+
       `<button class="ib" data-cact="panes" title="Open this thread in the pane view">${ic('cols')}</button>`+
       (t.parent?`<button class="ib dz" data-delb="${t.id}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`:'')+`</div>`+
       (t.anchorText||(t.parent&&t.anchorMsg&&!isDocBranch(t))?'<div class="cq"></div>':'');   // a whole-reply branch has a line too, to jump to its reply
@@ -3894,7 +3895,7 @@ function renderCanvas(){
     const n=document.createElement('div');n.className='cnode main docnode docked docpanecard';n.dataset.ctid='doc';n.style.setProperty('--c','var(--faint)');
     // Expand fills the canvas; dragging it to a side edge (or Side) keeps it to half, with the canvas beside it
     const whole=S.dock.doc.w>=.99&&S.dock.doc.h>=.99;
-    n.innerHTML=`<div class="ch" title="Drag to move it, or to another edge. Double-click to open the document in the pane view."><span class="docico">${ic('doc')}</span><span class="ct"></span>${whole?`<button class="ib" data-cact="docside" title="Keep it to the left half, with the canvas beside it (or drag it to an edge)">${ic('side')}</button>`:`<button class="ib" data-cact="docdock" title="Fill the canvas with the document">${ic('focus')}</button>`}<button class="ib" data-cact="restore" title="Put it back on the canvas as a card (Esc)">${ic('unfocus')}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="cdocpane"></div>`;
+    n.innerHTML=`<div class="ch" title="Drag to move it, or to another edge. Double-click to open the document in the pane view."><span class="docico">${ic('doc')}</span><span class="ct"></span>${whole?`<button class="ib" data-cact="docside" title="Keep it to the left half, with the canvas beside it (or drag it to an edge)">${ic('side')}</button>`:`<button class="ib" data-cact="docdock" title="Fill the canvas with the document">${ic('expand')}</button>`}<button class="ib" data-cact="restore" title="Put it back on the canvas as a card (Esc)">${ic('unfocus')}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="cdocpane"></div>`;
     n.querySelector('.ct').textContent=conv.doc.name;
     addSizing(n,'doc',true,S);
     dock.appendChild(n);nodes.doc=n;
@@ -3902,7 +3903,7 @@ function renderCanvas(){
     const n=document.createElement('div');n.className='cnode main docnode';n.dataset.ctid='doc';n.style.setProperty('--c','var(--faint)');
     const nb=docBranches(),folded=S.fold.includes('doc'),nd=descendants('doc').length;
     const hasThumb=docState&&docState.loaded&&docState.kind==='pdf'&&docState.pdf;
-    n.innerHTML=`<div class="ch" title="Drag to move. Double-click to open the document."><span class="docico">${ic('doc')}</span><span class="ct"></span><button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} everything below the document">${folded?'+'+nd:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+(nb.length+1)}</button><button class="ib" data-cact="docdock" title="Read the document here, filling the canvas (or drag this card to an edge to keep it to one side)">${ic('focus')}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="crs"></div>`;
+    n.innerHTML=`<div class="ch" title="Drag to move. Double-click to open the document."><span class="docico">${ic('doc')}</span><span class="ct"></span><button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} everything below the document">${folded?'+'+nd:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+(nb.length+1)}</button><button class="ib" data-cact="docdock" title="Read the document here, filling the canvas (or drag this card to an edge to keep it to one side)">${ic('expand')}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="crs"></div>`;
     n.querySelector('.ct').textContent=conv.doc.name;
     const rows=n.querySelector('.crs');
     if(hasThumb){   // first page preview; fixed height, so the layout doesn't shift when the image arrives
