@@ -2826,7 +2826,7 @@ async function startMainOver(){
    nothing else. The reading mark stays with the old one. */
 async function newFromDoc(){
   if(!conv.doc)return;
-  await flushNow();
+  if(!await leaveOk())return;
   const src=conv,c=newConv(),d=JSON.parse(JSON.stringify(src.doc));delete d.mark;
   c.doc=d;c.ui.open=['doc','main'];
   if(src.titleKept){c.title=src.title;c.titleKept=true}else{c.title=d.name||'New conversation';if(d.kind==='pdf')c.autoTitle=c.title}
@@ -5261,7 +5261,7 @@ async function startFromDoc(){
   const clip=kind==='text'&&!article&&clipFrontMatter(text);
   if(clip){text=clip.md;if(!typed&&clip.title)name=clip.title;if(clip.source&&!source)source=clip.source}
   $('#docGo').disabled=true;msg('Saving the document…');
-  await flushNow();
+  if(!await leaveOk()){$('#docGo').disabled=false;msg('');return}
   const c=newConv();c.title=name;c.doc={kind,name};
   // a typed title stays; otherwise a PDF may swap in its own title once pdf.js reads it (startDoc)
   if(typed||(article&&article.title)||(clip&&clip.title))c.titleKept=true;else if(kind==='pdf')c.autoTitle=name;if(source)c.doc.source=source;c.ui.open=['doc','main'];
@@ -6033,6 +6033,18 @@ async function openPinnedBranch(cid,tid){
    can't be combined, this page's version is kept as a separate conversation. Coming back to the tab (catchUp)
    fetches whatever changed elsewhere, so switching devices finds everything where it was left. */
 let saveTimer=0,saving=false,dirty=false;
+/* A save that fails (no connection) isn't dropped: the change stays pending and is tried again, after 2 s, then
+   less often (at most every 30 s), and at once when the connection comes back or the tab is shown. Leaving the
+   conversation with it still unsaved asks first (leaveOk), and so does closing the tab. When the tab is hidden
+   (another tab or app, the screen locked, usually a close or reload too), a pending change is saved right away
+   instead of 0.7 s later. */
+let saveFailed=false,saveTries=0,retryT=0;
+function retrySave(){clearTimeout(retryT);retryT=setTimeout(()=>{if(dirty&&conv){saveTries++;flush()}},Math.min(30000,2000*Math.pow(2,saveTries)))}
+function saveSoon(){if(dirty&&conv&&!saving){clearTimeout(saveTimer);clearTimeout(retryT);flush()}}
+addEventListener('online',saveSoon);
+document.addEventListener('visibilitychange',saveSoon);   // hidden: don't wait the 0.7 s; shown again: retry now
+addEventListener('pagehide',saveSoon);
+addEventListener('beforeunload',e=>{if(saveFailed&&dirty){e.preventDefault();e.returnValue=''}});   // a change that couldn't be saved: the browser asks
 const sync={id:null,rev:0,base:null,sent:'',ui:'',uiSaving:0};   // for the open conversation: its version, content as last saved/loaded, what that was
 function save(){if(!conv)return;dirty=true;if(typeof IDX!=='undefined')IDX.dirty=true;clearTimeout(saveTimer);saveTimer=setTimeout(flush,700)}
 const LOCAL_MSG=['pending','ver','live','t0','toolNow'];   // per page, never saved
@@ -6059,8 +6071,10 @@ async function flush(){
     console.warn('save failed',e);
     if(e&&e.code==='quota_exceeded')toast('Storage is full. Delete an old conversation.');
     else if(e&&e.code==='invalid_argument'&&JSON.stringify(contentOf(c)).length>250000)toast('This conversation is too large to save (256 KB limit).');
+    else if(c===conv){if(!saveFailed)toast('Couldn’t save just now. It keeps trying in the background.');dirty=true;saveFailed=true;retrySave();setStatus('Not saved yet: retrying')}   // (a connection that dropped: keep it and try again; one popup, not one per try)
     else setStatus('Not saved');
   }
+  if(c===conv&&!dirty&&saveFailed){saveFailed=false;saveTries=0;clearTimeout(retryT);setStatus('Saved');toast('Saved. All caught up.')}
   saving=false;
   if(!convList.length&&c!==conv)return;
   const i=convList.findIndex(x=>x.id===c.id);const meta=metaOf(c);
@@ -6198,10 +6212,15 @@ async function loadList(){
   }catch(e){console.warn('list failed',e)}
   renderConvList();
 }
+// before leaving the open conversation: save what's pending; if that fails (no connection), ask, since leaving drops it
+async function leaveOk(){
+  await flushNow();if(!dirty||!saveFailed||!conv||isBlank(conv))return true;
+  return new Promise(ok=>askConfirm('This change isn’t saved yet','The last change to this conversation couldn’t be saved (no connection?). It’s still trying. If you leave now, the change is lost.',()=>ok(true),{ok:'Leave anyway',cancel:'Stay',onCancel:()=>ok(false)}));
+}
 async function openConv(id){
   if(conv&&conv.id===id)return;
   await io.ready;
-  await flushNow();
+  if(!await leaveOk())return;
   let data=null;
   try{
     data=await io.store.get(id);
@@ -6484,13 +6503,15 @@ document.addEventListener('mouseover',e=>{
 
 /* ---------- confirm dialog ---------- */
 let modalOk=null;
+let modalCancel=null;
 function askConfirm(title,html,onOk,o={}){
-  $('#mTitle').textContent=title;$('#mBody').innerHTML=html;modalOk=onOk;hideTip();$('#mOk').textContent=o.ok||'Delete';$('#mOk').className='mbtn '+(o.kind||'danger');$('#modal .mbox').classList.toggle('wide',!!o.wide);
+  if(modalCancel){const f=modalCancel;modalCancel=null;f()}   // (one still open: it's answered as cancelled)
+  $('#mTitle').textContent=title;$('#mBody').innerHTML=html;modalOk=onOk;modalCancel=o.onCancel||null;$('#mCancel').textContent=o.cancel||'Cancel';hideTip();$('#mOk').textContent=o.ok||'Delete';$('#mOk').className='mbtn '+(o.kind||'danger');$('#modal .mbox').classList.toggle('wide',!!o.wide);
   $('#modal').classList.add('show');setTimeout(()=>$('#mOk').focus(),20);
 }
-function closeModal(){$('#modal').classList.remove('show');modalOk=null}
+function closeModal(){$('#modal').classList.remove('show');modalOk=null;const f=modalCancel;modalCancel=null;f&&f()}
 $('#mCancel').onclick=closeModal;
-$('#mOk').onclick=()=>{const f=modalOk;closeModal();f&&f()};
+$('#mOk').onclick=()=>{const f=modalOk;modalCancel=null;closeModal();f&&f()};
 $('#modal').addEventListener('mousedown',e=>{if(e.target.id==='modal')closeModal()});
 $('#modal').addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();closeModal()}});
 function confirmDeleteBranch(tid){
@@ -6964,7 +6985,7 @@ try{if(localStorage.getItem('sq:noside'))$('#app').classList.add('noside')}catch
   g.addEventListener('dblclick',()=>{setW(0);try{localStorage.removeItem('sq:sidew')}catch(e){}after()});
 })();
 $('#viewSeg').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(b)setView(b.dataset.v)});
-$('#newConv').addEventListener('click',async()=>{BACK.length=0;renderBack();await flushNow();setConv(newConv());setTimeout(()=>{if(!$('#pal').classList.contains('show'))paneEls.get('main').querySelector('textarea').focus()},30)});   // not if search opened meanwhile
+$('#newConv').addEventListener('click',async()=>{if(!await leaveOk())return;BACK.length=0;renderBack();setConv(newConv());setTimeout(()=>{if(!$('#pal').classList.contains('show'))paneEls.get('main').querySelector('textarea').focus()},30)});   // not if search opened meanwhile
 const ct=$('#cTitle');
 ct.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();ct.blur()}});
 ct.addEventListener('blur',()=>{const v=ct.textContent.trim();if(v&&v!==conv.title){conv.title=v;conv.titleKept=true;delete conv.autoTitle;updateHeader('main');save()}else renderTitle()});

@@ -139,6 +139,8 @@ Everything Digress tells the model (the tutor instructions, how branches, takeaw
 
 Open it from your laptop and your phone (see [Using it from other devices](docs/remote-access.md)) and they stay in step. Switch back to a tab and it picks up whatever you did elsewhere, without a reload; the layout stays as it was on that device. If both changed the same conversation, the two are combined and nothing is lost: when both asked from the same point, the later question becomes another version.
 
+On a shaky connection nothing is quietly lost: a change that couldn't be saved says so in the top bar and is tried again until it goes through (at once when the connection is back), leaving that conversation or closing the tab asks first, and switching tabs or locking the screen saves straight away.
+
 A reply keeps going on the server when your phone locks, you switch apps or conversations, or the page reloads, and the page picks it back up when you return. If nothing comes back for 10 minutes it stops, keeps what it wrote, and offers **Continue**.
 
 ## Export, share, import
