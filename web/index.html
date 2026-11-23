@@ -3087,6 +3087,17 @@ function versionAfter(t,n){
   return s?(m.role==='note'?'the takeaway “'+s+'”':'“'+s+'”'):(m.role==='user'?'a question about an image':'a reply');
 }
 const versionWhere=(t,n)=>{const a=versionAfter(t,n);return a?'after '+a:'from the start'};
+// a version made here opens beside its parent (a card on the canvas); one joined back is gone from view
+function showVersion(tid,parent){
+  openThread(tid,parent);
+  if(conv.ui.view==='canvas'){const S=cvState();if(!S.open.includes(tid))S.open.push(tid);renderCanvas();focusCard(tid)}
+}
+function dropJoined(tid,parent){
+  const ui=conv.ui;delete (ui.sizes||{})[tid];
+  if(!ui.open.length)ui.open=[parent];ui.collapsed=ui.collapsed.filter(x=>ui.open.includes(x));
+  if(!ui.open.some(x=>!isCollapsed(x)))ui.collapsed=[];
+  layout();
+}
 // Move back: a moved-out version goes back onto the end of its parent and the branch goes away. Undo moves it out again.
 function moveBack(tid){
   const t=T(tid);if(!joinable(t))return;
@@ -3095,13 +3106,13 @@ function moveBack(tid){
   let changed;try{changed=ThreadOps.join(conv,[...CARDS.values()],tid)}catch(e){toast(e.message);return}
   for(const c of changed)putCard(c);
   for(const m of ids)conv.msgs[m].ver++;
-  refreshAll();renderConvList();if(conv.ui.view==='canvas')focusCard(parent);else revealPane(parent);
+  dropJoined(tid,parent);refreshAll();renderConvList();if(conv.ui.view==='canvas')focusCard(parent);else revealPane(parent);
   if(!ids.length){toast('Removed the empty branch.');return}
   toast(`Moved back into ${pn}.`,{label:'Undo',fn:()=>{
     const o=conv.order[parent]||[];
     if(T(keep.id)||o.length<ids.length||o.slice(-ids.length).join()!==ids.join()){toast(`${pn[0].toUpperCase()+pn.slice(1)} has changed since, so this can’t be undone.`);return}
     let ch;try{ch=ThreadOps.split(conv,[...CARDS.values()],parent,ids[0],keep)}catch(e){toast(e.message);return}
-    for(const c of ch)putCard(c);for(const m of ids)conv.msgs[m].ver++;refreshAll();renderConvList();
+    for(const c of ch)putCard(c);for(const m of ids)conv.msgs[m].ver++;refreshAll();renderConvList();showVersion(keep.id,parent);
   }});
 }
 function replyMenuItems(m){
@@ -3131,11 +3142,11 @@ function moveRestOut(mid){
   const fresh={id:'t'+rid(),created:Date.now(),colorIdx:conv.nextColor++,anchorText:'',title:q?trunc(q.content||'Question about an image',60):'Moved from '+T(tid).title};
   let changed;try{changed=ThreadOps.split(conv,[...CARDS.values()],tid,tail[0],fresh)}catch(e){toast(e.message);return}
   for(const c of changed)putCard(c);
-  refreshAll();renderConvList();
-  toast(`Moved ${tail.length} message${tail.length>1?'s':''} into a branch: the chip under the reply opens it, and the chip’s delete button removes it. This thread goes on from that reply.`,{label:'Undo',fn:()=>{
+  refreshAll();renderConvList();showVersion(fresh.id,tid);
+  toast(`Moved ${tail.length} message${tail.length>1?'s':''} into a branch, opened beside this one. This thread goes on from that reply; the branch’s Move back puts them back.`,{label:'Undo',fn:()=>{
     if(!T(fresh.id))return;
     let ch;try{ch=ThreadOps.join(conv,[...CARDS.values()],fresh.id)}catch(e){toast('This thread has gone on since, so it can’t be undone. The moved part is still a branch.');return}
-    for(const c of ch)putCard(c);refreshAll();renderConvList();
+    for(const c of ch)putCard(c);dropJoined(fresh.id,tid);refreshAll();renderConvList();
   }});
 }
 /* New conversation from this document: the same file (the same stored asset; a file goes only when nothing uses it),
