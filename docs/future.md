@@ -20,12 +20,10 @@ Ideas that aren't built yet, written down so they aren't lost. What's already bu
   Needs an API key to check, and whether it applies to the server-side `web_search` tool.
 - **Web articles:** a bookmarklet or small browser extension that sends the article from the tab you're
   reading, for pages the server can't fetch (logins, paywalls you pay for).
-- **Images in Markdown:** pasted or uploaded Markdown with image links still loads those images straight
-  from their sites; it could get the same placeholders as web articles. The same goes for images in model replies, which is
-  also a way a prompt-injected model could send conversation text to a site (in an image URL).
-- **Split and join in the UI:** `ThreadOps.split` ("make the rest of this thread a branch") and `join`
-  exist and are tested, but only "Use this version" uses them. Joining a side question into its parent
-  would also need a way to keep its prefix (what the passage was) in the text.
+- **Images in Markdown documents:** pasted or uploaded Markdown with image links still loads those images straight
+  from their sites (replies don't: their images wait for a click); it could get the same placeholders as web articles.
+- **Joining a side question into its parent:** `ThreadOps.join` exists (Undo of "Move what follows into a branch"
+  and of Start over use it), but a side question would need a way to keep its prefix (what the passage was) in the text.
 - **Live updates between devices:** a tab catches up when it comes back to the foreground, not while two
   screens are both in view. A server-sent event per conversation would do it, if that ever matters.
 - **Bigger diagrams:** a diagram is drawn no wider than its message and at most 60% of the window's height; the
@@ -38,7 +36,6 @@ Ideas that aren't built yet, written down so they aren't lost. What's already bu
     any other, so it stays large next to the conversation that discusses it. It would follow the message
     (redrawn from its source, not copied), and close without changing anything.
   On the canvas, the 60% cap could also follow the card's height, so resizing a card enlarges its diagrams.
-- **Rewind:** delete a message and everything after it in a thread, with a confirmation listing what goes.
 
 ## Sub-agents that explore
 
