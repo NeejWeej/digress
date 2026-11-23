@@ -2809,7 +2809,10 @@ async function resolveContext(ctx,canImages){
 /* ---------- generation ---------- */
 function addMsg(tid,role,content,extra){
   const m={id:'m'+rid(),thread:tid,role,content,ts:Date.now(),ver:0,...(extra||{})};
-  conv.msgs[m.id]=m;conv.order[tid].push(m.id);return m;
+  const back=Object.values(conv.threads).filter(t=>t.parent===tid&&joinable(t));
+  conv.msgs[m.id]=m;conv.order[tid].push(m.id);
+  if(back.length)setTimeout(()=>{for(const t of back)if(T(t.id))renderPane(t.id);if(conv.ui.view==='canvas')renderCanvas()});
+  return m;
 }
 async function send(tid,text,imgs){
   text=(text||'').trim();imgs=imgs||[];if(!text&&!imgs.length)return;
@@ -3020,6 +3023,7 @@ async function newVersion(qid,text){
 }
 function useVersion(tid){
   const t=T(tid);if(!t||!t.alt)return;
+  if(joinable(t))return moveBack(tid);   // nothing on the parent's side to trade: swapping would leave an empty version
   if(streaming.has(tid)||streaming.has(t.parent)){toast('Wait for the reply to finish');return}
   const firstQ=(id)=>conv.order[id].find(x=>conv.msgs[x].role==='user');
   const oldFirst=t.parent==='main'?firstQ('main'):null;
@@ -3071,6 +3075,35 @@ async function startMainOver(){
    (movedOn); deleting that branch is rewinding. Undo joins it back while the thread still ends there. */
 const movedOn=(mid)=>{const m=conv.msgs[mid];if(!m)return [];const ord=conv.order[m.thread]||[];if(ord[ord.length-1]!==mid)return [];
   return Object.values(conv.threads).filter(t=>t.alt&&t.parent===m.thread&&t.anchorMsg===mid&&!hiddenNow(t.id))};
+// a version whose parent stops right where it starts: what followed there was moved out (or main was started
+// over), so it can simply go back (ThreadOps.join). "Use this version" would swap in an empty side and leave an
+// empty version behind.
+const joinable=(t)=>{if(!t||!t.alt||!T(t.parent))return false;const o=conv.order[t.parent]||[];return t.anchorMsg===(o.length?o[o.length-1]:'START')};
+// the message of its parent a version starts after, quoted for its header and first card; null when it starts at the start
+function versionAfter(t,n){
+  if(t.anchorMsg==='START')return null;
+  const m=conv.msgs[t.anchorMsg];if(!m)return 'an earlier message';
+  const s=trunc(plain(m.content).replace(/\s+/g,' ').trim(),n);
+  return s?(m.role==='note'?'the takeaway “'+s+'”':'“'+s+'”'):(m.role==='user'?'a question about an image':'a reply');
+}
+const versionWhere=(t,n)=>{const a=versionAfter(t,n);return a?'after '+a:'from the start'};
+// Move back: a moved-out version goes back onto the end of its parent and the branch goes away. Undo moves it out again.
+function moveBack(tid){
+  const t=T(tid);if(!joinable(t))return;
+  if(streaming.has(tid)||streaming.has(t.parent)){toast('Wait for the reply to finish');return}
+  const keep={...t},ids=[...conv.order[tid]],parent=t.parent,pn=parent==='main'?'the main thread':'“'+T(parent).title+'”';
+  let changed;try{changed=ThreadOps.join(conv,[...CARDS.values()],tid)}catch(e){toast(e.message);return}
+  for(const c of changed)putCard(c);
+  for(const m of ids)conv.msgs[m].ver++;
+  refreshAll();renderConvList();if(conv.ui.view==='canvas')focusCard(parent);else revealPane(parent);
+  if(!ids.length){toast('Removed the empty branch.');return}
+  toast(`Moved back into ${pn}.`,{label:'Undo',fn:()=>{
+    const o=conv.order[parent]||[];
+    if(T(keep.id)||o.length<ids.length||o.slice(-ids.length).join()!==ids.join()){toast(`${pn[0].toUpperCase()+pn.slice(1)} has changed since, so this can’t be undone.`);return}
+    let ch;try{ch=ThreadOps.split(conv,[...CARDS.values()],parent,ids[0],keep)}catch(e){toast(e.message);return}
+    for(const c of ch)putCard(c);for(const m of ids)conv.msgs[m].ver++;refreshAll();renderConvList();
+  }});
+}
 function replyMenuItems(m){
   const ord=conv.order[m.thread]||[],i=ord.indexOf(m.id);
   return m.role==='assistant'&&!m.pending&&i>=0&&i<ord.length-1?['moverest']:[];
@@ -3803,7 +3836,7 @@ function updateHeader(tid){
       // real buttons, not styled spans: a phone's tap goes to the nearest thing that is clickable, which a span isn't (the tap landed on the line around it and did nothing)
       if(via===tid)return `<button type="button" class="crumb" data-crumb="${id}" data-via="${via}" title="${esc(`Show where this branch starts in ${name}`)}">${label}</button>`;
       return `<button type="button" class="crumb" data-crumb="${id}" data-via="${via}" title="${esc(`Show where “${T(via).title}” branches off ${name}`)}">${label}</button>`}).join(' › ');
-    o.innerHTML=`↳ ${crumbs} <sup style="font-size:10px;color:${color(t)}">${branchNum(t)}</sup>${t.anchorText?` · <button type="button" class="oqt" data-back="1" title="Show this passage in its source">${esc(trunc(t.anchorText,70))}</button>`:t.alt?' · another version':' · whole reply'}${nb?` · ${brCount(tid,nb)}`:''}`;
+    o.innerHTML=`↳ ${crumbs} <sup style="font-size:10px;color:${color(t)}">${branchNum(t)}</sup>${t.anchorText?` · <button type="button" class="oqt" data-back="1" title="Show this passage in its source">${esc(trunc(t.anchorText,70))}</button>`:t.alt?` · <button type="button" class="oqt" data-back="1" title="${t.anchorMsg==='START'?'':'Show the message it starts after'}">${joinable(t)?'moved out':'another version'}, ${esc(versionWhere(t,50))}</button>`:' · whole reply'}${nb?` · ${brCount(tid,nb)}`:''}`;
   }else o.innerHTML=brCount(tid,nb);
   const pb_=el.querySelector('[data-act="pin"]');if(pb_){const pinned=tid==='main'?!!conv.pinned:!!t.pinned;pb_.innerHTML=ic('pin');pb_.classList.toggle('pinned',pinned);pb_.title=tid==='main'?(pinned?'Unpin this conversation':'Pin this conversation to the top of the sidebar'):(pinned?'Unpin this branch':'Pin this branch to the top of the sidebar, so you can jump straight back to it')}
   const f=el.querySelector('[data-act="focus"]');const on=isFocused(tid);f.innerHTML=ic('focus');f.setAttribute('aria-pressed',on?'true':'false');f.title=on?'Expand the other panes again (Esc)':'Collapse the other panes';f.classList.toggle('on',on);
@@ -3812,6 +3845,15 @@ function updateHeader(tid){
   el.classList.toggle('res',!!t.resolved);
   fitOrigin(el);
 }
+// what a version is and where it starts, with the button that uses it: for a pane's first card and a canvas card's line
+function altLine(t,n,show){
+  const p=T(t.parent),pn=esc(p.parent?'“'+trunc(p.title,30)+'”':'the main thread'),full=esc(p.parent?'“'+p.title+'”':'the main thread'),a=versionAfter(t,n),back=joinable(t),empty=!(conv.order[t.id]||[]).length;
+  const what=back?(a?`Moved out of ${pn}: what came after ${esc(a)}`:`Moved out of ${pn}: what was in it, from the start`):`Another version of a question in ${pn}, ${a?'after '+esc(a):'at the start'}`;
+  const showB=show&&a?`<button data-back="1" title="${back?'Show the message this came after':'Show the version it\'s an alternative to'}">${back?'Show where':'Show other'}</button>`:'';
+  const useB=back?`<button class="usev" data-usev="${t.id}" title="${empty?'Nothing is in this branch: remove it':`Put these messages back at the end of ${full}, where they came from. This branch goes away; nothing is lost.`}">${empty?'Remove':'Move back'}</button>`
+    :empty?'':`<button class="usev" data-usev="${t.id}" title="Make this the version ${full} goes on with. The other one moves here; nothing is lost.">Use this version</button>`;
+  return `${show?'<div class="ol">':''}<span>${what}</span>${showB}${useB}${show?'</div>':''}`;
+}
 function originCard(t){
   const d=document.createElement('div');d.className='origin';d.style.setProperty('--c',color(t));
   if(isDocBranch(t)&&t.anchorShot){const ref=shotRef(t);d.innerHTML=`<div class="ol"><span>Branched from a snip of the document</span><button data-back="1" title="Scroll the document to where it came from">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(ref).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The snip isn’t available, so it can’t be shown.'}))});d.querySelector('.oimg').__ref=ref;return d}
@@ -3819,7 +3861,7 @@ function originCard(t){
   if(isDocBranch(t)&&t.anchorRegion){d.innerHTML=`<div class="ol"><span>Branched from ${isWholePage(t.anchorRegion)?'':'a snip of '}page ${t.anchorPage+1} of the document</span><button data-back="1" title="Scroll the document to this ${isWholePage(t.anchorRegion)?'page':'snip'}">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(regionRef(t)).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The document isn’t loaded, so the snip can’t be shown.'}))});d.querySelector('.oimg').__ref=regionRef(t);return d}
   if(isDocBranch(t)){d.innerHTML=`<div class="ol"><span>Branched from the document${conv.doc&&conv.doc.kind==='pdf'?`, page ${t.anchorPage+1}`:''}</span><button data-back="1" title="Scroll the document to the exact passage this branch came from">Show in source</button></div><div class="oq"></div>`;const oq0=d.querySelector('.oq');oq0.textContent=t.anchorText;oq0.dataset.back='1';oq0.title='Jump to this passage in the document';return d}
   const p=T(t.parent);
-  if(t.alt){d.innerHTML=`<div class="ol"><span>Another version of a question in ${esc(p.parent?'“'+trunc(p.title,30)+'”':'the main thread')}</span><button data-back="1" title="Show the version it's an alternative to">Show other</button><button class="usev" data-usev="${t.id}" title="Make this the version ${esc(p.parent?'“'+p.title+'”':'the main thread')} goes on with. The other one moves here; nothing is lost.">Use this version</button></div>`;return d}
+  if(t.alt){d.innerHTML=altLine(t,60,'Show');return d}
   d.innerHTML=`<div class="ol"><span>Branched from ${esc(p.parent?p.title:'the main thread')}${t.anchorText?'':' (the whole reply)'}</span><button data-back="1" title="Scroll the parent to the exact passage this branch came from">Show in source</button></div>${t.anchorText?'<div class="oq"></div>':''}`;
   if(t.anchorText){const oq=d.querySelector('.oq');oq.textContent=t.anchorText;oq.dataset.back='1';oq.title='Jump to this passage in the reply it came from'}
   return d;
@@ -4158,9 +4200,9 @@ function renderCanvas(){
       (t.anchorText||(t.parent&&t.anchorMsg&&!isDocBranch(t))?'<div class="cq"></div>':'');   // a whole-reply branch has a line too, to jump to its reply
     n.querySelector('.ct').textContent=t.parent?t.title:(conv.title||'Main thread');
     const cq=n.querySelector('.cq');
-    if(cq&&t.alt){   // another version of a question: say so (not "The whole reply"), and offer to use it, as the pane's header does
-      const p=T(t.parent);cq.classList.add('cqw','cqv');cq.title='Show the version it\'s an alternative to, in the card it came from';
-      cq.innerHTML=`<span>Another version of a question in ${esc(p&&p.parent?'“'+trunc(p.title,30)+'”':'the main thread')}</span><button class="usev" data-usev="${t.id}" title="Make this the version ${esc(p&&p.parent?'“'+p.title+'”':'the main thread')} goes on with. The other one moves here; nothing is lost.">Use this version</button>`}
+    if(cq&&t.alt){   // another version or a moved-out part: say which, where it starts, and offer to use it or move it back, as the pane does
+      cq.classList.add('cqw','cqv');cq.title=joinable(t)?'Show the message this came after, in the card it came from':'Show the version it\'s an alternative to, in the card it came from';
+      cq.innerHTML=altLine(t,40,false)}
     else if(cq&&t.anchorText){cq.textContent=t.anchorText;cq.title='Jump to this passage in the card it came from'}
     else if(cq){cq.textContent='The whole reply';cq.classList.add('cqw');cq.title='Jump to the reply this branch is about, in the card it came from'}
     const mids=(conv.order[t.id]||[]).filter(id=>conv.msgs[id]);
