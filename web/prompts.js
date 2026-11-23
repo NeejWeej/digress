@@ -33,6 +33,7 @@ The interface lets the learner open side branches off any reply. A side branch a
     docPassage: (quote, page) => `[Side question about this passage from the document${page ? ` (p. ${page})` : ''}:]\n${quote}\n\n`,
     docPage: (page) => `[Side question about page ${page} of the document, shown in this image of the page:]\n`,
     docImage: (alt, whole) => `[Side question about ${whole ? 'an image' : 'this part of an image'} in the document${alt ? ` ("${alt}")` : ''}, shown in this image:]\n`,
+    docShot: (text) => `[Side question about this part of the document, shown in this image${text ? `. Text found inside it: "${text}"` : ''}:]\n`,
     docSnip: (page, text) => `[Side question about this area of the document (p. ${page}), shown in this image${text ? `. Text found inside it: "${text}"` : ''}:]\n`,
     // a long document's branch also carries the text of its page and the pages on either side
     around: (range, text) => `[The text of ${range}, around it:]\n${text}\n\n`,
