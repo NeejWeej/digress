@@ -1274,6 +1274,11 @@ sup.fn.res{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px va
 .textLayer>:not(.markedContent),.textLayer .markedContent span:not(.markedContent){z-index:1}   /* words above the gap filler */
 .textLayer .endOfContent{display:block;position:absolute;inset:100% 0 0;z-index:0;cursor:default;user-select:none;-webkit-user-select:none}
 .textLayer.selecting .endOfContent{top:0}
+.rimg{display:inline-flex;align-items:center;gap:8px;max-width:100%;margin:2px 0;padding:6px 6px 6px 10px;border:1px dashed var(--line2);border-radius:10px;background:var(--user-bg);font-family:var(--sans);font-size:13px;color:var(--muted);vertical-align:middle}
+.rimg .rtx{display:flex;flex-direction:column;min-width:0}
+.rimg .rtx::before{content:attr(data-label);font-style:italic}
+.rimg .rtx::after{content:attr(data-url);font-size:11.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46ch}
+.rimg .ib{flex:none}
 .aimg{display:flex;flex-direction:column;gap:6px;margin:4px 0;padding:10px 12px;border:1px dashed var(--line2);border-radius:10px;background:var(--user-bg);font-family:var(--sans);font-size:13px;color:var(--muted)}
 .aimg .acap{font-style:italic}.aimg .acap::before{content:'';display:inline-block;width:14px;height:14px;margin-right:6px;vertical-align:-2px;background:currentColor;opacity:.55;-webkit-mask:var(--imgico) center/contain no-repeat;mask:var(--imgico) center/contain no-repeat}
 .aimg .abtns{display:flex;gap:4px}.aimg.busy{opacity:.6}
@@ -3060,6 +3065,46 @@ async function startMainOver(){
     for(const c of ch)putCard(c);if(named)conv.title=oldTitle;renderTitle();refreshAll();renderMap();renderConvList();save();
   }});
 }
+/* Move what follows a reply into a branch (the reply's ⋯): ThreadOps.split just after it, so the rest becomes
+   another version starting there, each message seeing exactly what it saw before; the thread ends at the reply and
+   the next question goes on from it. Until the thread goes on, the moved part shows as a chip under the reply
+   (movedOn); deleting that branch is rewinding. Undo joins it back while the thread still ends there. */
+const movedOn=(mid)=>{const m=conv.msgs[mid];if(!m)return [];const ord=conv.order[m.thread]||[];if(ord[ord.length-1]!==mid)return [];
+  return Object.values(conv.threads).filter(t=>t.alt&&t.parent===m.thread&&t.anchorMsg===mid&&!hiddenNow(t.id))};
+function replyMenuItems(m){
+  const ord=conv.order[m.thread]||[],i=ord.indexOf(m.id);
+  return m.role==='assistant'&&!m.pending&&i>=0&&i<ord.length-1?['moverest']:[];
+}
+function openReplyMenu(btn,mid){
+  let menu=$('#replyMenu');if(!menu){menu=document.createElement('div');menu.className='thmenu';menu.id='replyMenu';menu.setAttribute('role','menu');document.body.appendChild(menu);
+    document.addEventListener('pointerdown',e=>{if(menu.classList.contains('open')&&!menu.contains(e.target)&&!e.target.closest('[data-act=rmore]'))menu.classList.remove('open')},true);
+    menu.onclick=(e)=>{const b=e.target.closest('[data-rm]');if(!b)return;menu.classList.remove('open');if(b.dataset.rm==='moverest')moveRestOut(menu.dataset.mid)}}
+  if(menu.classList.contains('open')&&menu.dataset.mid===mid){menu.classList.remove('open');return}
+  const m=conv.msgs[mid];if(!m)return;menu.dataset.mid=mid;
+  const n=conv.order[m.thread].length-conv.order[m.thread].indexOf(mid)-1;
+  menu.innerHTML=`<button data-rm="moverest" title="The ${n} message${n>1?'s':''} after this reply move into a branch of their own, as they are. This thread then goes on from here.">${ic('branch')}Move what follows into a branch</button>`;
+  menu.classList.add('open');const r=btn.getBoundingClientRect();
+  menu.style.left=Math.max(8,Math.min(innerWidth-menu.offsetWidth-8,r.left))+'px';
+  menu.style.top=(r.bottom+4+menu.offsetHeight<=innerHeight-8?r.bottom+4:Math.max(8,r.top-4-menu.offsetHeight))+'px';
+  menu.querySelector('button').focus();
+}
+const closeReplyMenu=()=>{const m=$('#replyMenu');if(m&&m.classList.contains('open')){m.classList.remove('open');return true}return false};
+function moveRestOut(mid){
+  const m=conv.msgs[mid];if(!m)return;const tid=m.thread,ord=conv.order[tid],i=ord.indexOf(mid);
+  if(i<0||i===ord.length-1)return;
+  const tail=ord.slice(i+1);
+  if(tail.some(id=>conv.msgs[id].pending)){toast('Wait for the reply to finish');return}
+  const q=tail.map(id=>conv.msgs[id]).find(x=>x.role==='user');
+  const fresh={id:'t'+rid(),created:Date.now(),colorIdx:conv.nextColor++,anchorText:'',title:q?trunc(q.content||'Question about an image',60):'Moved from '+T(tid).title};
+  let changed;try{changed=ThreadOps.split(conv,[...CARDS.values()],tid,tail[0],fresh)}catch(e){toast(e.message);return}
+  for(const c of changed)putCard(c);
+  refreshAll();renderConvList();
+  toast(`Moved ${tail.length} message${tail.length>1?'s':''} into a branch: the chip under the reply opens it, and the chip’s delete button removes it. This thread goes on from that reply.`,{label:'Undo',fn:()=>{
+    if(!T(fresh.id))return;
+    let ch;try{ch=ThreadOps.join(conv,[...CARDS.values()],fresh.id)}catch(e){toast('This thread has gone on since, so it can’t be undone. The moved part is still a branch.');return}
+    for(const c of ch)putCard(c);refreshAll();renderConvList();
+  }});
+}
 /* New conversation from this document: the same file (the same stored asset; a file goes only when nothing uses it),
    nothing else. The reading mark stays with the old one. */
 async function newFromDoc(){
@@ -3305,12 +3350,50 @@ function texSvg(t,d){
   if(!n){n=MathJax.tex2svg(t,{display:d});if(TEXC.size>800)TEXC.delete(TEXC.keys().next().value);TEXC.set(k,n)}
   return n.cloneNode(true);
 }
-function renderRich(el,md,final){
+/* What a model writes never makes the browser fetch anything by itself. A document being read can tell the model to
+   write ![](https://site/?q=<the conversation>), and the browser would send that the moment the reply showed. So in
+   replies, takeaways, cards and the guide (not the document itself, which the reader chose), DOMPurify is run with
+   noRemote: an image from another site becomes a placeholder (remoteImg) showing where it's from, loaded only by its
+   button; anything else that would load from another site (srcset, a poster, CSS url(), an svg image or use) is
+   dropped. Links stay: they go nowhere until clicked. The placeholder's words are drawn by CSS (attr()), so the
+   text that anchors count is the same as with the bare image. */
+let noRemote=false;
+const nearUrl=(u)=>{const v=String(u||'').trim();if(!v||v[0]==='#'||/^(data|blob):/i.test(v))return true;try{return new URL(v,location.href).origin===location.origin}catch(e){return false}};
+const cssRemote=(css)=>/\\|@import|image-set|src\s*:/i.test(css)||[...css.matchAll(/url\s*\(\s*(['"]?)([^'")]*)\1\s*\)/gi)].some(x=>!nearUrl(x[2]));
+DOMPurify.addHook('uponSanitizeElement',(n,d)=>{if(noRemote&&d.tagName==='style'&&cssRemote(n.textContent||''))n.textContent=''});
+DOMPurify.addHook('afterSanitizeAttributes',n=>{
+  if(!noRemote||!n.attributes)return;const tag=n.nodeName.toLowerCase();
+  for(const a of [...n.attributes]){
+    const k=a.name.toLowerCase(),v=a.value;
+    if(k==='style'||/url\s*\(/i.test(v)){if(cssRemote(v))n.removeAttribute(a.name)}
+    else if(['srcset','poster','background','ping','lowsrc','dynsrc'].includes(k)){if(k==='srcset'&&tag==='img'&&!n.getAttribute('src')){const u=v.trim().split(/\s+/)[0];if(u&&!nearUrl(u))n.setAttribute('data-rsrc',u);else if(u)n.setAttribute('src',u)}n.removeAttribute(a.name)}
+    else if((k==='src'||k==='data'||(tag!=='a'&&(k==='href'||k==='xlink:href')))&&!nearUrl(v)){if(tag==='img')n.setAttribute('data-rsrc',v);n.removeAttribute(a.name)}
+  }
+});
+const purifyNoRemote=(html,cfg)=>{noRemote=true;try{return DOMPurify.sanitize(html,cfg)}finally{noRemote=false}};
+const RIMG_OK=new Set();   // images loaded with their button, this visit: shown at once from then on (a streaming reply redraws)
+function remoteImg(im){
+  const url=im.dataset.rsrc;im.removeAttribute('data-rsrc');
+  if(RIMG_OK.has(url)){im.src=url;return}
+  let host='';try{host=new URL(url).host}catch(e){}
+  const alt=(im.getAttribute('alt')||'').replace(/\s+/g,' ').trim();
+  const f=document.createElement('span');f.className='rimg';f.dataset.rurl=url;
+  f.innerHTML=`<span class="rtx"></span><button class="ib" data-rload title="Load this image from ${esc(host||'its site')}. Images in replies aren’t loaded until you ask, since an address can carry text from the conversation.">${ic('img')}</button>`;
+  const t=f.firstChild;t.dataset.label=(alt?'Image: '+alt:'Image')+(host?' · from '+host:'');t.dataset.url=url;t.title=url;
+  im.replaceWith(f);
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('.rimg [data-rload]');if(!b)return;
+  e.preventDefault();e.stopPropagation();const url=b.closest('.rimg').dataset.rurl;RIMG_OK.add(url);
+  document.querySelectorAll('.rimg').forEach(f=>{if(f.dataset.rurl!==url)return;const im=document.createElement('img');im.src=url;const a=f.querySelector('.rtx').dataset.label.replace(/^Image(: )?/,'').replace(/ · from .*$/,'');if(a)im.alt=a;f.replaceWith(im)});
+},true);
+function renderRich(el,md,final,o={}){
   const maths=[];
   let html=marked.parse(protectMath(md||'',maths));
-  html=DOMPurify.sanitize(html);
+  html=o.doc?DOMPurify.sanitize(html):purifyNoRemote(html);
   html=html.replace(/@@M(\d+)@@/g,(_,i)=>`<span class="math${maths[+i]&&maths[+i].d?' display':''}" data-i="${i}"></span>`);
   el.innerHTML=html;
+  if(!o.doc)el.querySelectorAll('img[data-rsrc]').forEach(remoteImg);
   el.querySelectorAll('span.math').forEach(s=>{
     const m=maths[+s.dataset.i];if(!m)return;
     if(mathReady){try{s.appendChild(texSvg(m.t,m.d));return}catch(e){}}   // while streaming too: only complete $…$ / $$…$$ get here
@@ -3336,7 +3419,8 @@ function loadMermaid(){
 // diagrams take the theme's colors (mermaid's 'base' theme derives the rest from these)
 function mermaidTheme(){
   const v=(n)=>getComputedStyle(document.documentElement).getPropertyValue(n).trim(),dark=document.documentElement.dataset.mode==='dark';
-  mermaid.initialize({startOnLoad:false,securityLevel:'strict',theme:'base',fontFamily:'Inter, system-ui, sans-serif',
+  mermaid.initialize({startOnLoad:false,securityLevel:'strict',secure:['secure','securityLevel','startOnLoad','maxTextSize','suppressErrorRendering','maxEdges','themeCSS','fontFamily','altFontFamily'],   // a diagram's own %%{init}%% can't add CSS (which could load from another site)
+    theme:'base',fontFamily:'Inter, system-ui, sans-serif',
     themeVariables:{darkMode:dark,background:v('--panel'),primaryColor:v('--panel-2'),primaryTextColor:v('--ink'),primaryBorderColor:v('--line2'),
       secondaryColor:v('--user-bg'),tertiaryColor:v('--code-bg'),lineColor:v('--muted'),textColor:v('--ink'),noteBkgColor:v('--user-bg'),noteTextColor:v('--ink'),noteBorderColor:v('--line2'),fontSize:'14px'}});
 }
@@ -3351,7 +3435,7 @@ async function renderMermaid(root){
       // the drawing comes from the reply's text: mermaid's strict mode cleans it, and DOMPurify again before it goes in
       // (labels are HTML inside <foreignObject>, and the colors a <style> inside the svg)
       const v=document.createElement('div');v.className='mm-view';
-      v.append(DOMPurify.sanitize(svg,{USE_PROFILES:{svg:true,svgFilters:true,html:true},ADD_TAGS:['foreignObject','style'],HTML_INTEGRATION_POINTS:{foreignobject:true},RETURN_DOM_FRAGMENT:true}));
+      v.append(purifyNoRemote(svg,{USE_PROFILES:{svg:true,svgFilters:true,html:true},ADD_TAGS:['foreignObject','style'],HTML_INTEGRATION_POINTS:{foreignobject:true},RETURN_DOM_FRAGMENT:true}));
       box.replaceChildren(v);box.insertAdjacentHTML('beforeend',MM_BAR)}
     catch(e){showMermaidSrc(box,'This diagram has a syntax error, so it can’t be drawn. Its source is below.',(e&&e.message||String(e)).split('\n').slice(0,3).join('\n'));
       // mermaid can leave this diagram's scratch elements in <body>. Remove only those: mermaid queues renders,
@@ -3488,7 +3572,7 @@ function wrapText(root,needle,t,opts){
 /* ---------- message elements ---------- */
 function anchorsKey(m){return branchesOn(m.id).map(t=>t.id+t.title+(t.resolved?'r':'')+(hiddenNow(t.id)?'h':'')).join(',')}
 function msgEl(m){
-  const key=`${m.ver}|${m.pending?1:0}|${mathReady?1:0}|${m.role==='user'?editKeep(m.id)+versionsOf(m.id).length:m.role==='assistant'?redoKeep(m.id):''}|${m.role!=='user'?anchorsKey(m):''}|${m.role==='note'&&T(m.fromThread)?T(m.fromThread).title:''}`;
+  const key=`${m.ver}|${m.pending?1:0}|${mathReady?1:0}|${m.role==='user'?editKeep(m.id)+versionsOf(m.id).length:m.role==='assistant'?redoKeep(m.id):''}|${m.role!=='user'?anchorsKey(m):''}|${m.role==='note'&&T(m.fromThread)?T(m.fromThread).title:''}|${m.role==='assistant'?replyMenuItems(m).length+movedOn(m.id).map(t=>t.id+t.title).join(','):''}`;
   const c=msgCache.get(m.id);if(c&&c.key===key)return c.el;
   const el=document.createElement('div');el.className='msg '+m.role;el.dataset.mid=m.id;
   if(m.role==='user'){userMsgBody(el,m);const eb=editKeep(m.id),vs=versionsOf(m.id);
@@ -3525,18 +3609,18 @@ function ctxLabel(u){
   return `<span class="model ctxu" title="${esc(tip)}">${ktok(ctx)}${w?` / ${ktok(w)}`:''} context</span>`;
 }
 function buildFoot(f,m){
-  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(m.cut&&!retryBlock(m.id)?`<button class="tb" data-act="continue" title="Ask the model to carry on from where it stopped">${ic('send')}Continue</button>`:'')+(m.error?`<button class="ib" data-act="retry" title="${m.role==='assistant'&&retryBlock(m.id)?'Ask again as another version, next to this one ('+REDO_WHY[retryBlock(m.id)]+'). Nothing here changes.':m.cut?'Ask again from the start':'Retry'}">${ic('retry')}</button>`:m.role==='assistant'&&redoBlock(m.id)!=='busy'&&questionOf(m.id)?`<button class="ib" data-act="redo" title="${redoKeep(m.id)?'Redo in a new branch beside this one, with the model and effort selected now. This answer stays as it is.':'Redo: ask again with the model and effort selected now'}">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}${m.effort?` · ${esc(effortLabel(m.effort))}`:''}</span>`:'')+ctxLabel(m.usage);
+  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(replyMenuItems(m).length?`<button class="ib" data-act="rmore" title="More">${ic('dots')}</button>`:'')+(m.cut&&!retryBlock(m.id)?`<button class="tb" data-act="continue" title="Ask the model to carry on from where it stopped">${ic('send')}Continue</button>`:'')+(m.error?`<button class="ib" data-act="retry" title="${m.role==='assistant'&&retryBlock(m.id)?'Ask again as another version, next to this one ('+REDO_WHY[retryBlock(m.id)]+'). Nothing here changes.':m.cut?'Ask again from the start':'Retry'}">${ic('retry')}</button>`:m.role==='assistant'&&redoBlock(m.id)!=='busy'&&questionOf(m.id)?`<button class="ib" data-act="redo" title="${redoKeep(m.id)?'Redo in a new branch beside this one, with the model and effort selected now. This answer stays as it is.':'Redo: ask again with the model and effort selected now'}">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}${m.effort?` · ${esc(effortLabel(m.effort))}`:''}</span>`:'')+ctxLabel(m.usage);
   const w=branchChips(m.id);if(w)f.appendChild(w);
 }
 // a chip under a reply for each branch off it (the only way into a branch about the whole reply, which has no
 // highlight to click); the same in a pane and in a canvas card
 function branchChips(mid){
-  const bs=shownOn(mid);if(!bs.length)return null;
+  const bs=[...shownOn(mid),...movedOn(mid)];if(!bs.length)return null;
   const wrap=document.createElement('div');wrap.className='bchips';
   for(const t of bs){
     const b=document.createElement('span');b.className='bchip'+(t.resolved?' res':'');b.dataset.tid=t.id;b.style.setProperty('--c',color(t));
     b.innerHTML=`<span class="n">${branchNum(t)}</span><span class="bt"></span><button class="bx" data-delb="${t.id}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`;
-    b.querySelector('.bt').textContent=t.title;b.title=`Open branch ${branchNum(t)}`+(t.anchorText?`, from “${trunc(t.anchorText,120)}”`:', about the whole reply');
+    b.querySelector('.bt').textContent=t.title;b.title=`Open branch ${branchNum(t)}`+(t.alt?', what followed this reply until it was moved out':t.anchorText?`, from “${trunc(t.anchorText,120)}”`:', about the whole reply');
     wrap.appendChild(b);
   }
   return wrap;
@@ -4897,7 +4981,7 @@ function renderDocPane(force){
   else{
     const st=el.querySelector('.pb').scrollTop;
     wrap.innerHTML='<div class="docbody"></div>';const b=wrap.firstChild;
-    renderRich(b,docState.text,true);articleFigures(b);docImages(b);applyDocAnchorsText(b);renderMermaid(b);
+    renderRich(b,docState.text,true,{doc:true});articleFigures(b);docImages(b);applyDocAnchorsText(b);renderMermaid(b);
     articleBar(wrap,b);
     el.querySelector('.pb').scrollTop=st;
     placeMark();setTimeout(offerMark,300);
@@ -6871,6 +6955,7 @@ document.addEventListener('click',e=>{
       case 'mkcards':makeCardsFor(tid);break;
       case 'take':{const tk=pane.querySelector('.tk');tk.classList.toggle('show');if(tk.classList.contains('show'))tk.querySelector('input').focus();break}
       case 'wbranch':createBranch(mid,'',null);break;
+      case 'rmore':openReplyMenu(act,mid);break;
       case 'copy':navigator.clipboard.writeText(conv.msgs[mid].content).then(()=>toast('Copied'),()=>toast('Copy isn\'t allowed here'));break;
       case 'retry':retry(mid);break;
       case 'continue':continueReply(mid);break;
@@ -7052,6 +7137,7 @@ function closeTopmost(){
   if(moreMenu.classList.contains('open')){closeMore();return true}
   const vw=$('#cvViews');if(vw&&vw.classList.contains('open')){closeViews();return true}
   if(brPop){closeBrList();return true}
+  if(closeReplyMenu())return true;
   if(pop.classList.contains('show')){hidePop();return true}
   if(document.querySelector('.docpane.snipping')){setSnip(false);return true}
   if($('#cardsModal').classList.contains('show')){closeCards();return true}

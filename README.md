@@ -33,6 +33,10 @@ When a branch has answered your question, press **Takeaway**. Digress writes two
 
 Picked the wrong model, or asked the wrong thing? **Redo** asks again with the model and effort selected now, and the pencil on a question lets you **edit** it. Either way, nothing is replaced: the question is asked again in a **new branch** that starts just before it, in its own pane next to the original, so you can compare. It works the same anywhere in a thread, the last question included, and nothing that was there changes. The question shows how many versions it has. **Use this version** (in the version's pane, or on its card on the canvas) makes the conversation go on with the one you prefer; the other one becomes a branch of its own, and the toast's **Delete the old version** removes it in one click (or keep it and switch back any time). The same goes for **Retry** on a reply that ended in an error: once the conversation has gone on from it, Retry asks again as another version rather than swapping out what later answers built on (and a cut-off reply there offers no **Continue**). Branches you're done with can be hidden from the tree without deleting them.
 
+A thread wandered off? **Move what follows into a branch** (the ⋯ under a reply) moves everything after that reply into a branch of its own, exactly as it was, and the thread goes on from that reply. A chip under the reply opens the moved part, and the chip's delete button removes it, which is how you rewind a thread. Undo puts it back.
+
+Images in replies (and in takeaways, flashcards and the guide's answers) aren't loaded until you ask: each shows as a placeholder with what it is and the site it's from, and its button loads it. A document you're reading could tell the model to write an image whose address carries text from your conversation, and loading it would send that text to the site.
+
 While a reply is being written you see what it's doing (searching, reading pages) and for how long. Under each reply: the model and effort it used, and what it had of the document (all of it, or which pages it started from and read).
 
 ## Read with a document
