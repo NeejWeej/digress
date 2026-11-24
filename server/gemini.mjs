@@ -5,7 +5,7 @@
 // The key is sent in the x-goog-api-key header (never in the URL). Free-tier keys: Google may use what's sent to
 // improve its products, and Google Search isn't available on the free tier (Google's terms and pricing pages);
 // the page says so where the models are picked.
-import { DOC_TOOLS, MAX_TOOL_ROUNDS } from './doctools.mjs';
+import { MAX_TOOL_ROUNDS } from './doctools.mjs';
 
 export const API = (process.env.GEMINI_API_BASE || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, '');
 const MAX_OUTPUT = Number(process.env.MAX_TOKENS || 16000);
@@ -52,7 +52,7 @@ export const toGemini = (msgs) => msgs.map((m) => ({
   role: m.role === 'assistant' ? 'model' : 'user',
   parts: m.parts.filter((p) => p.type !== 'text' || p.text !== '').map((p) => (p.type === 'text' ? { text: p.text } : { inlineData: { mimeType: p.mediaType, data: p.data } })),
 })).filter((c) => c.parts.length);
-const toolDecls = () => [{ functionDeclarations: DOC_TOOLS.map((t) => ({ name: t.name, description: t.description, parameters: plainSchema(t.schema) })) }];
+const toolDecls = (s) => [{ functionDeclarations: s.tools.map((t) => ({ name: t.name, description: t.description, parameters: plainSchema(t.schema) })) }];
 // Gemini's schemas are OpenAPI-like: no additionalProperties
 function plainSchema(s) {
   if (Array.isArray(s)) return s.map(plainSchema);   // required: [...], enum: [...] stay lists
@@ -66,7 +66,7 @@ export function requestBody({ system, contents, effort, web, session, final }, w
   const body = { contents, generationConfig: { maxOutputTokens: MAX_OUTPUT } };
   if (system) body.systemInstruction = { parts: [{ text: system }] };
   if (withEffort && THINKING[effort]) body.generationConfig.thinkingConfig = { thinkingLevel: THINKING[effort] };
-  const tools = [...(session ? toolDecls() : []), ...(web && withSearch ? [{ googleSearch: {} }] : [])];
+  const tools = [...(session ? toolDecls(session) : []), ...(web && withSearch ? [{ googleSearch: {} }] : [])];
   if (tools.length) body.tools = tools;
   if (session) body.toolConfig = { functionCallingConfig: { mode: final ? 'NONE' : 'AUTO' } };   // the tool loop ran out of rounds: answer from what was read
   return body;

@@ -19,6 +19,11 @@ Once they're on, the model drafts cards on its own from the moments that show wh
 - **A snip or page of a PDF, or an image in a text document.** The same, and the card keeps a copy of the
   snipped image, so you can review it without opening the document.
 - **A takeaway.** When you carry a takeaway back from a branch, the model drafts cards from it.
+- **The model, while it answers.** In a conversation with flashcards on, the model has a tool,
+  `suggest_card`, and can add a card whenever it judges something has landed: in the main thread or a branch,
+  on its own judgment rather than on a schedule. A toast says when it did (with **Open**), and the card points
+  back to that reply. It can't suggest the same question twice in a conversation, and it isn't offered at all
+  where flashcards are off.
 
 You can also ask:
 

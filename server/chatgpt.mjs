@@ -165,7 +165,7 @@ export function requestBody({ system, messages, model, effort, web, webListed, s
   const body = { model, input, store: false, stream: true, prompt_cache_key: 'digress-' + crypto.createHash('sha256').update(system || '').digest('hex').slice(0, 32) };
   if (withEffort && effort) body.reasoning = { effort };
   const listed = webListed || web;
-  const tools = [...(listed ? [{ type: 'web_search' }] : []), ...(session ? toolsForOpenAI() : [])];
+  const tools = [...(listed ? [{ type: 'web_search' }] : []), ...(session ? toolsForOpenAI(session) : [])];
   // with store:false nothing is kept on OpenAI's side, so the model's reasoning comes back encrypted and is
   // sent again with the tool results, letting it carry on from where it stopped
   const include = [...(listed ? ['web_search_call.action.sources'] : []), ...(session ? ['reasoning.encrypted_content'] : [])];

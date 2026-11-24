@@ -19,7 +19,7 @@ Digress keeps them apart. Every question you ask about a passage becomes a **bra
 
 ![Selecting a phrase in an answer, typing a question, and a new branch opening beside it](docs/media/branching.gif)
 
-Select any text in a reply and type a question (or pick a quick one: *Explain simpler*, *Example*, *Why?*, *Go deeper*). The answer opens in a new pane next to its parent.
+Select any text in a reply and type a question (or pick a quick one: *Explain simpler*, *Example*, *Why?*, *Go deeper*, *Quiz me*). The answer opens in a new pane next to its parent.
 
 - The model sees the whole conversation up to that point, plus the passage you picked, so the answer is about *that* sentence in *that* context.
 - A numbered marker in the parent shows where each branch starts. Click it to open the branch; **Show in source** in the branch jumps back to the exact words and flashes them.
@@ -59,7 +59,7 @@ You can also paste or drop screenshots into any message box: a plot from your no
 
 ## Remember it: flashcards (optional)
 
-Turn on flashcards for a conversation and the model drafts cards from what you dug into: each highlight you branched from, each snip, each takeaway. They wait in an inbox until you keep, edit or delete them; **Make cards** drafts more from whatever changed since last time. Each branch has its own **Cards** button: it drafts from what's new in the branch (showing it's at work, and saying when the cards are in), and with nothing new it opens that branch's cards, where **Draft more** asks for more on purpose. Kept cards come back for review on a spaced-repetition schedule (FSRS); review all your cards or pick one conversation (each listed with what's due). With the answer, a card shows the sentence it rests on, quoted from the conversation or the document, and **Open in conversation** (or **O**) lands on that sentence, highlighted; **Back to review** returns you to the same card. Under the answer, **Edit** (**E**) fixes a card yourself, and **Fix…** (**F**) is for when something's off: say what (or don't), and the model checks the card against the conversation and suggests a rewrite, a split into two, deleting it, or tells you why it's right after all. The suggestion waits in the inbox for you to accept or ignore, and the card sits out of review until then. **Skip** (**S**) puts a card to the back of the session without rating it. When the last card is done, a short summary says how many you reviewed, how many you recalled, how many come back soon and when the next one is due, with a link to **Activity**. Reviewing works offline too and never waits on the network: the page and your cards stay available in the browser, a rating is kept at once, and reviews sync in the background when the server is reachable again (the review shows how many are waiting). Conversations where you don't turn it on look exactly as before. How it all works: [docs/flashcards.md](docs/flashcards.md).
+Turn on flashcards for a conversation and the model drafts cards from what you dug into: each highlight you branched from, each snip, each takeaway. They wait in an inbox until you keep, edit or delete them; **Make cards** drafts more from whatever changed since last time, and while it answers the model can suggest a card of its own when something has landed (`suggest_card`, see [the tools](#the-prompts-are-yours-to-change-system-prompts-skills-and-tools)). Each branch has its own **Cards** button: it drafts from what's new in the branch (showing it's at work, and saying when the cards are in), and with nothing new it opens that branch's cards, where **Draft more** asks for more on purpose. Kept cards come back for review on a spaced-repetition schedule (FSRS); review all your cards or pick one conversation (each listed with what's due). With the answer, a card shows the sentence it rests on, quoted from the conversation or the document, and **Open in conversation** (or **O**) lands on that sentence, highlighted; **Back to review** returns you to the same card. Under the answer, **Edit** (**E**) fixes a card yourself, and **Fix…** (**F**) is for when something's off: say what (or don't), and the model checks the card against the conversation and suggests a rewrite, a split into two, deleting it, or tells you why it's right after all. The suggestion waits in the inbox for you to accept or ignore, and the card sits out of review until then. **Skip** (**S**) puts a card to the back of the session without rating it. When the last card is done, a short summary says how many you reviewed, how many you recalled, how many come back soon and when the next one is due, with a link to **Activity**. Reviewing works offline too and never waits on the network: the page and your cards stay available in the browser, a rating is kept at once, and reviews sync in the background when the server is reachable again (the review shows how many are waiting). Conversations where you don't turn it on look exactly as before. How it all works: [docs/flashcards.md](docs/flashcards.md).
 
 ## Three ways to see it
 
@@ -138,9 +138,37 @@ Claude, ChatGPT and Gemini can be connected at the same time; **Connections…**
 
 Models answer from what they know unless you turn on **Web** in the top bar. Then they may search the web, link the pages they use right in the answer, and the reply lists its sources. It is search only: the search runs on Anthropic's or OpenAI's side, and the model gets no tool that fetches pages or runs anything on your machine. With Claude Code and ChatGPT, switching Web on or off doesn't make the model reread the whole conversation: the tools it's offered stay the same and only whether search may run changes, so the provider's prompt cache keeps working (each question asked with Web on is marked as such).
 
-## The prompts are yours to change
+## The prompts are yours to change: system prompts, skills and tools
 
-Everything Digress tells the model (the tutor instructions, how branches, takeaways and flashcards are asked for, how documents are introduced) is in one file, [`web/prompts.js`](web/prompts.js). Edit it and reload.
+**Prompts, skills & tools** (the sliders button beside Activity in the sidebar) shows what Digress tells the model and what it lets the model do. There you can:
+
+- **Rewrite your default system prompt**: who the tutor is and how it writes, sent before every question. Your version applies to every conversation that doesn't have its own, on every device, from the next reply. **Reset to default** brings back the built-in one. After it Digress always adds a fixed part, **how Digress works** (shown there, read-only): the formatting the page can draw, when the model may search the web, how branches are marked and what the model sees. It's kept separate so that a prompt you write can't drop something the app depends on.
+- **Give one conversation its own system prompt.** A new conversation's empty main thread shows the prompt it will start with (**System prompt: your default**), filled in with your default: open it, change it and **Use for this conversation** before the first question. Later, **Prompt** in the top bar shows and changes it (its menu has the prompt, your skills, and **What the model sees here…**); **Put my default back** returns it to following your default. It's one prompt for the whole conversation: main and every branch use it. In a conversation about a document, that includes branches from the document, so setting it in the empty main thread is how you set it for them, even if you never ask anything in main (the box says so). A change applies from the next reply in every thread of that conversation; replies already written keep what they were written with. The top bar's button says **Own prompt** while a conversation has one.
+- **Change the quick questions**: the chips such as *Explain simpler* and *Example* in the highlight popup and in a new branch.
+- **Add skills**: sets of instructions in the `SKILL.md` format many AI tools share. Paste one, choose the file, or give a link (a GitHub link to a skill's folder or its `SKILL.md` works).
+- **See the tools** the model can use and what turns each on, with the descriptions the model reads folded away (read-only).
+
+Turning a skill on applies to one conversation: use **Prompt** in the top bar, which lists your skills and names the ones that are on. The skill is added to the end of that conversation's system prompt and applies from the next reply in every thread, branches included. Other conversations aren't affected. Flashcard drafting and takeaways are told to ignore it. A deleted skill drops out of the conversations that had it on.
+
+The tools:
+
+- **Web search**: only when **Web** is on in the top bar, question by question. It's the one tool that reaches outside (your question's words go to a search engine, and the answer can rest on pages nobody checked), so it's yours to switch. The provider runs it (Claude's, OpenAI's or Google's own search).
+- **Reading the document** (`search`, `read_pages`, `view_page`): always, in a conversation about a document. They only read what you opened, in your browser, so there's nothing to switch. With a long document the model starts from its contents and first pages and reads the rest with these.
+- **Suggesting flashcards** (`suggest_card`): in a conversation with flashcards on. While it answers, the model can add a card whenever it judges something has landed (not on a schedule); each goes to your inbox, and a toast says so. With flashcards off it isn't offered.
+
+### What the model sees
+
+Each reply is sent one path through the conversation, and nothing else:
+
+- **In the main thread:** the main thread so far.
+- **In a side branch:** the main thread up to the reply (or passage) it branched from, then the branch. A branch of a branch adds its own branch on top. A branch from the document starts fresh: the document and the branch.
+- **Where a branch forks**, its first question starts with a marker, *[Side question about …]*, quoting what you highlighted. The fixed part of the prompt tells the model that everything after a marker is in that branch, so later questions don't need one.
+- **Not sent:** your other branches, what happened in the main thread after a branch forked, and anything on screen such as thread names. A takeaway is the one thing that carries a branch's result back. The model is told this, and to say so and ask when you mention something it can't see, rather than guess.
+- **Branches made by moving messages** (a reply's ⋯ → Move what follows into a branch) have no fork marker: those questions were asked in the main thread, and what the model saw for them never changes. Moving messages, **Use this version** and **Move back** never change what any message was sent, so they don't cost the prompt cache either.
+
+To check, **Prompt** in the top bar → **What the model sees here…** shows the request the next question in the thread you're in would send: the tools, the system prompt part by part, and every message with its markers (**Copy as JSON** for the raw request).
+
+Everything else Digress tells the model (how branches, takeaways and flashcards are asked for, how documents are introduced) is shown there read-only. The code relies on its wording, so it's changed in one file, [`web/prompts.js`](web/prompts.js): edit it and reload.
 
 ## On several devices
 
