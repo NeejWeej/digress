@@ -768,6 +768,14 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .body th{background:var(--panel-2);font-weight:600}
 .body pre{background:var(--code-bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow:auto;font:13px/1.55 var(--mono);margin:.9em 0}
 .body pre code{font:inherit;background:none;padding:0}
+.cbx{position:relative}
+.cbx>pre{margin:.9em 0}
+.cbx .cpy{position:absolute;top:6px;right:6px;width:28px;height:28px;display:grid;place-items:center;border:1px solid var(--line);border-radius:7px;background:var(--code-bg);color:var(--muted);cursor:pointer;padding:0;user-select:none;-webkit-user-select:none}
+.cbx .cpy:hover{color:var(--ink);border-color:var(--line2)}
+.cbx .cpy.done{color:var(--accent)}
+.cbx .cpy .i{width:15px;height:15px}
+@media (hover:hover){.cbx .cpy{opacity:0;transition:opacity .12s}.cbx:hover .cpy,.cbx .cpy:focus-visible,.cbx .cpy.done{opacity:1}}
+@media (hover:none){.cbx .cpy{opacity:.75}}
 .body :not(pre)>code{font-family:var(--mono);font-size:.84em;background:var(--code-bg);padding:.12em .38em;border-radius:5px;border:1px solid var(--line)}
 .math.display{display:block;text-align:center;margin:.9em 0;overflow-x:auto;overflow-y:hidden}
 .math.raw{font-family:var(--mono);font-size:.85em;color:var(--muted)}
@@ -3779,11 +3787,26 @@ function renderRich(el,md,final,o={}){
     if(lang==='mermaid'){
       const box=document.createElement('div');box.className='mermaid-box';box.dataset.src=code.textContent;
       box.textContent=final?'Rendering diagram…':'Drawing diagram…';code.parentElement.replaceWith(box);
-    }else if(window.hljs){try{hljs.highlightElement(code)}catch(e){}}
+    }else{
+      if(window.hljs){try{hljs.highlightElement(code)}catch(e){}}
+      // a copy button beside the block (outside the <pre>, so it doesn't scroll away; an icon only, so it adds no text and anchors are unchanged)
+      const pre=code.parentElement,w=document.createElement('div');w.className='cbx';pre.replaceWith(w);w.appendChild(pre);
+      w.insertAdjacentHTML('beforeend',`<button type="button" class="cpy" title="Copy">${ic('copy')}</button>`);
+    }
   });
   el.querySelectorAll('a').forEach(a=>{a.target='_blank';a.rel='noopener'});
   if(conv&&conv.doc&&conv.doc.kind==='pdf'&&!el.classList.contains('docbody'))linkPages(el);
 }
+// a code block's copy button: copies just the code, so there's no selecting (and no branch popup)
+document.addEventListener('pointerdown',e=>{if(e.target.closest&&e.target.closest('.cbx .cpy')){e.stopPropagation();e.preventDefault()}},true);
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('.cbx .cpy');if(!b)return;
+  e.preventDefault();e.stopPropagation();const code=b.parentElement.querySelector('pre code');if(!code)return;
+  navigator.clipboard.writeText(code.textContent.replace(/\n$/,'')).then(()=>{
+    b.classList.add('done');b.innerHTML=ic('check');b.title='Copied';clearTimeout(b.__t);
+    b.__t=setTimeout(()=>{b.classList.remove('done');b.innerHTML=ic('copy');b.title='Copy'},1500);
+  },()=>toast('Copy isn\'t allowed here'));
+},true);
 function loadMermaid(){
   if(mermaidReady)return mermaidReady;
   mermaidReady=new Promise(res=>{
