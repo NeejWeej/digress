@@ -43,6 +43,7 @@ async def main():
         ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill(LONG); await answered(pg, ta.press('Enter'))
         await soon(pg, "() => __digress.conv.title === 'Attention in transformers'")
         c = (await pg.evaluate("window.__calls"))[0]
+        check('the tab is named after the new title', await soon(pg, "() => document.title === 'Attention in transformers · Digress'"), await pg.title())
         check('…from Haiku, for a Claude conversation', c['model'] == 'claude-haiku-5-5', c['model'])
         check('…given the question and the start of the reply', LONG in c['ask'] and 'soft dictionary lookup' in c['ask'])
 

@@ -2967,7 +2967,7 @@ function convMarkdown(c){
   const walk=(tid,depth)=>{
     const t=c.threads[tid];if(!t)return;const h='#'.repeat(Math.min(6,2+depth));
     out.push(`${h} ${tid==='main'?'Main thread':(t.title||'Branch')}`,'');
-    if(t.parent){const p=c.threads[t.parent],from=t.anchorMsg==='DOC'?`the document${t.anchorPage!=null?`, p. ${t.anchorPage+1}`:''}`:(t.parent==='main'?'the main thread':`“${(p&&p.title)||'a branch'}”`);
+    if(t.parent){const p=c.threads[t.parent],from=t.anchorMsg==='DOC'?`the document${t.anchorPage!=null?`, ${docPagesLabel(t)}`:''}`:(t.parent==='main'?'the main thread':`“${(p&&p.title)||'a branch'}”`);
       out.push(t.anchorText?`> ${String(t.anchorText).replace(/\s+/g,' ').trim()}`:'',`*Branched from ${from}${t.anchorText?'':' (the whole reply)'}.*`,'')}
     for(const id of c.order[tid]||[]){const m=c.msgs[id];if(!m)continue;const x=say(m);
       if(m.role==='user')out.push(`**You:** ${x}${(m.images||[]).length?` *(${m.images.length} image${m.images.length>1?'s':''})*`:''}`,'');
@@ -3055,7 +3055,7 @@ document.addEventListener('drop',e=>{const f=e.dataTransfer&&[...e.dataTransfer.
 /* ---------- context for the model ---------- */
 function branchPrefix(t){
   const quote=(x)=>'> '+String(x||'').replace(/\n+/g,'\n> ');
-  if(isDocBranch(t))return PROMPTS.branch.docPassage(quote(t.anchorText),conv.doc&&conv.doc.kind==='pdf'?t.anchorPage+1:0);
+  if(isDocBranch(t))return PROMPTS.branch.docPassage(quote(t.anchorText),conv.doc&&conv.doc.kind==='pdf'?t.anchorPage+1:0,t.anchorEnd?t.anchorEnd.page+1:0);
   return t.anchorText?PROMPTS.branch.replyPassage(quote(t.anchorText)):PROMPTS.branch.reply();
 }
 /* Messages are built as lists of parts: {type:'text',text} and {type:'image',ref,label}, where ref says
@@ -3065,7 +3065,7 @@ function branchPrefix(t){
 // With the document tools and a document too long to send whole, a branch about a passage also gets the
 // full text of its page and the pages on either side, in its first message, where it stays for the branch.
 function aroundParts(t){
-  const P=docState.pages,pdf=docState.kind==='pdf',a=Math.max(0,t.anchorPage-1),b=Math.min(P.length-1,t.anchorPage+1),lab=(i)=>pdf?`p. ${i+1}`:`part ${i+1}`;
+  const P=docState.pages,pdf=docState.kind==='pdf',a=Math.max(0,t.anchorPage-1),b=Math.min(P.length-1,Math.max(t.anchorPage,t.anchorEnd?t.anchorEnd.page:0)+1),lab=(i)=>pdf?`p. ${i+1}`:`part ${i+1}`;
   return [{type:'text',text:PROMPTS.branch.around(a===b?lab(a):`${pdf?'pp.':'parts'} ${a+1}–${b+1}`,P.slice(a,b+1).map((_,k)=>`[${lab(a+k)}]\n${pageText(a+k)}`).join('\n\n'))}];
 }
 function branchParts(t,tools){
@@ -3588,6 +3588,7 @@ function createBranch(mid,anchorText,question,title,range,page,img){
   const t={id:'t'+rid(),parent,anchorMsg:mid,anchorText:anchorText||'',created:Date.now(),colorIdx:conv.nextColor++};
   if(anchorText&&range)t.anchorRange=range;
   if(isDoc)t.anchorPage=page||0;
+  if(isDoc&&range&&img&&img.end&&img.end.page>t.anchorPage)t.anchorEnd={page:img.end.page,e:img.end.e};   // runs on to a later page
   const r4=(v)=>Math.round(v*1e4)/1e4;
   if(isDoc&&img&&img.region){const g=img.region;t.anchorRegion={x:r4(g.x),y:r4(g.y),w:r4(g.w),h:r4(g.h)};if(img.regionText)t.regionText=img.regionText}
   if(isDoc&&img&&img.image){const g=img.image;t.anchorImg={key:g.key,n:g.n,x:r4(g.x),y:r4(g.y),w:r4(g.w),h:r4(g.h)}}
@@ -3946,6 +3947,7 @@ function applyAnchors(root,m){
    turns a selection into text. */
 const textWalker=(root)=>document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement&&n.parentElement.closest('svg,.math,.mermaid-box,mjx-container,sup.fn')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
 const nonWs=(s)=>s.replace(/\s+/g,'').length;
+const flatLen=(root)=>{const w=textWalker(root);let n,c=0;while((n=w.nextNode()))c+=nonWs(n.nodeValue);return c};
 function charPos(root,cont,off){
   const r=document.createRange();r.setStart(root,0);try{r.setEnd(cont,off)}catch(e){return -1}
   const w=textWalker(root);let n,c=0;
@@ -4254,7 +4256,7 @@ function originCard(t){
   if(isDocBranch(t)&&t.anchorShot){const ref=shotRef(t);d.innerHTML=`<div class="ol"><span>Branched from a snip of the document</span><button data-back="1" title="Scroll the document to where it came from">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(ref).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The snip isn’t available, so it can’t be shown.'}))});d.querySelector('.oimg').__ref=ref;return d}
   if(isDocBranch(t)&&t.anchorImg){const whole=isWholePage(t.anchorImg),ref=docImgRef(t);d.innerHTML=`<div class="ol"><span>Branched from ${whole?'an image':'a snip of an image'} in the document</span><button data-back="1" title="Scroll the document to this image">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(ref).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The image isn’t kept with this conversation, so it can’t be shown.'}))});d.querySelector('.oimg').__ref=ref;return d}
   if(isDocBranch(t)&&t.anchorRegion){d.innerHTML=`<div class="ol"><span>Branched from ${isWholePage(t.anchorRegion)?'':'a snip of '}page ${t.anchorPage+1} of the document</span><button data-back="1" title="Scroll the document to this ${isWholePage(t.anchorRegion)?'page':'snip'}">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(regionRef(t)).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The document isn’t loaded, so the snip can’t be shown.'}))});d.querySelector('.oimg').__ref=regionRef(t);return d}
-  if(isDocBranch(t)){d.innerHTML=`<div class="ol"><span>Branched from the document${conv.doc&&conv.doc.kind==='pdf'?`, page ${t.anchorPage+1}`:''}</span><button data-back="1" title="Scroll the document to the exact passage this branch came from">Show in source</button></div><div class="oq"></div>`;const oq0=d.querySelector('.oq');oq0.textContent=t.anchorText;oq0.dataset.back='1';oq0.title='Jump to this passage in the document';return d}
+  if(isDocBranch(t)){d.innerHTML=`<div class="ol"><span>Branched from the document${conv.doc&&conv.doc.kind==='pdf'?`, ${docPagesLabel(t,true)}`:''}</span><button data-back="1" title="Scroll the document to the exact passage this branch came from">Show in source</button></div><div class="oq"></div>`;const oq0=d.querySelector('.oq');oq0.textContent=t.anchorText;oq0.dataset.back='1';oq0.title='Jump to this passage in the document';return d}
   const p=T(t.parent);
   if(t.alt){d.innerHTML=altLine(t,60,'Show');return d}
   d.innerHTML=`<div class="ol"><span>Branched from ${esc(p.parent?p.title:'the main thread')}${t.anchorText?'':' (the whole reply)'}</span><button data-back="1" title="Scroll the parent to the exact passage this branch came from">Show in source</button></div>${t.anchorText?'<div class="oq"></div>':''}`;
@@ -4397,15 +4399,17 @@ function layout(){
   for(const [tid,el] of paneEls)if(!ui.open.includes(tid)||(!T(tid)&&!(tid==='doc'&&conv.doc))){el.remove();paneEls.delete(tid);gutEls.get(tid)&&gutEls.get(tid).remove();gutEls.delete(tid)}
   const seq=[],fresh=[];
   const inDock=docInDock(),dEl=paneEls.get('doc'),dWas=dEl&&dEl.parentNode,dSpot=dEl&&docSpotNow();
-  // the only pane not collapsed fills the space: a width you dragged it to is kept (it comes back when another pane
-  // opens) but only as its least, so collapsing the others doesn't leave it narrow beside empty space
-  const lone=ui.open.filter(x=>!isCollapsed(x)&&!(inDock&&x==='doc')).length===1;
+  // when every pane not collapsed has a width you dragged it to (always so for the only one), the last of them fills
+  // the space: its width is kept (it comes back when a pane without one opens) but only as its least, so closing or
+  // collapsing the pane that was taking up the rest doesn't leave them all narrow beside empty space
+  const shown=ui.open.filter(x=>!isCollapsed(x)&&!(inDock&&x==='doc'));
+  const filler=shown.every(x=>ui.sizes[x])?shown.at(-1):null;
   ui.open.forEach((tid,i)=>{
     if(inDock&&tid==='doc'){if(!paneEls.has(tid))fresh.push(tid);paneEl(tid);return}   // it's in its canvas card
     const isNew=!paneEls.has(tid);const el=paneEl(tid);
     const rail=isCollapsed(tid);el.classList.toggle('rail',rail);
     el.title=rail?'Click to expand':'';
-    const sz=ui.sizes[tid];el.style.flex=(sz&&!rail)?`${lone?1:0} 0 ${sz}px`:'';el.classList.toggle('sized',!!(sz&&!rail));
+    const sz=ui.sizes[tid];el.style.flex=(sz&&!rail)?`${tid===filler?1:0} 0 ${sz}px`:'';el.classList.toggle('sized',!!(sz&&!rail));
     seq.push(el);if(isNew)fresh.push(tid);else updateHeader(tid);
     if(i<ui.open.length-1||!rail){const g=gutEl(tid);g.classList.toggle('glast',i===ui.open.length-1);seq.push(g)}   // the last pane gets one too, so its size can be changed
   });
@@ -4715,7 +4719,7 @@ function renderCanvas(){
     const info=document.createElement('div');info.className='cr a';info.textContent=docState&&docState.loaded?(docState.kind==='pdf'?`${docState.n} pages`:'Text document'):'Loading…';rows.appendChild(info);
     for(const b of nb){const r=document.createElement('div');r.className='cr';r.dataset.cdocrow=b.id;r.title='Go to this branch';
       const f=document.createElement('span');f.className='fns';const sp=document.createElement('sup');sp.className='fn'+(b.resolved?' res':'');sp.dataset.tid=b.id;sp.style.setProperty('--c',color(b));sp.textContent=branchNum(b);f.appendChild(sp);r.appendChild(f);
-      r.append((conv.doc.kind==='pdf'?`p. ${b.anchorPage+1} · `:'')+'“'+trunc(b.anchorText,70)+'”');rows.appendChild(r)}
+      r.append((conv.doc.kind==='pdf'?`${docPagesLabel(b)} · `:'')+'“'+trunc(b.anchorText,70)+'”');rows.appendChild(r)}
     addSizing(n,'doc',false,S);
     world.appendChild(n);nodes.doc=n;
   }
@@ -5270,13 +5274,12 @@ function setView(v){
   }
   syncViewSeg();save();
 }
-// Tab name: window number and view ("Digress 2 · Canvas"), never the conversation's title: titles would end up
-// in browser history (synced off this machine by some browsers), screen shares and the OS window switcher.
+// Tab name: the conversation's title ("Bayes' rule · Digress"), kept in step by renderTitle. It does end up in browser
+// history and the OS window switcher; the reader chose that over the old "Digress 2 · Canvas", which said nothing useful.
 // a reply that finished while this tab was in the background puts a dot in front of the tab's name until you come back
 let tabReady=false;
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&tabReady){tabReady=false;if(conv)tabName()}});
-function tabName(){const v=conv.ui.view==='canvas'?'Canvas':conv.ui.layout==='rows'?'Rows':'Columns';
-  WINDOW.then(n=>{const t=`${tabReady?'● ':''}Digress ${n} · ${v}`;if(document.title!==t)document.title=t})}
+function tabName(){if(!conv)return;const t=`${tabReady?'● ':''}${conv.title||'New conversation'} · Digress`;if(document.title!==t)document.title=t}
 function syncViewSeg(){tabName();const v=conv.ui.view==='canvas'?'canvas':conv.ui.layout;document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   $('#resetOrder').style.display=conv.ui.view!=='canvas'&&conv.ui.open.join()!==branchOrder().join()?'':'none'}
 // the order panes open in: the document, then main, each branch right after the thread it came from (oldest first)
@@ -5304,6 +5307,7 @@ let docState=null;
 const docView={scale:1,width:0,current:1,rendered:new Map(),obs:null,ro:null,resizeT:0};
 const docBlobCache=new Map();
 const isDocBranch=(t)=>!!t&&t.anchorMsg==='DOC';
+const docPagesLabel=(t,long)=>t.anchorEnd&&t.anchorEnd.page>t.anchorPage?`${long?'pages':'pp.'} ${t.anchorPage+1}–${t.anchorEnd.page+1}`:`${long?'page':'p.'} ${t.anchorPage+1}`;   // a passage can run on to the next page
 const docBranches=()=>conv&&conv.doc?Object.values(conv.threads).filter(isDocBranch).sort((a,b)=>(a.anchorPage-b.anchorPage)||(a.created-b.created)):[];
 // a library (by its CDN address, a key of LIBS): this server's copy, else the CDN's, both checked against its hash;
 // resolves with the address it came from
@@ -5558,7 +5562,12 @@ function renderPdfPage(i,force){
 }
 function docMarker(t){const s=document.createElement('sup');s.className='fn'+(t.resolved?' res':'');s.dataset.tid=t.id;s.style.setProperty('--c',color(t));s.textContent=branchNum(t);s.title=`Open branch ${branchNum(t)}: ${t.title||''}`;return s}
 function applyDocAnchorsPdf(pg,tl,pageIdx){
-  const used=[];
+  const used=[];delete pg.dataset.cont;
+  // the rest of a passage that started on an earlier page: highlighted here, its marker stays where it starts
+  for(const t of docBranches().filter(t=>t.anchorEnd&&t.anchorPage<pageIdx&&t.anchorEnd.page>=pageIdx)){
+    const e=t.anchorEnd.page===pageIdx?t.anchorEnd.e:flatLen(tl);
+    if(e>0&&wrapText(tl,'',{...t,anchorRange:{s:0,e}},{noMarker:true}))pg.dataset.cont='1';
+  }
   for(const t of docBranches().filter(t=>t.anchorPage===pageIdx)){
     let y=6;
     if(t.anchorRegion){
@@ -5576,7 +5585,11 @@ async function refreshDocAnchors(page){
   if(!conv.doc||!docState||!docState.loaded)return;
   const el=paneEls.get('doc');if(!el)return;
   if(docState.kind!=='pdf'){renderDocPane(true);return}
-  const pages=page!=null?[page+1]:[...docView.rendered.keys()];
+  let pages=page!=null?[page+1]:[...docView.rendered.keys()];
+  if(page!=null){   // passages running on from this page, and pages showing the rest of one (whose branch may be gone)
+    const more=new Set(pages);for(const t of docBranches())if(t.anchorPage===page&&t.anchorEnd)for(let i=page+2;i<=t.anchorEnd.page+1;i++)more.add(i);
+    el.querySelectorAll('.dpage[data-cont]').forEach(p=>more.add(+p.dataset.page));pages=[...more];
+  }
   for(const i of pages){
     const pg=el.querySelector(`.dpage[data-page="${i}"]`);if(!pg||!pg.querySelector('.textLayer'))continue;
     const page_=await docState.pdf.getPage(i);const vp=page_.getViewport({scale:docView.scale});
@@ -6749,7 +6762,7 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('click',e=>{if(e.target.closest('[data-keys]')){e.preventDefault();keysOpen()?closeKeys():openKeys()}});
 
 /* ---------- sidebar ---------- */
-function renderTitle(){const el=$('#cTitle');if(document.activeElement!==el)el.textContent=conv.title||'New conversation';updateHeader('main')}
+function renderTitle(){const el=$('#cTitle');if(document.activeElement!==el)el.textContent=conv.title||'New conversation';updateHeader('main');tabName()}
 // the branch count in a pane's header opens a list of those branches (the sidebar's tree from that pane down)
 function brCount(tid,nb,always){const l=`${nb} branch${nb===1?'':'es'}`;return nb||always?`<button type="button" class="bcount" data-brlist="${tid}" title="${tid==='doc'?'See the branches off the document, and the main thread':'See the branches off this'}">${l}</button>`:l}
 let brPop=null;   // {tid, el, btn}
@@ -6799,7 +6812,7 @@ function mapNode(tid,o){
   if(t.hidden)n.classList.add('hiddenb');
   n.title=tid==='main'?'Show the main thread':`Open “${t.title}”`+(t.anchorText?`, from “${trunc(t.anchorText,240)}”`:'');
   n.querySelector('.mt').textContent=tid==='main'?'Main thread':t.title;
-  if(t.anchorText)n.querySelector('.ma').textContent=(isDocBranch(t)&&conv.doc.kind==='pdf'?`p. ${t.anchorPage+1} · `:'')+'“'+trunc(t.anchorText,60)+'”';
+  if(t.anchorText)n.querySelector('.ma').textContent=(isDocBranch(t)&&conv.doc.kind==='pdf'?`${docPagesLabel(t)} · `:'')+'“'+trunc(t.anchorText,60)+'”';
   li.appendChild(n);
   if(kids.length&&!fold.includes(tid)){const ul=document.createElement('ul');kids.forEach(c=>ul.appendChild(build(c.id)));li.appendChild(ul)}
   return li;
@@ -7120,6 +7133,7 @@ function applyContent(c,next){
     if(card.conv!==c.id||!card.at)continue;const m=msgs[card.at.msg];
     if(m&&card.at.thread!==m.thread){if(card.thread===card.at.thread)card.thread=m.thread;card.at.thread=m.thread;putCard(card)}
   }
+  if(c===conv)tabName();   // a rename on another device
 }
 // redraw the panes without losing where each was scrolled: Safari resets a pane's scroll to the top when the layout
 // moves it (Chrome keeps it), so a pane that came back at the top is put back where it was
@@ -7292,12 +7306,24 @@ function checkSelection(){
   if(cvTook)return;   // the press was a canvas drag (pan, move, resize): whatever it swept over isn't a highlight
   const sel=window.getSelection();
   if(!sel||sel.isCollapsed||!sel.rangeCount)return;
-  const raw=sel.toString().trim();const txt=raw.replace(/\s+/g,' ');if(txt.length<2)return;
   const elOf=n=>n&&(n.nodeType===1?n:n.parentElement);
   const rng=sel.getRangeAt(0);
+  let raw=sel.toString().trim();
+  // a PDF passage that runs on to the next page(s): each page has its own text layer. Its text is taken from
+  // the text layers only, not the page numbers and buttons between them
+  const tl1=conv.doc&&elOf(rng.startContainer)&&elOf(rng.startContainer).closest('.textLayer'),tl2=conv.doc&&elOf(rng.endContainer)&&elOf(rng.endContainer).closest('.textLayer');
+  const p1=tl1&&+tl1.closest('.dpage').dataset.page,p2=tl2&&+tl2.closest('.dpage').dataset.page;
+  const across=!!(tl1&&tl2&&p2>p1&&tl1.closest('.pane')===tl2.closest('.pane'));
+  if(across){const parts=[];for(let i=p1;i<=p2;i++){const tl=i===p1?tl1:i===p2?tl2:tl1.closest('.pane').querySelector(`.dpage[data-page="${i}"] .textLayer`);if(!tl)continue;
+    const r=document.createRange();r.selectNodeContents(tl);if(i===p1)r.setStart(rng.startContainer,rng.startOffset);if(i===p2)r.setEnd(rng.endContainer,rng.endOffset);parts.push(r.toString().trim())}
+    raw=parts.filter(Boolean).join('\n')}
+  const txt=raw.replace(/\s+/g,' ');if(txt.length<2)return;
   const d1=conv.doc&&elOf(sel.anchorNode)&&elOf(sel.anchorNode).closest('.textLayer,.docbody');
   const d2=conv.doc&&elOf(sel.focusNode)&&elOf(sel.focusNode).closest('.textLayer,.docbody');
-  if(d1&&d1===d2){
+  if(across){
+    const s=charPos(tl1,rng.startContainer,rng.startOffset),e1=flatLen(tl1),e2=charPos(tl2,rng.endContainer,rng.endOffset);
+    popState={doc:true,page:p1-1,text:txt.slice(0,1500),range:s>=0&&e1>s?{s,e:e1}:null,end:e2>0?{page:p2-1,e:e2}:null};
+  }else if(d1&&d1===d2){
     const page=d1.classList.contains('textLayer')?(+d1.closest('.dpage').dataset.page-1):0;
     const s=charPos(d1,rng.startContainer,rng.startOffset),e2=charPos(d1,rng.endContainer,rng.endOffset);
     popState={doc:true,page,text:txt.slice(0,1500),range:s>=0&&e2>s?{s,e:e2}:null};
@@ -7375,7 +7401,7 @@ async function popSubmit(q,chip){
   hidePop();window.getSelection().removeAllRanges();
   let kept=null;   // a picture of part of a text document is kept as a file (it can't be drawn again: the text re-wraps)
   if(shot){try{[kept]=await storeImages([st.shotImg])}catch(e){toast('The picture couldn’t be saved: '+((e&&e.message)||e));return}}
-  createBranch(doc?'DOC':mid,text,q||'',q&&chip?trunc(text,40):null,range,page,region?{region,regionText:rt}:image?{image}:shot?{shot:kept,regionText:rt,near}:null);
+  createBranch(doc?'DOC':mid,text,q||'',q&&chip?trunc(text,40):null,range,page,region?{region,regionText:rt}:image?{image}:shot?{shot:kept,regionText:rt,near}:st.end&&range?{end:st.end}:null);
 }
 popIn.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();popSubmit(popIn.value.trim())}else if(e.key==='Escape'){hidePop()}});
 popIn.addEventListener('input',()=>{
@@ -8101,7 +8127,7 @@ $('#viewSeg').addEventListener('click',e=>{const b=e.target.closest('[data-v]');
 $('#newConv').addEventListener('click',async()=>{if(!await leaveOk())return;BACK.length=0;renderBack();setConv(newConv());setTimeout(()=>{if(!$('#pal').classList.contains('show'))paneEls.get('main').querySelector('textarea').focus()},30)});   // not if search opened meanwhile
 const ct=$('#cTitle');
 ct.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();ct.blur()}});
-ct.addEventListener('blur',()=>{const v=ct.textContent.trim();if(v&&v!==conv.title){conv.title=v;conv.titleKept=true;delete conv.autoTitle;updateHeader('main');save()}else renderTitle()});
+ct.addEventListener('blur',()=>{const v=ct.textContent.trim();if(v&&v!==conv.title){conv.title=v;conv.titleKept=true;delete conv.autoTitle;updateHeader('main');tabName();save()}else renderTitle()});
 addEventListener('resize',wiresSoon);
 $('#panes').addEventListener('scroll',wiresSoon,{passive:true});
 new ResizeObserver(()=>{wiresSoon();if(conv&&conv.ui.view==='canvas'){placeDocked();drawEdgesSoon()}}).observe($('#stage'));
