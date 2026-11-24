@@ -387,9 +387,12 @@ def main():
         check(req(base, 'GET', '/api/health', headers={'host': 'localhost:' + port, 'origin': 'http://localhost:' + port})[0] == 200, 'the app\'s own origin is allowed (localhost)')
         check(req(base, 'GET', '/api/health', headers={'host': 'box.tail1234.ts.net', 'origin': 'https://box.tail1234.ts.net'})[0] == 200, 'Tailscale Serve names are allowed')
         # ALLOWED_HOSTS replaces the default list; a leading dot matches names under it; a specific HOST is allowed
-        proc_h, base_h = start({'ALLOWED_HOSTS': 'mybox.lan,.home.arpa', 'DATA_DIR': os.path.join(tmp, 'data_h'), 'CLAUDE_BIN': fake_claude})
+        proc_h, base_h = start({'ALLOWED_HOSTS': 'mybox.lan,.home.arpa', 'DATA_DIR': os.path.join(tmp, 'data_h'), 'CLAUDE_BIN': fake_claude, 'LLM_PROVIDER': 'claude-code',
+                                 'GEMINI_API_KEY': 'gemini-should-not-reach-the-cli', 'GOOGLE_API_KEY': 'google-should-not-reach-the-cli', 'GEMINI_API_BASE': 'http://127.0.0.1:9'})   # (port 9: nothing real is ever asked)
         procs.append(proc_h)
         allowed = lambda b, hst: req(b, 'GET', '/api/health', headers={'host': hst})[0] == 200
+        chat(base_h, {'model': 'claude-opus-5-5', 'messages': [{'role': 'user', 'content': 'hi'}]})
+        check(json.loads(open(log).read().strip().splitlines()[-1]).get('otherKeysVisible') is False, 'Claude Code: never sees a Gemini/Google key from .env (the server\'s environment)')
         check(allowed(base_h, 'mybox.lan') and allowed(base_h, 'pi.home.arpa') and allowed(base_h, 'localhost') and not allowed(base_h, 'box.tail1234.ts.net') and not allowed(base_h, 'home.arpa.evil.example'),
               'ALLOWED_HOSTS: exact names and .suffix entries allowed, replaces the .ts.net default')
         proc_n, base_n = start({'ALLOWED_HOSTS': 'none', 'HOST': '127.0.0.2', 'DATA_DIR': os.path.join(tmp, 'data_n'), 'CLAUDE_BIN': fake_claude})

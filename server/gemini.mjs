@@ -69,19 +69,22 @@ export function requestBody({ system, contents, effort, web, session, final }, w
   const tools = [...(session ? toolDecls(session) : []), ...(web && withSearch ? [{ googleSearch: {} }] : [])];
   if (tools.length) body.tools = tools;
   if (session) body.toolConfig = { functionCallingConfig: { mode: final ? 'NONE' : 'AUTO' } };   // the tool loop ran out of rounds: answer from what was read
+  // Google Search with the document tools: Gemini 4 refuses the pair unless its own search steps come back as parts
+  // (toolCall / toolResponse, with their signatures), which the tool loop then sends back as they came
+  if (session && web && withSearch) body.toolConfig.includeServerSideToolInvocations = true;
   return body;
 }
 // a document tool's result as a function response; its pictures go in the same turn, after it
-function resultParts(r, name) {
+function resultParts(r, name, id) {
   const text = r.parts.filter((p) => p.type === 'text').map((p) => p.text).join('\n') || '(empty)';
   const images = r.parts.filter((p) => p.type === 'image').map((p) => ({ inlineData: { mimeType: p.mediaType, data: p.data } }));
-  return [{ functionResponse: { name, response: r.error ? { error: text } : { result: text } } }, ...images];
+  return [{ functionResponse: { ...(id ? { id } : {}), name, response: r.error ? { error: text } : { result: text } } }, ...images];   // the call's id, when it had one
 }
 
 // ---- errors -------------------------------------------------------------------------------------
 // Google refusing its search tool (on the free tier, or together with function calling). Not just "search": that's
 // also the name of a document tool, which shows up in other errors (a schema it didn't take, say).
-const SEARCH_REFUSED = /google_?search|grounding|function calling is unsupported/i;
+const SEARCH_REFUSED = /google_?search|grounding|function calling is unsupported|server_?side_?tool_?invocations/i;   // (the last: a model that doesn't know that setting)
 // web: whether the request asked for Google Search (a free key asking for it gets a plain 429 "quota exceeded")
 export function errorMessage(txt, status, web) {
   let msg = ''; try { const j = JSON.parse(txt); const e = Array.isArray(j) ? j[0] && j[0].error : j.error; msg = (e && e.message) || ''; } catch { /* not JSON */ }
@@ -194,7 +197,7 @@ export async function chat(payload, res, h, key) {
     if (calls.length && payload.session && !final) {
       if (round + 1 >= MAX_TOOL_ROUNDS) final = true;
       const resp = [];
-      for (const fc of calls) resp.push(...resultParts(await payload.session.call(fc.name, fc.args || {}), fc.name));
+      for (const fc of calls) resp.push(...resultParts(await payload.session.call(fc.name, fc.args || {}), fc.name, fc.id));
       contents = [...contents, { role: 'model', parts: modelParts }, { role: 'user', parts: resp }];
       try { up = await send(); } catch (e) { if (stopped) return res.end(); st.end = { error: ctrl.signal.aborted ? NO_ANSWER : 'Could not reach Google: ' + e.message }; break; }
       if (!up.ok) { st.end = { error: errorMessage(await up.text(), up.status, payload.web && withSearch) }; break; }

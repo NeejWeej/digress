@@ -34,7 +34,7 @@ process.stdin.on('end', async () => {
   const safe = ['--strict-mcp-config', '--safe-mode', '--disable-slash-commands'].every((f) => args.includes(f));
   const pieces = !args.includes('--safe-mode') && ['--strict-mcp-config', '--disable-slash-commands', '--mcp-config'].every((f) => args.includes(f)) && arg('--setting-sources') === ''
     && /"disableAllHooks":true/.test(arg('--settings') || '') && process.env.CLAUDE_CODE_DISABLE_CLAUDE_MDS === '1' && process.env.CLAUDE_CODE_DISABLE_AUTO_MEMORY === '1';
-  log(JSON.stringify({ model, effort, tools: arg('--tools'), allowed: arg('--allowedTools') || null, mcp: arg('--mcp-config') || null, isolated: safe || pieces, isolatedHow: safe ? 'safe-mode' : pieces ? 'pieces' : 'NO', apiKeyVisible: !!process.env.ANTHROPIC_API_KEY, systemChars: system.length, system, prompt, blocks }));
+  log(JSON.stringify({ model, effort, tools: arg('--tools'), allowed: arg('--allowedTools') || null, mcp: arg('--mcp-config') || null, isolated: safe || pieces, isolatedHow: safe ? 'safe-mode' : pieces ? 'pieces' : 'NO', apiKeyVisible: !!process.env.ANTHROPIC_API_KEY, otherKeysVisible: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY), systemChars: system.length, system, prompt, blocks }));
   process.on('SIGTERM', () => { log('KILLED'); process.exit(143); });
   if (prompt.includes('UNICODE')) {
     // a reply full of multi-byte characters, written a few bytes at a time so characters split between chunks

@@ -60,6 +60,10 @@ def main():
         decl = {f['name']: f['parameters'] for t in last.get('tools', []) for f in t.get('functionDeclarations', [])}
         check(st == 200 and 'gemini reply' in text and decl.get('search', {}).get('required') == ['query'] and decl.get('read_pages', {}).get('required') == ['from'],
               'the document tools go with schemas Google accepts (required stays a list)', [st, text[:80], decl.get('search')])
+        st, text, lines = chat(base, {'messages': [{'role': 'user', 'content': 'Hello with tools and web'}], 'model': 'gemini-3.8-flash', 'web': True, 'tools': True})
+        last = [json.loads(l) for l in open(glog) if l.strip()][-1]
+        check(st == 200 and 'gemini reply' in text and any('googleSearch' in t for t in last.get('tools', [])) and last.get('toolConfig', {}).get('includeServerSideToolInvocations') is True,
+              'Web on with the document tools: search and the tools go together, with the setting Gemini 4 requires for that', [st, text[:120], last.get('toolConfig')])
         # a model that refuses both a thinking level and search with the tools: both dropped, one after the other
         st, text, lines = chat(base, {'messages': [{'role': 'user', 'content': 'Hello old model'}], 'model': 'gemini-old-1', 'effort': 'high', 'web': True, 'tools': True})
         last = [json.loads(l) for l in open(glog) if l.strip()][-1]
