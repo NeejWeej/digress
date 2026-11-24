@@ -37,6 +37,30 @@ Ideas that aren't built yet, written down so they aren't lost. What's already bu
     (redrawn from its source, not copied), and close without changing anything.
   On the canvas, the 60% cap could also follow the card's height, so resizing a card enlarges its diagrams.
 
+## Long conversations and big documents
+
+Not needed yet; written down in case it ever is. As of November 2026 the fullest conversation reached 84k tokens
+of a 500k window, and most stay under 40k. History grows slowly: only the replies' text is sent again
+(`buildContext` sends each message's `content`), never the web results or pages a reply read along the way, and a
+branch carries only its own path. The more likely way to fill a window is a single reply that reads a lot, which
+neither idea below touches.
+
+- **A document rule tied to the window (maybe).** Today a document goes whole into the system prompt under
+  `DOC_BUDGET` (200k characters, ~50k tokens), else the model starts from its contents and the document tools. The
+  cutoff could instead be a share of the model's window, say 15%: a 50k-token document would go whole on a 500k or
+  1M model but not a 272k one. Unsure it's worth it: in the cached system prompt, a whole document costs little
+  per question (cache reads are about a tenth of the price); the cost is window space, and a whole document gives
+  better answers when a question spans several parts of it. It would need each model's window in `/api/models`
+  (the providers' model lists have it), and threads on different models could then see the document differently.
+- **History the model looks up, if a thread ever gets near its window.** The document tools' approach applied to
+  the conversation itself: send the recent part word for word, an outline of the older part (one line per
+  exchange, from the questions themselves, not model-written summaries), and `search_history` / `read_messages`
+  tools limited to the thread's path, run in the page like the document tools. What has to hold: the cut is a
+  pure function of the path, so a message's context stays fixed and merges still work; it moves in big steps, so
+  the prompt cache survives; nothing changes below a threshold (say 40% of the window); and "What the model sees"
+  shows the cut. Several days of work, in the middle of how every request is built, so only if it's needed.
+  Revisit if a conversation's `usage.ctx` passes about 40% of its window.
+
 ## Sub-agents that explore
 
 An `explore(task)` tool: Digress starts a separate model run with the same read-only tools and a fresh
