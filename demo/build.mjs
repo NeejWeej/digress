@@ -24,8 +24,10 @@ if (at < 0) throw new Error('web/index.html has no <head> to put the demo script
 html = html.slice(0, at + 6) + '\n<script src="demo/replies.js"></script>\n<script src="demo/demo.js"></script>' + html.slice(at + 6);
 fs.writeFileSync(path.join(OUT, 'index.html'), html);
 
-// the rest of web/, except the service worker: the demo keeps nothing to work offline for
+// the rest of web/, except the service worker: the demo has its own (demo/sw.js), which keeps nothing offline and
+// only makes a visit after a deploy get the new page
 for (const f of fs.readdirSync(from('web'))) if (f !== 'index.html' && f !== 'sw.js') fs.copyFileSync(from('web', f), path.join(OUT, f));
+fs.copyFileSync(from('demo', 'sw.js'), path.join(OUT, 'sw.js'));
 for (const f of ['demo.js', 'replies.js', 'sample.pdf', 'seed.json']) fs.copyFileSync(from('demo', f), path.join(OUT, 'demo', f));
 
 // the libraries and fonts, from node_modules when installed (lib/, as the server serves them); the page uses a CDN for any missing

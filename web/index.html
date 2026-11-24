@@ -1588,7 +1588,7 @@ const msgCache=new Map(),paneEls=new Map(),gutEls=new Map(),streaming=new Map();
 // threads whose reply finished while you couldn't see them: per window, in memory only (a reload forgets them)
 const unread=new Set();
 window.__digressBusy=()=>streaming.size>0; // read by the server's dev live-reload, so it never reloads mid-reply
-window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList},get keys(){return KEYS},get custom(){return CUSTOM},skillLink:(u)=>skillLink(u),putSkill:(t,o)=>putSkill(t,o),get cards(){return CARDS}};   // for tests and the console
+window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList},get keys(){return KEYS},get custom(){return CUSTOM},skillLink:(u)=>skillLink(u),putSkill:(t,o)=>putSkill(t,o),get cards(){return CARDS},runDocTool:(n,i,t)=>runDocTool(n,i,t),set docState(v){docState=v}};   // for tests and the console
 let mathReady=false,mermaidReady=null,mermaidOk=false;
 let popState=null;
 
@@ -3192,7 +3192,7 @@ async function generate(m,ctx,lockTid,o={}){
     // m.live: what it has done so far, shown while it works (not saved: generate drops it when done)
     m.live=[];m.t0=m.t0||Date.now();tick=setInterval(()=>queueStream(m.id),1000);
     const step=(icon,text,done)=>{const l=m.live[m.live.length-1];if(l)l.done=true;m.live.push({icon,text,done});queueStream(m.id)};
-    const toolText=(name,input)=>name==='suggest_card'?`suggested a flashcard: “${trunc(String(input.front||''),60)}”`:trailText(name==='search'?{t:'search',q:String(input.query||'')}:name==='read_pages'?{t:'read',a:input.from,b:input.to||input.from}:{t:'view',p:input.page});
+    const toolText=(name,input)=>name==='suggest_card'?`suggested a flashcard: “${trunc(String(input.front||''),60)}”`:trailText(name==='search'?{t:'search',q:[].concat(input.queries!=null?input.queries:input.query||'').map(String).join('”, “')}:name==='read_pages'?{t:'read',a:input.from,b:input.to||input.from}:{t:'view',p:input.page});
     let nCards=0;
     const trail=[...(o.resume&&m.reads||[])],tools=ctx.tools?{names:ctx.tools,run:async(name,input)=>{   // the model reading the document or suggesting a card: run the call here, show what it's doing
       if(name==='suggest_card'){try{const r=await suggestCard(st.conv,m,input);if(!r.error)nCards++;return r}finally{const l=m.live[m.live.length-1];if(l)l.done=true;queueStream(m.id)}}
@@ -5844,6 +5844,78 @@ const DOC_TOOL_NAMES=['search','read_pages','view_page'];
 // suggest_card is offered in every request of a conversation with flashcards on (replies, card drafts, takeaways
 // alike, so they keep sharing one prompt cache); only a reply runs it (suggestCard), side jobs refuse it below
 const cardTool=(o)=>conv&&conv.cards&&conv.cards.on&&io.llm&&io.llm.supportsTools&&!(o&&o.tools===false)?['suggest_card']:[];
+// the search tool. A query is found word for word, ignoring case, accents (ä = a), ligatures (ﬁ), and the spaces,
+// line breaks, hyphens, dashes and quotes between letters, so "water-hero" finds "water- hero" split across a line;
+// a match starts at the start of a word. A query not found that way gets the passages closest to it instead, ranked
+// BM25-style by its words or words that start the same (divinity ~ divine, gods ~ god), clearly marked as such.
+const SEARCH_MAXQ=6,SEARCH_HITS=24,SEARCH_NEAR=4,SEARCH_WIN=50;
+const SQUEEZE=/[\s\-‐-―−'"‘-‟­​-‍⁠﻿]/u,ALNUM=/[\p{L}\p{N}]/u;
+const foldCh=(ch)=>ch.charCodeAt(0)<128?ch.toLowerCase():ch.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase();
+const foldWord=(w)=>w.normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase();
+// t → s (folded, with the squeezed characters left out), at[k] (where s[k] came from in t), ws[k] (s[k] starts a word)
+function foldText(t){
+  let s='';const at=[],ws=[];let prev=false,i=0;
+  for(const ch of t){
+    if(SQUEEZE.test(ch)){if(!/['’]/.test(ch))prev=false}   // an apostrophe keeps "don't" one word
+    else for(const c of foldCh(ch)){s+=c;at.push(i);ws.push(!prev);prev=ALNUM.test(c)}
+    i+=ch.length}
+  return {s,at,ws};
+}
+// t's words, folded, with where each is in t; a word broken at a line's hyphen ("infor- mation") is also there whole
+function wordsOf(t){
+  const out=[],re=/[\p{L}\p{N}][\p{L}\p{N}\p{M}]*/gu;let m,last=null;
+  while((m=re.exec(t))){const w={x:foldWord(m[0]),i:m.index,e:m.index+m[0].length};
+    if(last&&/^-\s+$/.test(t.slice(last.e,w.i))&&/^\p{Ll}/u.test(m[0]))out.push({x:last.x+w.x,i:last.i,e:w.e,joined:true});
+    out.push(w);last=w}
+  return out;
+}
+function docFold(st){
+  if(!st.__fold||st.__fold.P!==st.pages)st.__fold={P:st.pages,pages:st.pages.map(()=>null)};
+  return (i)=>st.__fold.pages[i]||(st.__fold.pages[i]={...foldText(st.pages[i]),words:wordsOf(st.pages[i])});
+}
+const stemOf=(x)=>{if(x.length>3&&x.endsWith('s'))x=x.slice(0,-1);return x.length<=4?x:x.slice(0,Math.max(4,x.length-3))};
+const oneLine=(x)=>x.replace(/\s+/g,' ').trim();
+function docSearch(st,q,cap,trail,{one,many,N,pdf}){
+  const fold=docFold(st),fq=foldText(q).s,hits=[],pages=[];let total=0;
+  if(fq){const wordy=ALNUM.test(fq[0]);
+    for(let i=0;i<N;i++){const f=fold(i),t=st.pages[i];let k=f.s.indexOf(fq);
+      while(k>=0){
+        if(!wordy||f.ws[k]){total++;if(!pages.includes(i+1))pages.push(i+1);
+          if(hits.length<cap){const a=f.at[k],b=f.at[k+fq.length-1]+1;hits.push(`[${one} ${i+1}] …${oneLine(t.slice(Math.max(0,a-120),b+120))}…`)}
+          k=f.s.indexOf(fq,k+fq.length)}
+        else k=f.s.indexOf(fq,k+1)}}}
+  if(total){
+    trail.push({t:'search',q,n:total,pages:pages.slice(0,40)});
+    return `${total} match${total>1?'es':''} for "${q}", on ${many} ${pages.length>40?pages.slice(0,40).join(', ')+', …':pages.join(', ')}${total>hits.length?`. The first ${hits.length}`:''}:\n\n${hits.join('\n\n')}`;
+  }
+  const near=nearPassages(st,fold,q,N);
+  trail.push({t:'search',q,n:0,pages:[],near:[...new Set(near.map(x=>x.page))]});
+  if(!near.length)return `No matches for "${q}" in the ${N} ${many}, word for word or close. It doesn't know synonyms, so try other words for the same thing.${pdf?' Text inside figures or scanned pages isn’t searchable; view_page shows those.':''}`;
+  return `No exact match for "${q}". The closest passages, by its words or words that start the same (check they mean what you want):\n\n`+
+    near.map(x=>`[${one} ${x.page}] …${oneLine(x.text)}… (has: ${x.has.join(', ')})`).join('\n\n');
+}
+// the passages (windows of SEARCH_WIN words, overlapping by half) that best match q's words, BM25-style
+function nearPassages(st,fold,q,N){
+  let terms=[...new Set(wordsOf(q).map(w=>w.x))];const keep=terms.filter(x=>!STOP.has(x));if(keep.length)terms=keep;
+  if(!terms.length)return [];
+  const like=terms.map(x=>{const st_=stemOf(x),num=/^\p{N}+$/u.test(x);return (w)=>w===x?1:!num&&w.startsWith(st_)?0.7:0});
+  const wins=[];
+  for(let i=0;i<N;i++){const W=fold(i).words;
+    for(let a=0;a<W.length||a===0;a+=SEARCH_WIN/2){const ws=W.slice(a,a+SEARCH_WIN);if(!ws.length)break;
+      const tf=terms.map(()=>0),has=terms.map(()=>new Set());
+      for(const w of ws)like.forEach((f,j)=>{const v=f(w.x);if(v){tf[j]+=v;has[j].add(w.joined?st.pages[i].slice(w.i,w.e).replace(/-\s+/,''):st.pages[i].slice(w.i,w.e))}});
+      if(tf.some(Boolean))wins.push({page:i+1,i:ws[0].i,e:ws[ws.length-1].e,tf,has});
+      if(a+SEARCH_WIN>=W.length)break}}
+  if(!wins.length)return [];
+  const n=wins.length,idf=terms.map((_,j)=>{const df=wins.filter(w=>w.tf[j]).length;return Math.log(1+(n-df+0.5)/(df+0.5))});
+  const need=terms.length>1?Math.ceil(terms.length/2):1;
+  const scored=wins.filter(w=>w.tf.filter(Boolean).length>=need).map(w=>({...w,score:w.tf.reduce((s,f,j)=>s+idf[j]*f*2.2/(f+1.2),0)})).sort((a,b)=>b.score-a.score);
+  const out=[];
+  for(const w of scored){if(out.length>=SEARCH_NEAR)break;
+    if(out.some(o=>o.page===w.page&&o.i<w.e&&w.i<o.e))continue;   // overlaps one already chosen
+    out.push({page:w.page,text:st.pages[w.page-1].slice(w.i,w.e),has:[...new Set(w.has.flatMap(h=>[...h]))].slice(0,8)})}
+  return out;
+}
 async function runDocTool(name,input,trail){
   if(name==='suggest_card')return {error:'Not in this request: it is a task with its own instructions (drafting flashcards or writing a takeaway). Do what it asks instead.'};
   const st=docState;
@@ -5851,14 +5923,13 @@ async function runDocTool(name,input,trail){
   const P=st.pages,N=P.length,pdf=st.kind==='pdf',one=pdf?'p.':'part',many=pdf?'pages':'parts';
   const num=(v)=>typeof v==='number'?v:typeof v==='string'&&/^\s*\d+\s*$/.test(v)?+v:NaN;
   if(name==='search'){
-    const q=String(input.query==null?'':input.query).replace(/\s+/g,' ').trim();
-    if(!q)return {error:'search needs a "query": the words to find.'};
-    const nq=q.toLowerCase(),hits=[],pages=[];let total=0;
-    P.forEach((p,i)=>{const t=p.replace(/\s+/g,' '),lt=t.toLowerCase();let k=lt.indexOf(nq);
-      while(k>=0){total++;if(!pages.includes(i+1))pages.push(i+1);if(hits.length<25)hits.push(`[${one} ${i+1}] …${t.slice(Math.max(0,k-120),k+nq.length+120)}…`);k=lt.indexOf(nq,k+nq.length)}});
-    trail.push({t:'search',q,n:total,pages:pages.slice(0,40)});
-    if(!total)return {parts:[{type:'text',text:`No matches for "${q}" in the ${N} ${many}. The search matches exact text (not case-sensitive), so try fewer or different words.${pdf?' Text inside figures or scanned pages isn’t searchable; view_page shows those.':''}`}]};
-    return {parts:[{type:'text',text:`${total} match${total>1?'es':''} for "${q}", on ${many} ${pages.length>40?pages.slice(0,40).join(', ')+', …':pages.join(', ')}${total>hits.length?`. The first ${hits.length}`:''}:\n\n${hits.join('\n\n')}`}]};
+    // several queries in one call (one tool call from the budget); `query` too, as the tool once took
+    let qs=input.queries!=null?input.queries:input.query;if(!Array.isArray(qs))qs=[qs];
+    qs=[...new Set(qs.map(q=>String(q==null?'':q).replace(/\s+/g,' ').trim()).filter(Boolean))];
+    if(!qs.length)return {error:'search needs "queries": a list of one or more words or phrases to find.'};
+    const extra=qs.length>SEARCH_MAXQ?` (Only the first ${SEARCH_MAXQ} queries were searched; ask again for the rest.)`:'';qs=qs.slice(0,SEARCH_MAXQ);
+    const per=Math.max(4,Math.floor(SEARCH_HITS/qs.length)),out=qs.map(q=>docSearch(st,q,per,trail,{one,many,N,pdf}));
+    return {parts:[{type:'text',text:out.join('\n\n———\n\n')+extra}]};
   }
   if(name==='read_pages'){
     const a=num(input.from);let b=input.to==null||input.to===''?a:num(input.to);
@@ -5924,7 +5995,7 @@ function docReads(m){
   if(!r.length){d.classList.add('flat');return d}
   const ol=document.createElement('ol');
   for(const x of r){const li=document.createElement('li');
-    const pg=x.t==='read'?x.a:x.t==='view'?x.p:null;li.textContent=trailText(x)+(x.t==='search'?` → ${x.n?`${x.n} match${x.n>1?'es':''}${x.pages.length?` (p. ${x.pages.slice(0,8).join(', ')}${x.pages.length>8?', …':''})`:''}`:'no matches'}`:'');
+    const pg=x.t==='read'?x.a:x.t==='view'?x.p:null;li.textContent=trailText(x)+(x.t==='search'?` → ${x.n?`${x.n} match${x.n>1?'es':''}${x.pages.length?` (p. ${x.pages.slice(0,8).join(', ')}${x.pages.length>8?', …':''})`:''}`:x.near&&x.near.length?`no exact match; close passages (p. ${x.near.join(', ')})`:'no matches'}`:'');
     if(pg&&docState&&docState.kind==='pdf'){const a=document.createElement('a');a.className='pref';a.dataset.page=pg;a.textContent='show';a.title=`Show page ${pg} in the document`;li.append(' ',a)}
     ol.appendChild(li)}
   d.appendChild(ol);

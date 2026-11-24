@@ -48,9 +48,14 @@ jobs:
     if: needs.latest.outputs.yes == 'true' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     steps:
+      # main itself (github.sha is main's latest commit for workflow_run), never a ref taken from the event, then a
+      # check that it's the commit Tests passed on: if main moved on meanwhile, that commit's own run publishes.
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - env:
+          WANT: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          have=$(git rev-parse HEAD)
+          [ "$have" = "$WANT" ] || { echo "::error::checked out $have, but Tests ran on $WANT (main moved on); the newer commit's run will publish"; exit 1; }
       - uses: actions/setup-node@v7
         with:
           node-version: 22

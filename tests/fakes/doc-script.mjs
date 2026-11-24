@@ -8,7 +8,7 @@ import crypto from 'node:crypto';
 
 export const TRIGGER = 'READDOC';
 export const ROUNDS = [
-  [['search', { query: 'ZEBRA-42' }], ['view_page', { page: 2 }]],
+  [['search', { queries: ['ZEBRA-42'] }], ['view_page', { page: 2 }]],
   [['read_pages', { from: 41, to: 43 }], ['read_pages', { from: 9999 }]],
 ];
 export const INTRO = 'Let me look in the document.';

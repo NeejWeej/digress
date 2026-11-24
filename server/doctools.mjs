@@ -28,8 +28,12 @@ const WAIT_MS = 120_000; // how long a call waits for the browser before telling
 export const DOC_TOOLS = [
   {
     name: 'search',
-    description: 'Search the document’s text for a word or phrase (not case-sensitive; spaces and line breaks don’t matter). Returns the pages it appears on, with the text around each match. Use it to find where something is discussed, defined or referred to, e.g. "Section 4.2", "Figure 12" or a term. Short exact phrases work best; it does not match synonyms.',
-    schema: { type: 'object', properties: { query: { type: 'string', description: 'The words to find.' } }, required: ['query'], additionalProperties: false },
+    description: 'Search the document’s text. Give one or more queries in one call (up to 6): words, phrases, names, "Section 4.2", "Figure 12", or several wordings of the same idea, e.g. ["divine child", "child god", "primordial child"]; they count as one call. Each query is matched word for word, ignoring case, accents, quotes, hyphens and line breaks (a word hyphenated across lines still matches); you get the pages it appears on with the text around each match. A query not found word for word gets the passages closest to it instead (sharing its words, or words that start the same), marked as such. It does not know synonyms: give them as more queries.',
+    schema: {
+      type: 'object',
+      properties: { queries: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 6, description: 'What to find: one or more words or short phrases, each searched separately.' } },
+      required: ['queries'], additionalProperties: false,
+    },
   },
   {
     name: 'read_pages',
