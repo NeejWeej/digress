@@ -179,7 +179,7 @@ def path_of(conv, tid):
 
 def expected_path(conv, tid, files_dir):
     """Independently of the app's code: the messages a request from thread `tid` must carry, as
-    (role, [text pieces], [image sha256 or 'region']) in order. Mirrors the rules in AGENTS.md:
+    (role, [text pieces], [image sha256 or 'region']) in order. Mirrors the rules in agents/model-context.md:
     the whole path from main to tid, each ancestor cut at the message the next branch starts from."""
     p = path_of(conv, tid)
     seq = []

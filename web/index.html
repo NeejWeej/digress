@@ -524,7 +524,7 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .acstep:hover{border-color:var(--muted)}.acarr{color:var(--faint);padding:0 3px}
 @media (max-width:640px){.acwrap{padding:16px 16px 40px}.acsec{padding:14px}.accharts{grid-template-columns:1fr}.acnum b{font-size:26px}}
 /* Pinned and Conversations fold, and a long list scrolls inside itself, so Branches and How it works stay near */
-#plist,#clist{position:relative}#plist{max-height:22vh;overflow-y:auto;overscroll-behavior:contain}#clist{max-height:38vh;overflow-y:auto;overscroll-behavior:contain}
+#plist,#clist{position:relative}#plist{max-height:22vh;overflow-y:auto;overscroll-behavior:contain}#clist{max-height:30vh;overflow-y:auto;overscroll-behavior:contain}
 .sfold{display:inline-flex;align-items:center;gap:4px;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;padding:0;margin-left:-2px}.sfold:hover{color:var(--ink)}
 .sfold .chev{display:inline-flex;transition:transform .15s;transform:rotate(90deg)}.sfoldw.folded .sfold .chev{transform:none}
 .sfoldw.folded>:not(.sh){display:none}.sfoldw.folded .cfilt,.sfoldw.folded .shbtn{display:none}.sfoldw.folded{margin-bottom:12px}
@@ -1107,6 +1107,27 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .citem .pmark svg.i{width:12px;height:12px}
 .citem.pb .t small{color:var(--faint);font-size:11.5px}
 .citem .bd{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+/* folders: one section that folds, each folder in it folds too (the header row is a .citem, so its buttons behave like a row's) */
+#flist{max-height:34vh;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:1px}
+#foldWrap.folded #flist{display:none}
+.citem.fhd{padding:5px 10px;font-size:13px}.citem.fhd .chev{display:inline-flex;transition:transform .15s;color:var(--faint)}.fgrp:not(.ffolded)>.fhd .chev{transform:rotate(90deg)}
+.citem.fhd .fic{display:inline-flex;color:var(--faint)}.citem.fhd .fic svg.i{width:13px;height:13px}.citem.fhd .fcount{font-size:11px;color:var(--faint)}
+.citem.fhd:hover .fcount{visibility:hidden}@media (hover:none){.citem.fhd:hover .fcount{visibility:visible}}
+.citem.fhd .fren{flex:1;min-width:0;font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line2);border-radius:6px;padding:1px 6px}
+.fgrp .fbody{display:flex;flex-direction:column;gap:1px;padding-left:14px}.fgrp.ffolded .fbody{display:none}
+#folderMenu .fmcur{color:var(--accent)}#folderMenu .fmsep{height:1px;background:var(--line);margin:4px 0}
+.fnewrow{display:flex;align-items:center;gap:6px;width:100%;padding:5px 10px;border-radius:8px;color:var(--faint);font-size:13px;text-align:left}.fnewrow:hover{background:var(--user-bg);color:var(--ink)}.fnewrow svg.i{width:13px;height:13px}
+#foldWrap{margin-bottom:16px}#foldWrap.folded #newFolder{display:none}
+/* New folder: a name, then what goes in it (a folder exists only while something's in it) */
+.nfname{display:block;width:100%;box-sizing:border-box;font:inherit;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line2);border-radius:10px;padding:9px 12px;margin:2px 0 4px}
+.nfname:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.nfhint{font-size:12px;color:var(--faint);min-height:16px;margin-bottom:10px}
+.nfsub{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);margin:0 0 6px;display:flex;justify-content:space-between}
+.nflist{max-height:min(40vh,320px);overflow-y:auto;overscroll-behavior:contain;border:1px solid var(--line);border-radius:10px;padding:4px}
+.nfrow{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:13.5px;color:var(--ink)}.nfrow:hover{background:var(--user-bg)}
+.nfrow input{flex:none;width:16px;height:16px;accent-color:var(--accent);margin:0}.nfrow span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.nfrow small{flex:none;color:var(--faint);font-size:11.5px;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mOk:disabled{opacity:.45;cursor:default}
+#folderMenu .fmsep{height:1px;background:var(--line);margin:4px 0}
 .archtoggle{display:flex;align-items:center;gap:6px;width:100%;padding:6px 10px;border-radius:8px;color:var(--faint);font-size:12.5px}
 .archtoggle:hover{background:var(--user-bg);color:var(--ink)}
 .archtoggle .chev{transition:transform .15s;display:inline-flex}
@@ -1406,6 +1427,7 @@ a.pref:hover{border-bottom-style:solid}
     <div class="sbrow"><button class="newbtn" id="actBtn" title="Your activity: what you did each day, what you remember, where you dug deepest"></button>
     <button class="newbtn" id="promptsBtn" aria-label="Prompts, skills and tools" title="Prompts, skills &amp; tools: what Digress tells the model, your own system prompt and quick questions, skills to turn on in a conversation, and the tools the model can use"></button></div>
     <div id="pinWrap" class="sfoldw" data-fold="pins" style="display:none"><div class="sh"><button class="sfold" title="Fold or unfold the pinned conversations"><span class="chev"></span>Pinned</button></div><div class="clist" id="plist"></div></div>
+    <div id="foldWrap" class="sfoldw" data-fold="folders"><div class="sh"><button class="sfold" title="Fold or unfold your folders"><span class="chev"></span>Folders</button></div><div id="flist"></div><button class="fnewrow" id="newFolder" title="New folder: name it and choose what goes in it"></button></div>
     <div id="convWrap" class="sfoldw" data-fold="convs"><div class="sh"><button class="sfold" title="Fold or unfold the conversations"><span class="chev"></span>Conversations</button><span class="cfilt" id="cFilt" title="Show all conversations, only those with a document, or only plain chats"><button data-cf="all">All</button><button data-cf="doc">Docs</button><button data-cf="chat">Chats</button></span></div>
     <div class="clist" id="clist"></div>
     <div id="archWrap" style="display:none;margin:-12px 0 16px"><button class="archtoggle" id="archToggle" title="Archived conversations: out of the way, but nothing is deleted"><span class="chev"></span><span id="archLbl">Archive</span></button><div class="alist" id="alist"></div></div>
@@ -1545,6 +1567,7 @@ const I={
  fit:'<path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/>',
  doc:'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>',
  pin:'<path d="M9 3h6l-1 7 3.5 3.5h-11L10 10zM12 13.5V21"/>',
+ folder:'<path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4l2 2.2h8A1.5 1.5 0 0 1 20.5 9.2V17A1.5 1.5 0 0 1 19 18.5H5A1.5 1.5 0 0 1 3.5 17z"/>',
  archive:'<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
  retry:'<path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v4h4"/>',
  take:'<path d="M20 12H8M12 7l-5 5 5 5M4 5v14"/>',
@@ -2940,7 +2963,7 @@ const imageRecs=(c)=>[...Object.values(c.msgs||{}).flatMap(m=>(m&&m.images)||[])
 async function digressFile(id,o={}){
   const c=await convFull(id),files={};
   const grab=async(assetId,type)=>{if(!assetId||files[assetId])return;const buf=await io.files.fetch(assetId);files[assetId]={type:type||'application/octet-stream',data:await blobB64(new Blob([buf]))}};
-  for(const k of ['trashed','archived','pinned','dropCards','cards'])delete c[k];
+  for(const k of ['trashed','archived','pinned','folder','dropCards','cards'])delete c[k];
   for(const t of Object.values(c.threads))delete t.pinned;
   for(const m of Object.values(c.msgs)){delete m.run;delete m.runFrom}
   if(c.doc){
@@ -3021,7 +3044,7 @@ async function importDigress(file){
     const c=JSON.parse(JSON.stringify(src)),problems=fresh(c);
     if(problems.length){console.warn('import: skipped a conversation',problems);toast('Part of that file is damaged, so it was left out.');continue}
     const old=c.id,id='c'+Date.now().toString(36)+rid().slice(0,4);
-    for(const k of ['rev','ui','trashed','archived','pinned','dropCards','cards'])delete c[k];
+    for(const k of ['rev','ui','trashed','archived','pinned','folder','dropCards','cards'])delete c[k];
     c.id=id;c.title=typeof c.title==='string'&&c.title?c.title:'Shared conversation';c.created=+c.created||Date.now();c.updated=Date.now();c.nextColor=+c.nextColor||0;
     for(const m of Object.values(c.msgs)){for(const f of [...LOCAL_MSG,'run','runFrom'])delete m[f];for(const im of m.images||[])await restore(im)}
     if(c.doc){
@@ -6925,7 +6948,7 @@ function treeAll(){
   renderMap();save();
 }
 function metaOf(c){
-  return {dropCards:!!c.dropCards,id:c.id,title:c.title,updated:c.updated,created:c.created,pinned:!!c.pinned,archived:!!c.archived,trashed:c.trashed||0,doc:!!c.doc,docName:c.doc?c.doc.name||'':'',asset:(c.doc&&c.doc.assetId)||'',
+  return {dropCards:!!c.dropCards,id:c.id,title:c.title,updated:c.updated,created:c.created,pinned:!!c.pinned,archived:!!c.archived,trashed:c.trashed||0,folder:c.folder||'',doc:!!c.doc,docName:c.doc?c.doc.name||'':'',asset:(c.doc&&c.doc.assetId)||'',
     pins:Object.values(c.threads||{}).filter(t=>t.pinned).map(t=>({tid:t.id,title:t.title,ci:t.colorIdx}))};
 }
 let convFilt='all';try{convFilt=localStorage.getItem('digress:cfilt')||'all'}catch(e){}
@@ -6942,8 +6965,8 @@ function renderConvList(){
   const shown=c=>filt==='all'||(filt==='doc')===!!c.doc||(conv&&c.id===conv.id);   // the open one always shows
   // flashcards per conversation: a badge (due count) and, on hover, a button that opens just its cards
   const kc={},now=Date.now();for(const k of CARDS.values()){if(k.status==='suspended')continue;const e=kc[k.conv]||(kc[k.conv]={n:0,due:0,inbox:0});e.n++;if(inInbox(k))e.inbox++;else if((k.due||0)<=now&&!k.fix)e.due++}
-  const sig=JSON.stringify([conv&&conv.id,archOpen,trashOpen,filt,kc,new Date().toDateString(),items.map(c=>[c.id,c.title,c.pinned,c.archived,c.trashed,c.dropCards,c.doc,c.pins])]);
-  if(sig===convListSig&&$('#clist').childElementCount+$('#plist').childElementCount+$('#alist').childElementCount+$('#xlist').childElementCount)return;
+  const sig=JSON.stringify([conv&&conv.id,archOpen,trashOpen,filt,kc,new Date().toDateString(),items.map(c=>[c.id,c.title,c.pinned,c.archived,c.trashed,c.dropCards,c.doc,c.pins,c.folder]),[...folderFolded]]);
+  if(sig===convListSig&&$('#clist').childElementCount+$('#plist').childElementCount+$('#flist').childElementCount+$('#alist').childElementCount+$('#xlist').childElementCount)return;
   // two conversations with the same name (say, two on one document) are told apart by the day they started
   const names={};for(const c of items)if(!c.trashed){const n=c.title||'New conversation';names[n]=(names[n]||0)+1}
   convListSig=sig;
@@ -6954,8 +6977,9 @@ function renderConvList(){
       (k?`<span class="cbadge${k.due?' due':''}" title="${esc(kt)}">${ic('cards')}${k.due||''}</span>`:'')+`<span class="acts">`+
       (k?`<button class="ib${k.due?' kdue':''}" data-cardsconv="${esc(c.id)}" title="${esc(kt+'. Click to review them.')}">${ic('cards')}</button>`:'')+
       (c.archived?'':`<button class="ib${c.pinned?' pinned':''}" data-pinconv="${esc(c.id)}" title="${c.pinned?'Unpin':'Pin to the top of the sidebar'}">${ic('pin')}</button>`)+
+      (c.archived?'':`<button class="ib" data-folderconv="${esc(c.id)}" title="${esc(c.folder?`Move to…: in “${c.folder}” now; another folder, out of it, or the archive`:'Move to…: a folder, a new one, or the archive')}">${ic('folder')}</button>`)+
       `<button class="ib" data-expconv="${esc(c.id)}" title="Export: a .digress file to share or keep, Markdown, or flashcards for Anki">${ic('download')}</button>`+
-      `<button class="ib" data-archconv="${esc(c.id)}" title="${c.archived?'Move back to your conversations':'Archive: move out of the way without deleting'}">${ic('archive')}</button>`+
+      (c.archived?`<button class="ib" data-archconv="${esc(c.id)}" title="Move back to your conversations">${ic('archive')}</button>`:'')+
       `<button class="ib dz" data-del="${esc(c.id)}" title="Move to the trash (deleted for good after ${TRASH_DAYS} days; restore it from Trash before then)">${ic('trash')}</button></span>`;
     const tt=d.querySelector('.t');tt.textContent=c.title||'New conversation';d.dataset.tip=tt.textContent;d.dataset.clip='';
     if(names[tt.textContent]>1&&c.created){const sm=document.createElement('small');sm.className='cday';sm.textContent=' · '+dayLabel(c.created);tt.appendChild(sm);d.dataset.tip+=' · started '+dayLabel(c.created)}
@@ -6974,11 +6998,21 @@ function renderConvList(){
     pl.appendChild(d);
   }
   $('#pinWrap').style.display=pl.children.length?'':'none';
+  // folders: every conversation filed in one (pinned ones too: a folder shows all of its own), by name
+  const fl=$('#flist');fl.replaceChildren();const byF=new Map();
+  for(const c of active)if(c.folder&&shown(c)){if(!byF.has(c.folder))byF.set(c.folder,[]);byF.get(c.folder).push(c)}
+  for(const name of folderNames(active)){const cs=byF.get(name);if(!cs)continue;
+    const g=document.createElement('div');g.className='fgrp'+(folderFolded.has(name)?' ffolded':'');g.dataset.folder=name;
+    g.innerHTML=`<div class="citem fhd" data-ftog title="Fold or unfold this folder"><span class="chev">${$('#archToggle .chev').innerHTML}</span><span class="fic">${ic('folder')}</span><span class="t"></span><span class="fcount">${cs.length}</span><span class="acts"><button class="ib" data-fren title="Rename this folder">${ic('edit')}</button><button class="ib dz" data-fdrop title="Remove this folder: its conversations go back to the list (nothing is deleted)">${ic('x')}</button></span></div><div class="fbody"></div>`;
+    g.querySelector('.t').textContent=name;g.querySelector('.fhd').setAttribute('aria-expanded',String(!folderFolded.has(name)));
+    const body=g.querySelector('.fbody');for(const c of cs)body.appendChild(row(c,c.pinned?`<span class="pmark" title="Pinned">${ic('pin')}</span>`:''));
+    fl.appendChild(g);
+  }
   const el=$('#clist');el.replaceChildren();
-  for(const c of active.filter(c=>!c.pinned&&shown(c)))el.appendChild(row(c));
+  for(const c of active.filter(c=>!c.pinned&&!c.folder&&shown(c)))el.appendChild(row(c));
   // the list scrolls inside itself: when another conversation opens, bring its row into view there (only the list moves)
-  if(conv&&listCur!==conv.id){listCur=conv.id;requestAnimationFrame(()=>{for(const l of [el,pl]){const r=l.querySelector('.citem.cur');if(r&&(r.offsetTop<l.scrollTop||r.offsetTop+r.offsetHeight>l.scrollTop+l.clientHeight))l.scrollTop=r.offsetTop-l.clientHeight/3}})}
-  if(!el.children.length)el.innerHTML=`<div class="citem" style="cursor:default;color:var(--faint)">${filt==='doc'?'No document conversations':filt==='chat'?'No chats without a document':'No other conversations'}</div>`;
+  if(conv&&listCur!==conv.id){listCur=conv.id;requestAnimationFrame(()=>{for(const l of [el,pl,fl]){const r=l.querySelector('.citem.cur');if(r&&(r.offsetTop<l.scrollTop||r.offsetTop+r.offsetHeight>l.scrollTop+l.clientHeight))l.scrollTop=r.offsetTop-l.clientHeight/3}})}
+  if(!el.children.length)el.innerHTML=`<div class="citem" style="cursor:default;color:var(--faint)">${filt==='doc'?'No document conversations':filt==='chat'?'No chats without a document':fl.children.length?'Nothing outside a folder':'No other conversations'}</div>`;
   const al=$('#alist');al.replaceChildren();arch.filter(shown).forEach(c=>al.appendChild(row(c)));
   $('#archWrap').style.display=arch.length?'':'none';$('#archLbl').textContent=`Archive · ${arch.length}`;
   $('#archToggle').classList.toggle('open',archOpen);al.classList.toggle('show',archOpen);
@@ -6995,6 +7029,74 @@ function renderConvList(){
   $('#trashToggle').classList.toggle('open',trashOpen);xl.classList.toggle('show',trashOpen);
 }
 var listCur=null;   // var: renderConvList may run before this line
+/* Folders: conv.folder is a name (one per conversation, no nesting). A folder exists while something is in it,
+   archived and trashed ones included (restoring one puts it back where it was). Which folders are folded is per device. */
+var folderFolded=new Set();try{folderFolded=new Set(JSON.parse(localStorage.getItem('digress:ffold')||'[]'))}catch(e){}
+const folderNames=(items)=>[...new Set(items.filter(c=>c.folder&&!c.trashed).map(c=>c.folder))].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base',numeric:true}));
+const allConvMeta=()=>{const items=convList.map(c=>conv&&c.id===conv.id?metaOf(conv):c);if(conv&&!isBlank(conv)&&!items.find(c=>c.id===conv.id))items.unshift(metaOf(conv));return items};
+function toggleFolder(name){folderFolded.has(name)?folderFolded.delete(name):folderFolded.add(name);try{localStorage.setItem('digress:ffold',JSON.stringify([...folderFolded]))}catch(e){}renderConvList()}
+const cleanFolder=(n)=>String(n||'').replace(/\s+/g,' ').trim().slice(0,60);
+async function setFolder(id,name){const f=cleanFolder(name);await setConvFlag(id,{folder:f});
+  if(f&&folderFolded.has(f))toggleFolder(f);   // filing into a folded one opens it, so you see where it went
+  setStatus(f?`Moved to “${f}”`:'Taken out of its folder')}
+// rename or remove a folder: every conversation in it (archived and trashed too, so none is left behind in the old name)
+async function refileFolder(from,to){const ids=allConvMeta().filter(c=>c.folder===from).map(c=>c.id);
+  const wasFolded=folderFolded.has(from);folderFolded.delete(from);if(to&&wasFolded)folderFolded.add(to);try{localStorage.setItem('digress:ffold',JSON.stringify([...folderFolded]))}catch(e){}
+  for(const id of ids)await setConvFlag(id,{folder:to||''});return ids.length}
+function renameFolder(g){const name=g.dataset.folder,hd=g.querySelector('.fhd'),t=hd.querySelector('.t');
+  const inp=document.createElement('input');inp.className='fren';inp.value=name;inp.setAttribute('aria-label','Folder name');t.replaceWith(inp);inp.focus();inp.select();
+  convRenaming={later:false};let done=false;
+  const end=async(ok)=>{if(done)return;done=true;const later=convRenaming&&convRenaming.later;convRenaming=null;const to=cleanFolder(inp.value);
+    if(ok&&to&&to!==name){await refileFolder(name,to);setStatus(`Renamed to “${to}”`)}else{convListSig='';renderConvList()}if(later)renderConvList()};
+  inp.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();end(true)}else if(e.key==='Escape'){e.preventDefault();end(false)}};
+  inp.onblur=()=>end(true);inp.onclick=e=>e.stopPropagation();inp.onpointerdown=e=>e.stopPropagation()}
+function dropFolder(name){const n=allConvMeta().filter(c=>c.folder===name&&!c.trashed).length;
+  askConfirm('Remove this folder?',`<b>${esc(name)}</b> goes, and its ${n} conversation${n===1?'':'s'} go${n===1?'es':''} back to the list. Nothing is deleted.`,async()=>{await refileFolder(name,'');setStatus('Folder removed')},{ok:'Remove folder',kind:'primary'})}
+// the menu from a row's folder button: the folders there are, a new one, or out of the one it's in
+function openFolderMenu(btn,id){
+  let menu=$('#folderMenu');if(!menu){menu=document.createElement('div');menu.className='thmenu';menu.id='folderMenu';menu.setAttribute('role','menu');document.body.appendChild(menu);
+    document.addEventListener('pointerdown',e=>{if(menu.classList.contains('open')&&!menu.contains(e.target)&&!e.target.closest('[data-folderconv]'))menu.classList.remove('open')},true);
+    menu.onclick=(e)=>{const b=e.target.closest('[data-fm]');if(!b)return;const cid=menu.dataset.cid,a=b.dataset.fm;menu.classList.remove('open');
+      if(a==='new')newFolderDialog([cid]);else if(a==='out')setFolder(cid,'');else if(a==='arch')archiveConv(cid);else setFolder(cid,a.slice(2))}}
+  if(menu.classList.contains('open')&&menu.dataset.cid===id){menu.classList.remove('open');return}
+  const items=allConvMeta(),cur=(items.find(c=>c.id===id)||{}).folder||'';menu.dataset.cid=id;
+  const names=folderNames(items);
+  menu.innerHTML=names.map(n=>`<button data-fm="f:${esc(n)}" class="${n===cur?'fmcur':''}" ${n===cur?'aria-current="true"':''}>${ic(n===cur?'check':'folder')}<span></span></button>`).join('')+
+    `<button data-fm="new">${ic('plus')}New folder…</button><div class="fmsep"></div>`+(cur?`<button data-fm="out">${ic('x')}Take out of “<span></span>”</button>`:'')+
+    `<button data-fm="arch" title="Out of the way, without deleting: it moves to Archive at the bottom of the sidebar">${ic('archive')}Archive</button>`;
+  const spans=menu.querySelectorAll('button[data-fm^="f:"] span');names.forEach((n,i)=>spans[i].textContent=n);if(cur)menu.querySelector('[data-fm=out] span').textContent=cur;
+  menu.classList.add('open');const r=btn.getBoundingClientRect();
+  menu.style.left=Math.max(8,Math.min(innerWidth-menu.offsetWidth-8,r.left))+'px';
+  menu.style.top=(r.bottom+4+menu.offsetHeight<=innerHeight-8?r.bottom+4:Math.max(8,r.top-4-menu.offsetHeight))+'px';
+  menu.querySelector('button').focus();
+}
+function archiveConv(id){const m=convList.find(c=>c.id===id)||(conv.id===id?metaOf(conv):{});const a=!m.archived;setConvFlag(id,a?{archived:true,pinned:false}:{archived:false});setStatus(a?'Archived':'Moved back to conversations')}
+/* New folder: a dialog, since a name typed into a menu was too cramped to read. A folder only exists while something is
+   in it, so it asks for the name and what goes in (the conversation it was opened from is ticked already). */
+function newFolderDialog(pre=[]){
+  const items=allConvMeta().filter(c=>!c.trashed&&!c.archived),names=folderNames(allConvMeta());
+  const order=[...items.filter(c=>pre.includes(c.id)),...items.filter(c=>!pre.includes(c.id))];
+  askConfirm('New folder',`<input class="nfname" id="nfName" maxlength="60" autocomplete="off" spellcheck="false" placeholder="Name it: Statistics, Side projects…" aria-label="Folder name"><div class="nfhint" id="nfHint"></div>
+    <div class="nfsub"><span>Put in it</span><span id="nfCount"></span></div><div class="nflist" id="nfList"></div>`,()=>{},{ok:'Create folder',kind:'primary'});
+  const list=$('#nfList');
+  for(const c of order){const r=document.createElement('label');r.className='nfrow';r.innerHTML=`<input type="checkbox" value="${esc(c.id)}"${pre.includes(c.id)?' checked':''}><span></span>${c.folder?'<small></small>':''}`;
+    r.querySelector('span').textContent=c.title||'New conversation';if(c.folder)r.querySelector('small').textContent=c.folder;list.appendChild(r)}
+  if(!order.length)list.innerHTML='<div class="nfrow" style="cursor:default;color:var(--faint)">No conversations yet</div>';
+  const nm=$('#nfName'),ok=$('#mOk');
+  const picked=()=>[...list.querySelectorAll('input:checked')].map(x=>x.value);
+  const upd=()=>{const f=cleanFolder(nm.value),n=picked().length;ok.disabled=!f||!n;
+    $('#nfCount').textContent=n?`${n} chosen`:'';
+    $('#nfHint').textContent=!f?'':names.includes(f)?`There’s already a folder called “${f}”: these join it.`:!n?'Choose at least one conversation: a folder holds something.':'';
+    ok.textContent=f&&names.includes(f)?'Add to folder':'Create folder'};
+  nm.oninput=upd;list.onchange=upd;upd();
+  nm.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();if(!ok.disabled)ok.click()}};
+  modalOk=async()=>{const f=cleanFolder(nm.value),ids=picked();if(!f||!ids.length)return;
+    for(const cid of ids)await setConvFlag(cid,{folder:f});
+    if(folderFolded.has(f))toggleFolder(f);if(sideFold.folders){sideFold.folders=false;$('#foldWrap').classList.remove('folded');try{localStorage.setItem('sq:fold',JSON.stringify(sideFold))}catch(e){}}
+    setStatus(`${ids.length===1?'Moved':ids.length+' conversations moved'} to “${f}”`)};
+  setTimeout(()=>nm.focus(),30);
+}
+const closeFolderMenu=()=>{const m=$('#folderMenu');if(m&&m.classList.contains('open')){m.classList.remove('open');return true}return false};
 const TRASH_DAYS=7;   // server.mjs TRASH_DAYS empties it
 const trashLeft=c=>Math.max(1,Math.ceil((c.trashed+TRASH_DAYS*864e5-Date.now())/864e5));
 const dayLabel=t=>{const d=new Date(t);return d.toLocaleDateString(undefined,{month:'short',day:'numeric',...(d.getFullYear()!==new Date().getFullYear()?{year:'numeric'}:{})})};
@@ -7593,8 +7695,12 @@ document.addEventListener('click',e=>{
     const df=docFate(id),dt=!df?'':df.shared?` Its document <b>${esc(df.name)}</b> stays: another conversation uses it.`:` <b>Its document, ${esc(df.name)}, is deleted too</b>: no other conversation uses it.`;
     askConfirm('Delete for good?',`<b>${esc((c&&c.title)||'This conversation')}</b> and all of its branches will be permanently deleted.${dt}${nk?(dropK?` <b>Its ${nk} flashcard${nk>1?'s are':' is'} deleted too</b>, as you chose when you moved it to the trash.`:` Its ${nk} flashcard${nk>1?'s stay':' stays'} in your review, as you chose when you moved it to the trash.`):''} This can’t be undone.`,()=>deleteConv(id));return}
   const pc=e.target.closest('[data-pinconv]');if(pc){e.stopPropagation();const id=pc.dataset.pinconv;const m=convList.find(c=>c.id===id)||(conv.id===id?metaOf(conv):{});setConvFlag(id,{pinned:!m.pinned});return}
+  const fc=e.target.closest('[data-folderconv]');if(fc){e.stopPropagation();openFolderMenu(fc,fc.dataset.folderconv);return}
+  const fr=e.target.closest('[data-fren]');if(fr){e.stopPropagation();renameFolder(fr.closest('.fgrp'));return}
+  const fd=e.target.closest('[data-fdrop]');if(fd){e.stopPropagation();dropFolder(fd.closest('.fgrp').dataset.folder);return}
+  const ft=e.target.closest('[data-ftog]');if(ft){if(ft.querySelector('.fren'))return;toggleFolder(ft.closest('.fgrp').dataset.folder);return}
   const xc=e.target.closest('[data-expconv]');if(xc){e.stopPropagation();openExport(xc.dataset.expconv);return}
-  const ac=e.target.closest('[data-archconv]');if(ac){e.stopPropagation();const id=ac.dataset.archconv;const m=convList.find(c=>c.id===id)||(conv.id===id?metaOf(conv):{});const a=!m.archived;setConvFlag(id,a?{archived:true,pinned:false}:{archived:false});setStatus(a?'Archived':'Moved back to conversations');return}
+  const ac=e.target.closest('[data-archconv]');if(ac){e.stopPropagation();archiveConv(ac.dataset.archconv);return}
   const ub=e.target.closest('[data-unpinb]');if(ub){e.stopPropagation();const [c,t]=ub.dataset.unpinb.split('|');unpinRemoteBranch(c,t);return}
   const pbr=e.target.closest('[data-pinb]');if(pbr){const [c,t]=pbr.dataset.pinb.split('|');openPinnedBranch(c,t);return}
   const sh=e.target.closest('[data-showhid]');if(sh){e.stopPropagation();conv.ui.showHidden=!conv.ui.showHidden;if(!conv.ui.showHidden)delete conv.ui.showHidden;refreshAll();return}
@@ -7631,7 +7737,7 @@ let modalOk=null;
 let modalCancel=null;
 function askConfirm(title,html,onOk,o={}){
   if(modalCancel){const f=modalCancel;modalCancel=null;f()}   // (one still open: it's answered as cancelled)
-  $('#mTitle').textContent=title;$('#mBody').innerHTML=html;modalOk=onOk;modalCancel=o.onCancel||null;$('#mCancel').textContent=o.cancel||'Cancel';hideTip();$('#mOk').textContent=o.ok||'Delete';$('#mOk').className='mbtn '+(o.kind||'danger');$('#modal .mbox').classList.toggle('wide',!!o.wide);
+  $('#mTitle').textContent=title;$('#mBody').innerHTML=html;modalOk=onOk;modalCancel=o.onCancel||null;$('#mCancel').textContent=o.cancel||'Cancel';hideTip();$('#mOk').textContent=o.ok||'Delete';$('#mOk').disabled=false;$('#mOk').className='mbtn '+(o.kind||'danger');$('#modal .mbox').classList.toggle('wide',!!o.wide);
   $('#modal').classList.add('show');setTimeout(()=>$('#mOk').focus(),20);
 }
 function closeModal(){$('#modal').classList.remove('show');modalOk=null;const f=modalCancel;modalCancel=null;f&&f()}
@@ -7701,6 +7807,7 @@ $('#backGo').addEventListener('click',goBack);$('#backX').addEventListener('clic
   h.addEventListener('toggle',()=>{try{localStorage.setItem('digress:help',h.open?'1':'0')}catch(e){}})}
 $('#archToggle').querySelector('.chev').innerHTML=ic('back').replace('class="i"','class="i" style="width:12px;height:12px;transform:rotate(180deg)"');
 $('#treeAll').onclick=treeAll;
+$('#newFolder').innerHTML=ic('plus')+'<span>New folder</span>';$('#newFolder').onclick=(e)=>{e.stopPropagation();newFolderDialog(conv&&!isBlank(conv)&&!conv.folder?[conv.id]:[])};
 // Pinned / Conversations fold (this device remembers which)
 let sideFold={};try{sideFold=JSON.parse(localStorage.getItem('sq:fold')||'{}')||{}}catch(e){}
 for(const w of document.querySelectorAll('.sfoldw')){const k=w.dataset.fold,b=w.querySelector('.sfold');
@@ -7754,6 +7861,7 @@ function closeTopmost(){
   const vw=$('#cvViews');if(vw&&vw.classList.contains('open')){closeViews();return true}
   if(brPop){closeBrList();return true}
   if(closeReplyMenu())return true;
+  if(closeFolderMenu())return true;
   if(pop.classList.contains('show')){hidePop();return true}
   if(document.querySelector('.docpane.snipping')){setSnip(false);return true}
   if($('#cardsModal').classList.contains('show')){closeCards();return true}

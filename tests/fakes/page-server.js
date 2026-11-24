@@ -1,7 +1,7 @@
 // A stand-in for server/server.mjs that runs inside the test page, so the UI tests can drive the app
 // without starting Node. common.goto_app() serves web/index.html at http://digress.test/ and injects
 // this before the page's scripts; it answers the page's /api/* requests the way the real server does
-// (same paths and shapes; AGENTS.md has the contract). tests/test_server.py and test_context.py
+// (same paths and shapes; agents/server.md has the contract). tests/test_server.py and test_context.py
 // cover the real server.
 //
 // The fake model is whatever the test puts in window.fakeLLM:

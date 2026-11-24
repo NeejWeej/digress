@@ -1,6 +1,6 @@
 # Development
 
-The client is one file, `web/index.html`, with no build step. The server, `server/server.mjs`, has no dependencies. [AGENTS.md](../AGENTS.md) explains how the pieces fit together and lists the traps.
+The client is one file, `web/index.html`, with no build step. The server, `server/server.mjs`, has no dependencies. [AGENTS.md](../AGENTS.md) explains how the pieces fit together and lists the traps; the details are in [agents/](../agents/), one file per area.
 
 ## Live reload
 
