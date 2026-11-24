@@ -4341,13 +4341,20 @@ function renderPane(tid,toBottom){
   if(tid==='doc'){renderDocPane();return}
   const el=paneEls.get(tid);if(!el||!T(tid))return;
   if(tid==='main'){const rb=el.querySelector('.ph [data-act=restart]');if(rb)rb.style.display=conv.doc&&conv.order.main.length?'':'none'}
-  const t=T(tid),list=el.querySelector('.msgs'),nodes=[];
+  // a redraw keeps the scroll offset: a rebuilt message (a new branch marker or chip) leaves the page for a moment while
+  // the others are built, the pane is shorter meanwhile and the browser pulls the scroll up (Side question jumped up
+  // by a screenful, and the width change that followed then took it as the reader's own jump and left it there)
+  const t=T(tid),list=el.querySelector('.msgs'),nodes=[],pb0=el.querySelector('.pb'),top0=pb0.scrollTop;
   if(t.parent)nodes.push(originCard(t));
   const mids=conv.order[tid]||[];
   if(!mids.length)nodes.push(emptyState(t));
   const cuts=takeawayCuts(tid);
   for(const mid of mids)if(conv.msgs[mid]){nodes.push(msgEl(conv.msgs[mid]));for(const n of cuts.get(mid)||[])nodes.push(tkcutEl(n))}
   list.replaceChildren(...nodes);
+  if(!toBottom&&pb0.scrollTop!==top0)pb0.scrollTop=top0;
+  // the noted spot's character may be in a message just rebuilt: note it again in the new one, so a width change
+  // right after (the branch's pane opening) puts back that exact character, not just its paragraph
+  const sp0=el.__spot;if(!toBottom&&sp0&&sp0.text&&!sp0.text.node.isConnected&&Math.abs(top0-el.__spotTop)<2&&pb0.clientWidth>100){el.__spot=paneSpotNow(pb0);el.__spotTop=pb0.scrollTop}
   updateHeader(tid);updateComposer(tid);
   if(toBottom){const pb=el.querySelector('.pb');pb.scrollTop=pb.scrollHeight}
   requestAnimationFrame(()=>updateJump(el));
