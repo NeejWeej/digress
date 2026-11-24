@@ -776,6 +776,8 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .cbx .cpy .i{width:15px;height:15px}
 @media (hover:hover){.cbx .cpy{opacity:0;transition:opacity .12s}.cbx:hover .cpy,.cbx .cpy:focus-visible,.cbx .cpy.done{opacity:1}}
 @media (hover:none){.cbx .cpy{opacity:.75}}
+.cbx[data-live] .cpy{opacity:.75;transition:none}
+.cbx[data-live]:hover .cpy,.cbx[data-live] .cpy.done{opacity:1}
 .body :not(pre)>code{font-family:var(--mono);font-size:.84em;background:var(--code-bg);padding:.12em .38em;border-radius:5px;border:1px solid var(--line)}
 .math.display{display:block;text-align:center;margin:.9em 0;overflow-x:auto;overflow-y:hidden}
 .math.raw{font-family:var(--mono);font-size:.85em;color:var(--muted)}
@@ -3772,6 +3774,7 @@ document.addEventListener('click',e=>{
 },true);
 function renderRich(el,md,final,o={}){
   const maths=[];
+  const cpys=[...el.querySelectorAll('.cbx>.cpy')];   // copy buttons drawn last time: put back below, so a press survives a streaming redraw
   let html=marked.parse(protectMath(md||'',maths));
   html=o.doc?DOMPurify.sanitize(html):purifyNoRemote(html);
   html=html.replace(/@@M(\d+)@@/g,(_,i)=>`<span class="math${maths[+i]&&maths[+i].d?' display':''}" data-i="${i}"></span>`);
@@ -3782,7 +3785,10 @@ function renderRich(el,md,final,o={}){
     if(mathReady){try{s.appendChild(texSvg(m.t,m.d));return}catch(e){}}   // while streaming too: only complete $…$ / $$…$$ get here
     s.classList.add('raw');s.textContent=m.raw;
   });
-  el.querySelectorAll('pre code').forEach(code=>{
+  const codes=[...el.querySelectorAll('pre code')];
+  // while a reply streams, its last code block may still be being written (an odd number of fences): no copy button on that one yet
+  const openCode=!final&&((md||'').match(/^\s*(```|~~~)/gm)||[]).length%2===1?codes[codes.length-1]:null;
+  codes.forEach(code=>{
     const lang=((code.className||'').match(/language-(\S+)/)||[])[1];
     if(lang==='mermaid'){
       const box=document.createElement('div');box.className='mermaid-box';box.dataset.src=code.textContent;
@@ -3791,21 +3797,35 @@ function renderRich(el,md,final,o={}){
       if(window.hljs){try{hljs.highlightElement(code)}catch(e){}}
       // a copy button beside the block (outside the <pre>, so it doesn't scroll away; an icon only, so it adds no text and anchors are unchanged)
       const pre=code.parentElement,w=document.createElement('div');w.className='cbx';pre.replaceWith(w);w.appendChild(pre);
-      w.insertAdjacentHTML('beforeend',`<button type="button" class="cpy" title="Copy">${ic('copy')}</button>`);
+      if(!final)w.dataset.live='';
+      if(code!==openCode)w.insertAdjacentHTML('beforeend',`<button type="button" class="cpy" title="Copy">${ic('copy')}</button>`);
     }
   });
+  // the same button element as before for each block (by its place), so a press held across a redraw still ends in a
+  // click on it, and "Copied" stays showing
+  el.querySelectorAll('.cbx').forEach((w,i)=>{const n=w.querySelector('.cpy'),o=cpys[i];if(n&&o){n.replaceWith(o);if(cpyPress&&cpyPress.b===o)cpyPress.moved=true}});
   el.querySelectorAll('a').forEach(a=>{a.target='_blank';a.rel='noopener'});
   if(conv&&conv.doc&&conv.doc.kind==='pdf'&&!el.classList.contains('docbody'))linkPages(el);
 }
-// a code block's copy button: copies just the code, so there's no selecting (and no branch popup)
-document.addEventListener('pointerdown',e=>{if(e.target.closest&&e.target.closest('.cbx .cpy')){e.stopPropagation();e.preventDefault()}},true);
-document.addEventListener('click',e=>{
-  const b=e.target.closest&&e.target.closest('.cbx .cpy');if(!b)return;
-  e.preventDefault();e.stopPropagation();const code=b.parentElement.querySelector('pre code');if(!code)return;
+/* a code block's copy button: copies just the code, so there's no selecting (and no branch popup).
+   A streaming reply is redrawn many times a second, and a press the redraw took the button out of mid-way (it's put
+   back, see renderRich) gets no click from the browser, so that press copies on its release instead. */
+let cpyPress=null;   // {b, moved}: the copy button being pressed, and whether a redraw took it out meanwhile
+function copyCode(b){
+  const code=b.parentElement.querySelector('pre code');if(!code)return;
   navigator.clipboard.writeText(code.textContent.replace(/\n$/,'')).then(()=>{
     b.classList.add('done');b.innerHTML=ic('check');b.title='Copied';clearTimeout(b.__t);
     b.__t=setTimeout(()=>{b.classList.remove('done');b.innerHTML=ic('copy');b.title='Copy'},1500);
   },()=>toast('Copy isn\'t allowed here'));
+}
+document.addEventListener('pointerdown',e=>{const b=e.target.closest&&e.target.closest('.cbx .cpy');if(!b)return;
+  e.stopPropagation();e.preventDefault();cpyPress={b,moved:false}},true);
+document.addEventListener('pointerup',e=>{const p=cpyPress;cpyPress=null;if(!p||!p.moved)return;
+  const u=document.elementFromPoint(e.clientX,e.clientY);if(u&&u.closest('.cbx .cpy')===p.b)copyCode(p.b)},true);
+document.addEventListener('pointercancel',()=>{cpyPress=null},true);
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('.cbx .cpy');if(!b)return;
+  e.preventDefault();e.stopPropagation();copyCode(b);
 },true);
 function loadMermaid(){
   if(mermaidReady)return mermaidReady;
