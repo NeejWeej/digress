@@ -463,7 +463,28 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .newbtn:hover{color:var(--ink);border-color:var(--faint)}
 .clist{display:flex;flex-direction:column;gap:1px;margin-bottom:18px}
 /* Activity: its own page over everything */
-#activity{position:fixed;inset:0;z-index:85;background:var(--bg);overflow-y:auto;display:none}#activity.show{display:block}
+#activity,#promptsPage{position:fixed;inset:0;z-index:85;background:var(--bg);overflow-y:auto;display:none}#activity.show,#promptsPage.show{display:block}
+/* Prompts & skills */
+.sbrow{display:flex;gap:6px}.sbrow #actBtn{flex:1;min-width:0}.sbrow #promptsBtn{flex:none;width:auto;padding-left:10px;padding-right:10px}
+.ppnote{color:var(--muted);font-size:13px;line-height:1.5;margin:-4px 0 12px}.ppnote code{font-size:12px}
+.pptag{font:500 11px var(--sans);color:var(--faint);border:1px solid var(--line);border-radius:6px;padding:1px 6px;vertical-align:middle;margin-left:6px}
+.pptext{width:100%;box-sizing:border-box;resize:vertical;font:12.5px/1.5 var(--mono);color:var(--ink);background:var(--bg);border:1px solid var(--line2);border-radius:10px;padding:10px 12px}
+.pptext:focus{outline:none;border-color:var(--accent)}
+.ppbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}.ppbar .sp{flex:1}
+.ppmsg{font-size:12.5px;color:var(--muted)}.ppmsg.bad{color:var(--danger)}
+.ppsrc{white-space:pre-wrap;font:12px/1.5 var(--mono);color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;max-height:60vh;overflow:auto}
+.ppdef,.pphow,#ppAll{margin-top:10px}.ppdef summary,.pphow summary,#ppAll summary{cursor:pointer;color:var(--muted);font-size:13px}
+.ppqrow{display:grid;grid-template-columns:minmax(90px,1fr) 3fr auto;gap:8px;margin-bottom:6px}
+.ppqrow input{font:13px var(--sans);color:var(--ink);background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:6px 9px;min-width:0}
+.ppqrow input:focus{outline:none;border-color:var(--accent)}
+.ppsk{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.ppskh{display:flex;align-items:center;gap:8px}.ppskh b{font-size:15px}.ppskh .sp{flex:1}
+.ppskd{color:var(--muted);font-size:13px;line-height:1.5;margin-top:6px}.ppsks{font-size:12px;color:var(--faint);margin-top:6px}.ppsks a{color:inherit}
+.ppsked{margin-top:10px}.ppadd{margin-top:14px}
+.acwrap .mbtn:disabled{opacity:.45;cursor:default}
+.ppfile{position:relative;overflow:hidden;cursor:pointer}.ppfile input{position:absolute;inset:0;opacity:0;cursor:pointer}
+#skillMenu{max-width:360px}#skillMenu .skrow{align-items:flex-start}#skillMenu .skchk{flex:none;width:16px;height:16px;display:inline-flex;color:var(--accent)}#skillMenu .skchk .i{width:16px;height:16px}
+#skillMenu .skt{display:flex;flex-direction:column;gap:2px;min-width:0;text-align:left}#skillMenu .skt small{color:var(--faint);font-size:11.5px;line-height:1.35;white-space:normal}
 .acwrap{max-width:920px;margin:0 auto;padding:26px 24px 60px;color:var(--ink)}
 .acload{color:var(--faint);padding:60px 0;text-align:center}
 .acskel{display:flex;flex-direction:column;gap:16px}.acskel i{display:block;border-radius:12px;background:linear-gradient(90deg,var(--line) 0%,color-mix(in srgb,var(--line) 40%,transparent) 50%,var(--line) 100%);background-size:200% 100%;opacity:.5;animation:acsk 1.3s linear infinite}
@@ -963,7 +984,7 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 @keyframes dgFade{from{opacity:0}}
 @keyframes dgRise{from{opacity:0;transform:translateY(8px) scale(.985)}}
 @keyframes dgSlide{from{opacity:.4;transform:translateX(24px)}}
-.modal.show,.pal.show,#activity.show{animation:dgFade .16s ease-out}
+.modal.show,.pal.show,#activity.show,#promptsPage.show{animation:dgFade .16s ease-out}
 .modal.show>*,.pal.show>.pbox{animation:dgRise .2s cubic-bezier(.2,.8,.3,1)}
 #activity.show .acwrap{animation:dgRise .24s cubic-bezier(.2,.8,.3,1)}
 .guide.open{animation:dgSlide .2s cubic-bezier(.2,.8,.3,1)}
@@ -1161,6 +1182,19 @@ kbd.k{font:11px var(--mono);border:1px solid var(--line2);border-bottom-width:2p
 .pfoot{display:flex;gap:14px;align-items:center;padding:8px 16px;border-top:1px solid var(--line);font-size:12px;color:var(--faint)}
 .pfoot .sp{flex:1}
 .pempty{padding:28px 16px;text-align:center;color:var(--muted)}
+.csys{margin-top:18px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;text-align:left}
+.csys summary{cursor:pointer;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.csys summary svg{width:15px;height:15px}
+.csys summary b{color:var(--ink);font-weight:600}
+.csys[open] summary{margin-bottom:8px}
+.csys .ppnote.csysn{margin:0 0 8px}
+#cSysEd{width:100%;box-sizing:border-box;min-height:240px}
+.pptool{margin-top:8px}
+table.pptools{width:100%;border-collapse:collapse;font-size:13px}
+table.pptools th{text-align:left;font-weight:600;color:var(--muted);padding:4px 8px 4px 0}
+table.pptools td{vertical-align:top;padding:6px 8px 6px 0;border-top:1px solid var(--line)}
+table.pptools code{font-size:11.5px;color:var(--muted)}
+.pptool summary{cursor:pointer;font-size:13px;color:var(--muted)}
 /* collapsible branch tree */
 .cfilt{display:none;gap:1px;padding:1px;border-radius:7px;background:var(--user-bg)}
 .cfilt.show{display:inline-flex}
@@ -1291,6 +1325,12 @@ sup.fn.res{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px va
 a.pref{color:var(--accent);cursor:pointer;text-decoration:none;border-bottom:1px dotted currentColor;font-family:var(--sans);font-size:.86em;white-space:nowrap}
 a.pref:hover{border-bottom-style:solid}
 .mbox.wide{width:520px}
+.mbox.wide:has(.mview){width:760px}
+.mview{max-height:68vh;overflow:auto;margin:0 -4px;padding:0 4px}.mview h3{font:600 13px var(--sans);margin:14px 0 6px}
+.mvp{border:1px solid var(--line);border-radius:8px;margin:4px 0;padding:4px 8px}.mvp summary{cursor:pointer;font-size:13px}.mvp summary small{color:var(--faint);margin-left:6px}
+.mvp pre{white-space:pre-wrap;word-break:break-word;font:12px/1.45 var(--mono);max-height:40vh;overflow:auto;margin:6px 0 2px}
+#skillMenu .skdbg{color:var(--muted);font-size:12px}
+#skillMenu .sknone{padding:4px 12px 8px;font-size:12px;color:var(--faint)}
 .drop{display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px dashed var(--line2);border-radius:12px;padding:18px;margin:12px 0 8px;cursor:pointer;color:var(--muted);text-align:center}
 .drop:hover,.drop.over{border-color:var(--faint);color:var(--ink);background:var(--panel-2)}
 .drop input{display:none}
@@ -1333,6 +1373,7 @@ a.pref:hover{border-bottom-style:solid}
     <label class="sel" title="Which model answers new messages. Each reply shows the model that answered."><span>Model</span><select id="mSel"></select><button class="mdef" id="mDef" type="button"></button></label>
     <label class="sel" title="How much the model thinks before answering. Higher is slower but more careful."><span>Effort</span><select id="eSel"></select></label>
     <button class="webt" id="webT" aria-pressed="false" style="display:none" title="Web search: let new replies look things up online. Only search queries leave; your chats and documents stay on this server. You can switch this any time."><span class="wi"></span><span class="lbl">Web</span></button>
+    <button class="webt" id="skillT" aria-pressed="false" aria-haspopup="true" style="display:none"><span class="wi"></span><span class="lbl">Prompt</span></button>
     <button class="webt" id="resetOrder" style="display:none" title="Put the panes back in branching order: each branch right after the thread it came from">Reset order</button>
     <button class="ib" id="zenB" title="Zen: hide everything but the panes, for reading (⌘. / Ctrl+.)" aria-pressed="false"><b class="mlbl">Zen</b></button>
     <button class="ib" id="themeB" title="Appearance: theme, PDF pages, lines between panes, fit to this screen" aria-haspopup="true" aria-expanded="false"><b class="mlbl">Appearance</b></button>
@@ -1351,7 +1392,8 @@ a.pref:hover{border-bottom-style:solid}
     <button class="newbtn" id="newConv" title="Start a fresh conversation. This one stays saved in the list below."></button>
     <button class="newbtn" id="newDoc" title="Start from a PDF, Markdown or text file: read it side by side with a chat about it, and highlight any passage to branch."></button>
     <button class="newbtn" id="reviewBtn" style="display:none" title="Review your flashcards"></button>
-    <button class="newbtn" id="actBtn" title="Your activity: what you did each day, what you remember, where you dug deepest"></button>
+    <div class="sbrow"><button class="newbtn" id="actBtn" title="Your activity: what you did each day, what you remember, where you dug deepest"></button>
+    <button class="newbtn" id="promptsBtn" aria-label="Prompts, skills and tools" title="Prompts, skills &amp; tools: what Digress tells the model, your own system prompt and quick questions, skills to turn on in a conversation, and the tools the model can use"></button></div>
     <div id="pinWrap" class="sfoldw" data-fold="pins" style="display:none"><div class="sh"><button class="sfold" title="Fold or unfold the pinned conversations"><span class="chev"></span>Pinned</button></div><div class="clist" id="plist"></div></div>
     <div id="convWrap" class="sfoldw" data-fold="convs"><div class="sh"><button class="sfold" title="Fold or unfold the conversations"><span class="chev"></span>Conversations</button><span class="cfilt" id="cFilt" title="Show all conversations, only those with a document, or only plain chats"><button data-cf="all">All</button><button data-cf="doc">Docs</button><button data-cf="chat">Chats</button></span></div>
     <div class="clist" id="clist"></div>
@@ -1396,6 +1438,7 @@ a.pref:hover{border-bottom-style:solid}
 <div class="modal" id="docModal"><div class="mbox wide" role="dialog" aria-modal="true"><div class="mt">Start from a document</div><div class="mb">The document opens next to a main thread for questions about the whole thing. Highlight any passage in it to open a branch about that part.</div><label class="drop" id="docDrop"><input type="file" id="docFile" accept=".pdf,.md,.markdown,.txt,.digress,application/pdf,text/markdown,text/plain"><span id="docFileLbl"></span></label><textarea id="docPaste" placeholder="…or paste text, Markdown, or a link to a PDF"></textarea><input id="docName" placeholder="Title (optional)" autocomplete="off"><div class="ma"><span class="dmsg" id="docMsg"></span><button class="mbtn" id="docCancel">Cancel</button><button class="mbtn primary" id="docGo">Start</button></div></div></div>
 <div id="keysPanel" role="complementary" aria-label="Keyboard shortcuts"></div>
 <div id="activity" role="dialog" aria-modal="true" aria-label="Activity"><div class="acwrap"></div></div>
+<div id="promptsPage" role="dialog" aria-modal="true" aria-label="Prompts, skills and tools"><div class="acwrap"></div></div>
 <div class="modal" id="cardsModal"><div class="kbox" role="dialog" aria-modal="true" aria-label="Flashcards"></div></div>
 <div class="modal" id="modal"><div class="mbox" role="dialog" aria-modal="true"><div class="mt" id="mTitle"></div><div class="mb" id="mBody"></div><div class="ma"><button class="mbtn" id="mCancel">Cancel</button><button class="mbtn danger" id="mOk">Delete</button></div></div></div>
 
@@ -1430,7 +1473,18 @@ window.MathJax={svg:{fontCache:'local'},startup:{typeset:false,ready(){MathJax.s
 'use strict';
 /* ---------- constants ---------- */
 const PALETTE=['#d9774b','#3f8fd2','#3fa077','#9d6ad6','#cc9a2e','#d65a8a','#2a9ea3','#7f8f36'];
-const SYS=PROMPTS.system,QUICK=PROMPTS.quick;   // every instruction to the model is in web/prompts.js
+// every instruction to the model is in web/prompts.js; the reader can replace the system prompt and the quick questions
+// (Prompts & skills: CUSTOM.prompts, the store's prompts/custom) and add skills (CUSTOM.skills, the store's skills)
+const CUSTOM={prompts:{},skills:new Map()};
+// the system prompt: a conversation's own (conv.system, set from the Prompts page or its empty main pane), else yours, else Digress's
+const defaultSys=()=>CUSTOM.prompts.system||PROMPTS.system;
+const sysPrompt=(c)=>(c&&typeof c.system==='string'&&c.system.trim())?c.system:defaultSys();
+// what's sent: the reader's part (sysPrompt), then how Digress works (fixed, whatever they wrote), then the skills
+const fullSys=(c)=>sysPrompt(c)+'\n\n'+PROMPTS.howDigress+skillsPrompt(c);
+const quickList=()=>CUSTOM.prompts.quick&&CUSTOM.prompts.quick.length?CUSTOM.prompts.quick:PROMPTS.quick;
+// the skills a conversation has on (conv.skills: ids; one deleted since is left out), added to its system prompt
+const convSkills=(c)=>((c&&c.skills)||[]).map(id=>CUSTOM.skills.get(id)).filter(Boolean);
+function skillsPrompt(c){const s=convSkills(c);return s.length?'\n\n'+PROMPTS.skills.intro+'\n\n'+s.map(PROMPTS.skills.one).join('\n\n'):''}
 const STARTERS=['How does self-attention in transformers work?','Explain the Raft consensus algorithm','What is a Fourier transform, intuitively?','How does a B-tree index speed up queries?'];
 // shown until the server's own model list (/api/models) arrives
 const MODELS=[['auto','Auto'],['claude-opus-5-5','Opus 5.5'],['claude-sonnet-5-5','Sonnet 5.5'],['claude-haiku-5-5','Haiku 5.5'],['claude-fable-5-2','Fable 5.2']];
@@ -1438,6 +1492,7 @@ const EFFORTS=[['auto','Auto'],['low','Low'],['medium','Medium'],['high','High']
 const effortLabel=(e)=>e==='auto'?'auto effort':((EFFORTS.find(x=>x[0]===e)||[0,e])[1]+' effort').toLowerCase().replace(/^./,c=>c.toUpperCase());
 const I={
  check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+ tune:'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
  chev:'<path d="M6 9.5l6 6 6-6"/>',
  search:'<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
  locate:'<circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="7.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22"/>',
@@ -1522,7 +1577,7 @@ const msgCache=new Map(),paneEls=new Map(),gutEls=new Map(),streaming=new Map();
 // threads whose reply finished while you couldn't see them: per window, in memory only (a reload forgets them)
 const unread=new Set();
 window.__digressBusy=()=>streaming.size>0; // read by the server's dev live-reload, so it never reloads mid-reply
-window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList},get keys(){return KEYS}};   // for tests and the console
+window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList},get keys(){return KEYS},get custom(){return CUSTOM},skillLink:(u)=>skillLink(u),putSkill:(t,o)=>putSkill(t,o),get cards(){return CARDS}};   // for tests and the console
 let mathReady=false,mermaidReady=null,mermaidOk=false;
 let popState=null;
 
@@ -1717,8 +1772,10 @@ function serverLlm(info){
     // the providers changed (a key added or removed): what the server offers now, without a reload
     async refresh(){try{const h=await (await okOrThrow(await fetch('api/health',{cache:'no-store'}))).json();Object.assign(info,h);llm.supportsWeb=!!(h.llm&&h.web);llm.supportsTools=!!(h.llm&&h.tools);if(h.why)llm.why=h.why}catch(e){console.warn(e)}await llm.loadModels()},
     // what "Default" means on every device (stored by the server); then the list is reloaded with its new label
+    async toolList(){return (await okOrThrow(await fetch('api/tools',{cache:'no-store'}))).json()},
     async setDefault(id){await okOrThrow(await fetch('api/prefs',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({defaultModel:id})}));await llm.loadModels()},
-    // tools: {run(name,input) → {parts}|{error}} lets the model use the document tools (server/doctools.mjs):
+    // tools: {names, run(name,input) → {parts}|{error}} lets the model use the page's tools (server/doctools.mjs:
+    // the document tools, suggest_card), the ones named:
     // the server sends each call down this stream as {tool:{id,name,input}}, we run it here (this page has the
     // document open) and post the result back to api/chat/tool, where the server's loop is waiting for it.
     // The reply runs on the server whether or not this page is connected (server/runs.mjs): if the connection
@@ -1728,7 +1785,7 @@ function serverLlm(info){
     // reply if it finishes with no page connected.
     async complete({system,messages,model,effort,web,signal,onText,onSearch,onTool,tools,run,save,resume}){
       if(!info.llm)throw {message:llm.why};
-      const useTools=!!(tools&&llm.supportsTools),chat=run||runId();
+      const useTools=!!(tools&&tools.names&&tools.names.length&&llm.supportsTools),chat=run||runId();
       const st={text:'',model:null,truncated:false,searches:[],sources:[],n:0,end:false,error:null};
       const answer=async(call)=>{let res;try{res=await tools.run(call.name,call.input||{})}catch(e){res={error:'The tool failed: '+((e&&e.message)||e)}}
         try{await fetch('api/chat/tool',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({chat,id:call.id,...res})})}catch(e){console.warn('tool result not delivered',e)}};
@@ -1767,7 +1824,7 @@ function serverLlm(info){
       let state='lost';
       if(!resume){
         let r=null;
-        try{r=await fetch('api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({system,messages,model,effort,web:!!(web&&llm.supportsWeb),chat,...(useTools?{tools:true}:{}),...(save?{save}:{})}),signal})}
+        try{r=await fetch('api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({system,messages,model,effort,web:!!(web&&llm.supportsWeb),chat,...(useTools?{tools:tools.names}:{}),...(save?{save}:{})}),signal})}
         catch(e){if(signal&&signal.aborted)throw e}
         if(r){await okOrThrow(r);state=await read(r)}
       }
@@ -1793,7 +1850,8 @@ async function initConnectors(){
   const srv=await findServer();
   if(srv){
     io.llm=serverLlm(srv);io.store=toldWindows(serverStore('convs','Saved'));io.layout=serverLayout();io.index=serverStore('index');io.cards=offlineCards(serverStore('cards','',{timeout:8000}));io.cards.onchange=cardsSyncChanged;io.files=serverFiles();
-    await io.llm.loadModels();
+    io.skills=serverStore('skills');io.prompts=serverStore('prompts');
+    await Promise.all([io.llm.loadModels(),loadCustom()]);
     if(!srv.llm)showBanner(true,io.llm.why);
     return;
   }
@@ -2105,7 +2163,7 @@ async function draftCards(c0,tid,o){
   const msgs=ctx.messages,last=msgs[msgs.length-1];if(last&&last.role==='user')appendText(last,'\n\n'+ask);else msgs.push({role:'user',content:ask});
   if(!io.llm)await io.ready;
   const rc=await resolveContext(ctx,!!io.llm.supportsImages);
-  const r=await io.llm.complete({system:rc.system,messages:rc.messages,model:modelFor(tid),effort:'low',web:false,tools:ctx.tools?{run:(n,i)=>runDocTool(n,i,[])}:undefined});
+  const r=await io.llm.complete({system:rc.system,messages:rc.messages,model:modelFor(tid),effort:'low',web:false,tools:ctx.tools?{names:ctx.tools,run:(n,i)=>runDocTool(n,i,[])}:undefined});
   let list=[];try{const a=r.text.indexOf('['),b=r.text.lastIndexOf(']');list=JSON.parse(r.text.slice(a,b+1))}catch(e){throw new Error('the model’s reply wasn’t a list of cards')}
   list=(Array.isArray(list)?list:[]).filter(x=>x&&typeof x.front==='string'&&typeof x.back==='string'&&x.front.trim()).slice(0,6);
   for(const x of list){const q=typeof x.quote==='string'&&findQuote(x.quote,o.note?[o.note]:conv.order[tid]||[]);x.q=q||null}
@@ -2120,6 +2178,20 @@ async function draftCards(c0,tid,o){
     if(list.length)toast(`${list.length} card${list.length>1?'s':''} drafted into your inbox`,{label:'Open',fn:()=>{if(conv&&conv.id===c0.id)openCards(c0.id,'inbox',o.src==='made'?tid:null)}});
     else toast('Nothing new worth a card there.');
   }
+}
+// suggest_card (server/doctools.mjs): the model suggests a card while it answers, whenever it judges something has
+// landed. Into the inbox like a drafted one; refused when cards are off for that conversation (src 'suggested').
+async function suggestCard(c,m,input){
+  if(!(c&&c.cards&&c.cards.on))return {error:'Flashcards are off in this conversation, so no card was made. Don’t mention it to the learner.'};
+  const str=(v,n)=>typeof v==='string'?v.trim().slice(0,n):'';
+  const front=str(input&&input.front,600),back=str(input&&input.back,3000),qt=str(input&&input.quote,600);
+  if(!front||!back)return {error:'A card needs a "front" (the question) and a "back" (the answer).'};
+  const norm=(x)=>String(x).toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+  if([...CARDS.values()].some(k=>k.conv===c.id&&norm(k.front)===norm(front)))return {error:'This conversation already has a card asking that, so it wasn’t added again.'};
+  const tid=m.thread,t=c.threads[tid],q=qt&&conv===c?findQuote(qt,c.order[tid]||[]):null;
+  const where=tid==='main'?'Main thread':trunc((t&&(t.title||t.anchorText))||'Branch',70);
+  await putCard({id:'k'+rid()+rid(),conv:c.id,convTitle:c.title||'',thread:tid,at:{thread:tid,msg:m.id},where,src:'suggested',front,back,...(q?{quote:q}:{}),status:'inbox',created:Date.now(),due:null,fsrs:null,reviews:[]});
+  return {parts:[{type:'text',text:'Added to the learner’s flashcard inbox.'}]};
 }
 // --- a card's quote: where it is, and landing on it ---
 // words of a quote as a pattern that skips any punctuation, markup or spacing between them
@@ -2174,7 +2246,7 @@ function renderCards(){
     <div class="kbody"></div>${on?`<div class="kfoot" style="padding:0 14px 12px"><span class="sp"></span><button data-kact="off" title="Stop drafting cards for this conversation. Cards you have stay.">Turn off for this conversation</button></div>`:paused?`<div class="kfoot" style="padding:0 14px 12px"><span style="color:var(--faint);font-size:12.5px">New cards are off for this conversation.</span><span class="sp"></span><button data-kact="on" title="Draft cards from this conversation again">Turn back on</button></div>`:''}`;
   box.querySelector('[data-kscope]').value=scope;if(br)box.querySelector('.kbranch>span').textContent=trunc(br.title||br.anchorText||'Branch',40);
   const body=box.querySelector('.kbody');
-  if(off){body.innerHTML=`<div class="kempty"><b>Flashcards are off for this conversation.</b><br>Turn them on and the model drafts cards from your highlights, snips and takeaways into an inbox. You keep the ones you want and review them with spaced repetition. Nothing changes until you do.<br><button class="mbtn primary" data-kact="on">Turn on for this conversation</button></div>`;return}
+  if(off){body.innerHTML=`<div class="kempty"><b>Flashcards are off for this conversation.</b><br>Turn them on and the model drafts cards from your highlights, snips and takeaways into an inbox, and can suggest one while it answers. You keep the ones you want and review them with spaced repetition. Nothing changes until you do.<br><button class="mbtn primary" data-kact="on">Turn on for this conversation</button></div>`;return}
   if(KS.tab==='review')renderReview(body,due);
   else if(KS.tab==='inbox')renderInbox(body,inbox);
   else renderAllCards(body,kept);
@@ -2205,7 +2277,7 @@ function srcNote(c){
   return d;
 }
 const docLabel=(c)=>conv&&conv.id===c.conv&&conv.doc&&conv.doc.kind!=='pdf'?'Part':'p.';
-function srcLabel(c){return ({highlight:'from a highlight',snip:'from a snip',page:'from a page',takeaway:'from a takeaway',made:'made from a branch'})[c.src]||''}
+function srcLabel(c){return ({highlight:'from a highlight',snip:'from a snip',page:'from a page',takeaway:'from a takeaway',made:'made from a branch',suggested:'suggested while answering'})[c.src]||''}
 function renderReview(body,due){
   if(!due.length&&KS.reviewed){body.innerHTML='';body.appendChild(reviewDone());return}
   if(!due.length){
@@ -2309,12 +2381,12 @@ async function askFix(c){
     await docReady();const ctx=buildContext(c.thread),msgs=ctx.messages,last=msgs[msgs.length-1];
     if(last&&last.role==='user')appendText(last,'\n\n'+ask);else msgs.push({role:'user',content:ask});
     const rc=await resolveContext(ctx,!!io.llm.supportsImages);
-    req={system:rc.system,messages:rc.messages,tools:ctx.tools?{run:(n,i)=>runDocTool(n,i,[])}:undefined};
+    req={system:rc.system,messages:rc.messages,tools:ctx.tools?{names:ctx.tools,run:(n,i)=>runDocTool(n,i,[])}:undefined};
   }else{
     src=await io.store.get(c.conv).catch(()=>null);const lines=[];
     if(src&&src.threads&&src.threads[c.thread])ThreadOps.walk(src,c.thread,m=>{const x=String(m.content||m.text||'').trim();if(x)lines.push((m.role==='user'?'Learner: ':m.role==='note'?'Takeaway: ':'Tutor: ')+x)});
     const text=lines.join('\n\n').slice(-60000);
-    req={system:PROMPTS.system,messages:[{role:'user',content:(text?PROMPTS.cardFixSource(text)+'\n\n':'')+ask}]};
+    req={system:fullSys(src),messages:[{role:'user',content:(text?PROMPTS.cardFixSource(text)+'\n\n':'')+ask}]};
   }
   const r=await io.llm.complete({...req,model:mine?modelFor(c.thread):settings.model,effort:'low',web:false});
   let o;try{const a=r.text.indexOf('{'),b=r.text.lastIndexOf('}');o=JSON.parse(r.text.slice(a,b+1))}catch(e){throw new Error('the model’s reply wasn’t a fix')}
@@ -2577,6 +2649,260 @@ $('#activity').addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.defaultPrevented&&$('#activity').classList.contains('show')&&!$('#cardsModal').classList.contains('show')){e.preventDefault();closeActivity()}});
 $('#actBtn').addEventListener('click',openActivity);
+/* ---------- Prompts & skills (the sidebar's Prompts & skills; the top bar's Skills) ----------
+   The reader's own system prompt and quick questions (the store's prompts/custom: {system?, quick?}, only what differs
+   from web/prompts.js) and skills: SKILL.md files ({id, name, description, body, text, source}), turned on per
+   conversation (conv.skills, ids) and added to its system prompt (skillsPrompt), so all its threads share one cache. */
+async function loadCustom(){
+  if(!io.skills)return;
+  try{
+    const [list,pr]=await Promise.all([io.skills.list(),io.prompts.get('custom')]);
+    CUSTOM.skills=new Map(list.filter(x=>x.data&&typeof x.data.body==='string').sort((a,b)=>(a.data.added||0)-(b.data.added||0)).map(({id,data})=>[id,{...data,id}]));
+    CUSTOM.prompts=pr&&typeof pr==='object'&&!Array.isArray(pr)?pr:{};
+  }catch(e){console.warn('prompts and skills failed to load',e)}
+  fillPopChips();syncSkillT();
+}
+const skillLabel=(s)=>String(s.name||'Skill').replace(/[-_]+/g,' ').trim().replace(/^./,c=>c.toUpperCase());
+// SKILL.md: an optional header between --- lines (name:, description:), then the instructions
+function parseSkill(text){
+  text=String(text||'').replace(/^﻿/,'').replace(/\r\n?/g,'\n');
+  const head={};let body=text;
+  const m=/^---\n([\s\S]*?)\n---[ \t]*(?:\n|$)/.exec(text);
+  if(m){body=text.slice(m[0].length);for(const line of m[1].split('\n')){const k=/^([A-Za-z_-]+):\s*(.*)$/.exec(line);if(!k)continue;let v=k[2].trim();if(/^(["']).*\1$/.test(v))v=v.slice(1,-1);head[k[1].toLowerCase()]=v}}
+  body=body.trim();const h1=/^#\s+(.+)$/m.exec(body);
+  return {name:String(head.name||(h1&&h1[1])||'').trim().slice(0,80),description:String(head.description||'').trim().slice(0,1000),body,text};
+}
+async function putSkill(text,o={}){
+  if(!io.skills)throw new Error('Adding a skill needs the Digress server.');
+  if(text.length>200000)throw new Error('That’s too long for a skill (over 200,000 characters).');
+  const p=parseSkill(text);
+  if(!p.body)throw new Error('That’s empty.');
+  if(/^<(!doctype|html)/i.test(p.body))throw new Error('That’s a web page, not a SKILL.md. Link to the file itself (on GitHub: the skill’s folder, or its SKILL.md).');
+  if(!p.name)throw new Error('It needs a name: a header with “name: …”, or a # heading at the top.');
+  const id=o.id||('sk-'+(p.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60)||rid()));
+  const old=CUSTOM.skills.get(id);
+  const rec={id,name:p.name,description:p.description,body:p.body,text:p.text,source:o.source!=null?o.source:(old&&old.source)||'',added:old?old.added:Date.now(),updated:Date.now()};
+  await io.skills.put(id,rec);CUSTOM.skills.set(id,rec);syncSkillT();
+  return {rec,replaced:!!old};
+}
+// a GitHub page for a skill's folder or file -> its raw SKILL.md; anything else as it is
+function skillLink(u){
+  let x;try{x=new URL(u.trim())}catch(e){return null}
+  if(!/^https?:$/.test(x.protocol))return null;
+  if(x.hostname==='github.com'){
+    const p=x.pathname.split('/').filter(Boolean);   // owner/repo[/(tree|blob)/branch/path…]
+    if(p.length>=4&&(p[2]==='tree'||p[2]==='blob')){const rest=p.slice(4).join('/');return `https://raw.githubusercontent.com/${p[0]}/${p[1]}/${p[3]}/${p[2]==='blob'?rest:(rest?rest+'/':'')+'SKILL.md'}`}
+    if(p.length===2)return `https://raw.githubusercontent.com/${p[0]}/${p[1]}/HEAD/SKILL.md`;
+  }
+  return x.href;
+}
+async function skillFromLink(link){
+  if(!io.files.fromLink)throw new Error('Opening a link needs the Digress server. Download the file and choose it instead.');
+  const raw=skillLink(link);if(!raw)throw new Error('That isn’t a link.');
+  let d;try{d=await io.files.fromLink(raw,[])}catch(e){
+    const gh=/^https:\/\/raw\.githubusercontent\.com\//.test(raw);
+    throw new Error((e.message||'It couldn’t be fetched.')+(gh&&/404|not found/i.test(e.message||'')?' If that repository holds several skills, link to one skill’s folder.':''))}
+  if(d.kind!=='text')throw new Error(d.kind==='pdf'?'That’s a PDF, not a SKILL.md.':'That’s a web page, not a SKILL.md. Link to the file itself (on GitHub: the skill’s folder, or its SKILL.md).');
+  return putSkill(await d.blob.text(),{source:link.trim()});
+}
+// the top bar's Skills: which skills this conversation has on
+// the top bar's Prompt button: this conversation's system prompt and skills (lit when either isn't the default)
+const ownSys=(c)=>!!(c&&typeof c.system==='string'&&c.system.trim());
+function syncSkillT(){
+  const b=$('#skillT');if(!b)return;const on=convSkills(conv),own=ownSys(conv),lit=!!on.length||own;
+  b.style.display=conv?'':'none';
+  b.classList.toggle('on',lit);b.setAttribute('aria-pressed',lit?'true':'false');
+  b.querySelector('.lbl').textContent=on.length===1?skillLabel(on[0]):on.length?on.length+' skills':own?'Own prompt':'Prompt';
+  b.title=[own?'This conversation has its own system prompt.':'This conversation uses your default system prompt.',on.length?`Skills on: ${on.map(skillLabel).join(', ')}.`:CUSTOM.skills.size?'No skills on.':'',' Click to change.'].join(' ').replace(/\s+/g,' ').trim();
+}
+function openSkillMenu(btn){
+  let menu=$('#skillMenu');
+  if(!menu){menu=document.createElement('div');menu.className='thmenu';menu.id='skillMenu';menu.setAttribute('role','menu');document.body.appendChild(menu);
+    document.addEventListener('pointerdown',e=>{if(menu.classList.contains('open')&&!menu.contains(e.target)&&!e.target.closest('#skillT'))menu.classList.remove('open')},true);
+    // Esc closes it (it stayed open, so the next click on Prompt closed it instead of opening it)
+    addEventListener('keydown',e=>{if(e.key==='Escape'&&menu.classList.contains('open')){e.stopPropagation();e.preventDefault();menu.classList.remove('open');const t=$('#skillT');t&&t.isConnected&&t.focus({preventScroll:true})}},true);
+    menu.onclick=(e)=>{const b=e.target.closest('[data-sk]');if(!b)return;
+      if(b.dataset.sk==='-'){menu.classList.remove('open');openPrompts();return}
+      if(b.dataset.sk==='='){menu.classList.remove('open');editConvSystem();return}
+      if(b.dataset.sk==='?'){menu.classList.remove('open');showModelView();return}
+      toggleSkill(b.dataset.sk);fillSkillMenu(menu)}}
+  if(menu.classList.contains('open')){menu.classList.remove('open');return}
+  fillSkillMenu(menu);menu.classList.add('open');
+  const r=btn.getBoundingClientRect();
+  menu.style.left=Math.max(8,Math.min(innerWidth-menu.offsetWidth-8,r.right-menu.offsetWidth))+'px';
+  menu.style.top=(r.bottom+4+menu.offsetHeight<=innerHeight-8?r.bottom+4:Math.max(8,r.top-4-menu.offsetHeight))+'px';
+  const f=menu.querySelector('button');f&&f.focus();
+}
+function fillSkillMenu(menu){
+  const on=new Set((conv&&conv.skills)||[]);
+  const own=ownSys(conv);
+  menu.innerHTML=`<div class="thh">This conversation</div><button class="skrow" data-sk="="><span class="skchk">${ic('tune')}</span><span class="skt"><b>System prompt</b><small>${own?esc('Its own: “'+trunc(conv.system.replace(/\s+/g,' '),70)+'”'):'Your default. Click to see it or give this conversation its own.'}</small></span></button>`+
+    `<div class="thh">Skills</div>`+(CUSTOM.skills.size?'':`<div class="sknone">None yet. Add one in Prompts, skills &amp; tools.</div>`)+[...CUSTOM.skills.values()].map(s=>`<button class="skrow" data-sk="${esc(s.id)}" role="menuitemcheckbox" aria-checked="${on.has(s.id)}" title="${esc(s.description||'')}"><span class="skchk">${on.has(s.id)?ic('check'):''}</span><span class="skt"><b>${esc(skillLabel(s))}</b>${s.description?`<small>${esc(trunc(s.description,110))}</small>`:''}</span></button>`).join('')+
+    `<div class="thh thsep" style="padding:0"></div><button data-sk="-">${ic('tune')}Prompts, skills &amp; tools…</button><button data-sk="?" class="skdbg" title="Debug: the exact request the next question in this thread sends">What the model sees here…</button>`;
+}
+function toggleSkill(id){
+  if(!conv)return;const s=CUSTOM.skills.get(id);if(!s)return;
+  const on=new Set(conv.skills||[]),was=on.has(id);if(was)on.delete(id);else on.add(id);
+  if(on.size)conv.skills=[...on];else delete conv.skills;
+  save();syncSkillT();
+  toast(was?`${skillLabel(s)} is off in this conversation.`:`${skillLabel(s)} is on in this conversation, from the next reply, in every thread.`);
+}
+// this conversation's system prompt, from the top bar's Prompt: a dialog with it filled in
+function editConvSystem(){
+  if(!conv)return;const own=ownSys(conv);
+  askConfirm('System prompt for this conversation',`<p class="ppnote">${own?'This conversation has its own.':'This conversation follows your default, shown here: change it to give it its own.'} ${sysScope()} A change applies from the next reply on; replies already written keep what they were written with.</p><textarea class="pptext" id="cSysEd" rows="14" spellcheck="false" aria-label="System prompt for this conversation"></textarea>${own?'<button class="elink" id="cSysDef" type="button">Put my default back</button>':''}`,
+    ()=>{const was=ownSys(conv);setConvSystem($('#cSysEd').value);if(conv.order.main.length===0)renderPane('main');
+      toast(ownSys(conv)?'Saved: this conversation has its own system prompt, from the next reply.':was?'This conversation follows your default again.':'Unchanged: it follows your default.')},{ok:'Save',kind:'primary'});
+  $('#cSysEd').value=sysPrompt(conv);
+  const d=$('#cSysDef');if(d)d.onclick=()=>{$('#cSysEd').value=defaultSys();$('#cSysEd').focus()};
+  setTimeout(()=>$('#cSysEd').focus(),30);
+}
+// a conversation's own system prompt: '' or the default puts it back to following your default
+// Debug: the request the next question in this thread would send, exactly as built (buildContext), before images are
+// loaded: the tools, the system prompt in its parts, and every message on the path with its markers.
+function showModelView(tid){
+  if(!conv)return;tid=tid||pickerTid();if(!T(tid))tid='main';
+  const keep=lastDocSeen;let ctx;try{ctx=buildContext(tid)}finally{lastDocSeen=keep}
+  const own=sysPrompt(conv),sk=skillsPrompt(conv),rest=ctx.system.slice(fullSys(conv).length).replace(/^\n\n/,'');
+  const n=(x)=>`${x.length.toLocaleString()} characters`;
+  const part=(title,text,open)=>text?`<details class="mvp"${open?' open':''}><summary>${esc(title)} <small>${n(text)}</small></summary><pre>${esc(text)}</pre></details>`:'';
+  const msgText=(c)=>typeof c==='string'?c:c.map(p=>p.type==='text'?p.text:`[image: ${p.label||'an image'}]`).join('');
+  const t=T(tid),name=tid==='main'?'the main thread':`“${t.title||'a branch'}”`;
+  const msgs=ctx.messages.map((m,i)=>`<details class="mvp"${i>=ctx.messages.length-2?' open':''}><summary>${i+1}. ${m.role==='user'?'User':'Assistant'} <small>${n(msgText(m.content))}</small></summary><pre>${esc(msgText(m.content))}</pre></details>`).join('');
+  askConfirm('What the model sees here',`<div class="mview"><p class="ppnote">The request the next question in ${esc(name)} sends, before your question is added: exactly what the model gets, nothing else. Thread names and labels on screen aren’t sent.</p>
+    <h3>Tools</h3><p class="ppnote">${ctx.tools?ctx.tools.map(x=>`<code>${esc(x)}</code>`).join(', '):'None'}${settings.web&&io.llm&&io.llm.supportsWeb?', and web search (Web is on)':''}.</p>
+    <h3>System prompt</h3>${part(ownSys(conv)?'This conversation’s own prompt':'Your default prompt',own,true)}${part('How Digress works (fixed)',PROMPTS.howDigress)}${part('Skills',sk.trim())}${part('The document',rest)}
+    <h3>Messages, oldest first</h3>${msgs||'<p class="ppnote">None yet.</p>'}</div>`,
+    ()=>{navigator.clipboard&&navigator.clipboard.writeText(JSON.stringify(ctx,null,2)).then(()=>toast('Copied the request as JSON.'),()=>toast('It couldn’t be copied.'))},
+    {ok:'Copy as JSON',kind:'plain',cancel:'Close',wide:true});
+}
+function setConvSystem(v){
+  if(!conv)return;v=String(v||'').trim();
+  if(!v||v===defaultSys().trim())delete conv.system;else conv.system=v;
+  save();syncSkillT();
+}
+const closeSkillMenu=()=>{const m=$('#skillMenu');if(m&&m.classList.contains('open')){m.classList.remove('open');return true}return false};
+
+// the page itself
+const PP={q:null,editing:null};
+function openPrompts(at){
+  $('#promptsPage').classList.add('show');closeSkillMenu();renderPrompts();
+  if(at){const s=$('#promptsPage .pp'+at);s&&s.scrollIntoView({block:'start'})}
+}
+function closePrompts(){$('#promptsPage').classList.remove('show')}
+const sameJson=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+async function savePrompts(patch){
+  if(!io.prompts)throw new Error('Changing these needs the Digress server.');
+  const next={...CUSTOM.prompts,...patch};for(const k of Object.keys(next))if(next[k]==null)delete next[k];
+  await io.prompts.put('custom',next);CUSTOM.prompts=next;
+}
+function renderPrompts(){
+  const w=$('#promptsPage .acwrap'),cp=CUSTOM.prompts,can=!!io.prompts;
+  PP.q=JSON.parse(JSON.stringify(quickList()));PP.editing=null;
+  w.innerHTML=`<div class="achead"><h1>Prompts, skills &amp; tools</h1><span class="sp"></span><button class="ib" data-pp="close" title="Close (Esc)">${ic('x')}</button></div>
+  ${can?'':'<section class="acsec"><div class="acnone">Changing these needs the Digress server; here you can only read them.</div></section>'}
+  <section class="acsec ppsys"><h2>Your default system prompt <span class="pptag">${cp.system?'Yours':'Digress’s'}</span></h2>
+    <p class="ppnote">Who the tutor is and how it writes: what the model is told before every question, in every conversation that doesn’t have its own (<b>Prompt</b> in the top bar gives one its own), on every device. After it Digress always adds how the app works (below), then the conversation’s skills and its document. A change applies from the next reply.</p>
+    <textarea class="pptext" id="ppSys" spellcheck="false" rows="14"></textarea>
+    <div class="ppbar"><span class="ppmsg" id="ppSysMsg"></span><span class="sp"></span>${cp.system?'<button class="mbtn" data-pp="sysreset">Reset to default</button>':''}<button class="mbtn primary" data-pp="syssave" disabled>Save</button></div>
+    ${cp.system?'<details class="ppdef"><summary>The default</summary><pre class="ppsrc"></pre></details>':''}
+    <details class="pphow"><summary>Always added after it: how Digress works</summary><p class="ppnote">Digress adds this after your prompt every time, so nothing you write can remove it: the formatting the page can draw, when the model may search the web, how branches are marked, and what the model sees. It can’t be edited here.</p><pre class="ppsrc"></pre></details>
+  </section>
+  <section class="acsec ppquick"><h2>Quick questions <span class="pptag">${cp.quick&&cp.quick.length?'Yours':'Default'}</span></h2>
+    <p class="ppnote">The chips in the highlight popup and in a new branch: a label, and what it asks.</p>
+    <div class="ppq" id="ppQ"></div>
+    <div class="ppbar"><button class="mbtn" data-pp="qadd">Add one</button><span class="ppmsg" id="ppQMsg"></span><span class="sp"></span>${cp.quick&&cp.quick.length?'<button class="mbtn" data-pp="qreset">Reset to default</button>':''}<button class="mbtn primary" data-pp="qsave" disabled>Save</button></div>
+  </section>
+  <section class="acsec ppskills"><h2>Skills</h2>
+    <p class="ppnote">A skill is a set of instructions for the model, in the SKILL.md format many AI tools share. Add one here, then turn it on in a conversation with <b>Prompt</b> in the top bar: it’s added to that conversation’s system prompt and applies in every thread of it.</p>
+    <div id="ppSkills"></div>
+    <div class="ppadd"><textarea class="pptext" id="ppSkIn" rows="3" spellcheck="false" placeholder="Paste a SKILL.md, or a link to one (a GitHub folder or file works)"></textarea>
+      <div class="ppbar"><label class="mbtn ppfile">Choose a file<input type="file" id="ppSkFile" accept=".md,.markdown,.txt,text/markdown,text/plain"></label><span class="ppmsg" id="ppSkMsg"></span><span class="sp"></span><button class="mbtn primary" data-pp="skadd">Add</button></div></div>
+  </section>
+  <section class="acsec pptools"><h2>Tools</h2>
+    <p class="ppnote">What the model can do besides write, and what switches each on. Read-only: the page runs them, so their names and what they take are part of the code (<code>server/doctools.mjs</code>).</p>
+    <div id="ppTools"><div class="acnone">Loading…</div></div>
+  </section>
+  <section class="acsec ppall"><h2>Everything else Digress tells the model</h2>
+    <p class="ppnote">Read-only here: branch markers, takeaways, flashcards, titles, the document’s preamble. The code relies on their wording or on the shape of the reply they ask for, so they’re changed in <code>web/prompts.js</code>.</p>
+    <details id="ppAll"><summary>Show web/prompts.js</summary><pre class="ppsrc">Loading…</pre></details>
+  </section>`;
+  const sys=$('#ppSys');sys.value=defaultSys();sys.readOnly=!can;
+  sys.oninput=()=>{$('[data-pp=syssave]').disabled=sys.value===defaultSys();$('#ppSysMsg').textContent=''};
+  renderToolList();
+  const def=w.querySelector('.ppdef pre');if(def)def.textContent=PROMPTS.system;
+  w.querySelector('.pphow pre').textContent=PROMPTS.howDigress;
+  $('#ppAll').addEventListener('toggle',async e=>{const pre=e.target.querySelector('pre');if(!e.target.open||pre.dataset.done)return;
+    try{const r=await fetch('prompts.js',{cache:'no-store'});pre.textContent=await (await okOrThrow(r)).text();pre.dataset.done=1}catch(err){pre.textContent='It couldn’t be loaded: '+(err.message||err)}});
+  $('#ppSkFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;await addSkillFrom(()=>f.text().then(t=>putSkill(t,{source:''})))};
+  renderQuickRows();renderSkillList();
+}
+function renderQuickRows(){
+  const box=$('#ppQ');if(!box)return;const can=!!io.prompts;
+  box.innerHTML=PP.q.map(([l,q],i)=>`<div class="ppqrow" data-i="${i}"><input class="ppql" value="${esc(l)}" placeholder="Label" ${can?'':'readonly'}><input class="ppqq" value="${esc(q)}" placeholder="What it asks" ${can?'':'readonly'}><button class="ib" data-pp="qdel" title="Remove" ${can?'':'disabled'}>${ic('x')}</button></div>`).join('');
+}
+function quickChanged(){const b=$('[data-pp=qsave]');if(b)b.disabled=sameJson(PP.q,quickList());$('#ppQMsg').textContent=''}
+function renderSkillList(){
+  const box=$('#ppSkills');if(!box)return;const can=!!io.skills;
+  box.innerHTML=CUSTOM.skills.size?[...CUSTOM.skills.values()].map(s=>{const ed=can,open=PP.editing===s.id;return `<div class="ppsk" data-skid="${esc(s.id)}">
+    <div class="ppskh"><b>${esc(skillLabel(s))}</b><span class="sp"></span>${ed?`<button class="mbtn" data-pp="skedit">${open?'Close':'View and edit'}</button><button class="mbtn" data-pp="skdel">Delete</button>`:`<button class="mbtn" data-pp="skedit">${open?'Close':'View'}</button>`}</div>
+    ${s.description?`<div class="ppskd">${esc(s.description)}</div>`:''}
+    ${s.source?`<div class="ppsks">From <a href="${esc(s.source)}" target="_blank" rel="noopener noreferrer">${esc(trunc(s.source.replace(/^https?:\/\//,''),80))}</a></div>`:''}
+    ${open?`<div class="ppsked"><textarea class="pptext" rows="18" spellcheck="false" ${ed?'':'readonly'}></textarea>${ed?'<div class="ppbar"><span class="ppmsg"></span><span class="sp"></span><button class="mbtn primary" data-pp="sksave">Save</button></div>':''}</div>`:''}
+  </div>`}).join(''):'<div class="acnone">No skills yet.</div>';
+  const ed=box.querySelector('.ppsked textarea');if(ed){const s=CUSTOM.skills.get(PP.editing);ed.value=s.text||s.body}
+}
+async function addSkillFrom(get){
+  const msg=$('#ppSkMsg'),btn=$('[data-pp=skadd]');msg.textContent='Adding…';msg.classList.remove('bad');btn.disabled=true;
+  try{const {rec,replaced}=await get();$('#ppSkIn').value='';msg.textContent=(replaced?'Updated ':'Added ')+skillLabel(rec)+'. Turn it on in a conversation with Prompt in the top bar.';renderSkillList()}
+  catch(e){msg.textContent=e.message||String(e);msg.classList.add('bad')}
+  finally{btn.disabled=false}
+}
+// the Tools section: each tool as the model sees it (GET api/tools), with what turns it on here
+const TOOL_INFO=[
+  ['Web search',null,'Web in the top bar, per question.','The one that reaches outside (your words go to a search engine), so it’s yours to switch. The provider runs it.'],
+  ['Reading the document',['search','read_pages','view_page'],'Always, with a document.','Only reads what you opened, in this browser.'],
+  ['Suggesting flashcards',['suggest_card'],'Flashcards on in the conversation.','Adds a card to your inbox when the model judges something has landed.'],
+];
+async function renderToolList(){
+  const box=$('#ppTools');if(!box)return;
+  let d=null;try{if(io.llm&&io.llm.toolList)d=await io.llm.toolList()}catch(e){console.warn(e)}
+  if(!box.isConnected)return;
+  const lim={search:d&&d.maxCalls,suggest_card:d&&d.maxCards};
+  box.innerHTML=`<table class="pptools"><tr><th>Tool</th><th>On when</th><th>What it does</th></tr>${TOOL_INFO.map(([name,ids,on,what])=>`<tr><td><b>${esc(name)}</b>${ids?`<br><code>${esc(ids.join(', '))}</code>`:''}</td><td>${esc(on)}</td><td>${esc(what)}${ids&&lim[ids[0]]?` Up to ${lim[ids[0]]} calls per answer.`:''}</td></tr>`).join('')}</table>`+
+    (d&&d.tools?`<details class="pptool"><summary>What the model reads about each</summary><pre class="ppsrc">${esc(d.tools.map(t=>`${t.name}\n${t.description}\nTakes: ${JSON.stringify(t.schema.properties)}`).join('\n\n'))}</pre></details>`:'<div class="acnone">The descriptions the model reads come from the Digress server, which isn’t answering.</div>');
+}
+function refreshChips(){fillPopChips();if(conv)for(const id of conv.ui.open)if(id!=='doc'&&T(id))renderPane(id)}
+$('#promptsPage').addEventListener('input',e=>{
+  const row=e.target.closest('.ppqrow');if(!row)return;const i=+row.dataset.i;
+  PP.q[i]=[row.querySelector('.ppql').value,row.querySelector('.ppqq').value];quickChanged();
+});
+$('#promptsPage').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-pp]');if(!b)return;const a=b.dataset.pp;
+  const fail=(el,err)=>{if(el){el.textContent=err.message||String(err);el.classList.add('bad')}};
+  if(a==='close')closePrompts();
+  else if(a==='syssave'){const v=$('#ppSys').value.trim();
+    try{await savePrompts({system:v&&v!==PROMPTS.system.trim()?v:null});renderPrompts();$('#ppSysMsg').textContent='Saved. It applies from the next reply.'}catch(err){fail($('#ppSysMsg'),err)}}
+  else if(a==='sysreset')askConfirm('Go back to the default system prompt?','Your version is replaced by the one Digress comes with.',async()=>{try{await savePrompts({system:null});renderPrompts();$('#ppSysMsg').textContent='Back to the default.'}catch(err){toast(err.message||String(err))}},{ok:'Reset',kind:'primary'});
+  else if(a==='qadd'){PP.q.push(['','']);renderQuickRows();quickChanged();const r=$('#ppQ').lastElementChild;r&&r.querySelector('input').focus()}
+  else if(a==='qdel'){PP.q.splice(+b.closest('.ppqrow').dataset.i,1);renderQuickRows();quickChanged()}
+  else if(a==='qsave'){const q=PP.q.map(([l,x])=>[l.trim(),x.trim()]).filter(([l,x])=>l&&x);
+    if(!q.length){fail($('#ppQMsg'),new Error('Keep at least one, with a label and a question, or Reset to default.'));return}
+    try{await savePrompts({quick:sameJson(q,PROMPTS.quick)?null:q});refreshChips();renderPrompts();$('#ppQMsg').textContent='Saved.'}catch(err){fail($('#ppQMsg'),err)}}
+  else if(a==='qreset'){try{await savePrompts({quick:null});refreshChips();renderPrompts();$('#ppQMsg').textContent='Back to the default.'}catch(err){fail($('#ppQMsg'),err)}}
+  else if(a==='skadd'){const v=$('#ppSkIn').value.trim();if(!v){fail($('#ppSkMsg'),new Error('Paste a SKILL.md or a link first, or choose a file.'));return}
+    await addSkillFrom(()=>/^https?:\/\/\S+$/.test(v)?skillFromLink(v):putSkill(v,{source:''}))}
+  else if(a==='skedit'){const id=b.closest('.ppsk').dataset.skid;PP.editing=PP.editing===id?null:id;renderSkillList()}
+  else if(a==='sksave'){const el=b.closest('.ppsk'),id=el.dataset.skid,m=el.querySelector('.ppmsg');
+    try{await putSkill(el.querySelector('textarea').value,{id});PP.editing=null;renderSkillList();setStatus('Skill saved')}catch(err){fail(m,err)}}
+  else if(a==='skdel'){const id=b.closest('.ppsk').dataset.skid,s=CUSTOM.skills.get(id);if(!s)return;
+    askConfirm(`Delete the skill “${skillLabel(s)}”?`,'Conversations that had it on carry on without it.',async()=>{
+      try{await io.skills.remove(id);CUSTOM.skills.delete(id);if(PP.editing===id)PP.editing=null;renderSkillList();syncSkillT()}catch(err){toast(err.message||String(err))}})}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.defaultPrevented&&$('#promptsPage').classList.contains('show')&&!$('#modal').classList.contains('show')){e.preventDefault();closePrompts()}});
+$('#promptsBtn').addEventListener('click',()=>openPrompts());
+$('#skillT').addEventListener('click',e=>{e.stopPropagation();openSkillMenu(e.currentTarget)});
+
 
 /* ---------- export and import ----------
    A .digress file is one gzipped JSON document: {digress: 1, exported, conversations: [content as saved, without
@@ -2780,12 +3106,14 @@ function buildContext(tid,excludeMid,opts){
     push(m.role,parts);
   });
   while(out.length&&out[0].role!=='user')out.shift();
-  let system=SYS;lastDocSeen=null;
+  // the same for every thread and question in this conversation (the prompt cache): the system prompt, its skills, the document
+  const base=fullSys(conv);let system=base;lastDocSeen=null;
   if(out.length&&conv.doc){
     const last=out[out.length-1];
-    system=SYS+'\n\n'+docPreamble(tid,last.role==='user'?lastQ:'',tools);
+    system=base+'\n\n'+docPreamble(tid,last.role==='user'?lastQ:'',tools);
   }
-  return {system,messages:out.map(o=>({role:o.role,content:joinParts(o.parts)})),docSeen:lastDocSeen,tools:tools&&!!(conv.doc&&docState&&docState.loaded)};
+  const names=[...(tools&&conv.doc&&docState&&docState.loaded?DOC_TOOL_NAMES:[]),...cardTool(opts)];
+  return {system,messages:out.map(o=>({role:o.role,content:joinParts(o.parts)})),docSeen:lastDocSeen,tools:names.length?names:false};
 }
 // Turns image refs into what the connector sends: {type:'image',mediaType,data(base64)}. If an image
 // can't be loaded the whole request fails with a clear error: nothing is sent with a piece missing.
@@ -2853,12 +3181,14 @@ async function generate(m,ctx,lockTid,o={}){
     // m.live: what it has done so far, shown while it works (not saved: generate drops it when done)
     m.live=[];m.t0=m.t0||Date.now();tick=setInterval(()=>queueStream(m.id),1000);
     const step=(icon,text,done)=>{const l=m.live[m.live.length-1];if(l)l.done=true;m.live.push({icon,text,done});queueStream(m.id)};
-    const toolText=(name,input)=>trailText(name==='search'?{t:'search',q:String(input.query||'')}:name==='read_pages'?{t:'read',a:input.from,b:input.to||input.from}:{t:'view',p:input.page});
-    const trail=[...(o.resume&&m.reads||[])],tools=ctx.tools?{run:async(name,input)=>{   // the model reading the document: run the call here, show what it's doing
+    const toolText=(name,input)=>name==='suggest_card'?`suggested a flashcard: “${trunc(String(input.front||''),60)}”`:trailText(name==='search'?{t:'search',q:String(input.query||'')}:name==='read_pages'?{t:'read',a:input.from,b:input.to||input.from}:{t:'view',p:input.page});
+    let nCards=0;
+    const trail=[...(o.resume&&m.reads||[])],tools=ctx.tools?{names:ctx.tools,run:async(name,input)=>{   // the model reading the document or suggesting a card: run the call here, show what it's doing
+      if(name==='suggest_card'){try{const r=await suggestCard(st.conv,m,input);if(!r.error)nCards++;return r}finally{const l=m.live[m.live.length-1];if(l)l.done=true;queueStream(m.id)}}
       try{await docReady();return await runDocTool(name,input,trail)}finally{m.reads=[...trail];const l=m.live[m.live.length-1];if(l)l.done=true;queueStream(m.id)}}}:undefined;
     let nq=0;
     const keepSearch=(x)=>{if(x.searches&&x.searches.length){m.searches=[...x.searches];for(;nq<x.searches.length;nq++)step('globe',`searched the web for “${x.searches[nq]}”`,false)}if(x.sources&&x.sources.length)m.sources=x.sources.slice(0,30)};
-    const onTool=(call,done)=>step('doc',toolText(call.name,call.input||{}),done);
+    const onTool=(call,done)=>step(call.name==='suggest_card'?'cards':'doc',toolText(call.name,call.input||{}),done);
     const onText=(text)=>{m.content=prefix+text;const l=m.live[m.live.length-1];if(l)l.done=true;queueStream(m.id)};
     let r;
     if(o.resume)r=await io.llm.complete({resume:true,run,signal:ctrl.signal,onText,onSearch:(x)=>{keepSearch(x);queueStream(m.id)},onTool,tools});
@@ -2869,6 +3199,7 @@ async function generate(m,ctx,lockTid,o={}){
         onText,onSearch:(x)=>{keepSearch(x);queueStream(m.id)},onTool,tools});
     }
     m.content=prefix+r.text;if(r.model)m.model=r.model;if(r.usage)m.usage=r.usage;keepSearch(r);
+    if(nCards){const c0=st.conv;toast(`The AI suggested ${nCards} flashcard${nCards>1?'s':''}: ${nCards>1?'they’re':'it’s'} in your inbox`,{label:'Open',fn:()=>{if(conv===c0)openCards(c0.id,'inbox')}})}
     if(r.truncated)m.error='Reply was cut off (length limit).';
     else if(!String(r.text||'').trim())m.error='No answer came back from the model. Retry, or ask something narrower.';   // never a blank reply that looks finished
   }catch(e){
@@ -2929,8 +3260,8 @@ function resumeRuns(){
     if(!m.run||m.role!=='assistant'||[...streaming.values()].some(s=>s.mid===m.id))continue;
     if(streaming.has(m.thread))continue;
     const prefix=(m.content||'').slice(0,m.runFrom||0);m.content=prefix;m.pending=true;m.ver++;
-    const ctx=conv.doc?{tools:!!(io.llm&&io.llm.supportsTools)}:{};
-    generate(m,ctx,m.thread,{resume:true,prefix});
+    const names=io.llm&&io.llm.supportsTools?[...(conv.doc?DOC_TOOL_NAMES:[]),...(cardsOn()?['suggest_card']:[])]:[];
+    generate(m,{tools:names.length?names:false},m.thread,{resume:true,prefix});
   }
 }
 // a reply that was cut off: ask the model to carry on from where it stopped
@@ -3890,9 +4221,32 @@ function emptyState(t){
     if(!convList.some(c=>c.id!==conv.id))d.insertAdjacentHTML('beforeend',`<ol class="esteps"><li><b>Ask</b><span>anything, or about a document you open.</span></li><li><b>Highlight</b><span>a phrase in the answer to branch off into it, beside the main thread.</span></li><li><b>Keep</b><span>what you learn: carry a takeaway back, or turn on flashcards.</span></li></ol><div class="ekeys">Press <kbd>?</kbd> for keyboard shortcuts.</div>`);
   }else{
     d.innerHTML=`<div>${t.anchorText?'Ask anything about this passage':'Ask a side question about that reply'}, or start with one of these:</div><div class="chips"></div>`;
-    QUICK.forEach(([l,q])=>{const b=document.createElement('button');b.className='chip';b.textContent=l;b.dataset.ask=q;b.title='Asks: '+q;d.lastChild.appendChild(b)});
+    quickList().forEach(([l,q])=>{const b=document.createElement('button');b.className='chip';b.textContent=l;b.dataset.ask=q;b.title='Asks: '+q;d.lastChild.appendChild(b)});
   }
+  if(t.id==='main')d.appendChild(convSysBox());
   return d;
+}
+// in an empty main thread: the system prompt this conversation starts with, ready to change before the first question
+let csysDraft=null;   // {conv, v, open}: kept across redraws of the pane
+// one system prompt per conversation (one prompt cache): say so, and that a document's branches use it even while main is empty
+const sysScope=()=>conv.doc?'Every thread of this conversation uses it: this main thread and every branch, including branches from the document, even if nothing is ever asked here.':'Every thread of this conversation uses it: this main thread and every branch off it.';
+function convSysBox(){
+  const own=ownSys(conv),dr=csysDraft&&csysDraft.conv===conv.id?csysDraft:null;
+  const el=document.createElement('details');el.className='csys';if(dr&&dr.open)el.open=true;
+  el.innerHTML=`<summary>${ic('tune')}<span>System prompt: <b>${own?'this conversation’s own':'your default'}</b>${conv.doc?'<span class="csyss"> · for every thread, branches from the document too</span>':''}</span></summary><div class="csysb"></div>`;
+  // the editor is made only while open, so the pane's composer stays its only textarea otherwise
+  const fill=()=>{const w=el.querySelector('.csysb');if(!el.open){w.innerHTML='';return}if(w.firstChild)return;
+    w.innerHTML=`<p class="ppnote csysn">${sysScope()}</p><textarea class="pptext" rows="9" spellcheck="false" aria-label="System prompt for this conversation"></textarea>
+    <div class="ppbar"><span class="ppmsg"></span><span class="sp"></span>${own?'<button class="mbtn" data-csys="reset">Use my default</button>':''}<button class="mbtn primary" data-csys="save" disabled>Use for this conversation</button></div>`;
+    const ta=w.querySelector('textarea'),sv=w.querySelector('[data-csys=save]'),d=csysDraft&&csysDraft.conv===conv.id?csysDraft:null;
+    ta.value=d&&d.v!=null?d.v:sysPrompt(conv);sv.disabled=ta.value.trim()===sysPrompt(conv).trim();
+    ta.oninput=()=>{csysDraft={conv:conv.id,v:ta.value,open:true};sv.disabled=ta.value.trim()===sysPrompt(conv).trim()}};
+  el.ontoggle=()=>{csysDraft={...(csysDraft&&csysDraft.conv===conv.id?csysDraft:{conv:conv.id,v:null}),open:el.open};fill()};
+  el.onclick=(e)=>{const b=e.target.closest('[data-csys]');if(!b)return;e.stopPropagation();
+    setConvSystem(b.dataset.csys==='save'?el.querySelector('.csysb textarea').value:'');csysDraft={conv:conv.id,v:null,open:false};
+    renderPane('main');toast(ownSys(conv)?`This conversation has its own system prompt, ${conv.doc?'for main and every branch, those from the document too':'for main and every branch'}.`:'This conversation uses your default system prompt.')};
+  if(el.open)fill();
+  return el;
 }
 /* ---- zoom inside a pane (Columns / Rows views). conv.ui.pz[tid] = factor.
    Chat and text panes scale their content with CSS zoom (text reflows to the pane). The PDF is re-rendered
@@ -5387,7 +5741,12 @@ ${pageText(i)}`).join('\n\n')}
    {error} (which the model gets as an error), and adds an entry to `trail`, shown under the reply. */
 const READ_MAX=8,READ_CHARS=60000;
 const toolsWanted=(o)=>!!(conv&&conv.doc&&io.llm&&io.llm.supportsTools&&!(o&&o.tools===false));
+const DOC_TOOL_NAMES=['search','read_pages','view_page'];
+// suggest_card is offered in every request of a conversation with flashcards on (replies, card drafts, takeaways
+// alike, so they keep sharing one prompt cache); only a reply runs it (suggestCard), side jobs refuse it below
+const cardTool=(o)=>conv&&conv.cards&&conv.cards.on&&io.llm&&io.llm.supportsTools&&!(o&&o.tools===false)?['suggest_card']:[];
 async function runDocTool(name,input,trail){
+  if(name==='suggest_card')return {error:'Not in this request: it is a task with its own instructions (drafting flashcards or writing a takeaway). Do what it asks instead.'};
   const st=docState;
   if(!st||!st.loaded)return {error:'The document isn’t loaded in the reader’s browser right now, so it can’t be read. Tell the reader.'};
   const P=st.pages,N=P.length,pdf=st.kind==='pdf',one=pdf?'p.':'part',many=pdf?'pages':'parts';
@@ -6450,7 +6809,7 @@ let trashOpen=false;try{trashOpen=localStorage.getItem('digress:trash')==='1'}ca
 /* Deleting moves a conversation to the trash (shared: every device sees it there) for TRASH_DAYS; Restore brings it
    back. An empty conversation, or "Delete for good", is deleted at once (deleteConv). Its flashcards stay either way. */
 // a conversation with nothing in it yet (no question, no document): never saved, so there's nothing to keep
-const isBlank=(c)=>!!c&&!c.doc&&!(c.order.main||[]).length&&Object.keys(c.threads).length===1;
+const isBlank=(c)=>!!c&&!c.doc&&!(c.order.main||[]).length&&Object.keys(c.threads).length===1&&!c.system&&!(c.skills||[]).length;
 // after the open conversation goes: the latest other one, else a fresh one
 async function openNextAfter(id){dirty=false;const next=convList.find(c=>c.id!==id&&!c.trashed&&!c.archived);if(next)await openConv(next.id);else setConv(newConv())}
 // put away an empty new conversation (✕ on its only pane, or Delete): saved, it's deleted; never saved, just dropped
@@ -6791,7 +7150,7 @@ function setConv(c){
   $('#stage').classList.toggle('canvas',ui.view==='canvas');if(ui.view==='canvas')renderCanvas();
   syncViewSeg();
   syncReset(conv);dirty=false;closeViews();syncViewsUI();
-  applyConvLlm();showInUrl();resumeRuns();
+  applyConvLlm();showInUrl();resumeRuns();syncSkillT();
 }
 // The address names the open conversation (#c=ID) once it's saved, so a window can be opened, reloaded or
 // bookmarked straight to it. replaceState: switching conversations doesn't add Back steps.
@@ -6815,7 +7174,8 @@ function toast(s,act){const el=$('#toast');el.textContent=s;el.classList.toggle(
 
 /* ---------- selection popover ---------- */
 const pop=$('#pop'),popIn=$('#popIn');
-QUICK.forEach(([l,q])=>{const b=document.createElement('button');b.className='chip';b.textContent=l;b.dataset.q=q;b.title='Opens a branch asking: '+q;$('#popChips').appendChild(b)});
+function fillPopChips(){$('#popChips').replaceChildren();quickList().forEach(([l,q])=>{const b=document.createElement('button');b.className='chip';b.textContent=l;b.dataset.q=q;b.title='Opens a branch asking: '+q;$('#popChips').appendChild(b)})}
+fillPopChips();
 $('#popGo').innerHTML=ic('send');
 let cvTook=false;   // the current press was taken by a canvas drag (see cvTake)
 function checkSelection(){
@@ -7146,7 +7506,7 @@ for(const w of document.querySelectorAll('.sfoldw')){const k=w.dataset.fold,b=w.
 $('#archToggle').onclick=()=>{archOpen=!archOpen;try{localStorage.setItem('sq:arch',archOpen?'1':'')}catch(e){}renderConvList()};
 $('#trashToggle').querySelector('.chev').innerHTML=$('#archToggle').querySelector('.chev').innerHTML;
 $('#trashToggle').onclick=()=>{trashOpen=!trashOpen;try{localStorage.setItem('digress:trash',trashOpen?'1':'')}catch(e){}renderConvList()};
-$('#newConv').innerHTML=ic('plus')+'New conversation';$('#actBtn').innerHTML=ic('activity')+'Activity';$('#newDoc').innerHTML=ic('doc')+'New from a document';$('#newDoc').onclick=openDocModal;
+$('#newConv').innerHTML=ic('plus')+'New conversation';$('#actBtn').innerHTML=ic('activity')+'Activity';$('#promptsBtn').innerHTML=ic('tune');$('#skillT .wi').outerHTML=ic('tune');$('#newDoc').innerHTML=ic('doc')+'New from a document';$('#newDoc').onclick=openDocModal;
 ['cols','rows','canvas'].forEach(v=>{document.querySelector(`[data-v="${v}"] span`).outerHTML=ic(v)});
 const mSel=$('#mSel'),eSel=$('#eSel'),webT=$('#webT');
 MODELS.forEach(([v,l])=>mSel.add(new Option(l,v)));EFFORTS.forEach(([v,l])=>eSel.add(new Option(l,v)));
@@ -7194,6 +7554,8 @@ function closeTopmost(){
   if(pop.classList.contains('show')){hidePop();return true}
   if(document.querySelector('.docpane.snipping')){setSnip(false);return true}
   if($('#cardsModal').classList.contains('show')){closeCards();return true}
+  if(closeSkillMenu())return true;
+  if($('#promptsPage').classList.contains('show')){closePrompts();return true}
   if($('#activity').classList.contains('show')){closeActivity();return true}
   if($('#guide').classList.contains('open')){closeGuide();return true}
   if(keysOpen()){closeKeys();return true}
@@ -7377,8 +7739,8 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(set
    moved, not copied, so they keep working the same way. Rechecked whenever the bar's size or contents change. */
 const topBar=$('.top'),moreB=$('#moreB'),moreMenu=document.createElement('div');moreMenu.className='tmore';moreMenu.setAttribute('role','menu');document.body.appendChild(moreMenu);
 moreB.innerHTML=ic('dots');
-const TOP_MOVABLE=[$('#resetOrder'),$('#zenB'),themeB,webT,eSel.closest('.sel'),$('#viewSeg'),mSel.closest('.sel')];
-const MENU_ORDER=new Map([[mSel.closest('.sel'),0],[eSel.closest('.sel'),1],[webT,2],[$('#viewSeg'),3],[themeB,4],[$('#zenB'),5],[$('#resetOrder'),6]]);
+const TOP_MOVABLE=[$('#resetOrder'),$('#zenB'),themeB,$('#skillT'),webT,eSel.closest('.sel'),$('#viewSeg'),mSel.closest('.sel')];
+const MENU_ORDER=new Map([[mSel.closest('.sel'),0],[eSel.closest('.sel'),1],[webT,2],[$('#skillT'),3],[$('#viewSeg'),4],[themeB,5],[$('#zenB'),6],[$('#resetOrder'),7]]);
 for(const el of TOP_MOVABLE){el.__home=document.createComment('');el.before(el.__home)}
 let fitting=false;
 function fitTop(){

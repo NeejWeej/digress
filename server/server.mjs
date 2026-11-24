@@ -9,9 +9,10 @@
 //   GET /api/connections               the model providers and how each is connected (never a key, only its last 4)
 //   PUT|DELETE /api/connections/:id    {key}: add (checked with the provider first) or remove an API key (anthropic, gemini)
 //   GET  /api/guide                    {docs:[{name,file,text}]}: Digress's own documentation (Ask about Digress)
+//   GET  /api/tools                    {tools:[{name,description,schema}], maxCalls, maxCards}: what the model can be given
 //   POST /api/chat                     {system, messages, model, effort, web} -> streamed lines: {d}, {search}, {sources},
 //                                      then {done,model,truncated} or {error}  (see PROVIDERS)
-//   GET  /api/store/:coll              [{id, data}]          (coll: convs | index)
+//   GET  /api/store/:coll              [{id, data}]          (coll: convs | index | cards | skills | prompts)
 //   GET|PUT|PATCH|DELETE /api/store/:coll/:id   (convs: PUT with x-base-rev -> 409 {current} / 410; GET ?rev -> {rev})
 //   GET /api/chat/run/:id?from=N       reattach to a reply (runs.mjs);  POST /api/chat/stop {chat}
 //   GET|PUT /api/layout/:conv[?device=]  per-device layout
@@ -32,7 +33,7 @@ import { normalizeMessages, toAnthropic, toClaudeCodeBlocks, IMAGE_TYPES, isImag
 import { createRun, getRun, DETACH_MS } from './runs.mjs';
 import { GUIDE_DOCS } from './guide.mjs';
 import { libFile, libType } from './libs.mjs';
-import { openSession, deliverResult, handleMcp, toolsForAnthropic, resultForAnthropic, CLAUDE_CODE_TOOL_NAMES, MAX_TOOL_ROUNDS } from './doctools.mjs';
+import { openSession, deliverResult, handleMcp, toolsForAnthropic, resultForAnthropic, claudeCodeToolNames, pickTools, ALL_TOOLS, MAX_TOOL_CALLS, MAX_CARD_CALLS, MAX_TOOL_ROUNDS } from './doctools.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -63,7 +64,7 @@ const MAX_UPLOAD = Number(process.env.MAX_UPLOAD_MB || 50) * 1024 * 1024;
 const MAX_JSON = 8 * 1024 * 1024;
 const MAX_CHAT_JSON = 64 * 1024 * 1024; // a conversation can carry images (snips, pages, screenshots), each up to 5 MB
 const WEB = path.join(ROOT, 'web', 'index.html');
-const COLLECTIONS = new Set(['convs', 'index', 'cards']); // cards: flashcards, kept apart from conversations because review spans all of them
+const COLLECTIONS = new Set(['convs', 'index', 'cards', 'skills', 'prompts']); // cards: flashcards, kept apart from conversations because review spans all of them; skills: SKILL.md files added in the app; prompts: the reader's own system prompt and quick questions ('custom')
 const FILE_TYPES = new Set(['application/pdf', 'text/markdown', 'text/plain', ...IMAGE_TYPES]); // images: pasted screenshots (no SVG: it can carry scripts)
 
 // ---- helpers --------------------------------------------------------------
@@ -221,7 +222,8 @@ function hasClaudeCli() {
 //     payload = {system, messages:[{role, content}], model, effort, web, session}
 //     web is only true when the reader turned web access on for this message. Off means the provider
 //     must not reach the internet at all. Keep it to search: no page fetching from this machine, no code.
-//   tools        can it use the document tools (server/doctools.mjs)? When payload.session is set, it offers
+//   tools        can it use the page's tools (server/doctools.mjs: the document tools, suggest_card)? The page
+//     names the ones this reply gets (tools: [names]; true is the document tools). When payload.session is set, it offers
 //     them and runs the loop: while the model stops on tool calls, run each through session.call and send
 //     the results back. Set session.out once the stream starts.
 const PROVIDERS = {
@@ -357,7 +359,7 @@ async function handleChat(req, res) {
   // watching it. If the connection drops, the model keeps going and the page can reattach.
   const id = typeof payload.chat === 'string' && /^[a-f0-9]{32}$/.test(payload.chat) ? payload.chat : crypto.randomBytes(16).toString('hex');
   if (getRun(id)) return fail(res, 409, 'That reply is already running.');
-  payload.session = payload.tools === true && PROVIDERS[k].tools ? openSession(id) : null;
+  payload.session = PROVIDERS[k].tools ? openSession(id, pickTools(payload.tools)) : null;
   const target = payload.save && validId(payload.save.conv) && validId(payload.save.msg) ? { conv: payload.save.conv, msg: payload.save.msg } : null;
   delete payload.tools; delete payload.chat; delete payload.save;
   const run = createRun(id, { session: payload.session, onOrphan: target ? (r) => saveOrphan(target, id, r) : null });
@@ -472,7 +474,7 @@ async function chatViaClaudeCode(payload, res) {
   // (PROMPTS.webOn), so the model doesn't try.
   // The document tools come from this server, as an MCP server made for this one reply (doctools.mjs).
   const s = payload.session;
-  const allowed = [...(payload.web ? ['WebSearch'] : []), ...(s ? CLAUDE_CODE_TOOL_NAMES : [])];
+  const allowed = [...(payload.web ? ['WebSearch'] : []), ...(s ? claudeCodeToolNames(s) : [])];
   const tools = ['--tools', payload.webListed ? 'WebSearch' : '', ...(allowed.length ? ['--allowedTools', allowed.join(',')] : [])];
   // And none of your own Claude Code setup: no MCP servers, hooks, CLAUDE.md, memory, skills or plugins.
   // --safe-mode does all of that, but it also turns off --mcp-config servers, so with document tools the
@@ -549,7 +551,7 @@ function anthropicRequest({ system, messages, model, effort, web, session, final
   if (system) body.system = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
   if (withEffort && EFFORTS.has(effort)) body.output_config = { effort };
   // web search runs on Anthropic's servers; nothing is fetched from this machine
-  const tools = [...(web ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: MAX_SEARCHES }] : []), ...(session ? toolsForAnthropic() : [])];
+  const tools = [...(web ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: MAX_SEARCHES }] : []), ...(session ? toolsForAnthropic(session) : [])];
   if (tools.length) body.tools = tools;
   if (final && tools.length) body.tool_choice = { type: 'none' }; // the tool loop ran out of rounds: answer from what was read
   return fetch(API_BASE + '/v1/messages', {
@@ -779,6 +781,10 @@ async function route(req, res) {
     const docs = [];
     for (const [file, name] of GUIDE_DOCS) { try { docs.push({ name, file, text: await fs.readFile(path.join(ROOT, file), 'utf8') }); } catch { /* not in this copy */ } }
     return send(res, 200, { docs });
+  }
+  // GET /api/tools: the tools the model can be given (doctools.mjs), as it sees them, for the Prompts page
+  if (parts[1] === 'tools' && req.method === 'GET') {
+    return send(res, 200, { tools: ALL_TOOLS.map((t) => ({ name: t.name, description: t.description, schema: t.schema })), maxCalls: MAX_TOOL_CALLS, maxCards: MAX_CARD_CALLS });
   }
   // PUT /api/prefs {defaultModel: id | null}: the model "Default" means, on every device (null: back to the built-in one)
   if (parts[1] === 'prefs' && parts.length === 2) {

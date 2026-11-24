@@ -87,6 +87,18 @@ async def main():
             check('results say how many calls are left once only a few are', t[M - 5] == 'x' and t[M - 4].startswith('(3 document tool calls left') and t[M - 2].startswith('(1 document tool call left') and 'last document tool call' in t[M - 1], t[M - 5:M])
             check('past the budget, calls come back as an error telling it to answer', t[M].startswith('E:That is the limit'), t[M])
 
+            # each reply offers the tools the page named: suggest_card alone (a conversation with cards on, no document)
+            script = ("const d = await import(process.argv[1]);"
+                      "const s = d.openSession('c'.repeat(32), d.pickTools(['suggest_card'])); s.out = (o) => setTimeout(() => d.deliverResult({ chat: s.chatId, id: o.tool.id, parts: [{ type: 'text', text: 'ok' }] }));"
+                      "const doc = await s.call('read_pages', { from: 1 }), cards = []; for (let i = 0; i <= d.MAX_CARD_CALLS; i++) cards.push(await s.call('suggest_card', { front: 'q' + i, back: 'a' }));"
+                      "s.close(); console.log(JSON.stringify({ names: d.toolsForAnthropic(s).map((t) => t.name), cc: d.claudeCodeToolNames(s), old: d.pickTools(true).map((t) => t.name), doc: doc.parts[0].text,"
+                      " ok: cards.slice(0, -1).every((r) => !r.error), last: cards.at(-1).parts[0].text, none: d.openSession('e'.repeat(32), d.pickTools([])) }));")
+            out = json.loads(subprocess.run(['node', '--input-type=module', '-e', script, os.path.join(os.path.dirname(FAKES), '..', 'server', 'doctools.mjs')], capture_output=True, text=True).stdout)
+            check('a reply offers only the tools the page named', out['names'] == ['suggest_card'] and out['cc'] == ['mcp__digress__suggest_card'] and out['old'] == ['search', 'read_pages', 'view_page'], out)
+            check('…and refuses the others', 'no tool called "read_pages"' in out['doc'], out['doc'])
+            check('suggest_card has its own limit, apart from the document budget', out['ok'] and 'limit of' in out['last'], out['last'])
+            check('no tools named, no session', out['none'] is None)
+
             async def open_app(base):
                 ctx = await b.new_context(viewport={'width': 1500, 'height': 950})
                 pg = await ctx.new_page(); errs = []

@@ -49,7 +49,27 @@ export const DOC_TOOLS = [
 // the budget is said up front, in every tool's description, so it never comes as a surprise
 const BUDGET = ` You can make up to ${MAX_TOOL_CALLS} document tool calls per answer, all three tools together, so plan what to read; when only a few are left, each result says how many.`;
 for (const t of DOC_TOOLS) t.description += BUDGET;
-const NAMES = new Set(DOC_TOOLS.map((t) => t.name));
+
+// Suggesting flashcards: offered only in a conversation with flashcards on (the page asks for it then), and the
+// page refuses it otherwise. The cards go to the learner's inbox, never straight into review. Its own limit,
+// apart from the document tools' budget.
+export const MAX_CARD_CALLS = Number(process.env.MAX_CARD_CALLS || 10);
+export const CARD_TOOL = {
+  name: 'suggest_card',
+  description: `Suggest one flashcard for the learner's spaced-repetition review, when something in this conversation is worth remembering for months: a key idea, a definition, a reason, or a misunderstanding the learner just cleared up. It goes to their inbox, where they keep it or throw it away; it doesn't interrupt them, and you don't need to mention it in your answer unless they ask. Use it when you judge a point has landed, not on every reply, and don't suggest the same thing twice. "front" asks one specific question, understandable on its own months from now; "back" is a short answer (one to three sentences; Markdown and LaTeX are fine); "quote" is the one sentence (under 40 words) in this conversation or the document that the answer rests on, copied word for word: leave it out rather than paraphrase. Call it once per card, at most ${MAX_CARD_CALLS} per answer. It only works while the learner has flashcards on for this conversation.`,
+  schema: {
+    type: 'object',
+    properties: { front: { type: 'string', description: 'The question.' }, back: { type: 'string', description: 'The answer.' }, quote: { type: 'string', description: 'The sentence it rests on, word for word (optional).' } },
+    required: ['front', 'back'], additionalProperties: false,
+  },
+};
+export const ALL_TOOLS = [...DOC_TOOLS, CARD_TOOL];
+// what the page asked for: true (older pages) is the document tools; a list names them; anything else, none
+export function pickTools(want) {
+  if (want === true) return DOC_TOOLS;
+  if (!Array.isArray(want)) return [];
+  return ALL_TOOLS.filter((t) => want.includes(t.name));
+}
 
 // ---- one session per reply that may use tools ----------------------------------------------
 const byChat = new Map(), byToken = new Map();
@@ -57,20 +77,23 @@ const failed = (text) => ({ error: true, parts: [{ type: 'text', text }] });
 
 // chatId comes from the browser (it posts results under it); token is for Claude Code's MCP connection.
 // session.out is set by the provider once the reply's stream has started.
-export function openSession(chatId) {
-  if (typeof chatId !== 'string' || !/^[a-f0-9]{32}$/.test(chatId) || byChat.has(chatId)) return null;
-  const s = { chatId, token: crypto.randomBytes(24).toString('hex'), calls: 0, pending: new Map(), closed: false, out: null };
+// tools: the ones this reply offers (pickTools); none, no session.
+export function openSession(chatId, tools = DOC_TOOLS) {
+  if (typeof chatId !== 'string' || !/^[a-f0-9]{32}$/.test(chatId) || byChat.has(chatId) || !tools.length) return null;
+  const s = { chatId, token: crypto.randomBytes(24).toString('hex'), calls: 0, cards: 0, tools, pending: new Map(), closed: false, out: null };
+  const NAMES = new Set(tools.map((t) => t.name)), isCard = (name) => name === CARD_TOOL.name;
   s.call = async (name, input) => {
     if (s.closed) return failed('The reader stopped this reply.');
     if (!NAMES.has(name)) return failed(`There is no tool called "${name}". The tools are: ${[...NAMES].join(', ')}.`);
-    if (++s.calls > MAX_TOOL_CALLS) return failed(`That is the limit of ${MAX_TOOL_CALLS} document tool calls for one answer. Answer now with what you have, and say plainly which parts of the document you did not get to read.`);
+    if (isCard(name)) { if (++s.cards > MAX_CARD_CALLS) return failed(`That is the limit of ${MAX_CARD_CALLS} suggested cards for one answer.`); }
+    else if (++s.calls > MAX_TOOL_CALLS) return failed(`That is the limit of ${MAX_TOOL_CALLS} document tool calls for one answer. Answer now with what you have, and say plainly which parts of the document you did not get to read.`);
     if (!s.out) return failed('The document tools are not connected for this reply.');
     const id = crypto.randomBytes(8).toString('hex');
     s.out({ tool: { id, name, input: input && typeof input === 'object' && !Array.isArray(input) ? input : {} } });
     return new Promise((resolve) => {
       const done = (r) => {
         clearTimeout(done.timer); s.pending.delete(id);
-        const left = MAX_TOOL_CALLS - s.calls;   // running low: say so in the result, so the model can plan its last reads
+        const left = isCard(name) ? 99 : MAX_TOOL_CALLS - s.calls;   // running low: say so in the result, so the model can plan its last reads
         if (left <= 3) r = { ...r, parts: [...r.parts, { type: 'text', text: left ? `(${left} document tool call${left > 1 ? 's' : ''} left for this answer.)` : '(That was the last document tool call for this answer: answer now with what you have, and say what you didn’t get to read.)' }] };
         resolve(r);
       };
@@ -118,9 +141,10 @@ export function deliverResult(body) {
 }
 
 // ---- each provider's spelling --------------------------------------------------------------
-export const toolsForAnthropic = () => DOC_TOOLS.map((t) => ({ name: t.name, description: t.description, input_schema: t.schema }));
-export const toolsForOpenAI = () => DOC_TOOLS.map((t) => ({ type: 'function', name: t.name, description: t.description, parameters: t.schema, strict: false }));
-export const CLAUDE_CODE_TOOL_NAMES = DOC_TOOLS.map((t) => 'mcp__digress__' + t.name); // how Claude Code names MCP tools
+// each takes the reply's session (its tools)
+export const toolsForAnthropic = (s) => s.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.schema }));
+export const toolsForOpenAI = (s) => s.tools.map((t) => ({ type: 'function', name: t.name, description: t.description, parameters: t.schema, strict: false }));
+export const claudeCodeToolNames = (s) => s.tools.map((t) => 'mcp__digress__' + t.name); // how Claude Code names MCP tools
 
 export const resultForAnthropic = (r, toolUseId) => ({
   type: 'tool_result', tool_use_id: toolUseId, ...(r.error ? { is_error: true } : {}),
@@ -139,7 +163,7 @@ const mcpContent = (r) => ({
 // ---- Claude Code: a minimal MCP server (Streamable HTTP, JSON responses) -------------------
 // Claude Code only takes extra tools from MCP servers. The server is passed to it with --mcp-config as
 // http://<this server>/api/mcp/<token>; the token is random, made for one reply, and dropped when it ends.
-// It lists DOC_TOOLS and sends each call through the same session.call as the other providers.
+// It lists the reply's tools and sends each call through the same session.call as the other providers.
 export async function handleMcp(token, req, res, readJson) {
   const s = byToken.get(token);
   const json = (status, o) => { res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(o)); };
@@ -152,7 +176,7 @@ export async function handleMcp(token, req, res, readJson) {
   const p = m.params || {};
   if (m.method === 'initialize') return reply({ protocolVersion: p.protocolVersion || '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'digress', version: '1' } });
   if (m.method === 'ping') return reply({});
-  if (m.method === 'tools/list') return reply({ tools: DOC_TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: t.schema })) });
+  if (m.method === 'tools/list') return reply({ tools: s.tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.schema })) });
   if (m.method === 'tools/call') return reply(mcpContent(await s.call(p.name, p.arguments || {})));
   return json(200, { jsonrpc: '2.0', id: m.id, error: { code: -32601, message: 'Method not found' } });
 }

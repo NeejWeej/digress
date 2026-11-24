@@ -2,6 +2,8 @@
   - Every request starts with the previous request's messages unchanged (the system prompt included).
   - A question asked with Web on carries PROMPTS.webOn, in that request and every later one; the others never do.
   - The request says whether it may search (web), per question.
+  - A side branch is marked only where it forks: its first question has the [Side question …] marker; its later
+    questions carry no marker (no "(Asked in a side branch.)"), and main's questions never do.
 (The tools offered stay the same either way; that's the server's part, in test_server.py.)
 Asserts and exits non-zero."""
 import asyncio, sys
@@ -54,6 +56,24 @@ async def main():
             check('…and still in the next one', NOTE in c3[2]['content'], c3[2])
             check('questions asked with Web off never are', NOTE not in q(c1[0]) and NOTE not in q(c3[-1]) and NOTE not in q(c3[0]), [c1[0], c3[-1]])
             check('the requests say whether they may search', [c['web'] for c in calls] == [False, True, False], [c['web'] for c in calls])
+        # --- a side branch: marked only where it forks ---
+        BR = '(Asked in a side branch.)'
+        await pg.locator('.pane[data-tid="main"] [data-act="wbranch"]').last.click()
+        await pg.wait_for_function('Object.keys(__digress.conv.threads).length > 1'); await frames(pg, 3)
+        bt = await pg.evaluate("Object.keys(__digress.conv.threads).find(t=>t!=='main')")
+        bta = pg.locator(f'.pane[data-tid="{bt}"] textarea')
+        for t in ('Branch, first.', 'Branch, second.', 'Branch, third.'):
+            await bta.fill(t); await answered(pg, bta.press('Enter')); await frames(pg)
+        calls = await pg.evaluate('window.__calls')
+        b1, b2, b3 = [c['msgs'] for c in calls[-3:]]
+        check('the branch’s first question has its [Side question] marker', '[Side question' in b1[-1]['content'], b1[-1])
+        check('its later questions carry no marker at all', all('[Side question' not in m['content'] and BR not in m['content'] and 'side branch' not in q(m).lower() for m in (b2[-1], b3[-1])) and q(b2[-1]) == 'Branch, second.' and q(b3[-1]) == 'Branch, third.', [b2[-1], b3[-1]])
+        check('…and each request still starts with the one before, unchanged', b2[:len(b1)] == b1 and b3[:len(b2)] == b2)
+        check('main’s questions are never marked', not any(BR in q(m) for m in b1[:-1] if m['role'] == 'user'), b1[:-1])
+        await ask('Fourth, in main.')
+        c4 = (await pg.evaluate('window.__calls'))[-1]['msgs']
+        check('a question in main after that isn’t marked', BR not in c4[-1]['content'] and '[Side question' not in c4[-1]['content'] and c4[:len(c3)] == c3, c4[-1])
+
         check('no page errors', not errs, errs[:3])
         await b.close()
     print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')

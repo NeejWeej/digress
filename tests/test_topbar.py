@@ -27,7 +27,7 @@ async def main():
                     if u.endswith(k): return await r.fulfill(path=v, content_type='application/javascript', headers=CORS)
                 if 'fonts.g' in u: return await r.fulfill(body='', content_type='text/css')
                 await r.continue_()
-            await pg.route('**/*', route); await pg.add_init_script(FAKE); await goto_app(pg); await booted(pg); await frames(pg)   # and the bar has been fitted (fitTop)
+            await pg.route('**/*', route); await pg.add_init_script(FAKE); await goto_app(pg); await booted(pg); await pg.evaluate('document.fonts.ready'); await frames(pg)   # and the bar has been fitted (fitTop)
             sw, cw = await pg.evaluate("(()=>{const t=document.querySelector('.top');return [t.scrollWidth,t.clientWidth]})()")
             check(f'{w}px: nothing in the top bar is cut off', sw <= cw + 1, (sw, cw))
             reach = {}
@@ -35,8 +35,11 @@ async def main():
                 in_bar = await pg.locator(f'.top {sel}').count() and await pg.locator(f'.top {sel}').is_visible()
                 reach[sel] = 'bar' if in_bar else 'menu' if await pg.locator(f'.tmore {sel}').count() else 'nowhere'
             check(f'{w}px: every setting is in the bar or the ⋯ menu', 'nowhere' not in reach.values(), reach)
-            more = await pg.locator('#moreB').is_visible()
-            check(f'{w}px: the ⋯ button shows exactly when something is in the menu', more == ('menu' in reach.values()), (more, reach))
+            # ⋯ shows iff .tmore holds a movable control. Which ones move depends on width (at 900px it can be just
+            # Zen, or Theme too), so read the menu's contents rather than a fixed list, in one evaluate.
+            last = await pg.evaluate("(()=>{const m=document.getElementById('moreB');return {more:getComputedStyle(m).display!=='none',inMenu:[...document.querySelectorAll('.tmore > *')].filter(e=>e!==m).map(e=>e.id||e.className)}})()")
+            more = last['more']
+            check(f'{w}px: the ⋯ button shows exactly when something is in the menu', more == bool(last['inMenu']), last)
             if more:
                 await pg.locator('#moreB').click(); await frames(pg)
                 check(f'{w}px: the menu opens', await pg.locator('.tmore.open').count() == 1)
