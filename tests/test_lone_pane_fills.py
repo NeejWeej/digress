@@ -1,4 +1,5 @@
-"""A pane whose width you dragged keeps it, but when it's the only one not collapsed it fills the space: collapsing
+"""A pane whose width you dragged keeps it, but when it's the only one not collapsed (or every one not collapsed has a
+dragged width, and it's the last) it fills the space: collapsing
 (or closing) the others no longer leaves it narrow beside empty space. Its width comes back when another pane opens;
 one made wider than the screen stays that wide.
 Asserts and exits non-zero."""
@@ -45,6 +46,14 @@ async def main():
         check('expanding another brings its dragged width back', abs(await pg.evaluate(W, 'main') - dragged) <= 2, [dragged, await pg.evaluate(W, 'main')])
         await pg.locator('.pane[data-tid=b1] [data-act=close]').click(); await frames(pg, 3)
         check('closing the other open one: it fills again', abs(await pg.evaluate(W, 'main') - await pg.evaluate(ROOM)) <= 2, [await pg.evaluate(W, 'main'), await pg.evaluate(ROOM)])
+        # two panes with dragged widths and one without, which closes (or is the one Collapse others kept, then
+        # closed): the last of the two fills the rest, the first keeps its width
+        await pg.evaluate("(()=>{const u=__digress.conv.ui;u.open=['main','b1','b2'];u.collapsed=[];u.sizes={main:400,b1:380}})(); document.querySelector('#viewSeg button[data-v=cols]').click()"); await frames(pg, 3)
+        await pg.locator('.pane[data-tid=b2] [data-act=focus]').click(); await frames(pg, 3)
+        await pg.locator('.pane[data-tid=b2] [data-act=close]').click(); await frames(pg, 3)
+        mw, bw, room = await pg.evaluate(W, 'main'), await pg.evaluate(W, 'b1'), await pg.evaluate(ROOM)
+        check('closing the only pane without a dragged width leaves no empty space', abs(mw + bw - room) <= 3 and abs(mw - 400) <= 2, [mw, bw, room])
+        await pg.screenshot(path=OUT + '/lone_pane_fills_two.png')
         # wider than the screen on purpose: stays that wide
         await pg.evaluate("__digress.conv.ui.sizes.main = 2000; document.querySelector('#viewSeg button[data-v=cols]').click()"); await frames(pg, 3)
         check('a pane made wider than the screen stays that wide', await pg.evaluate(W, 'main') >= 1995, await pg.evaluate(W, 'main'))

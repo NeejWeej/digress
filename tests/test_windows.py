@@ -35,7 +35,8 @@ async def main():
         nA, nB = await A.evaluate("sessionStorage.getItem('digress:window')"), await B.evaluate("sessionStorage.getItem('digress:window')")
         check((nA, nB) == ('1', '2'), 'the two windows take window numbers 1 and 2', (nA, nB))
         tA, tB = await A.title(), await B.title()
-        check(tA == 'Digress 1 · Columns' and tB == 'Digress 2 · Columns', 'tabs are named by window and view, not by conversation', (tA, tB))
+        ttl = await A.evaluate('__digress.conv.title')
+        check(tA == tB == f'{ttl} · Digress', 'tabs are named after the conversation', (tA, tB, ttl))
 
         # canvas in one window, columns (with a pane resized) in the other: both layouts are kept
         await B.locator('#viewSeg [data-v=canvas]').click(); await saved(B, layout=True)
@@ -47,7 +48,7 @@ async def main():
         await B.reload(); await soon(B, "id=>__digress.conv&&__digress.conv.id===id", cid)
         check(await B.evaluate("sessionStorage.getItem('digress:window')") == '2', 'a reload keeps its window number')
         check(await soon(B, "()=>__digress.conv.ui.view==='canvas'"), '…and its own layout (the canvas)', await B.evaluate('__digress.conv.ui.view'))
-        check(await soon(B, "()=>document.title==='Digress 2 · Canvas'"), '…and its tab says so', await B.title())
+
         await A.reload(); await soon(A, "id=>__digress.conv&&__digress.conv.id===id", cid)
         check(await A.evaluate('__digress.conv.ui.view') == 'panes', 'the other window reopens in columns', await A.evaluate('__digress.conv.ui.view'))
 

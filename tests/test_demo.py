@@ -56,7 +56,7 @@ async def main():
             n0 = conv['msgs']
             check('…and the conversation without a document is in the sidebar too', await pg.locator('#side .citem[data-conv]').count() == 2)
             check('flashcards are off, as they are unless you turn them on', not await pg.locator('#reviewBtn').is_visible())
-            check('the tab says it’s the demo', (await pg.title()).startswith('Demo · Digress'), await pg.title())
+            check('the tab says it’s the demo', (await pg.title()).startswith('Demo · ') and (await pg.title()).endswith(' · Digress'), await pg.title())
             note = pg.locator('#demoNote')
             check('…and a note says it’s a demo, with Start over and a link to Digress', await note.is_visible() and 'demo of Digress' in await note.inner_text()
                   and await note.locator('[data-demo=reset]').first.is_visible() and await note.locator('a[href*="github.com"]').count() == 1)
@@ -104,7 +104,7 @@ async def main():
             await soon(pg, "()=>__digress.conv.title.startsWith('How does HTTPS')")
             nested = await pg.evaluate("(()=>{const T=__digress.conv.threads;return Object.values(T).some(t=>t.parent&&t.parent!=='main'&&T[t.parent])})()")
             check('the conversation without a document has a branch of a branch', nested)
-            check('…and the tab follows the page’s own naming', await soon(pg, "()=>/^Demo · Digress \\d/.test(document.title)"), await pg.title())
+            check('…and the tab is named after it, marked as the demo', await soon(pg, "()=>/^Demo · How does HTTPS.* · Digress$/.test(document.title)"), await pg.title())
             await ta.fill('Why is symmetric encryption used for the data?'); await answered(pg, ta.press('Enter'))
             last = await pg.evaluate(LAST)
             check('another question there quotes what the conversation already says, and says it’s the demo', 'AES' in last and 'This is the demo' in last, last[:300])

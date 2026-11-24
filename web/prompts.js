@@ -49,7 +49,7 @@ What you see: this path and nothing else. You don't see the learner's other side
   branch: {
     reply: () => `[Side question about your reply above:]\n\n`,
     replyPassage: (quote) => `[Side question about your reply above. The learner highlighted this part of it:]\n${quote}\n\n`,
-    docPassage: (quote, page) => `[Side question about this passage from the document${page ? ` (p. ${page})` : ''}:]\n${quote}\n\n`,
+    docPassage: (quote, page, last) => `[Side question about this passage from the document${page ? (last > page ? ` (pp. ${page}–${last})` : ` (p. ${page})`) : ''}:]\n${quote}\n\n`,
     docPage: (page) => `[Side question about page ${page} of the document, shown in this image of the page:]\n`,
     docImage: (alt, whole) => `[Side question about ${whole ? 'an image' : 'this part of an image'} in the document${alt ? ` ("${alt}")` : ''}, shown in this image:]\n`,
     docShot: (text) => `[Side question about this part of the document, shown in this image${text ? `. Text found inside it: "${text}"` : ''}:]\n`,

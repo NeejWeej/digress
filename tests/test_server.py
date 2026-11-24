@@ -107,7 +107,7 @@ async def browser_checks(base, data_dir):
             return pg
 
         pg = await page()
-        check((await pg.title()).startswith('Digress'), 'app served with the Digress title')
+        check((await pg.title()).endswith('Digress'), 'app served with the Digress title')
         opts = await pg.evaluate("[...document.querySelectorAll('#mSel option')].map(o=>o.value)")
         check('claude-opus-5-5' in opts and 'auto' in opts, f'model picker lists Claude Code models {opts}')
         await pg.select_option('#mSel', 'claude-opus-5-5')

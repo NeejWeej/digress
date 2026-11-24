@@ -198,7 +198,7 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', note); else note();
 
   // the tab says it's the demo, so it can't be mistaken for your own Digress: the page names the tab itself
-  // (tabName: "Digress 1 · Columns"), so put "Demo · " in front whenever it does
+  // (tabName: "<title> · Digress"), so put "Demo · " in front whenever it does
   const demoTitle = () => { if (!document.title.startsWith('Demo · ')) document.title = 'Demo · ' + document.title; };
   const watchTitle = () => { const t = document.querySelector('title'); demoTitle(); if (t) new MutationObserver(demoTitle).observe(t, { childList: true, characterData: true, subtree: true }); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchTitle); else watchTitle();
