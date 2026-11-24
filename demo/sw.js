@@ -8,5 +8,11 @@ self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', (e) => {
   const req = e.request, url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== self.location.origin || /\/lib\//.test(url.pathname)) return;
-  e.respondWith(fetch(req, { cache: 'no-cache' }));   // a navigation's mode becomes same-origin; its redirect mode is kept
+  // A navigation is asked for again as a new request made from its address: WebKit served the page from its own
+  // cache when the navigation's request was passed on, even with cache: 'no-cache' (CI's WebKit, test_sw_fresh.py).
+  e.respondWith(req.mode === 'navigate' ? fetchPage(req.url) : fetch(req, { cache: 'no-cache' }));
 });
+async function fetchPage(url) {
+  const res = await fetch(new Request(url, { cache: 'no-cache', credentials: 'same-origin' }));
+  return res.redirected ? Response.redirect(res.url, 302) : res;   // a navigation can't take a followed redirect as its answer
+}
