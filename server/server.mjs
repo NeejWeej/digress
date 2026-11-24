@@ -489,6 +489,7 @@ async function chatViaClaudeCode(payload, res) {
   if (EFFORTS.has(payload.effort)) args.push('--effort', payload.effort);
   const env = { ...process.env };
   delete env.ANTHROPIC_API_KEY; // make the CLI use your subscription sign-in, not an API key
+  delete env.GEMINI_API_KEY; delete env.GOOGLE_API_KEY; // another provider's key (.env puts it in our environment): not the CLI's business
   if (s) Object.assign(env, { CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1', CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1' });
   // run in an empty folder so no project files or CLAUDE.md get pulled in
   const child = spawn(CLAUDE_BIN, args, { cwd: work, env, stdio: ['pipe', 'pipe', 'pipe'] });

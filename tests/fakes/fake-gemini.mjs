@@ -54,6 +54,9 @@ http.createServer((req, res) => {
     for (const t of j.tools || []) for (const f of t.functionDeclarations || []) { const e = badSchema(f.parameters, f.name); if (e) return json(400, { error: { code: 400, message: 'Invalid JSON payload: ' + e, status: 'INVALID_ARGUMENT' } }); }
     if (m[1] === 'gemini-old-1' && (j.generationConfig || {}).thinkingConfig) return json(400, { error: { code: 400, message: 'Thinking level is not supported for this model.', status: 'INVALID_ARGUMENT' } });
     if (m[1] === 'gemini-old-1' && (j.tools || []).some((t) => t.googleSearch) && (j.tools || []).some((t) => t.functionDeclarations)) return json(400, { error: { code: 400, message: 'Tool use with function calling is unsupported together with search.', status: 'INVALID_ARGUMENT' } });
+    // like Gemini 4: Google Search with function calling only with includeServerSideToolInvocations
+    if ((j.tools || []).some((t) => t.googleSearch) && (j.tools || []).some((t) => t.functionDeclarations) && !(j.toolConfig || {}).includeServerSideToolInvocations && m[1] !== 'gemini-old-1')
+      return json(400, { error: { code: 400, message: 'Please enable tool_config.include_server_side_tool_invocations to use Built-in tools with Function calling.', status: 'INVALID_ARGUMENT' } });
     const contents = j.contents || [], fnTools = (j.tools || []).some((t) => t.functionDeclarations), search = (j.tools || []).some((t) => t.googleSearch);
     const mode = ((j.toolConfig || {}).functionCallingConfig || {}).mode;
     const asked = [...contents].reverse().find((c) => c.role === 'user' && !isResults(c)), q = asked ? textOf(asked) : '';
