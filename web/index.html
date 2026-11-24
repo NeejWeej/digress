@@ -1062,6 +1062,7 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .cr:hover{background:var(--user-bg)}
 .cr.q{font-weight:500}
 .cr.a{font-family:var(--serif);color:var(--muted)}
+.cr.gap{font-size:12px;color:var(--faint);text-align:center;letter-spacing:.02em}
 .cr.n{font-size:12px;color:var(--muted);border-left:2px solid var(--line2);border-radius:0}
 .cr .fns{float:right;margin-left:6px}
 .cfull{max-height:560px;overflow-y:auto;padding:0 18px 6px;cursor:auto;border-top:1px solid var(--line)}
@@ -2783,7 +2784,7 @@ function showModelView(tid){
     <h3>Tools</h3><p class="ppnote">${ctx.tools?ctx.tools.map(x=>`<code>${esc(x)}</code>`).join(', '):'None'}${settings.web&&io.llm&&io.llm.supportsWeb?', and web search (Web is on)':''}.</p>
     <h3>System prompt</h3>${part(ownSys(conv)?'This conversation’s own prompt':'Your default prompt',own,true)}${part('How Digress works (fixed)',PROMPTS.howDigress)}${part('Skills',sk.trim())}${part('The document',rest)}
     <h3>Messages, oldest first</h3>${msgs||'<p class="ppnote">None yet.</p>'}</div>`,
-    ()=>{navigator.clipboard&&navigator.clipboard.writeText(JSON.stringify(ctx,null,2)).then(()=>toast('Copied the request as JSON.'),()=>toast('It couldn’t be copied.'))},
+    ()=>{copyText(JSON.stringify(ctx,null,2)).then(()=>toast('Copied the request as JSON.'),()=>toast('It couldn’t be copied.'))},
     {ok:'Copy as JSON',kind:'plain',cancel:'Close',wide:true});
 }
 function setConvSystem(v){
@@ -3597,7 +3598,7 @@ function createBranch(mid,anchorText,question,title,range,page,img){
   openThread(t.id,parent);renderMap();save();
   if(conv.ui.view==='canvas'){const S=cvState();if(!S.open.includes(t.id))S.open.push(t.id);renderCanvas();focusCard(t.id)}
   if(question)send(t.id,question);
-  else setTimeout(()=>{const ta=paneEls.get(t.id)&&paneEls.get(t.id).querySelector('textarea');ta&&ta.focus()},30);
+  else setTimeout(()=>{const ta=conv.ui.view==='canvas'?document.querySelector(`#cv .cnode[data-ctid="${t.id}"] .cask textarea`):paneEls.get(t.id)&&paneEls.get(t.id).querySelector('textarea');ta&&ta.focus({preventScroll:conv.ui.view==='canvas'})},30);
 }
 function deleteBranch(tid){
   const t=T(tid);if(!t||!t.parent)return;
@@ -3810,10 +3811,19 @@ function renderRich(el,md,final,o={}){
 /* a code block's copy button: copies just the code, so there's no selecting (and no branch popup).
    A streaming reply is redrawn many times a second, and a press the redraw took the button out of mid-way (it's put
    back, see renderRich) gets no click from the browser, so that press copies on its release instead. */
+// the clipboard API exists only on https or localhost; over plain http (a tailnet address) the older copy command still
+// works, from a click. Resolves once copied, rejects if neither could.
+function copyText(text){
+  if(navigator.clipboard)return navigator.clipboard.writeText(text);
+  return new Promise((ok,no)=>{const ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+    ta.style.cssText='position:fixed;top:0;left:0;opacity:0;pointer-events:none';document.body.appendChild(ta);
+    const was=document.activeElement;ta.select();let done=false;try{done=document.execCommand('copy')}catch(_){}
+    ta.remove();if(was&&was.focus)was.focus({preventScroll:true});done?ok():no()});
+}
 let cpyPress=null;   // {b, moved}: the copy button being pressed, and whether a redraw took it out meanwhile
 function copyCode(b){
   const code=b.parentElement.querySelector('pre code');if(!code)return;
-  navigator.clipboard.writeText(code.textContent.replace(/\n$/,'')).then(()=>{
+  copyText(code.textContent.replace(/\n$/,'')).then(()=>{
     b.classList.add('done');b.innerHTML=ic('check');b.title='Copied';clearTimeout(b.__t);
     b.__t=setTimeout(()=>{b.classList.remove('done');b.innerHTML=ic('copy');b.title='Copy'},1500);
   },()=>toast('Copy isn\'t allowed here'));
@@ -4580,19 +4590,37 @@ function canvasMsgEl(m){
   if(m.role==='user'){userMsgBody(el,m);return el}
   if(m.role==='note'){
     const src=T(m.fromThread);el.style.setProperty('--c',src?color(src):'var(--faint)');
-    el.innerHTML=`<div class="nh"><span class="d"></span>Takeaway from ${src?`<button class="nl" data-tkfrom="${m.id}" title="Go to the last reply this takeaway saw, in its branch"></button>`:'<i>deleted branch</i>'}</div><div class="body"></div>`;
+    el.innerHTML=`<div class="nh"><span class="d"></span>Takeaway from ${src?`<button class="nl" data-tkfrom="${m.id}" title="Go to the last reply this takeaway saw, in its branch"></button>`:'<i>deleted branch</i>'}<span style="flex:1"></span>${m.error&&!m.pending?`<button class="ib" data-act="retry" title="Retry">${ic('retry')}</button>`:''}</div><div class="body"></div>`;
     if(src)el.querySelector('.nl').textContent=src.title;
   }else el.innerHTML='<div class="body"></div>';
   const body=el.querySelector('.body');
   if(m.pending)streamInto(body,m);
   else{renderRich(body,m.content,true);if(m.role==='assistant')applyAnchors(body,m);renderMermaid(body).then(drawEdgesSoon);
-    const w=branchChips(m.id);if(w)el.appendChild(w)}
+    if(m.error){const e=document.createElement('div');e.className='err';e.textContent=m.error;body.appendChild(e)}
+    if(m.role==='assistant'){   // the same line under it as in a pane: Side question, Copy, ⋯, Redo / Retry / Continue, model, context, branch chips
+      const ws=webSources(m);if(ws)el.appendChild(ws);
+      const dr=docReads(m);if(dr)el.appendChild(dr);
+      const f=document.createElement('div');f.className='mfoot';buildFoot(f,m);el.appendChild(f)}
+    else{const w=branchChips(m.id);if(w)el.appendChild(w)}}
   return el;
+}
+// the buttons under a reply (buildFoot) and a takeaway's Retry: the same in a pane and in an expanded canvas card
+function replyAct(a,mid,btn){
+  if(!conv.msgs[mid])return;
+  switch(a){
+    case 'wbranch':createBranch(mid,'',null);break;
+    case 'rmore':openReplyMenu(btn,mid);break;
+    case 'copy':copyText(conv.msgs[mid].content).then(()=>toast('Copied'),()=>toast('Copy isn\'t allowed here'));break;
+    case 'retry':retry(mid);break;
+    case 'continue':continueReply(mid);break;
+    case 'redo':redo(mid);break;
+  }
 }
 function statusDot(t){
   if(!t.parent)return '<span class="mdot"></span>';
   return `<span class="sdot${t.resolved?' res':''}" data-resolve="${t.id}" style="--c:${color(t)}" title="${t.resolved?'Resolved. Click to mark as still open.':'Open. Click to mark as resolved once you\'ve got it.'}"></span>`;
 }
+const CARD_ROWS_ALL=8;   // a card's summary lists every message up to this many (renderCanvas)
 function renderCanvas(){
   const S=cvState(),world=$('#world'),dock=$('#dock');S.dock=S.dock||{};S.cz=S.cz||{};
   for(const id of Object.keys(S.dock))if(!(conv.threads[id]||(id==='doc'&&conv.doc)))delete S.dock[id];
@@ -4641,7 +4669,14 @@ function renderCanvas(){
       full.addEventListener('scroll',()=>{drawEdgesSoon();upd()},{passive:true});requestAnimationFrame(upd);
     }else{
       const rows=document.createElement('div');rows.className='crs';
+      // a long thread's summary keeps only its first exchange, every message a branch comes off (the lines between
+      // cards start there) with the question before it and its latest exchange; each run in between is one "⋯ N more" row that expands the card there
+      const show=mids.length<=CARD_ROWS_ALL?null:new Set([...mids.slice(0,2),...mids.slice(-2),...mids.flatMap((id,i)=>branchesOn(id).length?[id,...(i&&conv.msgs[mids[i-1]].role==='user'?[mids[i-1]]:[])]:[])]);
+      let gap=[];const flush=()=>{if(!gap.length)return;const r=document.createElement('div');r.className='cr gap';r.dataset.cmid=gap[0];
+        r.textContent=`⋯ ${gap.length} more message${gap.length>1?'s':''}`;r.title='Expand the card here (shrink it back with its top bar\'s button)';rows.appendChild(r);gap=[]};
       for(const mid of mids){
+        if(show&&!show.has(mid)){gap.push(mid);continue}
+        flush();
         const m=conv.msgs[mid];
         const r=document.createElement('div');r.className='cr '+(m.role==='user'?'q':m.role==='note'?'n':'a');r.dataset.cmid=mid;r.title='Expand the card at this message';
         r.textContent=m.role==='note'?'Takeaway: '+trunc(plain(m.content),160):trunc(plain(m.content),m.role==='user'?140:180)||'…';
@@ -4649,6 +4684,7 @@ function renderCanvas(){
         if(bs.length){const f=document.createElement('span');f.className='fns';bs.forEach(b=>{const s=document.createElement('sup');s.className='fn'+(b.resolved?' res':'');s.dataset.tid=b.id;s.style.setProperty('--c',color(b));s.textContent=branchNum(b);s.title='Go to branch: '+b.title;f.appendChild(s)});r.prepend(f)}
         rows.appendChild(r);
       }
+      flush();
       if(!mids.length){const r=document.createElement('div');r.className='cr a';r.textContent='(empty)';rows.appendChild(r)}
       n.appendChild(rows);
     }
@@ -7398,6 +7434,7 @@ document.addEventListener('click',e=>{
     const tid=cnode.dataset.ctid;
     const ca=e.target.closest('[data-cact]');if(ca){canvasAction(ca.dataset.cact,tid,ca);return}
     const uv=e.target.closest('[data-usev]');if(uv){useVersion(uv.dataset.usev);return}
+    const ra=e.target.closest('.msg [data-act]');if(ra){replyAct(ra.dataset.act,ra.closest('.msg').dataset.mid,ra);return}
     const tkf=e.target.closest('[data-tkfrom]');if(tkf){goToTakeawaySource(tkf.dataset.tkfrom);return}
     const tkc=e.target.closest('[data-tknote]');if(tkc){goToTakeaway(tkc.dataset.tknote);return}
     const fn=e.target.closest('sup.fn,.anchor,.bchip');if(fn&&window.getSelection().isCollapsed){focusCard(fn.dataset.tid);return}
@@ -7441,12 +7478,7 @@ document.addEventListener('click',e=>{
       case 'cards':openCards('conv');break;
       case 'mkcards':makeCardsFor(tid);break;
       case 'take':{const tk=pane.querySelector('.tk');tk.classList.toggle('show');if(tk.classList.contains('show'))tk.querySelector('input').focus();break}
-      case 'wbranch':createBranch(mid,'',null);break;
-      case 'rmore':openReplyMenu(act,mid);break;
-      case 'copy':navigator.clipboard.writeText(conv.msgs[mid].content).then(()=>toast('Copied'),()=>toast('Copy isn\'t allowed here'));break;
-      case 'retry':retry(mid);break;
-      case 'continue':continueReply(mid);break;
-      case 'redo':redo(mid);break;
+      case 'wbranch':case 'rmore':case 'copy':case 'retry':case 'continue':case 'redo':replyAct(act.dataset.act,mid,act);break;
       case 'edit':startEdit(act.closest('.msg'),mid);break;
       case 'delnote':{const m=conv.msgs[mid];if(!m)break;const s=streaming.get(m.thread);if(s&&s.mid===mid)stopReply(s);try{ThreadOps.removeNote(conv,mid)}catch(e){toast('This takeaway can’t be deleted: '+e.message+'.');break}msgCache.delete(mid);renderPane(m.thread);renderMap();save();break}
     }
