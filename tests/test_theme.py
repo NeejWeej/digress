@@ -101,7 +101,7 @@ async def main():
         ta = pg.locator('.pane[data-tid="main"] textarea'); await ta.fill('hello'); await answered(pg, ta.press('Enter'))
         sys_ = await pg.evaluate('window.__sys[0]')
         want = await pg.evaluate(r'PROMPTS.system + "\n\n" + PROMPTS.howDigress')
-        check('the system prompt comes from web/prompts.js', sys_ == want and sys_.startswith('You are a patient, precise tutor'), (sys_ or '')[:200])
+        check('the system prompt comes from web/prompts.js', sys_ == want and sys_.startswith('You are a tutor who loves these ideas'), (sys_ or '')[:200])
         check('…and asks for inline links to pages found with web search', 'cite it right where you use it, as a Markdown link' in sys_)
         check('no page errors', not errs, errs[:3])
         await b.close()

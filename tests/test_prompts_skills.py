@@ -48,7 +48,7 @@ async def main():
             a = area or ta; await a.fill(t); await answered(pg, a.press('Enter')); await frames(pg)
         global HOW
         default = await pg.evaluate('PROMPTS.system'); HOW = await pg.evaluate('PROMPTS.howDigress')
-        check('howDigress holds the fork rule and is not part of the default prompt', '[Side question about' in HOW and HOW not in default and default.startswith('You are a patient'))
+        check('howDigress holds the fork rule and is not part of the default prompt', '[Side question about' in HOW and HOW not in default and default.startswith('You are a tutor'))
         check('the Prompt button says the default is in use', await pg.locator('#skillT').inner_text() == 'Prompt' and await pg.locator('#skillT').get_attribute('aria-pressed') == 'false')
 
         # --- the system prompt ---

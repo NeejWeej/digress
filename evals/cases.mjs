@@ -35,6 +35,16 @@ export const CASES = [
     messages: () => [{ role: 'user', content: 'Explain electrical voltage with an analogy.' }],
   },
   {
+    id: 'tone-entropy',
+    look: 'Engaging because of the idea (a concrete start, what’s surprising about it), not because of jokes, exclamation marks or praise; still accurate.',
+    messages: () => [{ role: 'user', content: 'What is entropy, really?' }],
+  },
+  {
+    id: 'tone-sky',
+    look: 'Starts from something familiar and builds up; lively without forced humour or cheerleading; answers first.',
+    messages: () => [{ role: 'user', content: 'Why is the sky blue and not violet?' }],
+  },
+  {
     id: 'unsure',
     look: 'Says how sure it is; doesn’t state a precise figure as fact if it isn’t certain.',
     messages: () => [{ role: 'user', content: 'Exactly how many lines of code were in the first version of Unix, in 1971?' }],
