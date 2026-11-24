@@ -31,7 +31,7 @@ import * as gemini from './gemini.mjs';
 import { fetchDocument, WARNINGS } from './fetchdoc.mjs';
 import { normalizeMessages, toAnthropic, toClaudeCodeBlocks, IMAGE_TYPES, isImage } from './content.mjs';
 import { createRun, getRun, DETACH_MS } from './runs.mjs';
-import { GUIDE_DOCS } from './guide.mjs';
+import { guideDocs } from './guide.mjs';
 import { libFile, libType } from './libs.mjs';
 import { openSession, deliverResult, handleMcp, toolsForAnthropic, resultForAnthropic, claudeCodeToolNames, pickTools, ALL_TOOLS, MAX_TOOL_CALLS, MAX_CARD_CALLS, MAX_TOOL_ROUNDS } from './doctools.mjs';
 
@@ -780,7 +780,7 @@ async function route(req, res) {
   // system prompt). A fixed list of files from this repository, read fresh each time so it's as current as they are.
   if (parts[1] === 'guide' && req.method === 'GET') {
     const docs = [];
-    for (const [file, name] of GUIDE_DOCS) { try { docs.push({ name, file, text: await fs.readFile(path.join(ROOT, file), 'utf8') }); } catch { /* not in this copy */ } }
+    for (const [file, name] of guideDocs()) { try { docs.push({ name, file, text: await fs.readFile(path.join(ROOT, file), 'utf8') }); } catch { /* not in this copy */ } }
     return send(res, 200, { docs });
   }
   // GET /api/tools: the tools the model can be given (doctools.mjs), as it sees them, for the Prompts page

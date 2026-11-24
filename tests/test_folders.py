@@ -3,8 +3,9 @@
     the Conversations heading; folding the section hides the row too, and the dialog still opens from it.
   - A row's folder button opens a menu; New folder opens a dialog (name box, list of conversations with the row's
     ticked; Create is off without a name or without a ticked one, and says "Add to folder" for an existing name).
-    The conversation moves out of the plain list into the folder, and the Folders section appears. The Conversations
-    heading's New folder button opens the same dialog; several can be ticked. Archive is in the menu.
+    The conversation goes into the folder (and stays in the Conversations list). The New folder row opens the same
+    dialog; several can be ticked. A name that differs only in case joins the existing folder. Archive is in the menu;
+    a folder whose conversations are all archived isn't offered. A blank new conversation has no folder button.
   - The Folders section folds as a whole; each folder folds too (remembered on this device, across a reload).
   - Filing into a folder that's folded opens it. A second conversation can go into the same folder from the menu.
   - Rename a folder from its header (every conversation in it follows); "Take out" puts one back in the list;
@@ -16,7 +17,7 @@
 Asserts and exits non-zero."""
 import asyncio, json, sys
 from playwright.async_api import async_playwright
-from common import launch_args, goto_app, booted, frames, soon, settle, OUT
+from common import launch_args, goto_app, booted, frames, soon, settle, quiet, OUT
 
 fails = []
 def check(name, ok, detail=''):
@@ -150,7 +151,7 @@ async def desktop(p):
     await pg.locator('#foldWrap .sfold').click(); await frames(pg)
     check('the Folders section folds as a whole', not await pg.locator('#flist').is_visible() and not await pg.locator('#newFolder').is_visible())
     await pg.screenshot(path=OUT + '/folders_folded.png')
-    await pg.reload(); await booted(pg); await frames(pg)
+    await quiet(pg); await pg.reload(); await booted(pg); await frames(pg)
     check('folding is remembered', await pg.evaluate("document.getElementById('foldWrap').classList.contains('folded')&&document.querySelector('#flist .fgrp[data-folder=Art]').classList.contains('ffolded')"))
     await pg.locator('#foldWrap .sfold').click(); await frames(pg)
 
@@ -183,6 +184,16 @@ async def desktop(p):
     check('…and files into that folder', sorted(await pg.evaluate(IN_FOLDER, ['Art history'])) == ['c3', 'c4'])
     check('…without making another folder', len(await pg.evaluate("[...document.querySelectorAll('#flist .fgrp')].filter(g=>g.dataset.folder==='Art history')")) == 1)
 
+    # a name that differs only in case is the same folder
+    await file_into(pg, 'c4', '')
+    await pg.locator('#newFolder').click(); await pg.locator('#modal.show #nfName').wait_for()
+    await pg.locator('#nfList input[value=c4]').check(); await pg.locator('#nfName').fill('art HISTORY')
+    await soon(pg, "()=>document.querySelector('#nfHint').textContent.includes('already')")
+    check('a name in another case says it joins the existing folder', 'Art history' in await pg.locator('#nfHint').text_content())
+    await pg.locator('#mOk').click(); await soon(pg, "()=>!document.querySelector('#modal.show')"); await frames(pg)
+    check('…and files into it, in its own spelling', sorted(await pg.evaluate(IN_FOLDER, ['Art history'])) == ['c3', 'c4']
+          and not await pg.evaluate("[...document.querySelectorAll('#flist .fgrp')].some(g=>g.dataset.folder==='art HISTORY')"))
+
     # archive from the menu
     await pg.locator('#flist .citem[data-conv=c1]').hover()
     await pg.locator('#flist .citem[data-conv=c1] [data-folderconv]').click()
@@ -190,6 +201,12 @@ async def desktop(p):
     await soon(pg, "()=>!!document.querySelector('#alist .citem[data-conv=c1]')")
     check('Archive in the menu archives it', not await pg.locator('#flist .citem[data-conv=c1]').count())
     check('active rows have no archive button of their own', not await pg.locator('#clist [data-archconv]').count())
+    # Music now holds only c1, archived: it isn't offered any more
+    await pg.locator('#clist .citem[data-conv=c2]').hover(); await pg.locator('#clist .citem[data-conv=c2] [data-folderconv]').click()
+    await pg.locator('#folderMenu.open').wait_for()
+    offered = await pg.evaluate("[...document.querySelectorAll('#folderMenu [data-fm^=\"f:\"]')].map(b=>b.dataset.fm.slice(2))")
+    check('a folder whose conversations are all archived is not offered', 'Music' not in offered and 'Art history' in offered, offered)
+    await pg.keyboard.press('Escape'); await frames(pg)
 
     # remove a folder: its conversations go back, nothing deleted
     await pg.locator('#flist .fgrp[data-folder=Statistics] .fhd').hover()
@@ -200,6 +217,12 @@ async def desktop(p):
     check('removing a folder keeps its conversations in the list, untagged', 'c2' in plain and open_id in plain and await pg.evaluate(TAG, 'c2') is None and await pg.evaluate(TAG, open_id) is None, plain)
     await soon(pg, f"()=>({STORED})('c2')===''")
     check('…and nothing is deleted', await pg.evaluate(f"(ids)=>ids.every(id=>localStorage.getItem('fakesrv:convs/'+id))", ['c0', 'c1', 'c2', 'c3', 'c4']))
+
+    # a blank new conversation has no folder button (it isn't saved, so a folder couldn't stick)
+    before = await pg.evaluate("__digress.conv.id")
+    await pg.locator('#newConv').click()
+    await soon(pg, f"()=>__digress.conv.id!=='{before}'&&document.querySelector('#clist .citem.cur')?.dataset.conv===__digress.conv.id")
+    check('a blank new conversation has no folder button', not await pg.locator('#clist .citem.cur [data-folderconv]').count())
 
     check('no page errors', not errs, errs[:3])
     await b.close()

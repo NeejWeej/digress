@@ -1110,7 +1110,7 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .citem.pb .t small{color:var(--faint);font-size:11.5px}
 .citem .bd{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
 /* folders: one section that folds, each folder in it folds too (the header row is a .citem, so its buttons behave like a row's) */
-#flist{max-height:34vh;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:1px}
+#flist{position:relative;max-height:26vh;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:1px}
 #foldWrap.folded #flist{display:none}
 .citem.fhd{padding:5px 10px;font-size:13px}.citem.fhd .chev{display:inline-flex;transition:transform .15s;color:var(--faint)}.fgrp:not(.ffolded)>.fhd .chev{transform:rotate(90deg)}
 .citem.fhd .fic{display:inline-flex;color:var(--faint)}.citem.fhd .fic svg.i{width:13px;height:13px}.citem.fhd .fcount{font-size:11px;color:var(--faint)}
@@ -1119,7 +1119,7 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .fgrp .fbody{display:flex;flex-direction:column;gap:1px;padding-left:14px}.fgrp.ffolded .fbody{display:none}
 /* the list shows filed conversations too, with the folder's name: it gives way to the title when space runs out */
 .citem .ftag{flex:0 1 auto;min-width:0;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--faint);border:1px solid var(--line);border-radius:999px;padding:0 6px;line-height:16px}
-#folderMenu .fmcur{color:var(--accent)}#folderMenu .fmsep{height:1px;background:var(--line);margin:4px 0}
+#folderMenu .fmcur{color:var(--accent)}
 .fnewrow{display:flex;align-items:center;gap:6px;width:100%;padding:5px 10px;border-radius:8px;color:var(--faint);font-size:13px;text-align:left}.fnewrow:hover{background:var(--user-bg);color:var(--ink)}.fnewrow svg.i{width:13px;height:13px}
 #foldWrap{margin-bottom:16px}#foldWrap.folded #newFolder{display:none}
 /* New folder: a name, then what goes in it (a folder exists only while something's in it) */
@@ -6981,7 +6981,7 @@ function renderConvList(){
       (k?`<span class="cbadge${k.due?' due':''}" title="${esc(kt)}">${ic('cards')}${k.due||''}</span>`:'')+`<span class="acts">`+
       (k?`<button class="ib${k.due?' kdue':''}" data-cardsconv="${esc(c.id)}" title="${esc(kt+'. Click to review them.')}">${ic('cards')}</button>`:'')+
       (c.archived?'':`<button class="ib${c.pinned?' pinned':''}" data-pinconv="${esc(c.id)}" title="${c.pinned?'Unpin':'Pin to the top of the sidebar'}">${ic('pin')}</button>`)+
-      (c.archived?'':`<button class="ib" data-folderconv="${esc(c.id)}" title="${esc(c.folder?`Move to…: in “${c.folder}” now; another folder, out of it, or the archive`:'Move to…: a folder, a new one, or the archive')}">${ic('folder')}</button>`)+
+      (c.archived||(conv&&c.id===conv.id&&isBlank(conv))?'':`<button class="ib" data-folderconv="${esc(c.id)}" title="${esc(c.folder?`Move to…: in “${c.folder}” now; another folder, out of it, or the archive`:'Move to…: a folder, a new one, or the archive')}">${ic('folder')}</button>`)+
       `<button class="ib" data-expconv="${esc(c.id)}" title="Export: a .digress file to share or keep, Markdown, or flashcards for Anki">${ic('download')}</button>`+
       (c.archived?`<button class="ib" data-archconv="${esc(c.id)}" title="Move back to your conversations">${ic('archive')}</button>`:'')+
       `<button class="ib dz" data-del="${esc(c.id)}" title="Move to the trash (deleted for good after ${TRASH_DAYS} days; restore it from Trash before then)">${ic('trash')}</button></span>`;
@@ -7038,10 +7038,13 @@ var listCur=null;   // var: renderConvList may run before this line
    archived and trashed ones included (restoring one puts it back where it was). Which folders are folded is per device. */
 var folderFolded=new Set();try{folderFolded=new Set(JSON.parse(localStorage.getItem('digress:ffold')||'[]'))}catch(e){}
 const folderNames=(items)=>[...new Set(items.filter(c=>c.folder&&!c.trashed).map(c=>c.folder))].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base',numeric:true}));
+// the folders the sidebar shows (one whose conversations are all archived isn't offered); a name that differs only in case is the same folder
+const shownFolders=()=>folderNames(allConvMeta().filter(c=>!c.archived));
+const sameFolder=(f,except)=>f&&folderNames(allConvMeta()).find(n=>n!==except&&n.toLowerCase()===f.toLowerCase())||f;
 const allConvMeta=()=>{const items=convList.map(c=>conv&&c.id===conv.id?metaOf(conv):c);if(conv&&!isBlank(conv)&&!items.find(c=>c.id===conv.id))items.unshift(metaOf(conv));return items};
 function toggleFolder(name){folderFolded.has(name)?folderFolded.delete(name):folderFolded.add(name);try{localStorage.setItem('digress:ffold',JSON.stringify([...folderFolded]))}catch(e){}renderConvList()}
 const cleanFolder=(n)=>String(n||'').replace(/\s+/g,' ').trim().slice(0,60);
-async function setFolder(id,name){const f=cleanFolder(name);await setConvFlag(id,{folder:f});
+async function setFolder(id,name){const f=sameFolder(cleanFolder(name));await setConvFlag(id,{folder:f});
   if(f&&folderFolded.has(f))toggleFolder(f);   // filing into a folded one opens it, so you see where it went
   setStatus(f?`Moved to “${f}”`:'Taken out of its folder')}
 // rename or remove a folder: every conversation in it (archived and trashed too, so none is left behind in the old name)
@@ -7052,7 +7055,8 @@ function renameFolder(g){const name=g.dataset.folder,hd=g.querySelector('.fhd'),
   const inp=document.createElement('input');inp.className='fren';inp.value=name;inp.setAttribute('aria-label','Folder name');t.replaceWith(inp);inp.focus();inp.select();
   convRenaming={later:false};let done=false;
   const end=async(ok)=>{if(done)return;done=true;const later=convRenaming&&convRenaming.later;convRenaming=null;const to=cleanFolder(inp.value);
-    if(ok&&to&&to!==name){await refileFolder(name,to);setStatus(`Renamed to “${to}”`)}else{convListSig='';renderConvList()}if(later)renderConvList()};
+    const into=sameFolder(to,name);   // renamed onto another folder's name, in any case: the two become one
+    if(ok&&into&&into!==name){await refileFolder(name,into);setStatus(into===to?`Renamed to “${into}”`:`Joined “${into}”`)}convListSig='';renderConvList()};
   inp.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();end(true)}else if(e.key==='Escape'){e.preventDefault();end(false)}};
   inp.onblur=()=>end(true);inp.onclick=e=>e.stopPropagation();inp.onpointerdown=e=>e.stopPropagation()}
 function dropFolder(name){const n=allConvMeta().filter(c=>c.folder===name&&!c.trashed).length;
@@ -7065,7 +7069,7 @@ function openFolderMenu(btn,id){
       if(a==='new')newFolderDialog([cid]);else if(a==='out')setFolder(cid,'');else if(a==='arch')archiveConv(cid);else setFolder(cid,a.slice(2))}}
   if(menu.classList.contains('open')&&menu.dataset.cid===id){menu.classList.remove('open');return}
   const items=allConvMeta(),cur=(items.find(c=>c.id===id)||{}).folder||'';menu.dataset.cid=id;
-  const names=folderNames(items);
+  const names=shownFolders();
   menu.innerHTML=names.map(n=>`<button data-fm="f:${esc(n)}" class="${n===cur?'fmcur':''}" ${n===cur?'aria-current="true"':''}>${ic(n===cur?'check':'folder')}<span></span></button>`).join('')+
     `<button data-fm="new">${ic('plus')}New folder…</button><div class="fmsep"></div>`+(cur?`<button data-fm="out">${ic('x')}Take out of “<span></span>”</button>`:'')+
     `<button data-fm="arch" title="Out of the way, without deleting: it moves to Archive at the bottom of the sidebar">${ic('archive')}Archive</button>`;
@@ -7079,7 +7083,7 @@ function archiveConv(id){const m=convList.find(c=>c.id===id)||(conv.id===id?meta
 /* New folder: a dialog, since a name typed into a menu was too cramped to read. A folder only exists while something is
    in it, so it asks for the name and what goes in (the conversation it was opened from is ticked already). */
 function newFolderDialog(pre=[]){
-  const items=allConvMeta().filter(c=>!c.trashed&&!c.archived),names=folderNames(allConvMeta());
+  const items=allConvMeta().filter(c=>!c.trashed&&!c.archived),names=shownFolders(),has=(f)=>names.find(n=>n.toLowerCase()===f.toLowerCase());
   const order=[...items.filter(c=>pre.includes(c.id)),...items.filter(c=>!pre.includes(c.id))];
   askConfirm('New folder',`<input class="nfname" id="nfName" maxlength="60" autocomplete="off" spellcheck="false" placeholder="Name it: Statistics, Side projects…" aria-label="Folder name"><div class="nfhint" id="nfHint"></div>
     <div class="nfsub"><span>Put in it</span><span id="nfCount"></span></div><div class="nflist" id="nfList"></div>`,()=>{},{ok:'Create folder',kind:'primary'});
@@ -7091,11 +7095,11 @@ function newFolderDialog(pre=[]){
   const picked=()=>[...list.querySelectorAll('input:checked')].map(x=>x.value);
   const upd=()=>{const f=cleanFolder(nm.value),n=picked().length;ok.disabled=!f||!n;
     $('#nfCount').textContent=n?`${n} chosen`:'';
-    $('#nfHint').textContent=!f?'':names.includes(f)?`There’s already a folder called “${f}”: these join it.`:!n?'Choose at least one conversation: a folder holds something.':'';
-    ok.textContent=f&&names.includes(f)?'Add to folder':'Create folder'};
+    $('#nfHint').textContent=!f?'':has(f)?`There’s already a folder called “${has(f)}”: these join it.`:!n?'Choose at least one conversation: a folder holds something.':'';
+    ok.textContent=f&&has(f)?'Add to folder':'Create folder'};
   nm.oninput=upd;list.onchange=upd;upd();
   nm.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();if(!ok.disabled)ok.click()}};
-  modalOk=async()=>{const f=cleanFolder(nm.value),ids=picked();if(!f||!ids.length)return;
+  modalOk=async()=>{const f=sameFolder(cleanFolder(nm.value)),ids=picked();if(!f||!ids.length)return;
     for(const cid of ids)await setConvFlag(cid,{folder:f});
     if(folderFolded.has(f))toggleFolder(f);if(sideFold.folders){sideFold.folders=false;$('#foldWrap').classList.remove('folded');try{localStorage.setItem('sq:fold',JSON.stringify(sideFold))}catch(e){}}
     setStatus(`${ids.length===1?'Moved':ids.length+' conversations moved'} to “${f}”`)};

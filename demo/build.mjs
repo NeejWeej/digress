@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GUIDE_DOCS } from '../server/guide.mjs';
+import { guideDocs } from '../server/guide.mjs';
 import { libPaths, libFile } from '../server/libs.mjs';
 import { ALL_TOOLS, MAX_TOOL_CALLS, MAX_CARD_CALLS } from '../server/doctools.mjs';
 
@@ -37,7 +37,7 @@ for (const l of libPaths()) {
 }
 
 // what "Ask about Digress" reads (GET /api/guide on the real server)
-const docs = GUIDE_DOCS.filter(([f]) => fs.existsSync(from(f))).map(([file, name]) => ({ name, file, text: fs.readFileSync(from(file), 'utf8') }));
+const docs = guideDocs().filter(([f]) => fs.existsSync(from(f))).map(([file, name]) => ({ name, file, text: fs.readFileSync(from(file), 'utf8') }));
 fs.writeFileSync(path.join(OUT, 'demo', 'guide.json'), JSON.stringify({ docs }));
 // the tools the model can be given, for the Prompts page (GET /api/tools on the real server)
 fs.writeFileSync(path.join(OUT, 'demo', 'tools.json'), JSON.stringify({ tools: ALL_TOOLS.map((t) => ({ name: t.name, description: t.description, schema: t.schema })), maxCalls: MAX_TOOL_CALLS, maxCards: MAX_CARD_CALLS }));
