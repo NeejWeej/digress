@@ -34,7 +34,9 @@ async def main():
         html = open(os.path.join(site, 'index.html'), encoding='utf-8').read()
         page = open(os.path.join(os.path.dirname(__file__), '..', 'web', 'index.html'), encoding='utf-8').read()
         check('the build is the real page plus the demo’s two scripts', html.replace('\n<script src="demo/replies.js"></script>\n<script src="demo/demo.js"></script>', '', 1) == page)
-        check('…without the service worker, with the documentation and the sample', not os.path.exists(os.path.join(site, 'sw.js'))
+        sw = os.path.join(site, 'sw.js')
+        check('…with its own service worker, not the app’s, the documentation and the sample', os.path.exists(sw)
+              and open(sw, encoding='utf-8').read() == open(os.path.join(os.path.dirname(__file__), '..', 'demo', 'sw.js'), encoding='utf-8').read()
               and all(os.path.exists(os.path.join(site, 'demo', f)) for f in ('guide.json', 'seed.json', 'sample.pdf')))
 
         async with async_playwright() as p:
