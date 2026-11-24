@@ -35,7 +35,11 @@ jobs:
           cache: pip
           cache-dependency-path: tests/requirements.txt
       - run: pip install -r tests/requirements.txt
+      # A package mirror once stalled mid-download for the job's whole 30 minutes (apt waits forever by default), so
+      # main's run was cancelled and the demo wasn't published: give up on a slow download and try it again instead
+      - run: printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/99timeouts
       - run: python -m playwright install --with-deps ${{ matrix.browser }}
+        timeout-minutes: 12
       - run: python tests/run_all.py
       - name: Keep the logs and screenshots of a failed run
         if: failure()

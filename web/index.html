@@ -1319,7 +1319,7 @@ sup.fn.res{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px va
 .aimg.loaded{border-style:solid;background:none;padding:6px}.aimg .aview{border:0;padding:0;background:none;cursor:zoom-in;display:block}.aimg .aview img{display:block;max-width:100%;max-height:520px;border-radius:6px;margin:0 auto}
 .abar{max-width:760px;margin:0 auto 10px;display:flex;align-items:center;gap:8px;font:12.5px var(--sans);color:var(--muted);padding:0 4px;flex-wrap:wrap}.abar .i{width:14px;height:14px}.abar span{flex:1;min-width:200px}
 :root{--imgico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Crect x='3' y='4' width='18' height='16' rx='2'/%3E%3Ccircle cx='9' cy='10' r='2'/%3E%3Cpath d='M21 16l-5-5-9 9'/%3E%3C/svg%3E")}
-.docbody{position:relative;max-width:760px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 28px 18px;font-family:var(--serif);font-size:16px;line-height:1.66;width:100%}
+.docbody{position:relative;max-width:760px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 28px 18px;font-family:var(--serif);font-size:16px;line-height:1.66;width:100%;overflow-wrap:break-word}
 .docload,.docerr{color:var(--muted);padding:40px 10px;text-align:center;line-height:1.6}
 .docerr input{margin-top:10px}
 a.pref{color:var(--accent);cursor:pointer;text-decoration:none;border-bottom:1px dotted currentColor;font-family:var(--sans);font-size:.86em;white-space:nowrap}
@@ -5869,22 +5869,46 @@ function loadArticleLibs(){
     .then(()=>loadScript('https://cdn.jsdelivr.net/npm/turndown-plugin-gfm@1.0.2/dist/turndown-plugin-gfm.js')).catch(e=>{articleLibs=null;throw e});
   return articleLibs;
 }
+// a math element's TeX, {t, d: display?}, or null. Only the outermost element of a formula matches (a .katex inside
+// a .katex-display, the <math> inside either), so it's written once
+const MATH_CLASSES=['katex','katex-display','mwe-math-element','mwe-math-fallback-image-inline','mwe-math-fallback-image-display'];   // Readability drops every other class
+function articleTex(n){
+  if(n.nodeType!==1)return null;
+  const cl=n.classList,tag=n.nodeName.toUpperCase();
+  const outer=cl.contains('katex-display')||cl.contains('mwe-math-element')||tag==='MJX-CONTAINER'||(cl.contains('katex')&&!n.parentElement.closest('.katex-display'))
+    ||(tag==='MATH'&&!n.parentElement.closest('.katex,.katex-display,.mwe-math-element,mjx-container'));
+  if(!outer)return null;
+  const math=tag==='MATH'?n:n.querySelector('math'),ann=n.querySelector('annotation[encoding="application/x-tex"]');
+  let t=((ann&&ann.textContent)||(math&&math.getAttribute('alttext'))||'').trim();
+  if(!t)return null;
+  const wiki=/^\{\\displaystyle\s([\s\S]*)\}$/.exec(t);if(wiki)t=wiki[1].trim();   // Wikipedia wraps every formula in it
+  const d=cl.contains('katex-display')||n.getAttribute('display')==='true'||(math&&math.getAttribute('display')==='block')
+    ||(cl.contains('mwe-math-element')&&!!n.querySelector('.mwe-math-fallback-image-display'));
+  return {t:t.replace(/(^|[^\\])\$/g,'$1\\$'),d};   // a bare $ would end the formula
+}
 async function articleToMarkdown(html,url){
   await loadArticleLibs();
   const doc=new DOMParser().parseFromString(html,'text/html');
   const base=doc.createElement('base');base.href=url;doc.head.prepend(base);   // so relative links and images resolve against the page
-  const a=new Readability(doc,{charThreshold:300}).parse();
+  const a=new Readability(doc,{charThreshold:300,classesToPreserve:MATH_CLASSES}).parse();
   if(!a||!a.content||(a.textContent||'').trim().length<200)throw {message:'Couldn’t find an article on that page. If it needs a login or is an app rather than an article, copy the text and paste it instead.'};
   const abs=(u)=>{try{return new URL(u,url).href}catch(e){return ''}},safe=(u)=>u.replace(/[()\s<>]/g,c=>encodeURIComponent(c));
   const td=new TurndownService({headingStyle:'atx',codeBlockStyle:'fenced',bulletListMarker:'-',emDelimiter:'*'});
   td.use(turndownPluginGfm.gfm);
   td.remove(['script','style','iframe','video','audio','object','embed','form','button','noscript','canvas','svg']);
   td.addRule('image',{filter:'img',replacement:(_,n)=>{
+    if(/\bmwe-math-fallback/.test(n.className))return '';   // Wikipedia's picture of a formula: the formula is kept as TeX
     const src=abs(n.getAttribute('src')||n.getAttribute('data-src')||(n.getAttribute('srcset')||'').trim().split(/\s+/)[0]||'');
     if(!/^https?:/i.test(src))return '';
     const fig=n.closest('figure'),cap=fig&&fig.querySelector('figcaption');
     const desc=(n.getAttribute('alt')||n.getAttribute('title')||'').replace(/\s+/g,' ').replace(/[\[\]]/g,'').trim();
     return `\n\n[Image: ${desc||(cap?'see the caption below':'no description')}](${safe(src)} "${IMG_MARK}")\n\n`;
+  }});
+  // math (KaTeX, MathJax, Wikipedia, plain MathML) → $…$ / $$…$$ from the TeX the page keeps beside it, typeset like a
+  // reply's. Without this its text came through as the MathML's characters run together, then the TeX with every
+  // \ and _ escaped: a table became one unbroken word that ran off the screen
+  td.addRule('math',{filter:(n)=>!!articleTex(n),replacement:(_,n)=>{
+    const m=articleTex(n);return m.d?`\n\n$$${m.t}$$\n\n`:`$${m.t.replace(/\s+/g,' ')}$`;
   }});
   td.addRule('figcaption',{filter:'figcaption',replacement:(c)=>c.trim()?`\n\n*${c.trim()}*\n\n`:''});
   td.addRule('link',{filter:(n)=>n.nodeName==='A'&&!!n.getAttribute('href'),replacement:(c,n)=>{

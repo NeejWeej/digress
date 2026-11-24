@@ -26,6 +26,12 @@ def png(w=16, h=16):
     return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
 PNG = png()
 TEXT = ' '.join(['Attention compares every query with every key, and the softmax turns those scores into weights.'] * 6)
+# math as KaTeX writes it (the TeX kept in an annotation beside MathML and drawn HTML), and as Wikipedia does
+KATEX = lambda tex, rendered: (f'<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>{rendered}</mi></mrow>'
+                              f'<annotation encoding="application/x-tex">{tex}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true">{rendered}</span></span>')
+MATH = (f'<p>The loss {KATEX("\\ell", "ℓ")} is the average surprisal, and the table is wide:</p>'
+        f'<span class="katex-display">{KATEX("\\begin{array}{l r r} \\text{Dataset} & \\text{gzip} & \\text{Qwen3-14B} \\\\ \\text{Infini-News} & 3.0250 & 112001 \\end{array}", "DatasetgzipQwen3-14BInfini-News3.0250112001")}</span>'
+        '<p>On Wikipedia: <span class="mwe-math-element"><math alttext="{\\displaystyle x_{1}^{2}}"><mi>x</mi></math><img class="mwe-math-fallback-image-inline" src="/eq.svg" alt="x_1^2"></span> squared.</p>')
 ARTICLE = f'''<!doctype html><html><head><meta charset="utf-8"><title>Why attention scales | Test Blog</title>
 <meta property="og:site_name" content="Test Blog"><meta name="author" content="Ada Writer"></head>
 <body><nav><a href="/">Home</a> <a href="/about">About</a> Subscribe to our newsletter</nav>
@@ -37,6 +43,7 @@ ARTICLE = f'''<!doctype html><html><head><meta charset="utf-8"><title>Why attent
 <a href="/big"><img src="/fig2.png" alt="Wrapped image"></a>
 <p><img src="/logo.svg" alt="An SVG logo"></p>
 <h2>Scaling by the square root</h2><p>{TEXT}</p>
+{MATH}
 </article><footer>Copyright footer junk, cookie settings</footer></body></html>'''.encode()
 
 
@@ -84,6 +91,9 @@ async def main():
             body = pg.locator('.docbody')
             text = await body.inner_text()
             check('the article opens in reader view: its heading and text', 'Why attention scales' in text and 'ZEBRA-ART' in text and 'Scaling by the square root' in text, text[:300])
+            check('math (KaTeX, Wikipedia) comes through as TeX the page typesets, not run-together characters and escaped source',
+                  await body.locator('.math mjx-container').count() == 3 and await body.locator('.math.display mjx-container').count() == 1 and await body.locator('.math.raw').count() == 0
+                  and 'DatasetgzipQwen3' not in text and '\\\\ell' not in text and 'x_1^2' not in text and 'eq.svg' not in await body.inner_html(), text[-400:])
             check('…with who wrote it and where', 'Ada Writer' in text and 'Test Blog' in text, text[:200])
             check('…and without the page around it (navigation, footer)', 'Subscribe to our newsletter' not in text and 'cookie settings' not in text)
             check('nothing on the page ran (its script never fetched anything)', hits.get('/tracker', 0) == 0 and await pg.evaluate('typeof window.__ran') == 'undefined')
