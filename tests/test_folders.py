@@ -9,6 +9,8 @@
   - Filing into a folder that's folded opens it. A second conversation can go into the same folder from the menu.
   - Rename a folder from its header (every conversation in it follows); "Take out" puts one back in the list;
     removing a folder puts all of its conversations back and deletes nothing.
+  - A filed conversation stays in the Conversations list (same order) with a tag naming its folder; a long folder name
+    is cut with an ellipsis and leaves room for the title. The tag follows a rename and goes when it is taken out.
   - The folder is saved with the conversation (the store has it), the open one included.
   - On a phone the row's buttons are always there: the same steps work with taps.
 Asserts and exits non-zero."""
@@ -22,9 +24,9 @@ def check(name, ok, detail=''):
     if not ok: fails.append(name)
 
 SEED = r"""
-for (let i = 0; i < 5; i++) {
+for (let i = 0; i < 6; i++) {
   const id = 'c' + i, t = Date.now() - i * 60000;
-  localStorage.setItem('fakesrv:convs/' + id, JSON.stringify({id, title: 'Topic ' + i, created: t, updated: t, rev: 1,
+  localStorage.setItem('fakesrv:convs/' + id, JSON.stringify({id, title: i == 5 ? 'A rather long conversation title about many different things at once' : 'Topic ' + i, created: t, updated: t, rev: 1,
     threads: {main: {id: 'main', parent: null, title: 'Main', colorIdx: 0}},
     msgs: {u: {role: 'user', thread: 'main', text: 'Question ' + i, ts: t}}, order: {main: ['u']}, nextColor: 1}));
 }
@@ -32,12 +34,13 @@ for (let i = 0; i < 5; i++) {
 
 STORED = "(id)=>{const v=localStorage.getItem('fakesrv:convs/'+id);return v?JSON.parse(v).folder||'':null}"
 IN_FOLDER = "([name])=>[...document.querySelectorAll('#flist .fgrp')].filter(g=>g.dataset.folder===name).flatMap(g=>[...g.querySelectorAll('.fbody .citem[data-conv]')].map(r=>r.dataset.conv))"
+TAG = "(id)=>{const t=document.querySelector('#clist .citem[data-conv='+id+'] .ftag');return t?t.textContent:null}"
 PLAIN = "[...document.querySelectorAll('#clist .citem[data-conv]')].map(r=>r.dataset.conv)"
 
 
 async def file_into(pg, cid, name=None):
-    await pg.locator(f'#clist .citem[data-conv={cid}], #flist .citem[data-conv={cid}]').hover()
-    await pg.locator(f'.citem[data-conv={cid}] [data-folderconv]').click()
+    await pg.locator(f'#clist .citem[data-conv={cid}]').hover()
+    await pg.locator(f'#clist .citem[data-conv={cid}] [data-folderconv]').click()
     menu = pg.locator('#folderMenu.open'); await menu.wait_for()
     if name == '':
         await menu.locator('[data-fm=out]').click()
@@ -62,7 +65,7 @@ async def desktop(p):
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
     await pg.add_init_script("if(!sessionStorage.getItem('seeded')){sessionStorage.setItem('seeded','1');" + SEED + "}")
     await goto_app(pg); await booted(pg)
-    await pg.wait_for_function("document.querySelectorAll('#clist .citem[data-conv]').length >= 5"); await frames(pg)
+    await pg.wait_for_function("document.querySelectorAll('#clist .citem[data-conv]').length >= 6"); await frames(pg)
     check('no folders: the Folders section is there', await pg.locator('#foldWrap').is_visible())
     check('…its list is empty', await pg.evaluate("document.getElementById('flist').children.length") == 0)
     check('…and New folder is visible in it, between the two headings', await pg.locator('#foldWrap #newFolder').is_visible() and await pg.evaluate(
@@ -102,7 +105,9 @@ async def desktop(p):
     await soon(pg, "()=>document.querySelector('#foldWrap').offsetParent!==null&&!document.querySelector('#modal.show')")
     check('Enter in the name box creates it', not await pg.locator('#modal.show').count())
     check('the conversation is in the folder', await pg.evaluate(IN_FOLDER, ['Statistics']) == ['c2'])
-    check('…and out of the plain list', 'c2' not in await pg.evaluate(PLAIN))
+    check('…and still in the Conversations list', 'c2' in await pg.evaluate(PLAIN))
+    check('…with a tag naming the folder', await pg.evaluate(TAG, 'c2') == 'Statistics', await pg.evaluate(TAG, 'c2'))
+    check('an unfiled row has no tag', await pg.evaluate(TAG, 'c1') is None)
     await soon(pg, f"()=>({STORED})('c2')==='Statistics'")
     check('…saved with it (name trimmed)', await pg.evaluate(STORED, 'c2') == 'Statistics')
 
@@ -123,6 +128,20 @@ async def desktop(p):
     await soon(pg, f"()=>({STORED})('c1')==='Music'&&({STORED})('c4')==='Music'")
     check('…and both are saved with it', True)
     check('folders are in name order', await pg.evaluate("[...document.querySelectorAll('#flist .fgrp')].map(g=>g.dataset.folder)") == ['Art', 'Music', 'Statistics'])
+    check('filing leaves the list in newest-first order', await pg.evaluate(PLAIN) == ['c0', 'c1', 'c2', 'c3', 'c4', 'c5'], await pg.evaluate(PLAIN))
+    check('every filed row is tagged', [await pg.evaluate(TAG, c) for c in ['c0', 'c1', 'c2', 'c3', 'c4']] == ['Statistics', 'Music', 'Statistics', 'Art', 'Music'])
+
+    # a long title and a long folder name share a row
+    LONG = 'An unreasonably long folder name that cannot possibly fit'
+    await pg.locator('#clist .citem[data-conv=c5]').hover(); await pg.locator('#clist .citem[data-conv=c5] [data-folderconv]').click()
+    await pg.locator('#folderMenu.open [data-fm=new]').click(); await pg.locator('#modal.show #nfName').wait_for()
+    await dialog_create(pg, LONG, tick=['c5'], untick=[])
+    g = await pg.evaluate("(()=>{const r=document.querySelector('#clist .citem[data-conv=c5]'),t=r.querySelector('.t'),f=r.querySelector('.ftag'),rb=r.getBoundingClientRect(),tb=t.getBoundingClientRect(),fb=f.getBoundingClientRect();return {row:rb.right,tagR:fb.right,tagW:fb.width,tW:tb.width,ell:getComputedStyle(f).textOverflow,cut:f.scrollWidth>f.clientWidth}})()")
+    check('long folder name: the title keeps more room than the tag', g['tW'] > g['tagW'], g)
+    check('…the tag is cut with an ellipsis', g['ell'] == 'ellipsis' and g['cut'], g)
+    check('…and stays inside the row', g['tagR'] <= g['row'] + 0.5, g)
+    await file_into(pg, 'c5', '')
+    await soon(pg, "()=>!document.querySelector('#clist .citem[data-conv=c5] .ftag')")
     await pg.screenshot(path=OUT + '/folders_open.png')
 
     # fold one folder, then the whole section; both remembered
@@ -144,13 +163,15 @@ async def desktop(p):
     await pg.locator('#flist .fgrp[data-folder=Art] [data-fren]').click()
     inp = pg.locator('#flist .fren'); await inp.fill('Art history'); await inp.press('Enter')
     await soon(pg, "()=>!!document.querySelector('#flist .fgrp[data-folder=\"Art history\"]')")
+    check('rename: the tag shows the new name', await pg.evaluate(TAG, 'c3') == 'Art history' and await pg.evaluate(TAG, 'c4') == 'Art history', [await pg.evaluate(TAG, 'c3'), await pg.evaluate(TAG, 'c4')])
     check('rename: the folder has its new name', sorted(await pg.evaluate(IN_FOLDER, ['Art history'])) == ['c3', 'c4'])
     await soon(pg, f"()=>({STORED})('c3')==='Art history'&&({STORED})('c4')==='Art history'")
     check('…and every conversation in it is saved with it', await pg.evaluate(STORED, 'c3') == 'Art history')
 
     # take one out
     await file_into(pg, 'c4', '')
-    check('Take out puts it back in the list', 'c4' in await pg.evaluate(PLAIN) and await pg.evaluate(IN_FOLDER, ['Art history']) == ['c3'])
+    check('Take out: it leaves the folder', await pg.evaluate(IN_FOLDER, ['Art history']) == ['c3'])
+    check('…and its row has no tag', await pg.evaluate(TAG, 'c4') is None and 'c4' in await pg.evaluate(PLAIN))
 
     # an existing name joins that folder
     await pg.locator('#newFolder').click(); await pg.locator('#modal.show #nfName').wait_for()
@@ -164,7 +185,7 @@ async def desktop(p):
 
     # archive from the menu
     await pg.locator('#flist .citem[data-conv=c1]').hover()
-    await pg.locator('.citem[data-conv=c1] [data-folderconv]').click()
+    await pg.locator('#flist .citem[data-conv=c1] [data-folderconv]').click()
     await pg.locator('#folderMenu.open [data-fm=arch]').click()
     await soon(pg, "()=>!!document.querySelector('#alist .citem[data-conv=c1]')")
     check('Archive in the menu archives it', not await pg.locator('#flist .citem[data-conv=c1]').count())
@@ -176,7 +197,7 @@ async def desktop(p):
     await pg.locator('#mOk').click()
     await soon(pg, "()=>!document.querySelector('#flist .fgrp[data-folder=Statistics]')")
     plain = await pg.evaluate(PLAIN)
-    check('removing a folder puts its conversations back in the list', 'c2' in plain and open_id in plain, plain)
+    check('removing a folder keeps its conversations in the list, untagged', 'c2' in plain and open_id in plain and await pg.evaluate(TAG, 'c2') is None and await pg.evaluate(TAG, open_id) is None, plain)
     await soon(pg, f"()=>({STORED})('c2')===''")
     check('…and nothing is deleted', await pg.evaluate(f"(ids)=>ids.every(id=>localStorage.getItem('fakesrv:convs/'+id))", ['c0', 'c1', 'c2', 'c3', 'c4']))
 
@@ -192,7 +213,7 @@ async def phone(p):
     await pg.add_init_script("if(!sessionStorage.getItem('seeded')){sessionStorage.setItem('seeded','1');" + SEED + "}")
     await goto_app(pg); await booted(pg)
     await pg.locator('#tSide').tap(); await frames(pg)
-    await pg.wait_for_function("document.querySelectorAll('#clist .citem[data-conv]').length >= 5")
+    await pg.wait_for_function("document.querySelectorAll('#clist .citem[data-conv]').length >= 6")
     check('phone: New folder is visible with no folders', await pg.locator('#foldWrap #newFolder').is_visible())
     await pg.screenshot(path=OUT + '/folders_empty_phone.png')
     btn = pg.locator('#clist .citem[data-conv=c1] [data-folderconv]')
@@ -211,10 +232,13 @@ async def phone(p):
     await pg.screenshot(path=OUT + '/folders_dialog_phone.png')
     await pg.locator('#mOk').tap()
     await soon(pg, "()=>!!document.querySelector('#flist .fgrp[data-folder=Reading] .citem[data-conv=c1]')")
+    check('phone: the filed row shows its tag', await pg.evaluate(TAG, 'c1') == 'Reading', await pg.evaluate(TAG, 'c1'))
     check('phone: filed with taps', await pg.locator('#flist .citem[data-conv=c1]').is_visible())
     check('phone: the sidebar stays open', await pg.evaluate("document.getElementById('app').classList.contains('sideopen')"))
     w = await pg.evaluate("(()=>{const t=document.querySelector('#clist .citem[data-conv=c2] .t');return t.getBoundingClientRect().width})()")
     check('phone: a row still has room for its title', w > 100, w)
+    w = await pg.evaluate("(()=>{const r=document.querySelector('#clist .citem[data-conv=c1]'),t=r.querySelector('.t'),a=r.querySelector('.acts').getBoundingClientRect(),f=r.querySelector('.ftag').getBoundingClientRect();return {t:t.getBoundingClientRect().width,tagR:f.right,actsL:a.left}})()")
+    check('phone: a tagged row keeps room for its title beside the buttons', w['t'] > 60, w)
     await pg.locator('#flist .fgrp[data-folder=Reading] .fhd .t').tap(); await frames(pg)
     check('phone: a folder folds with a tap', not await pg.locator('#flist .citem[data-conv=c1]').is_visible())
     await pg.screenshot(path=OUT + '/folders_phone.png')

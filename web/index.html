@@ -554,6 +554,8 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .mnode .mt{line-height:1.35}
 .mnode .ma{font-size:11.5px;color:var(--faint);font-family:var(--serif);font-style:italic;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
 .mnode .mc{margin-left:auto;font-size:11px;color:var(--faint);padding-top:1px}
+/* everything above Branches spans every conversation; Branches is only the open one's, so a line sets it apart */
+#branchWrap{border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
 .help{font-size:12.5px;color:var(--muted);line-height:1.5;padding:12px 8px 4px;border-top:1px solid var(--line);margin-top:18px}
 .help b{font-weight:600;color:var(--ink)}
 .backchip{display:none;flex:0 1 auto;align-items:center;min-width:0;max-width:260px;background:var(--panel);border:1px solid var(--line2);border-radius:999px;margin-left:2px}
@@ -1115,6 +1117,8 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .citem.fhd:hover .fcount{visibility:hidden}@media (hover:none){.citem.fhd:hover .fcount{visibility:visible}}
 .citem.fhd .fren{flex:1;min-width:0;font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line2);border-radius:6px;padding:1px 6px}
 .fgrp .fbody{display:flex;flex-direction:column;gap:1px;padding-left:14px}.fgrp.ffolded .fbody{display:none}
+/* the list shows filed conversations too, with the folder's name: it gives way to the title when space runs out */
+.citem .ftag{flex:0 1 auto;min-width:0;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--faint);border:1px solid var(--line);border-radius:999px;padding:0 6px;line-height:16px}
 #folderMenu .fmcur{color:var(--accent)}#folderMenu .fmsep{height:1px;background:var(--line);margin:4px 0}
 .fnewrow{display:flex;align-items:center;gap:6px;width:100%;padding:5px 10px;border-radius:8px;color:var(--faint);font-size:13px;text-align:left}.fnewrow:hover{background:var(--user-bg);color:var(--ink)}.fnewrow svg.i{width:13px;height:13px}
 #foldWrap{margin-bottom:16px}#foldWrap.folded #newFolder{display:none}
@@ -1432,7 +1436,7 @@ a.pref:hover{border-bottom-style:solid}
     <div class="clist" id="clist"></div>
     <div id="archWrap" style="display:none;margin:-12px 0 16px"><button class="archtoggle" id="archToggle" title="Archived conversations: out of the way, but nothing is deleted"><span class="chev"></span><span id="archLbl">Archive</span></button><div class="alist" id="alist"></div></div>
     <div id="trashWrap" style="display:none;margin:-12px 0 16px"><button class="archtoggle" id="trashToggle" title="Deleted conversations: restore one, or it's deleted for good after 7 days"><span class="chev"></span><span id="trashLbl">Trash</span></button><div class="alist" id="xlist"></div></div></div>
-    <div id="branchWrap" class="sfoldw" data-fold="branches"><div class="sh"><button class="sfold" title="Fold or unfold the branches"><span class="chev"></span>Branches</button><button class="shbtn" id="treeAll"></button></div>
+    <div id="branchWrap" class="sfoldw" data-fold="branches"><div class="sh"><button class="sfold" title="Fold or unfold the branches of the open conversation"><span class="chev"></span>Branches</button><button class="shbtn" id="treeAll"></button></div>
     <div class="tree" id="tree"></div></div>
     <details class="help" id="help">
       <summary><span class="chev"></span><b>How it works</b><button class="gq" id="guideB" type="button" title="Ask how Digress works: a chat that knows its documentation (not saved)">?</button></summary>
@@ -6982,6 +6986,7 @@ function renderConvList(){
       (c.archived?`<button class="ib" data-archconv="${esc(c.id)}" title="Move back to your conversations">${ic('archive')}</button>`:'')+
       `<button class="ib dz" data-del="${esc(c.id)}" title="Move to the trash (deleted for good after ${TRASH_DAYS} days; restore it from Trash before then)">${ic('trash')}</button></span>`;
     const tt=d.querySelector('.t');tt.textContent=c.title||'New conversation';d.dataset.tip=tt.textContent;d.dataset.clip='';
+    const ft=d.querySelector('.ftag');if(ft){ft.textContent=c.folder;ft.title='In the folder “'+c.folder+'”';d.dataset.tip+=' · in '+c.folder}
     if(names[tt.textContent]>1&&c.created){const sm=document.createElement('small');sm.className='cday';sm.textContent=' · '+dayLabel(c.created);tt.appendChild(sm);d.dataset.tip+=' · started '+dayLabel(c.created)}
     return d;
   };
@@ -7009,10 +7014,10 @@ function renderConvList(){
     fl.appendChild(g);
   }
   const el=$('#clist');el.replaceChildren();
-  for(const c of active.filter(c=>!c.pinned&&!c.folder&&shown(c)))el.appendChild(row(c));
+  for(const c of active.filter(c=>!c.pinned&&shown(c)))el.appendChild(row(c,c.folder?'<span class="ftag"></span>':''));
   // the list scrolls inside itself: when another conversation opens, bring its row into view there (only the list moves)
   if(conv&&listCur!==conv.id){listCur=conv.id;requestAnimationFrame(()=>{for(const l of [el,pl,fl]){const r=l.querySelector('.citem.cur');if(r&&(r.offsetTop<l.scrollTop||r.offsetTop+r.offsetHeight>l.scrollTop+l.clientHeight))l.scrollTop=r.offsetTop-l.clientHeight/3}})}
-  if(!el.children.length)el.innerHTML=`<div class="citem" style="cursor:default;color:var(--faint)">${filt==='doc'?'No document conversations':filt==='chat'?'No chats without a document':fl.children.length?'Nothing outside a folder':'No other conversations'}</div>`;
+  if(!el.children.length)el.innerHTML=`<div class="citem" style="cursor:default;color:var(--faint)">${filt==='doc'?'No document conversations':filt==='chat'?'No chats without a document':'No other conversations'}</div>`;
   const al=$('#alist');al.replaceChildren();arch.filter(shown).forEach(c=>al.appendChild(row(c)));
   $('#archWrap').style.display=arch.length?'':'none';$('#archLbl').textContent=`Archive · ${arch.length}`;
   $('#archToggle').classList.toggle('open',archOpen);al.classList.toggle('show',archOpen);
