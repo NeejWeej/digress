@@ -1120,6 +1120,8 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 /* the list shows filed conversations too, with the folder's name: it gives way to the title when space runs out */
 .citem .ftag{flex:0 1 auto;min-width:0;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--faint);border:1px solid var(--line);border-radius:999px;padding:0 6px;line-height:16px}
 #folderMenu .fmcur{color:var(--accent)}
+.citem.fhd .fpmark{display:inline-flex;color:var(--faint)}.citem.fhd .fpmark svg.i{width:12px;height:12px}.citem.fhd .acts .ib.on{color:var(--accent)}
+.fpview{margin-top:8px;font-size:12.5px;color:var(--muted)}.fpview summary{cursor:pointer}.fpview pre{white-space:pre-wrap;max-height:30vh;overflow:auto;font:12px/1.5 var(--mono);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:6px 0 0}
 .fnewrow{display:flex;align-items:center;gap:6px;width:100%;padding:5px 10px;border-radius:8px;color:var(--faint);font-size:13px;text-align:left}.fnewrow:hover{background:var(--user-bg);color:var(--ink)}.fnewrow svg.i{width:13px;height:13px}
 #foldWrap{margin-bottom:16px}#foldWrap.folded #newFolder{display:none}
 /* New folder: a name, then what goes in it (a folder exists only while something's in it) */
@@ -2699,6 +2701,7 @@ async function loadCustom(){
     CUSTOM.prompts=pr&&typeof pr==='object'&&!Array.isArray(pr)?pr:{};
   }catch(e){console.warn('prompts and skills failed to load',e)}
   fillPopChips();syncSkillT();
+  convListSig='';renderConvList();   // folders' prompts are marked in the sidebar
 }
 const skillLabel=(s)=>String(s.name||'Skill').replace(/[-_]+/g,' ').trim().replace(/^./,c=>c.toUpperCase());
 // SKILL.md: an optional header between --- lines (name:, description:), then the instructions
@@ -6952,7 +6955,7 @@ function treeAll(){
   renderMap();save();
 }
 function metaOf(c){
-  return {dropCards:!!c.dropCards,id:c.id,title:c.title,updated:c.updated,created:c.created,pinned:!!c.pinned,archived:!!c.archived,trashed:c.trashed||0,folder:c.folder||'',doc:!!c.doc,docName:c.doc?c.doc.name||'':'',asset:(c.doc&&c.doc.assetId)||'',
+  return {dropCards:!!c.dropCards,id:c.id,title:c.title,updated:c.updated,created:c.created,pinned:!!c.pinned,archived:!!c.archived,trashed:c.trashed||0,folder:c.folder||'',system:typeof c.system==='string'?c.system:'',doc:!!c.doc,docName:c.doc?c.doc.name||'':'',asset:(c.doc&&c.doc.assetId)||'',
     pins:Object.values(c.threads||{}).filter(t=>t.pinned).map(t=>({tid:t.id,title:t.title,ci:t.colorIdx}))};
 }
 let convFilt='all';try{convFilt=localStorage.getItem('digress:cfilt')||'all'}catch(e){}
@@ -7008,7 +7011,7 @@ function renderConvList(){
   for(const c of active)if(c.folder&&shown(c)){if(!byF.has(c.folder))byF.set(c.folder,[]);byF.get(c.folder).push(c)}
   for(const name of folderNames(active)){const cs=byF.get(name);if(!cs)continue;
     const g=document.createElement('div');g.className='fgrp'+(folderFolded.has(name)?' ffolded':'');g.dataset.folder=name;
-    g.innerHTML=`<div class="citem fhd" data-ftog title="Fold or unfold this folder"><span class="chev">${$('#archToggle .chev').innerHTML}</span><span class="fic">${ic('folder')}</span><span class="t"></span><span class="fcount">${cs.length}</span><span class="acts"><button class="ib" data-fren title="Rename this folder">${ic('edit')}</button><button class="ib dz" data-fdrop title="Remove this folder: its conversations go back to the list (nothing is deleted)">${ic('x')}</button></span></div><div class="fbody"></div>`;
+    g.innerHTML=`<div class="citem fhd" data-ftog title="Fold or unfold this folder"><span class="chev">${$('#archToggle .chev').innerHTML}</span><span class="fic">${ic('folder')}</span><span class="t"></span>${folderPrompt(name)?`<span class="fpmark" title="New chats here start with this folder’s own prompt">${ic('tune')}</span>`:''}<span class="fcount">${cs.length}</span><span class="acts"><button class="ib" data-fchat title="New chat in this folder${folderPrompt(name)?', starting with its prompt':''}">${ic('plus')}</button><button class="ib${folderPrompt(name)?' on':''}" data-fprompt title="${folderPrompt(name)?'Edit the prompt new chats here start with':'Give new chats in this folder a prompt of their own to start with'}">${ic('tune')}</button><button class="ib" data-fren title="Rename this folder">${ic('edit')}</button><button class="ib dz" data-fdrop title="Remove this folder: its conversations go back to the list (nothing is deleted)">${ic('x')}</button></span></div><div class="fbody"></div>`;
     g.querySelector('.t').textContent=name;g.querySelector('.fhd').setAttribute('aria-expanded',String(!folderFolded.has(name)));
     const body=g.querySelector('.fbody');for(const c of cs)body.appendChild(row(c,c.pinned?`<span class="pmark" title="Pinned">${ic('pin')}</span>`:''));
     fl.appendChild(g);
@@ -7046,9 +7049,39 @@ function toggleFolder(name){folderFolded.has(name)?folderFolded.delete(name):fol
 const cleanFolder=(n)=>String(n||'').replace(/\s+/g,' ').trim().slice(0,60);
 async function setFolder(id,name){const f=sameFolder(cleanFolder(name));await setConvFlag(id,{folder:f});
   if(f&&folderFolded.has(f))toggleFolder(f);   // filing into a folded one opens it, so you see where it went
-  setStatus(f?`Moved to “${f}”`:'Taken out of its folder')}
+  setStatus(f?`Moved to “${f}”`:'Taken out of its folder');if(f)offerFolderPrompt(f,[id])}
 // rename or remove a folder: every conversation in it (archived and trashed too, so none is left behind in the old name)
+/* A folder's prompt (CUSTOM.prompts.folders: {name: text}) is where its new chats start: a new chat in the folder gets
+   a copy as its own system prompt (conv.system). Nothing follows it after that: editing it changes no conversation, and
+   one moved in is asked whether to switch (kept as it is unless the reader says so). */
+const folderPrompts=()=>((CUSTOM.prompts&&CUSTOM.prompts.folders)||{});
+const folderPrompt=(f)=>{const m=folderPrompts(),k=f&&Object.keys(m).find(n=>n.toLowerCase()===f.toLowerCase());return k?m[k]:''};
+async function setFolderPrompt(f,v,from){const m={...folderPrompts()};
+  for(const k of Object.keys(m))if(k.toLowerCase()===f.toLowerCase()||(from&&k.toLowerCase()===from.toLowerCase()))delete m[k];
+  v=String(v||'').trim();if(v)m[f]=v;await savePrompts({folders:Object.keys(m).length?m:null})}
+const convSys=(id)=>{const c=conv&&conv.id===id?conv:convList.find(x=>x.id===id);return ((c&&typeof c.system==='string'&&c.system.trim())||defaultSys()).trim()};
+// conversations just moved into a folder with a prompt: switch to it? Keeping theirs is the default (Cancel, Esc)
+function offerFolderPrompt(f,ids){const p=folderPrompt(f).trim();if(!p)return;
+  const differ=ids.filter(id=>convSys(id)!==p);if(!differ.length)return;
+  const n=differ.length,one=n===1;
+  askConfirm('Use the folder’s prompt?',`<p class="ppnote"><b>${esc(f)}</b> has its own system prompt for new chats. ${one?'This conversation has a different one':`${n} of these conversations have a different one`}. Switch ${one?'it':'them'} to the folder’s from the next reply, or keep what ${one?'it has':'they have'}?</p><details class="fpview"><summary>The folder’s prompt</summary><pre></pre></details>`,
+    async()=>{for(const id of differ){if(conv&&conv.id===id){setConvSystem(p);continue}await setConvFlag(id,{system:p===defaultSys().trim()?'':p})}
+      setStatus(one?'It uses the folder’s prompt now':`${n} conversations use the folder’s prompt now`)},
+    {ok:'Use the folder’s',cancel:one?'Keep its own':'Keep their own',kind:'primary'});
+  $('#mBody .fpview pre').textContent=p}
+function editFolderPrompt(f){const cur=folderPrompt(f);
+  askConfirm(`Prompt for new chats in “${f}”`,`<p class="ppnote">A new chat started in this folder begins with this as its system prompt (it becomes that chat’s own, so you can still change it there). Conversations already in the folder keep theirs. Leave it empty to start new chats with your default.</p><textarea class="pptext" id="fSysEd" rows="10" spellcheck="false"></textarea>`,
+    async()=>{const v=$('#fSysEd').value.trim();try{await setFolderPrompt(f,v)}catch(e){toast(e.message||'It couldn’t be saved.');return}convListSig='';renderConvList();setStatus(v?'Folder prompt saved':'New chats here start with your default')},
+    {ok:'Save',kind:'primary'});
+  const ta=$('#fSysEd');ta.value=cur;ta.placeholder=defaultSys();setTimeout(()=>ta.focus(),30)}
+async function newChatIn(f){if(!await leaveOk())return;BACK.length=0;renderBack();
+  const c=newConv();c.folder=f;const p=folderPrompt(f).trim();if(p&&p!==defaultSys().trim())c.system=p;
+  if(folderFolded.has(f)){folderFolded.delete(f);try{localStorage.setItem('digress:ffold',JSON.stringify([...folderFolded]))}catch(e){}}
+  setConv(c);if(!isBlank(c))save();   // with a prompt of its own it's kept from the start, like one given a prompt by hand
+  if(innerWidth<760)$('#app').classList.remove('sideopen');
+  setTimeout(()=>{if(!$('#pal').classList.contains('show'))paneEls.get('main').querySelector('textarea').focus()},30)}
 async function refileFolder(from,to){const ids=allConvMeta().filter(c=>c.folder===from).map(c=>c.id);
+  const fp=folderPrompt(from);if(fp||to)try{if(to){if(fp&&!folderPrompt(to))await setFolderPrompt(to,fp,from);else if(fp)await setFolderPrompt(from,'')}else if(fp)await setFolderPrompt(from,'')}catch(e){console.warn(e)}
   const wasFolded=folderFolded.has(from);folderFolded.delete(from);if(to&&wasFolded)folderFolded.add(to);try{localStorage.setItem('digress:ffold',JSON.stringify([...folderFolded]))}catch(e){}
   for(const id of ids)await setConvFlag(id,{folder:to||''});return ids.length}
 function renameFolder(g){const name=g.dataset.folder,hd=g.querySelector('.fhd'),t=hd.querySelector('.t');
@@ -7060,7 +7093,7 @@ function renameFolder(g){const name=g.dataset.folder,hd=g.querySelector('.fhd'),
   inp.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();end(true)}else if(e.key==='Escape'){e.preventDefault();end(false)}};
   inp.onblur=()=>end(true);inp.onclick=e=>e.stopPropagation();inp.onpointerdown=e=>e.stopPropagation()}
 function dropFolder(name){const n=allConvMeta().filter(c=>c.folder===name&&!c.trashed).length;
-  askConfirm('Remove this folder?',`<b>${esc(name)}</b> goes, and its ${n} conversation${n===1?'':'s'} go${n===1?'es':''} back to the list. Nothing is deleted.`,async()=>{await refileFolder(name,'');setStatus('Folder removed')},{ok:'Remove folder',kind:'primary'})}
+  askConfirm('Remove this folder?',`<b>${esc(name)}</b> goes, and its ${n} conversation${n===1?'':'s'} go${n===1?'es':''} back to the list. Nothing is deleted${folderPrompt(name)?'; its prompt for new chats goes, and the conversations keep the prompts they have':''}.`,async()=>{await refileFolder(name,'');setStatus('Folder removed')},{ok:'Remove folder',kind:'primary'})}
 // the menu from a row's folder button: the folders there are, a new one, or out of the one it's in
 function openFolderMenu(btn,id){
   let menu=$('#folderMenu');if(!menu){menu=document.createElement('div');menu.className='thmenu';menu.id='folderMenu';menu.setAttribute('role','menu');document.body.appendChild(menu);
@@ -7102,7 +7135,7 @@ function newFolderDialog(pre=[]){
   modalOk=async()=>{const f=sameFolder(cleanFolder(nm.value)),ids=picked();if(!f||!ids.length)return;
     for(const cid of ids)await setConvFlag(cid,{folder:f});
     if(folderFolded.has(f))toggleFolder(f);if(sideFold.folders){sideFold.folders=false;$('#foldWrap').classList.remove('folded');try{localStorage.setItem('sq:fold',JSON.stringify(sideFold))}catch(e){}}
-    setStatus(`${ids.length===1?'Moved':ids.length+' conversations moved'} to “${f}”`)};
+    setStatus(`${ids.length===1?'Moved':ids.length+' conversations moved'} to “${f}”`);setTimeout(()=>offerFolderPrompt(f,ids),0)};   // after this dialog has closed
   setTimeout(()=>nm.focus(),30);
 }
 const closeFolderMenu=()=>{const m=$('#folderMenu');if(m&&m.classList.contains('open')){m.classList.remove('open');return true}return false};
@@ -7243,7 +7276,7 @@ function syncReset(c){sync.id=c.id;sync.rev=c.rev||0;sync.base=contentOf(c);sync
 async function flush(){
   if(!dirty||!conv)return;
   if(saving){clearTimeout(saveTimer);saveTimer=setTimeout(flush,500);return}
-  if(!conv.doc&&!conv.order.main.length&&Object.keys(conv.threads).length===1){dirty=false;return}
+  if(isBlank(conv)){dirty=false;return}   // the one rule for "nothing to keep": a prompt or skills of its own count
   if(!io.store){clearTimeout(saveTimer);saveTimer=setTimeout(flush,400);return}
   dirty=false;saving=true;const c=conv;
   try{
@@ -7706,6 +7739,8 @@ document.addEventListener('click',e=>{
   const pc=e.target.closest('[data-pinconv]');if(pc){e.stopPropagation();const id=pc.dataset.pinconv;const m=convList.find(c=>c.id===id)||(conv.id===id?metaOf(conv):{});setConvFlag(id,{pinned:!m.pinned});return}
   const fc=e.target.closest('[data-folderconv]');if(fc){e.stopPropagation();openFolderMenu(fc,fc.dataset.folderconv);return}
   const fr=e.target.closest('[data-fren]');if(fr){e.stopPropagation();renameFolder(fr.closest('.fgrp'));return}
+  const fch=e.target.closest('[data-fchat]');if(fch){e.stopPropagation();newChatIn(fch.closest('.fgrp').dataset.folder);return}
+  const fpr=e.target.closest('[data-fprompt]');if(fpr){e.stopPropagation();editFolderPrompt(fpr.closest('.fgrp').dataset.folder);return}
   const fd=e.target.closest('[data-fdrop]');if(fd){e.stopPropagation();dropFolder(fd.closest('.fgrp').dataset.folder);return}
   const ft=e.target.closest('[data-ftog]');if(ft){if(ft.querySelector('.fren'))return;toggleFolder(ft.closest('.fgrp').dataset.folder);return}
   const xc=e.target.closest('[data-expconv]');if(xc){e.stopPropagation();openExport(xc.dataset.expconv);return}
