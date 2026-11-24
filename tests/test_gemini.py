@@ -58,8 +58,11 @@ def main():
         st, text, lines = chat(base, {'messages': [{'role': 'user', 'content': 'Hello with tools'}], 'model': 'gemini-3.8-flash', 'tools': True})
         last = [json.loads(l) for l in open(glog) if l.strip()][-1]
         decl = {f['name']: f['parameters'] for t in last.get('tools', []) for f in t.get('functionDeclarations', [])}
-        check(st == 200 and 'gemini reply' in text and decl.get('search', {}).get('required') == ['query'] and decl.get('read_pages', {}).get('required') == ['from'],
+        check(st == 200 and 'gemini reply' in text and decl.get('search', {}).get('required') == ['queries'] and decl.get('read_pages', {}).get('required') == ['from'],
               'the document tools go with schemas Google accepts (required stays a list)', [st, text[:80], decl.get('search')])
+        q = decl.get('search', {}).get('properties', {}).get('queries', {})
+        check(q.get('type') == 'array' and q.get('items') == {'type': 'string'} and q.get('minItems') == 1 and q.get('maxItems') == 6 and 'additionalProperties' not in json.dumps(decl),
+              '…an array parameter keeps its items, minItems and maxItems, and no schema has additionalProperties', q)
         st, text, lines = chat(base, {'messages': [{'role': 'user', 'content': 'Hello with tools and web'}], 'model': 'gemini-3.8-flash', 'web': True, 'tools': True})
         last = [json.loads(l) for l in open(glog) if l.strip()][-1]
         check(st == 200 and 'gemini reply' in text and any('googleSearch' in t for t in last.get('tools', [])) and last.get('toolConfig', {}).get('includeServerSideToolInvocations') is True,

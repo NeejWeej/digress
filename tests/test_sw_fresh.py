@@ -20,6 +20,12 @@ class PagesLike(http.server.SimpleHTTPRequestHandler):
         self.send_header('cache-control', 'max-age=600')   # what GitHub Pages sends
         super().end_headers()
     def log_message(self, *a): pass
+    def do_GET(self):
+        if self.path.split('?')[0] in ('/digress/', '/digress/index.html'): PAGE_GETS.append(self.headers.get('if-modified-since'))
+        super().do_GET()
+
+
+PAGE_GETS = []   # each time the server was asked for the page (and whether it was a conditional request)
 
 
 async def main():
@@ -44,8 +50,10 @@ async def main():
             os.utime(index, (os.path.getmtime(index) + 5,) * 2)   # a later Last-Modified, so the server can't answer 304
 
             await pg.goto(url)   # an ordinary visit, not a reload
-            got = await pg.evaluate("document.querySelector('meta[name=deployed]')?.content || null")
-            check('an ordinary visit after the deploy opens the new page', got == 'v2', f'(got {got!r})')
+            # wait for the state itself: on a slow machine the evaluate can otherwise run before the new document is in
+            fresh = await soon(pg, "document.querySelector('meta[name=deployed]')?.content === 'v2'", timeout=15000)
+            got = await pg.evaluate("[document.querySelector('meta[name=deployed]')?.content || null, document.readyState, !!navigator.serviceWorker.controller]")
+            check('an ordinary visit after the deploy opens the new page', fresh, f'(got {got}; server asked for the page {PAGE_GETS})')
             await b.close()
     finally:
         srv.shutdown()
