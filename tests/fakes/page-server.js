@@ -53,7 +53,7 @@
           const effort = body.effort && body.effort !== 'auto' ? body.effort : undefined;
           const r = await sample(msgs, { model, effort, web: !!body.web, signal, onText: ({ text }) => push(text), onSearch: (q) => line({ search: q }), tools: body.tools || [], callTool });
           push(r.text);
-          line({ done: true, model: r.modelApplied || model || 'claude-opus-5-5', truncated: !!r.truncated });
+          line({ done: true, model: r.modelApplied || model || 'claude-opus-5-5', truncated: !!r.truncated, ...(r.usage ? { usage: r.usage } : {}) });
         } catch (e) {
           if (!(signal && signal.aborted)) line({ error: (e && e.message) || 'fake model error' });
         }

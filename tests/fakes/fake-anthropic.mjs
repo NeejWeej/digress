@@ -19,7 +19,8 @@ http.createServer((req, res) => {
     if (j.output_config && j.model.includes('noeffort')) { res.writeHead(400, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: { message: 'output_config.effort: not supported for this model' } })); }
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const ev = (o) => res.write(`event: ${o.type}\ndata: ${JSON.stringify(o)}\n\n`);
-    ev({ type: 'message_start', message: { model: j.model, usage: { input_tokens: 5, cache_creation_input_tokens: 0, cache_read_input_tokens: Math.ceil(JSON.stringify([j.system, j.messages]).length / 4), output_tokens: 1 } } });
+    const cache1h = JSON.stringify(j.messages).includes('CACHE1H');
+    ev({ type: 'message_start', message: { model: j.model, usage: { input_tokens: 5, cache_creation_input_tokens: cache1h ? 100 : 0, cache_read_input_tokens: Math.ceil(JSON.stringify([j.system, j.messages]).length / 4), ...(cache1h ? { cache_creation: { ephemeral_1h_input_tokens: 100 } } : {}), output_tokens: 1 } } });
     const web = (j.tools || []).find((t) => t.name === 'web_search');
     const isResults = (m) => m.role === 'user' && Array.isArray(m.content) && m.content.length && m.content.every((b) => b.type === 'tool_result');
     const asked = [...j.messages].reverse().find((m) => m.role === 'user' && !isResults(m));

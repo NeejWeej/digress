@@ -410,19 +410,28 @@ function sourcesLine(list) {
 // usage.ctx is the last request's whole input (new + written to cache + read from cache): how full the context
 // was when the reply ended. With document tools or a paused search a reply is several requests, each resending
 // everything, so adding them up would overstate it. out is everything written across them; rounds, how many.
+// cacheTtl (seconds) and cacheAt (UTC epoch ms) record Anthropic's ephemeral prompt-cache window when tokens
+// were read from or written to cache (5m default, or 1h when cache_creation reports ephemeral_1h_input_tokens).
 function useRound(st, u, first) {
   if (!u) return;
   const ctx = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
   const g = st.usage || (st.usage = { ctx: 0, cached: 0, out: 0, rounds: 0 });
   if (first) { g.rounds++; g.lastOut = 0; }
-  if (ctx) { g.ctx = ctx; g.cached = u.cache_read_input_tokens || 0; }
+  if (ctx) {
+    g.ctx = ctx; g.cached = u.cache_read_input_tokens || 0;
+    const cc = u.cache_creation;
+    const ttl = cc && cc.ephemeral_1h_input_tokens > 0 ? 3600
+      : cc && cc.ephemeral_5m_input_tokens > 0 ? 300
+      : (u.cache_read_input_tokens || 0) > 0 || (u.cache_creation_input_tokens || 0) > 0 ? 300 : 0;
+    if (ttl) { g.cacheTtl = ttl === 3600 || !g.cacheTtl ? ttl : g.cacheTtl; g.cacheAt = Date.now(); }
+  }
   if (typeof u.output_tokens === 'number') { g.out += u.output_tokens - (g.lastOut || 0); g.lastOut = u.output_tokens; }   // a request's output count only grows
 }
 // the {usage} on a reply's done line, with the model's context window when the provider says it
 function usageLine(st, window) {
   if (!st.usage || !st.usage.ctx) return {};
-  const { ctx, cached, out, rounds } = st.usage;
-  return { usage: { ctx, cached, out, rounds, ...(window ? { window } : {}) } };
+  const { ctx, cached, out, rounds, cacheTtl, cacheAt } = st.usage;
+  return { usage: { ctx, cached, out, rounds, ...(window ? { window } : {}), ...(cacheTtl ? { cacheTtl, cacheAt } : {}) } };
 }
 function relayEvent(ev, out, st) {
   if (ev.type === 'message_start') { st.model = ev.message && ev.message.model; st.blocks = []; useRound(st, ev.message && ev.message.usage, true); }
