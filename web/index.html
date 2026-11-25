@@ -190,10 +190,10 @@ window.applyTheme=function(id){
   --line:#234238;--line2:#325e50;--user-bg:#1b352d;--code-bg:#10211c;--accent:#e9b44c;--danger:#e06c5a;
   --hk:#e9b44c;--hs:#38b28b;--hn:#e89a6b;--ht:#7cc4e0;--hy:#c9d86b;--hm:#d99bc4;
 }
-:root[data-theme=columbia],.thsw[data-theme=columbia]{   /* Columbia: a gilded world's fair, cerulean and brass on paper */
-  --bg:#f2ece1;--panel:#faf6ee;--panel-2:#f4eee3;--ink:#1a2639;--muted:#475569;--faint:#7a8699;
-  --line:#e2d9c8;--line2:#c7b99e;--user-bg:#efe7d8;--code-bg:#f3ede2;--accent:#2b6cb0;--danger:#b83a3a;
-  --hk:#2b6cb0;--hs:#8a6a12;--hn:#a23b72;--ht:#1f6f6b;--hy:#9c7414;--hm:#7a5c2e;
+:root[data-theme=columbia],.thsw[data-theme=columbia]{   /* Columbia: the World's Fair "White City": ivory marble panes in a cerulean sky, navy ink, brass */
+  --bg:#c6daf1;--panel:#fffdf7;--panel-2:#e2edf9;--ink:#10213f;--muted:#3d4f6e;--faint:#6f7f99;
+  --line:#d0dded;--line2:#a3bcdb;--user-bg:#d3e3f6;--code-bg:#f2f6fb;--accent:#1d5fc4;--danger:#b8322e;
+  --hk:#1d5fc4;--hs:#a87312;--hn:#b0306a;--ht:#0f7b74;--hy:#9a6a00;--hm:#6a4fb0;
 }
 :root[data-theme=solarpunk-light],.thsw[data-theme=solarpunk-light]{   /* Solarpunk Light: sunlit parchment and forest */
   --bg:#ede9dc;--panel:#f7f4eb;--panel-2:#fffdf7;--ink:#162b22;--muted:#3e594e;--faint:#6e857b;
@@ -298,7 +298,7 @@ window.applyTheme=function(id){
 /* Fonts (Appearance → Font): FONTS in the <head> script; data-font on the root. Each sets the UI's (--sans)
    and the replies' (--serif) font; code keeps --mono. */
 /* A font sets the conversation's type only (replies, your messages, documents, quotes: --serif and --you; and
-   thread titles on panes and canvas cards, --you), never the app's buttons, sidebar and headings (--sans, --uiserif). */
+   the titles in the sidebar: conversations, folders, branches, --you), never the app's buttons, sidebar and headings (--sans, --uiserif). */
 :root[data-font=sans]{--serif:'Inter Variable',system-ui,sans-serif;--you:'Inter Variable',system-ui,sans-serif}
 :root[data-font=serif]{--serif:'Source Serif 4 Variable',Georgia,serif;--you:'Source Serif 4 Variable',Georgia,serif}
 :root[data-font=system]{--serif:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--you:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
@@ -564,7 +564,7 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .citem{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;cursor:pointer;color:var(--muted)}
 .citem:hover{background:var(--user-bg);color:var(--ink)}
 .citem.cur{background:var(--user-bg);color:var(--ink);font-weight:500}
-.citem .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.citem .t{font-family:var(--you);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .citem .cbadge{flex:none;display:inline-flex;align-items:center;gap:2px;font-size:11px;color:var(--faint)}
 .citem .cbadge .i{width:12px;height:12px}
 .citem .cbadge.due{color:var(--accent);font-weight:600}
@@ -584,7 +584,7 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .mnode:hover{background:var(--user-bg)}
 .mnode .dot{width:9px;height:9px;border-radius:50%;border:2px solid var(--c);margin-top:4px;flex:none}
 .mnode.open .dot{background:var(--c)}
-.mnode .mt{line-height:1.35}
+.mnode .mt{line-height:1.35;font-family:var(--you)}
 .mnode .ma{font-size:11.5px;color:var(--faint);font-family:var(--serif);font-style:italic;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
 .mnode .mc{margin-left:auto;font-size:11px;color:var(--faint);padding-top:1px}
 /* everything above Branches spans every conversation; Branches is only the open one's, so a line sets it apart */
@@ -658,7 +658,7 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .ph .dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
 .pane.main .ph .dot{background:none;border:2px solid var(--faint)}
 .ph-main{flex:1;min-width:0}
-.ph-title{font-family:var(--you);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;outline:none;border-radius:4px}
+.ph-title{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;outline:none;border-radius:4px}
 .ph-title:focus{background:var(--user-bg)}
 .ph-origin{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
 /* ⌄ at the end of the origin line, only when it's cut off (or opened): the line wraps to show all of it.
@@ -1083,7 +1083,7 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 #cvHereTag{position:absolute;font:500 11px var(--sans);opacity:.85;white-space:nowrap;pointer-events:none;transform:translateY(-100%);padding-bottom:6px}
 .cnode .ch{display:flex;align-items:center;gap:6px;padding:7px 6px 6px 12px;font-weight:500;cursor:grab;user-select:none}
 .cnode .ch:active{cursor:grabbing}
-.cnode .ch .ct{font-family:var(--you);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cnode .ch .ct{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cnode .ch .ib{width:24px;height:24px;opacity:.55}
 .cnode .ch .ib svg.i{width:14px;height:14px}
 .cnode:hover .ch .ib{opacity:1}
