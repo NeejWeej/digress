@@ -55,7 +55,7 @@ async def main():
           return Object.fromEntries(Object.entries(out).filter(([,v])=>v.length)) }""")
         check('every theme sets every color variable', missing == {}, missing)
         ids = await pg.evaluate("THEMES.map(t=>t[0])")
-        check('the newer themes are in the menu', all(x in ids for x in ['kanagawa', 'everforest', 'everforest-light', 'moon', 'latte', 'mocha', 'solarized-light']))
+        check('the newer themes are in the menu', all(x in ids for x in ['kanagawa', 'everforest', 'everforest-light', 'latte', 'mocha', 'solarized-light']))
 
         await pg.locator('#newDoc').click(); await pg.set_input_files('#docFile', FIX + '/paper.pdf')
         await pg.locator('#docGo').click(); await pg.wait_for_function(PDF_DRAWN_JS)

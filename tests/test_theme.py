@@ -1,6 +1,6 @@
 """Themes and the prompts file.
 
-The palette button lists the themes; hovering one previews it, clicking keeps it (also after a reload),
+The palette button lists the themes; hovering one previews it, clicking keeps it (also after a reload; a theme that was taken out opens as the closest kept one),
 Escape closes the menu. The system prompt the model gets comes from web/prompts.js, including the line
 asking it to link the pages it found with web search. Asserts and exits non-zero.
 """
@@ -63,6 +63,13 @@ async def main():
         check('Escape closes the menu', await pg.locator('.thmenu.open').count() == 0 and await theme() == 'purple')
         await pg.reload(); await booted(pg)
         check('the theme stays after a reload', await theme() == 'purple' and await var('--panel') == '#2d2b55')
+        # a theme that was taken out: a saved choice of it opens the closest kept one, and is saved as that
+        await pg.evaluate("const s=JSON.parse(localStorage.getItem('sq:settings')||'{}');s.theme='frappe';localStorage.setItem('sq:settings',JSON.stringify(s))")
+        await pg.reload(); await booted(pg)
+        check('a retired theme (Frappé) opens as the closest kept one (Mocha), and is saved as that', await theme() == 'mocha'
+              and await pg.evaluate("JSON.parse(localStorage.getItem('sq:settings')).theme") == 'mocha', await theme())
+        await pg.evaluate("const s=JSON.parse(localStorage.getItem('sq:settings'));s.theme='purple';localStorage.setItem('sq:settings',JSON.stringify(s))")
+        await pg.reload(); await booted(pg)
         await pg.locator('#themeB').click(); await frames(pg)
         check('opened again, the Dark section (holding Shades of Purple) is the open one', await pg.evaluate("[...document.querySelectorAll('.thmenu.open .thgrp[aria-expanded=true]')].map(h=>h.dataset.g)") == ['dark'])
         await pg.keyboard.press('Escape')

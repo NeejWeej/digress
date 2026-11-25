@@ -11,7 +11,7 @@
 <script>
 /* Themes: [id, name, mode]. The colors are in the CSS (:root[data-theme=…]); 'system' follows the device's
    light or dark setting. Set here, before anything paints, so there's no flash of the wrong one. */
-window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['columbia','Columbia','light'],['solarpunk-light','Solarpunk Light','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['kanagawa-lotus','Kanagawa Lotus','light'],['eink','E-ink','light'],['tokyo-day','Tokyo Night Day','light'],['github-light','GitHub Light','light'],['ayu-light','Ayu Light','light'],['nord-light','Nord Light','light'],['alabaster','Alabaster','light'],['dark','Dark','dark'],['atompunk','Atompunk','dark'],['solarpunk-dark','Solarpunk Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['moon','Rosé Pine Moon','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark'],['black','Pure black','dark'],['tokyo-night','Tokyo Night','dark'],['github-dark','GitHub Dark','dark'],['kanagawa-dragon','Kanagawa Dragon','dark'],['rose-pine','Rosé Pine','dark'],['frappe','Catppuccin Frappé','dark'],['macchiato','Catppuccin Macchiato','dark'],['ayu-mirage','Ayu Mirage','dark'],['gruvbox-material','Gruvbox Material','dark'],['zenburn','Zenburn','dark']];
+window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['columbia','Columbia','light'],['solarpunk-light','Solarpunk Light','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['kanagawa-lotus','Kanagawa Lotus','light'],['eink','E-ink','light'],['tokyo-day','Tokyo Night Day','light'],['github-light','GitHub Light','light'],['ayu-light','Ayu Light','light'],['nord-light','Nord Light','light'],['alabaster','Alabaster','light'],['dark','Dark','dark'],['atompunk','Atompunk','dark'],['solarpunk-dark','Solarpunk Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark'],['black','Pure black','dark'],['tokyo-night','Tokyo Night','dark'],['github-dark','GitHub Dark','dark'],['rose-pine','Rosé Pine','dark'],['ayu-mirage','Ayu Mirage','dark']];
 /* How PDF pages look (pdf.js draws them as images, in the PDF's own colors): [id, name]. 'match' is dark pages with
    a dark theme. Only the page images are filtered (CSS), never what the model gets. */
 window.PDF_LOOKS=[['original','Original'],['match','Match the theme'],['dark','Dark'],['dim','Dim'],['sepia','Sepia']];
@@ -83,7 +83,10 @@ window.applyFont=function(id){
   f[2].forEach(fontCss);
   return f[0];
 };
+// themes that were taken out, and the one each picks instead
+window.RETIRED_THEMES={frappe:'mocha',macchiato:'mocha',moon:'rose-pine','kanagawa-dragon':'kanagawa','gruvbox-material':'gruvbox',zenburn:'gruvbox'};
 window.applyTheme=function(id){
+  id=RETIRED_THEMES[id]||id;
   var t=THEMES.find(function(x){return x[0]===id})||THEMES[0],dark=t[2]==='auto'?matchMedia('(prefers-color-scheme: dark)').matches:t[2]==='dark';
   var name=t[0]==='system'?(dark?'dark':'light'):t[0],r=document.documentElement;
   r.dataset.theme=name;r.dataset.mode=dark?'dark':'light';
@@ -205,11 +208,6 @@ window.applyTheme=function(id){
   --line:#3d484d;--line2:#475258;--user-bg:#343f44;--code-bg:#293136;--accent:#a7c080;--danger:#e67e80;
   --hk:#e67e80;--hs:#a7c080;--hn:#d699b6;--ht:#7fbbb3;--hy:#dbbc7f;--hm:#e69875;
 }
-:root[data-theme=moon],.thsw[data-theme=moon]{   /* Rosé Pine Moon */
-  --bg:#232136;--panel:#2a273f;--panel-2:#2f2c47;--ink:#e0def4;--muted:#908caa;--faint:#6e6a86;
-  --line:#393552;--line2:#44415a;--user-bg:#393552;--code-bg:#26233a;--accent:#ea9a97;--danger:#eb6f92;
-  --hk:#9ccfd8;--hs:#f6c177;--hn:#eb6f92;--ht:#ea9a97;--hy:#3e8fb0;--hm:#c4a7e7;
-}
 :root[data-theme=mocha],.thsw[data-theme=mocha]{   /* Catppuccin Mocha */
   --bg:#181825;--panel:#1e1e2e;--panel-2:#232334;--ink:#cdd6f4;--muted:#a6adc8;--faint:#7f849c;
   --line:#313244;--line2:#45475a;--user-bg:#313244;--code-bg:#1b1b29;--accent:#cba6f7;--danger:#f38ba8;
@@ -260,40 +258,15 @@ window.applyTheme=function(id){
   --line:#e2e2e2;--line2:#d0d0d0;--user-bg:#ebebeb;--code-bg:#f0f0f0;--accent:#325cc0;--danger:#aa3731;
   --hk:#000000;--hs:#448c27;--hn:#7a3e9d;--ht:#325cc0;--hy:#000000;--hm:#aa3731;
 }
-:root[data-theme=kanagawa-dragon],.thsw[data-theme=kanagawa-dragon]{   /* Kanagawa Dragon */
-  --bg:#0d0c0c;--panel:#181616;--panel-2:#1d1c19;--ink:#c5c9c5;--muted:#a6a69c;--faint:#737c73;
-  --line:#282727;--line2:#393836;--user-bg:#282727;--code-bg:#12120f;--accent:#8ba4b0;--danger:#c4746e;
-  --hk:#8992a7;--hs:#8a9a7b;--hn:#a292a3;--ht:#8ba4b0;--hy:#8ea4a2;--hm:#b6927b;
-}
 :root[data-theme=rose-pine],.thsw[data-theme=rose-pine]{   /* Rosé Pine */
   --bg:#12101c;--panel:#191724;--panel-2:#1f1d2e;--ink:#e0def4;--muted:#908caa;--faint:#6e6a86;
   --line:#26233a;--line2:#403d52;--user-bg:#26233a;--code-bg:#1f1d2e;--accent:#ebbcba;--danger:#eb6f92;
   --hk:#31748f;--hs:#f6c177;--hn:#eb6f92;--ht:#ebbcba;--hy:#9ccfd8;--hm:#c4a7e7;
 }
-:root[data-theme=frappe],.thsw[data-theme=frappe]{   /* Catppuccin Frappé */
-  --bg:#292c3c;--panel:#303446;--panel-2:#353a4d;--ink:#c6d0f5;--muted:#a5adce;--faint:#838ba7;
-  --line:#414559;--line2:#51576d;--user-bg:#414559;--code-bg:#2b2f40;--accent:#ca9ee6;--danger:#e78284;
-  --hk:#ca9ee6;--hs:#a6d189;--hn:#ef9f76;--ht:#8caaee;--hy:#e5c890;--hm:#81c8be;
-}
-:root[data-theme=macchiato],.thsw[data-theme=macchiato]{   /* Catppuccin Macchiato */
-  --bg:#1e2030;--panel:#24273a;--panel-2:#292c40;--ink:#cad3f5;--muted:#a5adcb;--faint:#8087a2;
-  --line:#363a4f;--line2:#494d64;--user-bg:#363a4f;--code-bg:#202335;--accent:#c6a0f6;--danger:#ed8796;
-  --hk:#c6a0f6;--hs:#a6da95;--hn:#f5a97f;--ht:#8aadf4;--hy:#eed49f;--hm:#8bd5ca;
-}
 :root[data-theme=ayu-mirage],.thsw[data-theme=ayu-mirage]{   /* Ayu Mirage */
   --bg:#1f2430;--panel:#242936;--panel-2:#282e3b;--ink:#cccac2;--muted:#9ba0a8;--faint:#707a8c;
   --line:#2d3340;--line2:#3a4150;--user-bg:#2d3340;--code-bg:#1f2430;--accent:#ffcc66;--danger:#ff6666;
   --hk:#ffad66;--hs:#d5ff80;--hn:#dfbfff;--ht:#ffd173;--hy:#73d0ff;--hm:#5ccfe6;
-}
-:root[data-theme=gruvbox-material],.thsw[data-theme=gruvbox-material]{   /* Gruvbox Material */
-  --bg:#1d1d1d;--panel:#282828;--panel-2:#2d2c2b;--ink:#d4be98;--muted:#a89984;--faint:#7c6f64;
-  --line:#32302f;--line2:#45403d;--user-bg:#32302f;--code-bg:#222222;--accent:#e78a4e;--danger:#ea6962;
-  --hk:#ea6962;--hs:#a9b665;--hn:#d3869b;--ht:#7daea3;--hy:#d8a657;--hm:#e78a4e;
-}
-:root[data-theme=zenburn],.thsw[data-theme=zenburn]{   /* Zenburn */
-  --bg:#333333;--panel:#3f3f3f;--panel-2:#444444;--ink:#dcdccc;--muted:#acac9c;--faint:#808070;
-  --line:#4f4f4f;--line2:#5f5f5f;--user-bg:#494949;--code-bg:#383838;--accent:#8cd0d3;--danger:#dc8c8c;
-  --hk:#f0dfaf;--hs:#cc9393;--hn:#8cd0d3;--ht:#efef8f;--hy:#7cb8bb;--hm:#dfaf8f;
 }
 /* Fonts (Appearance → Font): FONTS in the <head> script; data-font on the root. Each sets the UI's (--sans)
    and the replies' (--serif) font; code keeps --mono. */
@@ -8102,7 +8075,7 @@ setPdfLook(settings.pdf||'original',true);
 function setFont(id,keep){applyFont(id);if(keep){settings.font=document.documentElement.dataset.font;saveSettings();themeMenu.querySelectorAll('button[data-font]').forEach(b=>b.setAttribute('aria-checked',b.dataset.font===settings.font?'true':'false'));themeHeads()}}
 setFont(settings.font||'default',true);
 function setTheme(id,keep){
-  const was=document.documentElement.dataset.theme;applyTheme(id);
+  const was=document.documentElement.dataset.theme;id=applyTheme(id);
   if(keep){settings.theme=id;saveSettings();themeMenu.querySelectorAll('button[data-theme]').forEach(b=>b.setAttribute('aria-checked',b.dataset.theme===settings.theme?'true':'false'));themeHeads()}
   if(document.documentElement.dataset.theme!==was&&mermaidOk){mermaidTheme();document.querySelectorAll('.mermaid-box[data-done]').forEach(b=>b.removeAttribute('data-done'));renderMermaid(document)}
 }
