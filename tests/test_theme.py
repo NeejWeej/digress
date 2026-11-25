@@ -63,6 +63,12 @@ async def main():
         check('Escape closes the menu', await pg.locator('.thmenu.open').count() == 0 and await theme() == 'purple')
         await pg.reload(); await booted(pg)
         check('the theme stays after a reload', await theme() == 'purple' and await var('--panel') == '#2d2b55')
+        # a theme's optional dressing (backdrop, edges, pane header): only where the theme sets it
+        dress = "(t)=>{applyTheme(t);const q=(x,p)=>getComputedStyle(document.querySelector(x))[p];return [q('.top','borderBottomWidth'),q('.stage','backgroundImage')!=='none',q('.pane>.ph','backgroundColor')]}"
+        plain, fancy = await pg.evaluate(dress, 'light'), await pg.evaluate(dress, 'columbia')
+        check('a plain theme keeps the plain edges, no backdrop', plain[0] == '1px' and not plain[1] and plain[2] == 'rgba(0, 0, 0, 0)', plain)
+        check('a dressed theme (Columbia) gets its brass edge, sky and tinted pane headers', fancy[0] == '3px' and fancy[1] and fancy[2] != 'rgba(0, 0, 0, 0)', fancy)
+        await pg.evaluate("applyTheme('purple')")
         # a theme that was taken out: a saved choice of it opens the closest kept one, and is saved as that
         await pg.evaluate("const s=JSON.parse(localStorage.getItem('sq:settings')||'{}');s.theme='frappe';localStorage.setItem('sq:settings',JSON.stringify(s))")
         await pg.reload(); await booted(pg)

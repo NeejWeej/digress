@@ -193,50 +193,74 @@ window.applyTheme=function(id){
   --line:#234238;--line2:#325e50;--user-bg:#1b352d;--code-bg:#10211c;--accent:#e9b44c;--danger:#e06c5a;
   --hk:#e9b44c;--hs:#38b28b;--hn:#e89a6b;--ht:#7cc4e0;--hy:#c9d86b;--hm:#d99bc4;
 }
-:root[data-theme=columbia],.thsw[data-theme=columbia]{   /* Columbia: the World's Fair "White City": ivory marble panes in a cerulean sky, navy ink, brass */
-  --bg:#c6daf1;--panel:#fffdf7;--panel-2:#e2edf9;--ink:#10213f;--muted:#3d4f6e;--faint:#6f7f99;
-  --line:#d0dded;--line2:#a3bcdb;--user-bg:#d3e3f6;--code-bg:#f2f6fb;--accent:#1d5fc4;--danger:#b8322e;
-  --hk:#1d5fc4;--hs:#a87312;--hn:#b0306a;--ht:#0f7b74;--hy:#9a6a00;--hm:#6a4fb0;
+:root[data-theme=columbia],.thsw[data-theme=columbia]{   /* Columbia: the World's Fair city in the clouds: a cerulean sky with drifting clouds, ivory marble panes edged in brass, navy ink */
+  --bg:#8fb6e4;--panel:#fffdf7;--panel-2:#cfe0f5;--ink:#0f1f3d;--muted:#33476b;--faint:#66789a;
+  --line:#dfe6ef;--line2:#c9a24a;--user-bg:#f3e7c4;--code-bg:#f4f7fb;--accent:#1a56b8;--danger:#b8322e;
+  --hk:#1a56b8;--hs:#9a6a0c;--hn:#b0306a;--ht:#0f7b74;--hy:#8a5a00;--hm:#6a4fb0;
+  --top-edge:3px solid #c9a24a;--side-edge:2px solid #c9a24a;--pane-edge:#d9bf78;--pane-glow:0 6px 24px rgba(20,60,130,.18);
+  --pane-head:#f4ead0;
+  --wash:radial-gradient(ellipse 34% 14% at 22% 18%,rgba(255,255,255,.75),transparent 70%),radial-gradient(ellipse 26% 10% at 30% 24%,rgba(255,255,255,.55),transparent 70%),radial-gradient(ellipse 30% 12% at 78% 40%,rgba(255,255,255,.6),transparent 70%),radial-gradient(ellipse 40% 14% at 60% 88%,rgba(255,255,255,.5),transparent 70%),linear-gradient(180deg,#5d97de 0%,#9cc2ec 55%,#e9dcc0 100%);
 }
 :root[data-theme=solarpunk-light],.thsw[data-theme=solarpunk-light]{   /* Solarpunk Light: sunlit parchment and forest */
   --bg:#ede9dc;--panel:#f7f4eb;--panel-2:#fffdf7;--ink:#162b22;--muted:#3e594e;--faint:#6e857b;
   --line:#ddd7c5;--line2:#bfb7a0;--user-bg:#e9e4d4;--code-bg:#f0ecdf;--accent:#1f7a5c;--danger:#b3412e;
   --hk:#1f7a5c;--hs:#a8650f;--hn:#8e4fa0;--ht:#2c6e99;--hy:#8a7a12;--hm:#b3412e;
 }
-:root[data-theme=map-room],.thsw[data-theme=map-room]{   /* Map Room: an expedition's aged, tea-stained map, sepia ink, faded red route lines, compass gold */
-  --bg:#d6c6a2;--panel:#e6d9bb;--panel-2:#ddcca8;--ink:#3a2a18;--muted:#5e4a30;--faint:#8a7656;
-  --line:#cdbb95;--line2:#b39f75;--user-bg:#dccba5;--code-bg:#ddd0b0;--accent:#a33a26;--danger:#8e1f2f;
-  --hk:#a33a26;--hs:#2f6b4a;--hn:#8a5a0e;--ht:#6b4423;--hy:#4f6b2a;--hm:#8a3f5a;
+:root[data-theme=map-room],.thsw[data-theme=map-room]{   /* Map Room: an expedition's map table: a grid of tea-stained map paper, a dashed red route along the top, sepia ink, compass gold */
+  --bg:#c9b386;--panel:#eadbbb;--panel-2:#d8c497;--ink:#35240f;--muted:#5a4428;--faint:#86704e;
+  --line:#d3c096;--line2:#a68a58;--user-bg:#e6cfa0;--code-bg:#e0d2ae;--accent:#a32e1c;--danger:#8e1f2f;
+  --hk:#a32e1c;--hs:#2f6b4a;--hn:#8a5a0e;--ht:#6b4423;--hy:#4f6b2a;--hm:#8a3f5a;
+  --top-edge:3px dashed #a32e1c;--side-edge:2px solid #a68a58;--pane-edge:#a68a58;--pane-glow:0 4px 18px rgba(80,50,15,.22);
+  --pane-head:#dfc99c;--pane-wash:repeating-linear-gradient(0deg,rgba(110,70,30,.06) 0 1px,transparent 1px 28px),repeating-linear-gradient(90deg,rgba(110,70,30,.06) 0 1px,transparent 1px 28px);
+  --wash:radial-gradient(ellipse at 50% 45%,transparent 45%,rgba(90,55,20,.32)),repeating-linear-gradient(0deg,rgba(110,70,30,.14) 0 1px,transparent 1px 56px),repeating-linear-gradient(90deg,rgba(110,70,30,.14) 0 1px,transparent 1px 56px),radial-gradient(circle at 80% 75%,rgba(163,46,28,.10) 0 90px,transparent 91px);
 }
-:root[data-theme=greenhouse],.thsw[data-theme=greenhouse]{   /* Greenhouse: Solarpunk's soft side, muted sage glass, dark moss ink, amber */
-  --bg:#c9d3bf;--panel:#dbe3d1;--panel-2:#d1dbc6;--ink:#1f3324;--muted:#435a47;--faint:#6f8471;
-  --line:#c4cfb8;--line2:#a7b59a;--user-bg:#cfdac3;--code-bg:#d3dcc8;--accent:#8a5a0c;--danger:#a8402b;
+:root[data-theme=greenhouse],.thsw[data-theme=greenhouse]{   /* Greenhouse: a glasshouse in the afternoon: sage glass in white mullions, slanting sun, dark moss ink, amber */
+  --bg:#a9bf9b;--panel:#dfe8d6;--panel-2:#c3d4b4;--ink:#1a3020;--muted:#3d5742;--faint:#66806b;
+  --line:#c9d6bd;--line2:#8fa883;--user-bg:#ebe5c3;--code-bg:#d4dfca;--accent:#8a560a;--danger:#a8402b;
   --hk:#2f6b45;--hs:#8a5a0e;--hn:#8a3f6a;--ht:#3f6b2a;--hy:#6b6a12;--hm:#a8402b;
+  --top-edge:3px solid #8a560a;--side-edge:3px solid #f4f7ee;--pane-edge:#f4f7ee;--pane-glow:0 4px 20px rgba(30,60,30,.18);
+  --pane-head:#d0ddc3;
+  --wash:linear-gradient(155deg,rgba(255,236,170,.55) 0%,rgba(255,236,170,0) 45%),repeating-linear-gradient(90deg,rgba(248,252,242,.6) 0 3px,transparent 3px 140px),repeating-linear-gradient(0deg,rgba(248,252,242,.6) 0 3px,transparent 3px 110px),linear-gradient(180deg,#b9cfa8,#97b088);
 }
-:root[data-theme=reading-room],.thsw[data-theme=reading-room]{   /* Reading Room: an old library by lamplight, candlelit tan pages, walnut ink, oxblood and brass */
-  --bg:#cfbf9f;--panel:#e2d6bd;--panel-2:#d8c9aa;--ink:#33241a;--muted:#5c4532;--faint:#86705a;
-  --line:#d2c3a4;--line2:#b5a07e;--user-bg:#d9cbae;--code-bg:#dacdb2;--accent:#7e2a22;--danger:#a3321e;
-  --hk:#7e2a22;--hs:#7a5a12;--hn:#8a3a52;--ht:#4a5a2a;--hy:#6b4423;--hm:#a3501e;
+:root[data-theme=reading-room],.thsw[data-theme=reading-room]{   /* Reading Room: an old library by lamplight: shelves of book spines behind candlelit pages, walnut ink, oxblood and brass */
+  --bg:#8a6a4a;--panel:#e8dcc2;--panel-2:#d6c39f;--ink:#2e1f15;--muted:#573f2c;--faint:#806850;
+  --line:#d8c8a6;--line2:#a88a5c;--user-bg:#efdcc0;--code-bg:#dccfb2;--accent:#7a2018;--danger:#a3321e;
+  --hk:#7a2018;--hs:#6e5010;--hn:#8a3a52;--ht:#4a5a2a;--hy:#6b4423;--hm:#a3501e;
+  --top-edge:3px double #a88a5c;--side-edge:3px solid #5a2a1e;--pane-edge:#b89a62;--pane-glow:0 8px 30px rgba(40,15,5,.40);
+  --pane-head:#dcc7a0;
+  --wash:radial-gradient(ellipse 60% 55% at 50% 35%,rgba(255,205,130,.40),transparent 72%),radial-gradient(ellipse at 50% 50%,transparent 40%,rgba(30,12,4,.45)),repeating-linear-gradient(90deg,#6e2a20 0 26px,#5a3a22 26px 29px,#2f4a3a 29px 50px,#5a3a22 50px 53px,#8a6a2e 53px 70px,#5a3a22 70px 73px,#3a2a4a 73px 92px,#5a3a22 92px 95px,#7a4a2a 95px 118px,#5a3a22 118px 121px);
 }
-:root[data-theme=canopy],.thsw[data-theme=canopy]{   /* Canopy: rainforest at night, near-black green, fern and moss, firefly yellow */
-  --bg:#070d08;--panel:#0c140d;--panel-2:#111c12;--ink:#cfe0bf;--muted:#9fb88e;--faint:#6a8060;
-  --line:#172418;--line2:#26392a;--user-bg:#142116;--code-bg:#0a110b;--accent:#e8d65a;--danger:#e0745a;
-  --hk:#e8d65a;--hs:#8fc46a;--hn:#d9a05a;--ht:#6fc4a0;--hy:#c4d88a;--hm:#c98fb0;
+:root[data-theme=canopy],.thsw[data-theme=canopy]{   /* Canopy: rainforest at night: deep green under the leaves, fireflies, fern and moss, firefly yellow */
+  --bg:#06100a;--panel:#0b170e;--panel-2:#0f2615;--ink:#d4e8c2;--muted:#a3c290;--faint:#6d8c62;
+  --line:#173020;--line2:#2c5434;--user-bg:#16341d;--code-bg:#08130b;--accent:#f0dc5a;--danger:#e0745a;
+  --hk:#f0dc5a;--hs:#8fd06a;--hn:#e0a85a;--ht:#6fd0a6;--hy:#c8e08a;--hm:#d08fb4;
+  --top-edge:2px solid #2c5434;--side-edge:2px solid #2c5434;--pane-edge:#2c5434;--pane-glow:0 0 0 1px rgba(240,220,90,.06),0 10px 40px rgba(0,0,0,.6);
+  --pane-head:#11281a;
+  --wash:radial-gradient(circle at 8% 20%,#fff6a0 0 1.5px,rgba(240,220,90,.35) 2.5px,transparent 9px),radial-gradient(circle at 23% 72%,#fff6a0 0 1.5px,rgba(240,220,90,.3) 2.5px,transparent 8px),radial-gradient(circle at 41% 12%,#fff6a0 0 1px,rgba(240,220,90,.3) 2px,transparent 7px),radial-gradient(circle at 57% 86%,#fff6a0 0 1.5px,rgba(240,220,90,.35) 2.5px,transparent 9px),radial-gradient(circle at 71% 33%,#fff6a0 0 1px,rgba(240,220,90,.3) 2px,transparent 7px),radial-gradient(circle at 88% 64%,#fff6a0 0 1.5px,rgba(240,220,90,.35) 2.5px,transparent 9px),radial-gradient(circle at 95% 10%,#fff6a0 0 1px,rgba(240,220,90,.3) 2px,transparent 7px),radial-gradient(circle at 34% 45%,#fff6a0 0 1px,rgba(240,220,90,.25) 2px,transparent 6px),radial-gradient(ellipse 80% 50% at 50% 0%,rgba(40,90,50,.45),transparent 70%),radial-gradient(ellipse 60% 40% at 15% 100%,rgba(30,80,40,.5),transparent 70%),linear-gradient(180deg,#0a1a0e,#030805);
 }
-:root[data-theme=lost-city],.thsw[data-theme=lost-city]{   /* Lost City: a jungle temple by torchlight, mossy stone, leather, parchment, torch amber, jade and gold leaf */
-  --bg:#14140e;--panel:#1c1b13;--panel-2:#2a2116;--ink:#eadfc4;--muted:#c2b393;--faint:#8a7d62;
-  --line:#2c2a1e;--line2:#6b5a2e;--user-bg:#2a2418;--code-bg:#171610;--accent:#e8963a;--danger:#d9583f;
-  --hk:#e8963a;--hs:#6fbf8e;--hn:#d07a4f;--ht:#d9b45a;--hy:#9fb86a;--hm:#c98a6a;
+:root[data-theme=lost-city],.thsw[data-theme=lost-city]{   /* Lost City: a jungle temple by torchlight: torchlight on carved stone, moss creeping in, parchment, torch amber, jade and gold leaf */
+  --bg:#0e110a;--panel:#1a1810;--panel-2:#2e2215;--ink:#f0e3c2;--muted:#c9b68f;--faint:#8f7f5e;
+  --line:#2e2a1c;--line2:#8a6f2e;--user-bg:#1d2e22;--code-bg:#14130c;--accent:#f2a03c;--danger:#e05a3f;
+  --hk:#f2a03c;--hs:#6fcf98;--hn:#e0805a;--ht:#e6c060;--hy:#a8c870;--hm:#d0906a;
+  --top-edge:2px solid #b8912f;--side-edge:2px solid #8a6f2e;--pane-edge:#6e5a26;--pane-glow:0 0 30px rgba(242,160,60,.08),0 10px 30px rgba(0,0,0,.55);
+  --pane-head:#2c2115;
+  --wash:radial-gradient(ellipse 45% 55% at 0% 0%,rgba(242,140,40,.35),transparent 70%),radial-gradient(ellipse 35% 45% at 100% 0%,rgba(242,140,40,.22),transparent 70%),radial-gradient(ellipse 70% 40% at 50% 100%,rgba(60,130,70,.40),transparent 70%),repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 2px,transparent 2px 64px),repeating-linear-gradient(90deg,rgba(0,0,0,.18) 0 2px,transparent 2px 128px),linear-gradient(180deg,#2a2618,#14150d);
 }
-:root[data-theme=speakeasy],.thsw[data-theme=speakeasy]{   /* Speakeasy: Art Deco after hours, oxblood leather, whiskey, brass, cream */
-  --bg:#140c0b;--panel:#1d1210;--panel-2:#2a1714;--ink:#f1e4cc;--muted:#cbb390;--faint:#8f7a60;
-  --line:#2e1d19;--line2:#5a4426;--user-bg:#2c1a15;--code-bg:#170e0c;--accent:#d4a84f;--danger:#e0604f;
-  --hk:#d4a84f;--hs:#c98a52;--hn:#d9776a;--ht:#e6c88a;--hy:#a8b07a;--hm:#c78aa0;
+:root[data-theme=speakeasy],.thsw[data-theme=speakeasy]{   /* Speakeasy: Art Deco after hours: a brass sunburst over oxblood, whiskey, cream */
+  --bg:#140808;--panel:#1c0f0e;--panel-2:#3b1216;--ink:#f4e6cc;--muted:#d8bf98;--faint:#9a8262;
+  --line:#3a2018;--line2:#7a5c2a;--user-bg:#43181b;--code-bg:#170b0a;--accent:#e8b958;--danger:#f0705a;
+  --hk:#e8b958;--hs:#d49458;--hn:#e88270;--ht:#f0d08e;--hy:#b4bc80;--hm:#d48eaa;
+  --top-edge:3px double #e8b958;--side-edge:3px double #e8b958;--pane-edge:#8a6a2e;--pane-glow:0 10px 36px rgba(0,0,0,.6);
+  --pane-head:#36121a;
+  --wash:radial-gradient(ellipse 70% 60% at 50% 105%,rgba(232,185,88,.22),transparent 70%),repeating-conic-gradient(from -90deg at 50% 108%,rgba(232,185,88,.13) 0deg 3deg,transparent 3deg 9deg),linear-gradient(180deg,#1a0909,#3a1014);
 }
-:root[data-theme=phosphor],.thsw[data-theme=phosphor]{   /* Phosphor: an amber terminal, one glowing amber at a few brightnesses, no blue at all */
-  --bg:#0a0702;--panel:#110c04;--panel-2:#161005;--ink:#ffb646;--muted:#d9952f;--faint:#9a6a22;
-  --line:#2a1c08;--line2:#4a320e;--user-bg:#1f1607;--code-bg:#0d0903;--accent:#ffd27a;--danger:#ff6a3d;
+:root[data-theme=phosphor],.thsw[data-theme=phosphor]{   /* Phosphor: an amber terminal: scanlines and a phosphor glow, one amber at a few brightnesses, no blue at all */
+  --bg:#080501;--panel:#0f0a03;--panel-2:#140d03;--ink:#ffb646;--muted:#e09a30;--faint:#a06c20;
+  --line:#3a2608;--line2:#6b4610;--user-bg:#241703;--code-bg:#0b0702;--accent:#ffd27a;--danger:#ff6a3d;
   --hk:#ffd27a;--hs:#e0a040;--hn:#ffe0a8;--ht:#ffbf55;--hy:#c88a30;--hm:#f0b060;
+  --top-edge:1px solid #ffb646;--side-edge:1px solid #6b4610;--pane-edge:#8a5a14;--pane-glow:0 0 0 1px rgba(255,182,70,.12),0 0 28px rgba(255,160,40,.18);
+  --pane-head:#1c1204;--pane-wash:repeating-linear-gradient(0deg,rgba(255,182,70,.035) 0 1px,transparent 1px 3px);
+  --wash:repeating-linear-gradient(0deg,rgba(255,182,70,.07) 0 1px,transparent 1px 3px),radial-gradient(ellipse 70% 60% at 50% 45%,rgba(255,150,30,.16),transparent 75%),radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(0,0,0,.6));
 }
 :root[data-theme=everforest],.thsw[data-theme=everforest]{   /* Everforest Dark */
   --bg:#232a2e;--panel:#2d353b;--panel-2:#343f44;--ink:#d3c6aa;--muted:#9da9a0;--faint:#7a8478;
@@ -361,7 +385,7 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .app.zen.zenside .side{display:block !important;position:fixed;top:0;bottom:0;left:0;width:min(var(--sidew,272px),86vw);z-index:46;box-shadow:var(--shadow)}
 .side{grid-column:1;grid-row:2}
 .stage{grid-column:2;grid-row:2}
-.top{grid-column:1/3;display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:1px solid var(--line);background:var(--panel);min-width:0;overflow:hidden}
+.top{grid-column:1/3;display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:var(--top-edge,1px solid var(--line));background:var(--panel);min-width:0;overflow:hidden}
 /* what doesn't fit in the top bar goes in the "more" menu (fitTop) */
 .tmore{position:fixed;z-index:60;display:none;flex-direction:column;align-items:stretch;gap:8px;padding:10px;border:1px solid var(--line2);border-radius:12px;background:var(--panel);box-shadow:var(--shadow);min-width:230px;max-width:calc(100vw - 16px)}
 .tmore.open{display:flex}
@@ -497,7 +521,7 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .mdef .i{width:14px;height:14px}
 .mdef:hover{color:var(--accent);background:var(--panel)}
 
-.side{overflow:auto;border-right:1px solid var(--line);background:var(--panel-2);padding:12px 10px}
+.side{overflow:auto;border-right:var(--side-edge,1px solid var(--line));background:var(--panel-2);padding:12px 10px}
 .app.noside .side{display:none}
 .sh{display:flex;align-items:center;justify-content:space-between;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin:6px 6px 6px}
 .newbtn{display:flex;align-items:center;gap:6px;width:100%;padding:8px 10px;border-radius:9px;border:1px dashed var(--line2);color:var(--muted);margin-bottom:6px}
@@ -650,19 +674,19 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .help .keys .ksec+dd{display:none}
 .help li{margin:0 0 6px}
 
-.stage{position:relative;min-width:0;min-height:0}
+.stage{position:relative;min-width:0;min-height:0;background:var(--wash,none)}   /* a theme's backdrop behind the panes (optional) */
 .panes{position:absolute;inset:0;display:flex;padding:12px;overflow:auto}
 .panes.rows{flex-direction:column;padding-left:22px}
 #wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;overflow:visible}
 .stage.canvas .panes,.stage.canvas #wires{display:none}
 
-.pane{--c:var(--faint);display:flex;flex-direction:column;flex:1 1 0;min-width:360px;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;position:relative;transition:box-shadow .2s,border-color .2s}
+.pane{--c:var(--faint);display:flex;flex-direction:column;flex:1 1 0;min-width:360px;min-height:0;background:var(--panel);background-image:var(--pane-wash,none);border:1px solid var(--pane-edge,var(--line));border-radius:14px;overflow:hidden;position:relative;box-shadow:var(--pane-glow,none);transition:box-shadow .2s,border-color .2s}
 .panes.rows .pane{min-width:0;min-height:340px}
 .pane::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--c);opacity:.9}
 .pane.main::before{opacity:0}
 .pane.cur{border-color:color-mix(in srgb,var(--c) 45%,var(--line2))}   /* the pane ⌘\ and ⌘⇧\ act on (only with 2+ panes) */
 .pane.hl{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,transparent)}
-.ph{display:flex;align-items:center;gap:8px;padding:12px 8px 10px 14px;border-bottom:1px solid var(--line);min-height:52px}
+.ph{display:flex;align-items:center;gap:8px;padding:12px 8px 10px 14px;border-bottom:1px solid var(--line);min-height:52px;background:var(--pane-head,transparent)}   /* --pane-head, --pane-wash: a theme's optional header tint and texture */
 .ph .dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
 .pane.main .ph .dot{background:none;border:2px solid var(--faint)}
 .ph-main{flex:1;min-width:0}
