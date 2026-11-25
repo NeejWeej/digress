@@ -42,6 +42,7 @@ async def main():
             ctx = await b.new_context(viewport={'width': 1200, 'height': 800}, service_workers='allow')
             pg = await ctx.new_page()
             await pg.goto(url)
+            await pg.wait_for_load_state('networkidle')   # the first visit has finished with the network before the site changes
             check('the service worker controls the page', await soon(pg, '() => !!navigator.serviceWorker.controller', timeout=15000))
 
             # a deploy: the page changes on the server

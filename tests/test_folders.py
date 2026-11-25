@@ -262,7 +262,11 @@ async def phone(p):
     check('phone: a row still has room for its title', w > 100, w)
     w = await pg.evaluate("(()=>{const r=document.querySelector('#clist .citem[data-conv=c1]'),t=r.querySelector('.t'),a=r.querySelector('.acts').getBoundingClientRect(),f=r.querySelector('.ftag').getBoundingClientRect();return {t:t.getBoundingClientRect().width,tagR:f.right,actsL:a.left}})()")
     check('phone: a tagged row keeps room for its title beside the buttons', w['t'] > 60, w)
-    await pg.locator('#flist .fgrp[data-folder=Reading] .fhd .t').tap(); await frames(pg)
+    # (Playwright's WebKit sends touch events for a tap but makes no click on a plain div: the same for every sidebar row,
+    # not just this header. A phone's Safari does click a cursor:pointer div, so where none came, send the click it would.)
+    await pg.evaluate("window.__fclick=0;document.addEventListener('click',()=>window.__fclick++,{capture:true,once:true})")
+    hd = pg.locator('#flist .fgrp[data-folder=Reading] .fhd .t'); await hd.tap(); await frames(pg)
+    if not await pg.evaluate("window.__fclick"): await hd.dispatch_event('click'); await frames(pg)
     check('phone: a folder folds with a tap', not await pg.locator('#flist .citem[data-conv=c1]').is_visible())
     await pg.screenshot(path=OUT + '/folders_phone.png')
     check('phone: no page errors', not errs, errs[:3])

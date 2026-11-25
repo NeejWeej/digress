@@ -86,6 +86,8 @@ async def main():
         at_end = "e=>[Math.round(e.scrollTop), e.scrollHeight-e.clientHeight-e.scrollTop<4]"
         y0 = await pb.evaluate(at_end)
         await pg.locator(f'.pane[data-tid="{b1}"] [data-act=close]').click(); await calm(pg)
+        # (the parent reflows after the close and WebKit, with no scroll anchoring, puts the view back a moment later: wait for the end, then read)
+        await soon(pg, "()=>{const e=document.querySelector('.pane[data-tid=\"main\"] .pb');return e.scrollHeight-e.clientHeight-e.scrollTop<4}")
         y1 = await pb.evaluate(at_end)
         check('✕ leaves the parent showing what it showed (its end), not where the branch came from', y0[0] > 300 and y0[1] and y1[1], [y0, y1])
 
