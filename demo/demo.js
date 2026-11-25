@@ -1,6 +1,6 @@
 // The demo site's stand-in for server/server.mjs. demo/build.mjs puts this (and replies.js) in front of the real
 // web/index.html, so the page that runs is the real one, unchanged: it calls /api/* as always, and this answers
-// in the browser, with the same paths and shapes (AGENTS.md has the contract).
+// in the browser, with the same paths and shapes (agents/server.md has the contract).
 //  - Everything is kept in this browser (IndexedDB): conversations, cards, layouts, files. Nothing is sent anywhere.
 //  - The first visit loads the sample conversation from demo/seed.json (made by demo/make_sample.py).
 //  - Replies come from demo/replies.js: written in advance for the sample, otherwise quotes from the document.

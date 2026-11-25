@@ -43,6 +43,11 @@ window.fakeLLM = { use: async (n) => {
 }};
 """
 
+async def archive_via_menu(pg, row):
+    await row.locator('[data-folderconv]').click()
+    await pg.locator('#folderMenu.open [data-fm=arch]').click()
+
+
 async def main():
     async with async_playwright() as p:
         b = await p.chromium.launch(**launch_args())
@@ -81,7 +86,7 @@ async def main():
         print('conversations:', await pg.evaluate("[...document.querySelectorAll('#clist .citem .t')].map(c=>c.textContent)"))
         first = pg.locator('#clist .citem', has_text='Explain self-attention'); await first.hover(); await changed(pg, "[...document.querySelectorAll('#plist .citem')].map(c=>c.textContent)", first.locator('[data-pinconv]').click())
         print('after conv pin, pinned:', await pg.evaluate("[...document.querySelectorAll('#plist .citem')].map(c=>c.textContent.trim().slice(0,40))"))
-        cur = pg.locator('#clist .citem.cur'); await cur.hover(); await changed(pg, "[document.querySelector('#archLbl').textContent, ...[...document.querySelectorAll('#clist .citem .t')].map(c=>c.textContent)]", cur.locator('[data-archconv]').click())
+        cur = pg.locator('#clist .citem.cur'); await cur.hover(); await changed(pg, "[document.querySelector('#archLbl').textContent, ...[...document.querySelectorAll('#clist .citem .t')].map(c=>c.textContent)]", archive_via_menu(pg, cur))
         print('archive label:', await pg.locator('#archLbl').text_content(), '| list:', await pg.evaluate("[...document.querySelectorAll('#clist .citem .t')].map(c=>c.textContent)"))
         await pg.locator('#archToggle').click(); await frames(pg)
         print('archive items:', await pg.evaluate("[...document.querySelectorAll('#alist .citem .t')].map(c=>c.textContent)"))

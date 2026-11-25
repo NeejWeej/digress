@@ -6,7 +6,10 @@ service worker (demo/sw.js) checks every request with the server. Here a real HT
 changed on disk and opened again by an ordinary navigation (not a reload). Asserts and exits non-zero."""
 import asyncio, functools, http.server, os, sys, tempfile, threading
 from playwright.async_api import async_playwright
-from common import launch_args, build_site, soon
+from common import launch_args, build_site, soon, chromium_only
+chromium_only('Playwright’s WebKit never asks the service worker for a navigation it has a fresh cached copy of: the '
+              'request a service worker makes for the page never reaches the server (checked by tagging it), so this '
+              'only measured the browser’s cache there, and passed or failed by luck')
 from test_server import free_port
 
 fails = []
@@ -42,6 +45,7 @@ async def main():
             ctx = await b.new_context(viewport={'width': 1200, 'height': 800}, service_workers='allow')
             pg = await ctx.new_page()
             await pg.goto(url)
+            await pg.wait_for_load_state('networkidle')   # the first visit has finished with the network before the site changes
             check('the service worker controls the page', await soon(pg, '() => !!navigator.serviceWorker.controller', timeout=15000))
 
             # a deploy: the page changes on the server

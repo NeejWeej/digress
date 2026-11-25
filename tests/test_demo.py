@@ -85,6 +85,9 @@ async def main():
             check('search works', await pg.locator('#palRes .pr').count() >= 1)
             await pg.keyboard.press('Escape'); await frames(pg)
 
+            nb = await pg.locator('#demoNote').bounding_box()   # like a reader: drag the corner note out of the way of the ? beside How it works
+            await pg.mouse.move(nb['x'] + 40, nb['y'] + 8); await pg.mouse.down()
+            await pg.mouse.move(nb['x'] + 700, nb['y'] - 300, steps=8); await pg.mouse.up(); await frames(pg)
             await pg.locator('#guideB').click(); g = pg.locator('#guide.open')
             await g.locator('.gchips .chip').first.click()
             await soon(pg, "()=>{const a=[...document.querySelectorAll('#guide .gm.a')].at(-1);return a&&!a.classList.contains('wait')&&a.textContent.length>80}", timeout=15000)

@@ -12,7 +12,7 @@ Digress's server has **no login**: it's meant to listen only on your own machine
 
 - **The host and origin check** (`requestAllowed` in `server/server.mjs`): refusing requests from other sites and DNS-rebinding tricks.
 - **Fetching documents from links** (`server/fetchdoc.mjs`): public addresses only, no credentials, only the file types it expects.
-- **What the model can do**: web search only, when you turn it on; never shell, file or fetch tools ([AGENTS.md](AGENTS.md), "Web access is search only").
+- **What the model can do**: web search only, when you turn it on; never shell, file or fetch tools ([agents/server.md](agents/server.md), "Web access is search only").
 - **The page**: replies and documents are rendered through DOMPurify, and articles are parsed without running anything on them.
 
 Anything that gets around one of these is worth reporting. So is a way for a web page, a document or a model's reply to reach your conversations or your machine.
