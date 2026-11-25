@@ -1649,7 +1649,7 @@ const msgCache=new Map(),paneEls=new Map(),gutEls=new Map(),streaming=new Map();
 // threads whose reply finished while you couldn't see them: per window, in memory only (a reload forgets them)
 const unread=new Set();
 window.__digressBusy=()=>streaming.size>0; // read by the server's dev live-reload, so it never reloads mid-reply
-window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList},get keys(){return KEYS},get custom(){return CUSTOM},skillLink:(u)=>skillLink(u),putSkill:(t,o)=>putSkill(t,o),get cards(){return CARDS},runDocTool:(n,i,t)=>runDocTool(n,i,t),set docState(v){docState=v}};   // for tests and the console
+window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList},get keys(){return KEYS},get custom(){return CUSTOM},skillLink:(u)=>skillLink(u),putSkill:(t,o)=>putSkill(t,o),get cards(){return CARDS},runDocTool:(n,i,t)=>runDocTool(n,i,t),set docState(v){docState=v},linkPages:(r)=>linkPages(r)};   // for tests and the console
 let mathReady=false,mermaidReady=null,mermaidOk=false;
 let popState=null;
 
@@ -5825,12 +5825,25 @@ async function revealDocAnchor(t,quiet){
   });
 }
 function linkPages(root){
-  const test=/\[(?:pp?\.|pages?)\s*\d+/i,re=/\[(?:pp?\.|pages?)\s*(\d+)(?:\s*[–-]\s*\d+)?\]/gi;
+  // [p. 4], [p. 20–22], and lists: [p. 2, 7], [pp. 5, 13–15], [p. 4; p. 26–27]: each page or range is its own link
+  const ITEM=String.raw`(?:pp?\.\s*)?\d+(?:\s*[–-]\s*\d+)?`;
+  const test=/\[(?:pp?\.|pages?)\s*\d+/i,re=new RegExp(String.raw`\[(?:pp?\.|pages?)\s*`+ITEM+String.raw`(?:\s*[,;]\s*`+ITEM+String.raw`)*\]`,'gi'),item=new RegExp(ITEM,'g');
   const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement&&n.parentElement.closest('pre,code,.math,svg,a,mjx-container')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
   const hits=[];let n;while((n=w.nextNode()))if(test.test(n.nodeValue))hits.push(n);
   for(const node of hits){
     const s=node.nodeValue,frag=document.createDocumentFragment();let last=0,m;re.lastIndex=0;
-    while((m=re.exec(s))){frag.append(s.slice(last,m.index));const a=document.createElement('a');a.className='pref';a.dataset.page=m[1];a.textContent=m[0];a.title=`Show page ${m[1]} in the document`;frag.append(a);last=m.index+m[0].length}
+    const link=(text,page)=>{const a=document.createElement('a');a.className='pref';a.dataset.page=page;a.textContent=text;a.title=`Show page ${page} in the document`;return a};
+    while((m=re.exec(s))){
+      frag.append(s.slice(last,m.index));
+      // the citation's items, past its opening "[p. ": the first link takes the "[p. " and the last the "]", so one item reads as before
+      const c=m[0],open=c.match(/^\[(?:pp?\.|pages?)\s*/i)[0],items=[];let it;item.lastIndex=open.length;
+      while((it=item.exec(c)))items.push({at:it.index,end:it.index+it[0].length,page:it[0].match(/\d+/)[0]});
+      items.forEach((x,i)=>{
+        if(i)frag.append(c.slice(items[i-1].end,x.at));
+        frag.append(link((i===0?c.slice(0,x.at):'')+c.slice(x.at,x.end)+(i===items.length-1?c.slice(x.end):''),x.page));
+      });
+      last=m.index+c.length;
+    }
     frag.append(s.slice(last));node.replaceWith(frag);
   }
 }
