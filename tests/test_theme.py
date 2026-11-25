@@ -40,7 +40,7 @@ async def main():
         await pg.locator('#themeB').click(); await frames(pg)
         names = await pg.locator('.thmenu button[data-theme]').all_text_contents()   # (the PDF pages looks follow: test_pdf_look.py)
         check('the menu lists every theme', len(names) == await pg.evaluate('THEMES.length') and any('Shades of Purple' in n for n in names) and any('Sand' in n for n in names), names)
-        check('…Flexoki among them, light and dark', any('Flexoki Light' in n for n in names) and any('Flexoki Dark' in n for n in names), names)
+        check('…Rainforest among them, day and night', any('Rainforest Day' in n for n in names) and any('Rainforest Night' in n for n in names), names)
         groups = await pg.evaluate("[...document.querySelectorAll('.thmenu.open .thgrp')].map(h=>[h.dataset.g,h.getAttribute('aria-expanded')])")
         check('in sections: Light, Dark, PDF pages, Font; only the one holding the current theme open', groups == [['light', 'true'], ['dark', 'false'], ['pdf', 'false'], ['font', 'false']], groups)
         check('…a folded one shows a dot per choice and its picked one', await pg.locator('.thgrp[data-g=dark] .thdot').count() == await pg.evaluate("THEMES.filter(t=>t[2]==='dark').length")

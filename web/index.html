@@ -11,7 +11,7 @@
 <script>
 /* Themes: [id, name, mode]. The colors are in the CSS (:root[data-theme=…]); 'system' follows the device's
    light or dark setting. Set here, before anything paints, so there's no flash of the wrong one. */
-window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['columbia','Columbia','light'],['solarpunk-light','Solarpunk Light','light'],['map-room','Map Room','light'],['greenhouse','Greenhouse','light'],['reading-room','Reading Room','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['kanagawa-lotus','Kanagawa Lotus','light'],['eink','E-ink','light'],['tokyo-day','Tokyo Night Day','light'],['github-light','GitHub Light','light'],['ayu-light','Ayu Light','light'],['nord-light','Nord Light','light'],['alabaster','Alabaster','light'],['dark','Dark','dark'],['atompunk','Atompunk','dark'],['solarpunk-dark','Solarpunk Dark','dark'],['canopy','Canopy','dark'],['lost-city','Lost City','dark'],['speakeasy','Speakeasy','dark'],['phosphor','Phosphor','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark'],['black','Pure black','dark'],['tokyo-night','Tokyo Night','dark'],['github-dark','GitHub Dark','dark'],['rose-pine','Rosé Pine','dark'],['ayu-mirage','Ayu Mirage','dark']];
+window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['columbia','Columbia','light'],['solarpunk-light','Solarpunk Light','light'],['map-room','Map Room','light'],['greenhouse','Greenhouse','light'],['rainforest-day','Rainforest Day','light'],['reading-room','Reading Room','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['latte','Catppuccin Latte','light'],['kanagawa-lotus','Kanagawa Lotus','light'],['eink','E-ink','light'],['github-light','GitHub Light','light'],['dark','Dark','dark'],['atompunk','Atompunk','dark'],['solarpunk-dark','Solarpunk Dark','dark'],['rainforest-night','Rainforest Night','dark'],['canopy','Canopy','dark'],['lost-city','Lost City','dark'],['speakeasy','Speakeasy','dark'],['phosphor','Phosphor','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['black','Pure black','dark'],['github-dark','GitHub Dark','dark'],['rose-pine','Rosé Pine','dark']];
 /* How PDF pages look (pdf.js draws them as images, in the PDF's own colors): [id, name]. 'match' is dark pages with
    a dark theme. Only the page images are filtered (CSS), never what the model gets. */
 window.PDF_LOOKS=[['original','Original'],['match','Match the theme'],['dark','Dark'],['dim','Dim'],['sepia','Sepia']];
@@ -84,7 +84,7 @@ window.applyFont=function(id){
   return f[0];
 };
 // themes that were taken out, and the one each picks instead
-window.RETIRED_THEMES={frappe:'mocha',macchiato:'mocha',moon:'rose-pine','kanagawa-dragon':'kanagawa','gruvbox-material':'gruvbox',zenburn:'gruvbox','everforest-light':'greenhouse'};
+window.RETIRED_THEMES={frappe:'mocha',macchiato:'mocha',moon:'rose-pine','kanagawa-dragon':'kanagawa','gruvbox-material':'gruvbox',zenburn:'gruvbox','everforest-light':'greenhouse','alabaster':'light','solarized-light':'sand','flexoki-light':'light','gruvbox-light':'sand','ayu-light':'github-light','tokyo-day':'github-light','nord-light':'github-light','ayu-mirage':'nord','flexoki':'dark','tokyo-night':'nord'};
 window.applyTheme=function(id){
   id=RETIRED_THEMES[id]||id;
   var t=THEMES.find(function(x){return x[0]===id})||THEMES[0],dark=t[2]==='auto'?matchMedia('(prefers-color-scheme: dark)').matches:t[2]==='dark';
@@ -128,11 +128,6 @@ window.applyTheme=function(id){
   --line:#e6dfda;--line2:#cecacd;--user-bg:#ede4dc;--code-bg:#f4ede8;--accent:#d7827e;--danger:#b4637a;
   --hk:#286983;--hs:#c0861f;--hn:#b4637a;--ht:#d7827e;--hy:#56949f;--hm:#907aa9;
 }
-:root[data-theme=gruvbox-light],.thsw[data-theme=gruvbox-light]{
-  --bg:#f2e5bc;--panel:#fbf1c7;--panel-2:#f7ecc3;--ink:#3c3836;--muted:#665c54;--faint:#928374;
-  --line:#e5d5ad;--line2:#d5c4a1;--user-bg:#ebdbb2;--code-bg:#f2e5bc;--accent:#af3a03;--danger:#9d0006;
-  --hk:#9d0006;--hs:#79740e;--hn:#8f3f71;--ht:#076678;--hy:#b57614;--hm:#af3a03;
-}
 :root[data-theme=gruvbox],.thsw[data-theme=gruvbox]{
   --bg:#1d2021;--panel:#282828;--panel-2:#2e2c2b;--ink:#ebdbb2;--muted:#bdae93;--faint:#928374;
   --line:#3c3836;--line2:#504945;--user-bg:#3c3836;--code-bg:#32302f;--accent:#fe8019;--danger:#fb4934;
@@ -148,30 +143,15 @@ window.applyTheme=function(id){
   --line:#3b4252;--line2:#4c566a;--user-bg:#3b4252;--code-bg:#323946;--accent:#88c0d0;--danger:#bf616a;
   --hk:#81a1c1;--hs:#a3be8c;--hn:#b48ead;--ht:#88c0d0;--hy:#8fbcbb;--hm:#d08770;
 }
-:root[data-theme=solarized-light],.thsw[data-theme=solarized-light]{   /* Solarized Light */
-  --bg:#eee8d5;--panel:#fdf6e3;--panel-2:#f7f0dc;--ink:#4a5d63;--muted:#657b83;--faint:#93a1a1;
-  --line:#e6dfca;--line2:#d6cfb8;--user-bg:#eee8d5;--code-bg:#f5eedb;--accent:#268bd2;--danger:#dc322f;
-  --hk:#859900;--hs:#2aa198;--hn:#d33682;--ht:#268bd2;--hy:#b58900;--hm:#cb4b16;
-}
 :root[data-theme=latte],.thsw[data-theme=latte]{   /* Catppuccin Latte */
   --bg:#e6e9ef;--panel:#eff1f5;--panel-2:#eaedf2;--ink:#4c4f69;--muted:#6c6f85;--faint:#8c8fa1;
   --line:#dce0e8;--line2:#ccd0da;--user-bg:#dce0e8;--code-bg:#e6e9ef;--accent:#8839ef;--danger:#d20f39;
   --hk:#8839ef;--hs:#40a02b;--hn:#fe640b;--ht:#1e66f5;--hy:#df8e1d;--hm:#179299;
 }
-:root[data-theme=flexoki-light],.thsw[data-theme=flexoki-light]{   /* Flexoki Light (stephango.com/flexoki) */
-  --bg:#f2f0e5;--panel:#fffcf0;--panel-2:#f7f5ea;--ink:#1c1b1a;--muted:#6f6e69;--faint:#878580;
-  --line:#e6e4d9;--line2:#dad8ce;--user-bg:#e6e4d9;--code-bg:#f2f0e5;--accent:#24837b;--danger:#af3029;
-  --hk:#66800b;--hs:#24837b;--hn:#5e409d;--ht:#bc5215;--hy:#ad8301;--hm:#a02f6f;
-}
 :root[data-theme=kanagawa-lotus],.thsw[data-theme=kanagawa-lotus]{   /* Kanagawa Lotus */
   --bg:#e7dba0;--panel:#f2ecbc;--panel-2:#ebe3b2;--ink:#545464;--muted:#716e61;--faint:#8a8980;
   --line:#e4d794;--line2:#d5cea3;--user-bg:#e5ddb0;--code-bg:#ebe3b2;--accent:#4d699b;--danger:#c84053;
   --hk:#624c83;--hs:#6f894e;--hn:#b35b79;--ht:#4d699b;--hy:#597b75;--hm:#cc6d00;
-}
-:root[data-theme=flexoki],.thsw[data-theme=flexoki]{   /* Flexoki Dark */
-  --bg:#100f0f;--panel:#1c1b1a;--panel-2:#232221;--ink:#cecdc3;--muted:#878580;--faint:#6f6e69;
-  --line:#282726;--line2:#343331;--user-bg:#282726;--code-bg:#171616;--accent:#3aa99f;--danger:#d14d41;
-  --hk:#879a39;--hs:#3aa99f;--hn:#8b7ec8;--ht:#da702c;--hy:#d0a215;--hm:#ce5d97;
 }
 :root[data-theme=kanagawa],.thsw[data-theme=kanagawa]{   /* Kanagawa (wave) */
   --bg:#16161d;--panel:#1f1f28;--panel-2:#24242f;--ink:#dcd7ba;--muted:#a9a58f;--faint:#727169;
@@ -225,6 +205,22 @@ window.applyTheme=function(id){
   --pane-head:#dcc7a0;
   --wash:radial-gradient(ellipse 60% 55% at 50% 35%,rgba(255,205,130,.40),transparent 72%),radial-gradient(ellipse at 50% 50%,transparent 40%,rgba(30,12,4,.45)),repeating-linear-gradient(90deg,#6e2a20 0 26px,#5a3a22 26px 29px,#2f4a3a 29px 50px,#5a3a22 50px 53px,#8a6a2e 53px 70px,#5a3a22 70px 73px,#3a2a4a 73px 92px,#5a3a22 92px 95px,#7a4a2a 95px 118px,#5a3a22 118px 121px);
 }
+:root[data-theme=rainforest-day],.thsw[data-theme=rainforest-day]{   /* Rainforest Day: under the leaves at noon: bright leaf green, dappled sunlight, pale-green pages, deep green ink */
+  --bg:#6fb85e;--panel:#eef8e2;--panel-2:#c4e8a8;--ink:#123619;--muted:#2c5532;--faint:#557f56;
+  --line:#cfe6bb;--line2:#7fb86a;--user-bg:#d4efb4;--code-bg:#e2f2d2;--accent:#1a7232;--danger:#b03c1d;
+  --hk:#1a7232;--hs:#8a500a;--hn:#a8335f;--ht:#0f6a63;--hy:#5f6c08;--hm:#b03c1d;
+  --top-edge:3px solid #1a7232;--side-edge:2px solid #5fa64e;--pane-edge:#8fc77a;--pane-glow:0 6px 24px rgba(20,70,20,.25);
+  --pane-head:#d8f0c0;
+  --wash:radial-gradient(ellipse 18% 14% at 20% 25%,rgba(255,250,170,.55),transparent 70%),radial-gradient(ellipse 14% 10% at 64% 18%,rgba(255,250,170,.45),transparent 70%),radial-gradient(ellipse 20% 15% at 82% 70%,rgba(255,250,170,.45),transparent 70%),radial-gradient(ellipse 30% 22% at 40% 80%,rgba(30,100,40,.35),transparent 70%),radial-gradient(ellipse 28% 20% at 92% 30%,rgba(30,100,40,.30),transparent 70%),radial-gradient(ellipse 25% 18% at 5% 60%,rgba(30,100,40,.30),transparent 70%),linear-gradient(170deg,#8fd078,#4f9e48);
+}
+:root[data-theme=rainforest-night],.thsw[data-theme=rainforest-night]{   /* Rainforest Night: a warm, lush green evening (not black): deep leaf green, lantern gold, cream ink */
+  --bg:#0f3a20;--panel:#18472b;--panel-2:#1f5634;--ink:#f3f8e6;--muted:#c4e3b4;--faint:#8fbc84;
+  --line:#25593a;--line2:#3f8152;--user-bg:#236238;--code-bg:#133f24;--accent:#ffc457;--danger:#ff8a6b;
+  --hk:#ffd36b;--hs:#b8f08a;--hn:#ffa07a;--ht:#7fe3c4;--hy:#e6f59a;--hm:#f5a3d0;
+  --top-edge:2px solid #6fbf6a;--side-edge:2px solid #3f8152;--pane-edge:#3f8152;--pane-glow:0 10px 32px rgba(0,25,8,.45);
+  --pane-head:#1e5534;
+  --wash:radial-gradient(ellipse 30% 22% at 18% 22%,rgba(255,214,110,.20),transparent 70%),radial-gradient(ellipse 22% 16% at 72% 64%,rgba(255,214,110,.16),transparent 70%),radial-gradient(ellipse 40% 30% at 85% 12%,rgba(120,200,110,.35),transparent 70%),radial-gradient(ellipse 45% 35% at 10% 85%,rgba(90,180,100,.35),transparent 70%),radial-gradient(ellipse 35% 25% at 50% 45%,rgba(60,140,80,.30),transparent 70%),linear-gradient(180deg,#1a5a30,#0d3a1e);
+}
 :root[data-theme=canopy],.thsw[data-theme=canopy]{   /* Canopy: rainforest at night: deep green under the leaves, fireflies, fern and moss, firefly yellow */
   --bg:#06100a;--panel:#0b170e;--panel-2:#0f2615;--ink:#d4e8c2;--muted:#a3c290;--faint:#6d8c62;
   --line:#173020;--line2:#2c5434;--user-bg:#16341d;--code-bg:#08130b;--accent:#f0dc5a;--danger:#e0745a;
@@ -272,11 +268,6 @@ window.applyTheme=function(id){
   --line:#dddddd;--line2:#bbbbbb;--user-bg:#eeeeee;--code-bg:#f5f5f5;--accent:#222222;--danger:#a3271c;
   --hk:#000000;--hs:#4d4d4d;--hn:#333333;--ht:#000000;--hy:#3d3d3d;--hm:#808080;
 }
-:root[data-theme=tokyo-day],.thsw[data-theme=tokyo-day]{   /* Tokyo Night Day */
-  --bg:#d0d5e3;--panel:#e1e2e7;--panel-2:#dadce5;--ink:#3760bf;--muted:#6172b0;--faint:#8990b3;
-  --line:#c8ccdc;--line2:#a8aecb;--user-bg:#d4d8e6;--code-bg:#d9dbe4;--accent:#2e7de9;--danger:#f52a65;
-  --hk:#9854f1;--hs:#587539;--hn:#b15c00;--ht:#2e7de9;--hy:#007197;--hm:#8c6c3e;
-}
 :root[data-theme=github-light],.thsw[data-theme=github-light]{   /* GitHub Light */
   --bg:#f6f8fa;--panel:#ffffff;--panel-2:#f6f8fa;--ink:#1f2328;--muted:#59636e;--faint:#818b98;
   --line:#d8dee4;--line2:#c3ccd6;--user-bg:#eef4fb;--code-bg:#f6f8fa;--accent:#0969da;--danger:#d1242f;
@@ -287,40 +278,15 @@ window.applyTheme=function(id){
   --line:#1e1e1e;--line2:#2e2e2e;--user-bg:#141414;--code-bg:#0e0e0e;--accent:#d9825b;--danger:#e5675a;
   --hk:#c79bf2;--hs:#93c48b;--hn:#e9a06f;--ht:#7cb2ef;--hy:#dcc070;--hm:#a89a85;
 }
-:root[data-theme=tokyo-night],.thsw[data-theme=tokyo-night]{   /* Tokyo Night */
-  --bg:#16161e;--panel:#1a1b26;--panel-2:#1f2335;--ink:#c0caf5;--muted:#9aa5ce;--faint:#565f89;
-  --line:#292e42;--line2:#3b4261;--user-bg:#24283b;--code-bg:#16161e;--accent:#7aa2f7;--danger:#f7768e;
-  --hk:#bb9af7;--hs:#9ece6a;--hn:#ff9e64;--ht:#7aa2f7;--hy:#2ac3de;--hm:#e0af68;
-}
 :root[data-theme=github-dark],.thsw[data-theme=github-dark]{   /* GitHub Dark */
   --bg:#010409;--panel:#0d1117;--panel-2:#151b23;--ink:#f0f6fc;--muted:#9198a1;--faint:#656c76;
   --line:#262c36;--line2:#3d444d;--user-bg:#18202b;--code-bg:#151b23;--accent:#4493f8;--danger:#f85149;
   --hk:#ff7b72;--hs:#a5d6ff;--hn:#79c0ff;--ht:#d2a8ff;--hy:#ffa657;--hm:#8b949e;
 }
-:root[data-theme=ayu-light],.thsw[data-theme=ayu-light]{   /* Ayu Light */
-  --bg:#f3f4f5;--panel:#fcfcfc;--panel-2:#f8f9fa;--ink:#5c6166;--muted:#8a9199;--faint:#adaeb1;
-  --line:#e7eaed;--line2:#d8dce0;--user-bg:#eef0f2;--code-bg:#f3f4f5;--accent:#fa8d3e;--danger:#e65050;
-  --hk:#fa8d3e;--hs:#86b300;--hn:#a37acc;--ht:#399ee6;--hy:#55b4d4;--hm:#ed9366;
-}
-:root[data-theme=nord-light],.thsw[data-theme=nord-light]{   /* Nord Light */
-  --bg:#e5e9f0;--panel:#eceff4;--panel-2:#e8ebf1;--ink:#2e3440;--muted:#4c566a;--faint:#7b88a1;
-  --line:#d8dee9;--line2:#c6cedb;--user-bg:#e1e6ee;--code-bg:#e5e9f0;--accent:#5e81ac;--danger:#bf616a;
-  --hk:#5e81ac;--hs:#5f8a45;--hn:#9a6b94;--ht:#3f7a9c;--hy:#3b8a8c;--hm:#c2703d;
-}
-:root[data-theme=alabaster],.thsw[data-theme=alabaster]{   /* Alabaster */
-  --bg:#ececec;--panel:#f7f7f7;--panel-2:#f2f2f2;--ink:#000000;--muted:#666666;--faint:#999999;
-  --line:#e2e2e2;--line2:#d0d0d0;--user-bg:#ebebeb;--code-bg:#f0f0f0;--accent:#325cc0;--danger:#aa3731;
-  --hk:#000000;--hs:#448c27;--hn:#7a3e9d;--ht:#325cc0;--hy:#000000;--hm:#aa3731;
-}
 :root[data-theme=rose-pine],.thsw[data-theme=rose-pine]{   /* Rosé Pine */
   --bg:#12101c;--panel:#191724;--panel-2:#1f1d2e;--ink:#e0def4;--muted:#908caa;--faint:#6e6a86;
   --line:#26233a;--line2:#403d52;--user-bg:#26233a;--code-bg:#1f1d2e;--accent:#ebbcba;--danger:#eb6f92;
   --hk:#31748f;--hs:#f6c177;--hn:#eb6f92;--ht:#ebbcba;--hy:#9ccfd8;--hm:#c4a7e7;
-}
-:root[data-theme=ayu-mirage],.thsw[data-theme=ayu-mirage]{   /* Ayu Mirage */
-  --bg:#1f2430;--panel:#242936;--panel-2:#282e3b;--ink:#cccac2;--muted:#9ba0a8;--faint:#707a8c;
-  --line:#2d3340;--line2:#3a4150;--user-bg:#2d3340;--code-bg:#1f2430;--accent:#ffcc66;--danger:#ff6666;
-  --hk:#ffad66;--hs:#d5ff80;--hn:#dfbfff;--ht:#ffd173;--hy:#73d0ff;--hm:#5ccfe6;
 }
 /* Fonts (Appearance → Font): FONTS in the <head> script; data-font on the root. Each sets the UI's (--sans)
    and the replies' (--serif) font; code keeps --mono. */
