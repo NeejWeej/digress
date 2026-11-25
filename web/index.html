@@ -4166,19 +4166,32 @@ function msgEl(m){
   }
   msgCache.set(m.id,{key,el});return el;
 }
-// Under a reply: how full the context was when it ended ("52k / 1M context"), from the provider's own count.
+// Under a reply: how full the context was when it ended ("52k / 1M context · 75% cached"), from the provider's own count.
 // The hover gives the exact numbers; the window is left out when the provider didn't say it.
 const ktok=(n)=>n<1000?String(n):n<1e6?(n<1e4?(Math.round(n/100)/10)+'k':Math.round(n/1000)+'k'):(Math.round(n/1e5)/10)+'M';
-function ctxLabel(u){
+const tokPc=(a,b)=>{const v=a/b*100;return (v>0&&v<1?v.toFixed(1):Math.round(v))+'%'};
+// Prompt cache window for providers with a known TTL (e.g. Anthropic's 5m or 1h ephemeral cache):
+// cacheAt is UTC epoch ms from the server (or m.ts); clock formats in the browser's local timezone.
+function cacheInfo(u,ts){
+  const ttl=u&&+u.cacheTtl>0?+u.cacheTtl:0,at=ttl?(+u.cacheAt||+ts||0):0;
+  if(!ttl||!at)return null;
+  const until=at+ttl*1000,left=until-Date.now();
+  const clock=new Date(until).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+  const win=ttl>=3600?Math.round(ttl/3600)+'h':Math.round(ttl/60)+'m';
+  return {ttl,until,left,warm:left>0,clock,win,leftText:left<60000?'<1m':Math.ceil(left/60000)+'m'};
+}
+function ctxLabel(u,ts){
   const ctx=u&&+u.ctx;if(!ctx||!isFinite(ctx))return '';
-  const w=+u.window>0?+u.window:0,cached=+u.cached||0,out=+u.out||0,rounds=+u.rounds||1,n=(x)=>Math.round(x).toLocaleString();
+  const w=+u.window>0?+u.window:0,cached=Math.min(+u.cached||0,ctx),out=+u.out||0,rounds=+u.rounds||1,n=(x)=>Math.round(x).toLocaleString();
+  const ci=cacheInfo(u,ts);
   const tip=`Context when this reply ended: ${n(ctx)} tokens`+(w?` of the model’s ${n(w)} (${Math.max(ctx/w*100,0.1).toFixed(ctx/w<0.1?1:0)}%)`:'')+'.'
-    +(cached?` ${n(cached)} of them came from the cache.`:'')+(out?` It wrote ${n(out)} tokens.`:'')
-    +(rounds>1?` That took ${rounds} requests (reading the document or searching), each sending the whole context again.`:'');
-  return `<button type="button" class="model ctxu" data-act="ctxinfo" aria-haspopup="dialog" title="${esc(tip+' Click for the breakdown.')}">${ktok(ctx)}${w?` / ${ktok(w)}`:''} context</button>`;
+    +(cached?` ${n(cached)} of them came from the cache (${tokPc(cached,ctx)}).`:'')+(out?` It wrote ${n(out)} tokens.`:'')
+    +(rounds>1?` That took ${rounds} requests (reading the document or searching), each sending the whole context again.`:'')
+    +(ci&&ci.warm?` Cache warm until ${ci.clock} (${ci.leftText} left).`:'');
+  return `<button type="button" class="model ctxu" data-act="ctxinfo" aria-haspopup="dialog" title="${esc(tip+' Click for the breakdown.')}">${ktok(ctx)}${w?` / ${ktok(w)}`:''} context${cached?` · ${tokPc(cached,ctx)} cached`:''}</button>`;
 }
 // The breakdown behind that label, on click (a tap on a tablet, which has no hover): input (cached and new),
-// output, how many requests, how full the window was. All from the saved usage; nothing is estimated.
+// output, how many requests, how full the window was, and prompt cache warmth when the provider has a known TTL.
 function openUsage(btn,mid){
   let el=$('#usagePop');
   if(!el){el=document.createElement('div');el.className='thmenu upop';el.id='usagePop';el.setAttribute('role','dialog');el.setAttribute('aria-label','Tokens for this reply');document.body.appendChild(el);
@@ -4187,22 +4200,24 @@ function openUsage(btn,mid){
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&el.classList.contains('open')){el.classList.remove('open');e.stopPropagation();e.preventDefault()}},true)}
   if(el.classList.contains('open')&&el.dataset.mid===mid){el.classList.remove('open');return}
   const m=conv.msgs[mid],u=m&&m.usage,ctx=u&&+u.ctx;if(!ctx)return;
-  const w=+u.window>0?+u.window:0,cached=Math.min(+u.cached||0,ctx),out=+u.out||0,rounds=+u.rounds||1,n=(x)=>Math.round(x).toLocaleString(),pc=(a,b)=>{const v=a/b*100;return (v>0&&v<1?v.toFixed(1):Math.round(v))+'%'};
+  const w=+u.window>0?+u.window:0,cached=Math.min(+u.cached||0,ctx),out=+u.out||0,rounds=+u.rounds||1,n=(x)=>Math.round(x).toLocaleString();
+  const ci=cacheInfo(u,m.ts);
   const row=(k,v,sub)=>`<div class="ur${sub?' usub':''}"><span>${k}</span><b>${v}</b></div>`;
   el.dataset.mid=mid;
   el.innerHTML=`<div class="thh">Tokens for this reply${m.model?' · '+esc(modelLabel(m.model)):''}</div>`
-    +row('Input',n(ctx))+row('from the cache',cached?`${n(cached)} (${pc(cached,ctx)})`:'none',1)+row('new',n(ctx-cached),1)
+    +row('Input',n(ctx))+row('from the cache',cached?`${n(cached)} (${tokPc(cached,ctx)})`:'none',1)+row('new',n(ctx-cached),1)
     +row('Output',out?n(out):'not reported')
     +(rounds>1?row('Requests',String(rounds)):'')
-    +(w?row('Context window',`${pc(ctx,w)} of ${ktok(w)}`):'')
-    +`<div class="unote">${rounds>1?`Input is the last of the ${rounds} requests (reading the document or searching each sent the whole context again); output counts all of them.`:'Input is everything the model was sent for this reply: the system prompt, the conversation so far and your question.'}${cached?'':' Nothing came from the cache: the provider caches a prefix only when it’s long enough and was sent recently.'}</div>`;
+    +(w?row('Context window',`${tokPc(ctx,w)} of ${ktok(w)}`):'')
+    +(ci?row('Prompt cache',ci.warm?`until ${ci.clock} (${ci.leftText})`:'expired'):'')
+    +`<div class="unote">${rounds>1?`Input is the last of the ${rounds} requests (reading the document or searching each sent the whole context again); output counts all of them.`:'Input is everything the model was sent for this reply: the system prompt, the conversation so far and your question.'}${cached?'':' Nothing came from the cache: the provider caches a prefix only when it’s long enough and was sent recently.'}${ci?(ci.warm?` The provider keeps this cached prefix for ${ci.win} from the last request (shown in your local time).`:` This reply’s ${ci.win} cache window has passed unless a later reply refreshed it.`):''}</div>`;
   el.classList.add('open');const r=btn.getBoundingClientRect();
   el.style.left=Math.max(8,Math.min(innerWidth-el.offsetWidth-8,r.left))+'px';
   el.style.top=(r.bottom+4+el.offsetHeight<=innerHeight-8?r.bottom+4:Math.max(8,r.top-4-el.offsetHeight))+'px';
 }
 const closeUsage=()=>{const m=$('#usagePop');if(m&&m.classList.contains('open')){m.classList.remove('open');return true}return false};
 function buildFoot(f,m){
-  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(replyMenuItems(m).length?`<button class="ib" data-act="rmore" title="More">${ic('dots')}</button>`:'')+(m.cut&&!retryBlock(m.id)?`<button class="tb" data-act="continue" title="Ask the model to carry on from where it stopped">${ic('send')}Continue</button>`:'')+(m.error?`<button class="ib" data-act="retry" title="${m.role==='assistant'&&retryBlock(m.id)?'Ask again as another version, next to this one ('+REDO_WHY[retryBlock(m.id)]+'). Nothing here changes.':m.cut?'Ask again from the start':'Retry'}">${ic('retry')}</button>`:m.role==='assistant'&&redoBlock(m.id)!=='busy'&&questionOf(m.id)?`<button class="ib" data-act="redo" title="${redoKeep(m.id)?'Redo in a new branch beside this one, with the model and effort selected now. This answer stays as it is.':'Redo: ask again with the model and effort selected now'}">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}${m.effort?` · ${esc(effortLabel(m.effort))}`:''}</span>`:'')+ctxLabel(m.usage);
+  f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(replyMenuItems(m).length?`<button class="ib" data-act="rmore" title="More">${ic('dots')}</button>`:'')+(m.cut&&!retryBlock(m.id)?`<button class="tb" data-act="continue" title="Ask the model to carry on from where it stopped">${ic('send')}Continue</button>`:'')+(m.error?`<button class="ib" data-act="retry" title="${m.role==='assistant'&&retryBlock(m.id)?'Ask again as another version, next to this one ('+REDO_WHY[retryBlock(m.id)]+'). Nothing here changes.':m.cut?'Ask again from the start':'Retry'}">${ic('retry')}</button>`:m.role==='assistant'&&redoBlock(m.id)!=='busy'&&questionOf(m.id)?`<button class="ib" data-act="redo" title="${redoKeep(m.id)?'Redo in a new branch beside this one, with the model and effort selected now. This answer stays as it is.':'Redo: ask again with the model and effort selected now'}">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}${m.effort?` · ${esc(effortLabel(m.effort))}`:''}</span>`:'')+ctxLabel(m.usage,m.ts);
   const w=branchChips(m.id);if(w)f.appendChild(w);
 }
 // a chip under a reply for each branch off it (the only way into a branch about the whole reply, which has no

@@ -119,7 +119,7 @@ async def browser_checks(base, data_dir):
         await settled(pg, 1)
         cu = pg.locator('.pane[data-tid="main"] .msg.assistant .ctxu').first
         cu_text, cu_tip = (await cu.text_content() or '') if await cu.count() else '', await cu.get_attribute('title') if await cu.count() else ''
-        check(cu_text.endswith(' / 1M context') and 'tokens of the model’s 1,000,000' in (cu_tip or ''), f'a reply says how full its context was, out of the model’s window: {cu_text!r} {cu_tip!r}')
+        check(' / 1M context' in cu_text and 'cached' in cu_text and 'tokens of the model’s 1,000,000' in (cu_tip or '') and 'Cache warm until' in (cu_tip or ''), f'a reply says how full its context was, cache hit, and cache warmth: {cu_text!r} {cu_tip!r}')
         title = await pg.locator('#cTitle').text_content()
         await pg.screenshot(path=OUT + '/server_chat.png')
 
@@ -450,8 +450,8 @@ def main():
 
         st, text, lines = chat(base, {'system': 'S' * 400, 'messages': [{'role': 'user', 'content': 'hello'}]})
         u = lines[-1].get('usage') or {}
-        check(u.get('ctx', 0) >= 100 and u.get('rounds') == 1 and u.get('out') == 7 and u.get('window') == 1000000,
-              f'Claude Code: the done line carries the token counts and the context window (from the result’s modelUsage) {u}')
+        check(u.get('ctx', 0) >= 100 and u.get('rounds') == 1 and u.get('out') == 7 and u.get('window') == 1000000 and u.get('cacheTtl') == 300 and isinstance(u.get('cacheAt'), int),
+              f'Claude Code: the done line carries the token counts, context window and cache TTL {u}')
         doc_link_checks(base, site)
         asyncio.run(browser_checks(base, data))
 
@@ -468,8 +468,11 @@ def main():
         st, text, lines = chat(base2, {'system': 'sys', 'model': 'claude-test-1', 'effort': 'high', 'messages': [{'role': 'user', 'content': 'x'}]})
         check('web=false effort=high cached=true n=1' in text, f'API: effort sent, system prompt cached, no tools: {text}')
         u = lines[-1].get('usage') or {}
-        check(u.get('ctx', 0) > 5 and u.get('rounds') == 1 and u.get('out') == 9 and u.get('window') == 200000,
-              f'API: the done line carries the token counts and the context window (max_input_tokens from the Models API) {u}')
+        check(u.get('ctx', 0) > 5 and u.get('rounds') == 1 and u.get('out') == 9 and u.get('window') == 200000 and u.get('cacheTtl') == 300 and isinstance(u.get('cacheAt'), int),
+              f'API: the done line carries the token counts, context window and 5m cache TTL {u}')
+        st, text, lines = chat(base2, {'system': 'sys', 'model': 'claude-test-1', 'messages': [{'role': 'user', 'content': 'CACHE1H'}]})
+        u = lines[-1].get('usage') or {}
+        check(u.get('cacheTtl') == 3600 and isinstance(u.get('cacheAt'), int), f'API: ephemeral_1h_input_tokens reports a 1h cache TTL {u}')
         st, text, lines = chat(base2, {'web': True, 'model': 'claude-test-1', 'messages': [{'role': 'user', 'content': 'SEARCHME'}]})
         check([l.get('search') for l in lines if 'search' in l] == ['api search'], f'API: web_search query relayed {lines}')
         check(any(l.get('sources') == [{'title': 'API source', 'url': 'https://example.org/b'}] for l in lines), 'API: search results relayed as sources')
