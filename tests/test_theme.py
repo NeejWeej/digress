@@ -1,6 +1,6 @@
 """Themes and the prompts file.
 
-The palette button lists the themes; hovering one previews it, clicking keeps it (also after a reload),
+The palette button lists the themes; hovering one previews it, clicking keeps it (also after a reload; a theme that was taken out opens as the closest kept one),
 Escape closes the menu. The system prompt the model gets comes from web/prompts.js, including the line
 asking it to link the pages it found with web search. Asserts and exits non-zero.
 """
@@ -40,7 +40,7 @@ async def main():
         await pg.locator('#themeB').click(); await frames(pg)
         names = await pg.locator('.thmenu button[data-theme]').all_text_contents()   # (the PDF pages looks follow: test_pdf_look.py)
         check('the menu lists every theme', len(names) == await pg.evaluate('THEMES.length') and any('Shades of Purple' in n for n in names) and any('Sand' in n for n in names), names)
-        check('…Flexoki among them, light and dark', any('Flexoki Light' in n for n in names) and any('Flexoki Dark' in n for n in names), names)
+        check('…Rainforest among them, day and night', any('Rainforest Day' in n for n in names) and any('Rainforest Night' in n for n in names), names)
         groups = await pg.evaluate("[...document.querySelectorAll('.thmenu.open .thgrp')].map(h=>[h.dataset.g,h.getAttribute('aria-expanded')])")
         check('in sections: Light, Dark, PDF pages, Font; only the one holding the current theme open', groups == [['light', 'true'], ['dark', 'false'], ['pdf', 'false'], ['font', 'false']], groups)
         check('…a folded one shows a dot per choice and its picked one', await pg.locator('.thgrp[data-g=dark] .thdot').count() == await pg.evaluate("THEMES.filter(t=>t[2]==='dark').length")
@@ -63,6 +63,19 @@ async def main():
         check('Escape closes the menu', await pg.locator('.thmenu.open').count() == 0 and await theme() == 'purple')
         await pg.reload(); await booted(pg)
         check('the theme stays after a reload', await theme() == 'purple' and await var('--panel') == '#2d2b55')
+        # a theme's optional dressing (backdrop, edges, pane header): only where the theme sets it
+        dress = "(t)=>{applyTheme(t);const q=(x,p)=>getComputedStyle(document.querySelector(x))[p];return [q('.top','borderBottomWidth'),q('.stage','backgroundImage')!=='none',q('.pane>.ph','backgroundColor')]}"
+        plain, fancy = await pg.evaluate(dress, 'light'), await pg.evaluate(dress, 'columbia')
+        check('a plain theme keeps the plain edges, no backdrop', plain[0] == '1px' and not plain[1] and plain[2] == 'rgba(0, 0, 0, 0)', plain)
+        check('a dressed theme (Columbia) gets its brass edge, sky and tinted pane headers', fancy[0] == '3px' and fancy[1] and fancy[2] != 'rgba(0, 0, 0, 0)', fancy)
+        await pg.evaluate("applyTheme('purple')")
+        # a theme that was taken out: a saved choice of it opens the closest kept one, and is saved as that
+        await pg.evaluate("const s=JSON.parse(localStorage.getItem('sq:settings')||'{}');s.theme='frappe';localStorage.setItem('sq:settings',JSON.stringify(s))")
+        await pg.reload(); await booted(pg)
+        check('a retired theme (Frappé) opens as the closest kept one (Mocha), and is saved as that', await theme() == 'mocha'
+              and await pg.evaluate("JSON.parse(localStorage.getItem('sq:settings')).theme") == 'mocha', await theme())
+        await pg.evaluate("const s=JSON.parse(localStorage.getItem('sq:settings'));s.theme='purple';localStorage.setItem('sq:settings',JSON.stringify(s))")
+        await pg.reload(); await booted(pg)
         await pg.locator('#themeB').click(); await frames(pg)
         check('opened again, the Dark section (holding Shades of Purple) is the open one', await pg.evaluate("[...document.querySelectorAll('.thmenu.open .thgrp[aria-expanded=true]')].map(h=>h.dataset.g)") == ['dark'])
         await pg.keyboard.press('Escape')

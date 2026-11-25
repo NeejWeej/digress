@@ -11,7 +11,7 @@
 <script>
 /* Themes: [id, name, mode]. The colors are in the CSS (:root[data-theme=…]); 'system' follows the device's
    light or dark setting. Set here, before anything paints, so there's no flash of the wrong one. */
-window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['kanagawa-lotus','Kanagawa Lotus','light'],['eink','E-ink','light'],['tokyo-day','Tokyo Night Day','light'],['github-light','GitHub Light','light'],['ayu-light','Ayu Light','light'],['nord-light','Nord Light','light'],['alabaster','Alabaster','light'],['dark','Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['moon','Rosé Pine Moon','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark'],['black','Pure black','dark'],['tokyo-night','Tokyo Night','dark'],['github-dark','GitHub Dark','dark'],['kanagawa-dragon','Kanagawa Dragon','dark'],['rose-pine','Rosé Pine','dark'],['frappe','Catppuccin Frappé','dark'],['macchiato','Catppuccin Macchiato','dark'],['ayu-mirage','Ayu Mirage','dark'],['gruvbox-material','Gruvbox Material','dark'],['zenburn','Zenburn','dark']];
+window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['columbia','Columbia','light'],['solarpunk-light','Solarpunk Light','light'],['map-room','Map Room','light'],['greenhouse','Greenhouse','light'],['rainforest-day','Rainforest Day','light'],['reading-room','Reading Room','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['latte','Catppuccin Latte','light'],['kanagawa-lotus','Kanagawa Lotus','light'],['eink','E-ink','light'],['github-light','GitHub Light','light'],['dark','Dark','dark'],['atompunk','Atompunk','dark'],['solarpunk-dark','Solarpunk Dark','dark'],['rainforest-night','Rainforest Night','dark'],['canopy','Canopy','dark'],['lost-city','Lost City','dark'],['speakeasy','Speakeasy','dark'],['phosphor','Phosphor','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['black','Pure black','dark'],['github-dark','GitHub Dark','dark'],['rose-pine','Rosé Pine','dark']];
 /* How PDF pages look (pdf.js draws them as images, in the PDF's own colors): [id, name]. 'match' is dark pages with
    a dark theme. Only the page images are filtered (CSS), never what the model gets. */
 window.PDF_LOOKS=[['original','Original'],['match','Match the theme'],['dark','Dark'],['dim','Dim'],['sepia','Sepia']];
@@ -20,6 +20,9 @@ window.applyPdfLook=function(id){document.documentElement.dataset.pdf=PDF_LOOKS.
 window.FONTS=[['default','Default',[]],['sans','Sans',[]],['serif','Serif',[]],['system','System',[]],['mono','Mono',[]],
   ['literata','Literata',['https://cdn.jsdelivr.net/npm/@fontsource-variable/literata@5.3.0/opsz.css','https://cdn.jsdelivr.net/npm/@fontsource-variable/literata@5.3.0/opsz-italic.css']],
   ['newsreader','Newsreader',['https://cdn.jsdelivr.net/npm/@fontsource-variable/newsreader@5.3.0/opsz.css','https://cdn.jsdelivr.net/npm/@fontsource-variable/newsreader@5.3.0/opsz-italic.css']],
+  ['fraunces','Fraunces',['https://cdn.jsdelivr.net/npm/@fontsource-variable/fraunces@5.3.0/opsz.css','https://cdn.jsdelivr.net/npm/@fontsource-variable/fraunces@5.3.0/opsz-italic.css']],
+  ['jost','Jost',['https://cdn.jsdelivr.net/npm/@fontsource-variable/jost@5.3.0/index.css','https://cdn.jsdelivr.net/npm/@fontsource-variable/jost@5.3.0/wght-italic.css']],
+  ['spacegrotesk','Space Grotesk',['https://cdn.jsdelivr.net/npm/@fontsource-variable/space-grotesk@5.3.0/index.css']],
   ['plex','IBM Plex',['https://cdn.jsdelivr.net/npm/@fontsource-variable/ibm-plex-sans@5.3.0/index.css','https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-serif@5.3.0/400.css','https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-serif@5.3.0/600.css','https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-serif@5.3.0/400-italic.css']],
   ['lexend','Lexend',['https://cdn.jsdelivr.net/npm/@fontsource-variable/lexend@5.3.0/index.css']],
   ['atkinson','Atkinson Hyperlegible',['https://cdn.jsdelivr.net/npm/@fontsource-variable/atkinson-hyperlegible-next@5.3.0/index.css']],
@@ -60,6 +63,11 @@ window.LIBS={
   'https://cdn.jsdelivr.net/npm/@fontsource/comic-neue@5.3.0/400.css':['lib/@fontsource/comic-neue@5.3.0/400.css','sha384-K1DosZW63giE8Pd9GSh9ExGbbomieyy+GNy0yZfsZlpACouLtqz9lEodpx0B8rTZ'],
   'https://cdn.jsdelivr.net/npm/@fontsource/comic-neue@5.3.0/700.css':['lib/@fontsource/comic-neue@5.3.0/700.css','sha384-gfUFTi/VVml1wvXIfL3yZ8I2aULaGKhlBtPL4fsnRQ+H5qnsw/K849SjCGP61hSB'],
   'https://cdn.jsdelivr.net/npm/@fontsource/comic-neue@5.3.0/400-italic.css':['lib/@fontsource/comic-neue@5.3.0/400-italic.css','sha384-TaRlR0gr4VkprLLZSaU+VVDcWHutLAXz2loF7SjZGFUQ+sjtzSHlKuKI1OsmlGhr'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/fraunces@5.3.0/opsz.css':['lib/@fontsource-variable/fraunces@5.3.0/opsz.css','sha384-Yg2cu354oiIXPVHcymtfrRF2FgOmZJG+x6Fy0eJCAzj2ebjH/kaJw/X4wvo8pF+x'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/fraunces@5.3.0/opsz-italic.css':['lib/@fontsource-variable/fraunces@5.3.0/opsz-italic.css','sha384-w29LqNcGer+at/8rfNqFsvGtJDQ+62THWMIWKd0iwUVlUC5ayCY+ZfOq2d7Wrlnn'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/jost@5.3.0/index.css':['lib/@fontsource-variable/jost@5.3.0/index.css','sha384-B50tE6zW38cC82hiTN0z9u2y8gO9t6C8GejOB152B/5fDNYh5bZi58k6dlkJrRQg'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/jost@5.3.0/wght-italic.css':['lib/@fontsource-variable/jost@5.3.0/wght-italic.css','sha384-NhWBzce4ehUrKcK0/Le41/sRrf349he8qnc0zO3pWult+8ZCzlqSenb6Up6yFrEi'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/space-grotesk@5.3.0/index.css':['lib/@fontsource-variable/space-grotesk@5.3.0/index.css','sha384-b3Dtcpab/ltw+oDnVHstCCa9ENEb2hKouCSRAfb8o0ROkWOb2uNWYG6+l7HGrHmG'],
 };
 /* A font's stylesheet (a CDN address, a key of LIBS): this server's copy, else the CDN's, both checked against its
    hash, like the libraries; the .woff2 files it names come from the same place. Without either, system fonts. */
@@ -75,7 +83,10 @@ window.applyFont=function(id){
   f[2].forEach(fontCss);
   return f[0];
 };
+// themes that were taken out, and the one each picks instead
+window.RETIRED_THEMES={frappe:'mocha',macchiato:'mocha',moon:'rose-pine','kanagawa-dragon':'kanagawa','gruvbox-material':'gruvbox',zenburn:'gruvbox','everforest-light':'greenhouse','alabaster':'light','solarized-light':'sand','flexoki-light':'light','gruvbox-light':'sand','ayu-light':'github-light','tokyo-day':'github-light','nord-light':'github-light','ayu-mirage':'nord','flexoki':'dark','tokyo-night':'nord'};
 window.applyTheme=function(id){
+  id=RETIRED_THEMES[id]||id;
   var t=THEMES.find(function(x){return x[0]===id})||THEMES[0],dark=t[2]==='auto'?matchMedia('(prefers-color-scheme: dark)').matches:t[2]==='dark';
   var name=t[0]==='system'?(dark?'dark':'light'):t[0],r=document.documentElement;
   r.dataset.theme=name;r.dataset.mode=dark?'dark':'light';
@@ -91,7 +102,7 @@ window.applyTheme=function(id){
   --bg:#f5f3ee;--panel:#fffdf9;--panel-2:#faf8f3;--ink:#1f1d19;--muted:#6d695f;--faint:#a29d92;
   --line:#e7e2d8;--line2:#d7d0c3;--user-bg:#efebe3;--code-bg:#f4f1ea;--accent:#c4643c;--danger:#c0392b;--shadow:0 12px 32px rgba(40,30,10,.14);
   --hk:#a0439a;--hs:#3b7d3b;--hn:#b5562a;--ht:#2d6cb5;--hy:#9a6a00;--hm:#8a6d3b;   /* code: keyword, string, number, title, type, meta */
-  --sans:'Inter Variable',system-ui,sans-serif;--serif:'Source Serif 4 Variable',Georgia,serif;--mono:'JetBrains Mono Variable',ui-monospace,monospace;
+  --sans:'Inter Variable',system-ui,sans-serif;--serif:'Source Serif 4 Variable',Georgia,serif;--you:'Inter Variable',system-ui,sans-serif;--uiserif:'Source Serif 4 Variable',Georgia,serif;--mono:'JetBrains Mono Variable',ui-monospace,monospace;
   color-scheme:light;
 }
 /* Themes (the palette button in the top bar). THEMES in the <head> script lists them; data-theme is set
@@ -117,11 +128,6 @@ window.applyTheme=function(id){
   --line:#e6dfda;--line2:#cecacd;--user-bg:#ede4dc;--code-bg:#f4ede8;--accent:#d7827e;--danger:#b4637a;
   --hk:#286983;--hs:#c0861f;--hn:#b4637a;--ht:#d7827e;--hy:#56949f;--hm:#907aa9;
 }
-:root[data-theme=gruvbox-light],.thsw[data-theme=gruvbox-light]{
-  --bg:#f2e5bc;--panel:#fbf1c7;--panel-2:#f7ecc3;--ink:#3c3836;--muted:#665c54;--faint:#928374;
-  --line:#e5d5ad;--line2:#d5c4a1;--user-bg:#ebdbb2;--code-bg:#f2e5bc;--accent:#af3a03;--danger:#9d0006;
-  --hk:#9d0006;--hs:#79740e;--hn:#8f3f71;--ht:#076678;--hy:#b57614;--hm:#af3a03;
-}
 :root[data-theme=gruvbox],.thsw[data-theme=gruvbox]{
   --bg:#1d2021;--panel:#282828;--panel-2:#2e2c2b;--ink:#ebdbb2;--muted:#bdae93;--faint:#928374;
   --line:#3c3836;--line2:#504945;--user-bg:#3c3836;--code-bg:#32302f;--accent:#fe8019;--danger:#fb4934;
@@ -137,50 +143,120 @@ window.applyTheme=function(id){
   --line:#3b4252;--line2:#4c566a;--user-bg:#3b4252;--code-bg:#323946;--accent:#88c0d0;--danger:#bf616a;
   --hk:#81a1c1;--hs:#a3be8c;--hn:#b48ead;--ht:#88c0d0;--hy:#8fbcbb;--hm:#d08770;
 }
-:root[data-theme=solarized-light],.thsw[data-theme=solarized-light]{   /* Solarized Light */
-  --bg:#eee8d5;--panel:#fdf6e3;--panel-2:#f7f0dc;--ink:#4a5d63;--muted:#657b83;--faint:#93a1a1;
-  --line:#e6dfca;--line2:#d6cfb8;--user-bg:#eee8d5;--code-bg:#f5eedb;--accent:#268bd2;--danger:#dc322f;
-  --hk:#859900;--hs:#2aa198;--hn:#d33682;--ht:#268bd2;--hy:#b58900;--hm:#cb4b16;
-}
-:root[data-theme=everforest-light],.thsw[data-theme=everforest-light]{   /* Everforest Light */
-  --bg:#efebd4;--panel:#fdf6e3;--panel-2:#f4f0d9;--ink:#4f5b62;--muted:#829181;--faint:#a6b0a0;
-  --line:#e6e2cc;--line2:#d8d3ba;--user-bg:#ebe7cf;--code-bg:#f4f0d9;--accent:#35a77c;--danger:#e14b48;
-  --hk:#e14b48;--hs:#7a8b00;--hn:#d55aa9;--ht:#3a94c5;--hy:#c18c00;--hm:#e5701f;
-}
 :root[data-theme=latte],.thsw[data-theme=latte]{   /* Catppuccin Latte */
   --bg:#e6e9ef;--panel:#eff1f5;--panel-2:#eaedf2;--ink:#4c4f69;--muted:#6c6f85;--faint:#8c8fa1;
   --line:#dce0e8;--line2:#ccd0da;--user-bg:#dce0e8;--code-bg:#e6e9ef;--accent:#8839ef;--danger:#d20f39;
   --hk:#8839ef;--hs:#40a02b;--hn:#fe640b;--ht:#1e66f5;--hy:#df8e1d;--hm:#179299;
-}
-:root[data-theme=flexoki-light],.thsw[data-theme=flexoki-light]{   /* Flexoki Light (stephango.com/flexoki) */
-  --bg:#f2f0e5;--panel:#fffcf0;--panel-2:#f7f5ea;--ink:#1c1b1a;--muted:#6f6e69;--faint:#878580;
-  --line:#e6e4d9;--line2:#dad8ce;--user-bg:#e6e4d9;--code-bg:#f2f0e5;--accent:#24837b;--danger:#af3029;
-  --hk:#66800b;--hs:#24837b;--hn:#5e409d;--ht:#bc5215;--hy:#ad8301;--hm:#a02f6f;
 }
 :root[data-theme=kanagawa-lotus],.thsw[data-theme=kanagawa-lotus]{   /* Kanagawa Lotus */
   --bg:#e7dba0;--panel:#f2ecbc;--panel-2:#ebe3b2;--ink:#545464;--muted:#716e61;--faint:#8a8980;
   --line:#e4d794;--line2:#d5cea3;--user-bg:#e5ddb0;--code-bg:#ebe3b2;--accent:#4d699b;--danger:#c84053;
   --hk:#624c83;--hs:#6f894e;--hn:#b35b79;--ht:#4d699b;--hy:#597b75;--hm:#cc6d00;
 }
-:root[data-theme=flexoki],.thsw[data-theme=flexoki]{   /* Flexoki Dark */
-  --bg:#100f0f;--panel:#1c1b1a;--panel-2:#232221;--ink:#cecdc3;--muted:#878580;--faint:#6f6e69;
-  --line:#282726;--line2:#343331;--user-bg:#282726;--code-bg:#171616;--accent:#3aa99f;--danger:#d14d41;
-  --hk:#879a39;--hs:#3aa99f;--hn:#8b7ec8;--ht:#da702c;--hy:#d0a215;--hm:#ce5d97;
-}
 :root[data-theme=kanagawa],.thsw[data-theme=kanagawa]{   /* Kanagawa (wave) */
   --bg:#16161d;--panel:#1f1f28;--panel-2:#24242f;--ink:#dcd7ba;--muted:#a9a58f;--faint:#727169;
   --line:#2a2a37;--line2:#363646;--user-bg:#2a2a37;--code-bg:#1a1a22;--accent:#7e9cd8;--danger:#e46876;
   --hk:#957fb8;--hs:#98bb6c;--hn:#d27e99;--ht:#7e9cd8;--hy:#7aa89f;--hm:#ffa066;
 }
+:root[data-theme=atompunk],.thsw[data-theme=atompunk]{   /* Atompunk: 1960s space age, atomic orange and phosphor cyan */
+  --bg:#11151c;--panel:#181e29;--panel-2:#212938;--ink:#f2f0e6;--muted:#b8c0cc;--faint:#7c8798;
+  --line:#283244;--line2:#3b4861;--user-bg:#212938;--code-bg:#141922;--accent:#ff6b35;--danger:#ff5d73;
+  --hk:#ff6b35;--hs:#2ec4b6;--hn:#f7c548;--ht:#7fb8ff;--hy:#c792ea;--hm:#ff9f6b;
+}
+:root[data-theme=solarpunk-dark],.thsw[data-theme=solarpunk-dark]{   /* Solarpunk Dark: botanical emerald and sunlit amber */
+  --bg:#0d1b17;--panel:#132620;--panel-2:#1b352d;--ink:#f3efe6;--muted:#b9cfc6;--faint:#7a9b8e;
+  --line:#234238;--line2:#325e50;--user-bg:#1b352d;--code-bg:#10211c;--accent:#e9b44c;--danger:#e06c5a;
+  --hk:#e9b44c;--hs:#38b28b;--hn:#e89a6b;--ht:#7cc4e0;--hy:#c9d86b;--hm:#d99bc4;
+}
+:root[data-theme=columbia],.thsw[data-theme=columbia]{   /* Columbia: the World's Fair city in the clouds: a cerulean sky with drifting clouds, ivory marble panes edged in brass, navy ink */
+  --bg:#8fb6e4;--panel:#fffdf7;--panel-2:#cfe0f5;--ink:#0f1f3d;--muted:#33476b;--faint:#66789a;
+  --line:#dfe6ef;--line2:#c9a24a;--user-bg:#f3e7c4;--code-bg:#f4f7fb;--accent:#1a56b8;--danger:#b8322e;
+  --hk:#1a56b8;--hs:#9a6a0c;--hn:#b0306a;--ht:#0f7b74;--hy:#8a5a00;--hm:#6a4fb0;
+  --top-edge:3px solid #c9a24a;--side-edge:2px solid #c9a24a;--pane-edge:#d9bf78;--pane-glow:0 6px 24px rgba(20,60,130,.18);
+  --pane-head:#f4ead0;
+  --wash:radial-gradient(ellipse 34% 14% at 22% 18%,rgba(255,255,255,.75),transparent 70%),radial-gradient(ellipse 26% 10% at 30% 24%,rgba(255,255,255,.55),transparent 70%),radial-gradient(ellipse 30% 12% at 78% 40%,rgba(255,255,255,.6),transparent 70%),radial-gradient(ellipse 40% 14% at 60% 88%,rgba(255,255,255,.5),transparent 70%),linear-gradient(180deg,#5d97de 0%,#9cc2ec 55%,#e9dcc0 100%);
+}
+:root[data-theme=solarpunk-light],.thsw[data-theme=solarpunk-light]{   /* Solarpunk Light: sunlit parchment and forest */
+  --bg:#ede9dc;--panel:#f7f4eb;--panel-2:#fffdf7;--ink:#162b22;--muted:#3e594e;--faint:#6e857b;
+  --line:#ddd7c5;--line2:#bfb7a0;--user-bg:#e9e4d4;--code-bg:#f0ecdf;--accent:#1f7a5c;--danger:#b3412e;
+  --hk:#1f7a5c;--hs:#a8650f;--hn:#8e4fa0;--ht:#2c6e99;--hy:#8a7a12;--hm:#b3412e;
+}
+:root[data-theme=map-room],.thsw[data-theme=map-room]{   /* Map Room: an expedition's map table: a grid of tea-stained map paper, a sepia border, sepia ink, compass gold */
+  --bg:#c9b386;--panel:#eadbbb;--panel-2:#d8c497;--ink:#35240f;--muted:#5a4428;--faint:#86704e;
+  --line:#d3c096;--line2:#a68a58;--user-bg:#e6cfa0;--code-bg:#e0d2ae;--accent:#a32e1c;--danger:#8e1f2f;
+  --hk:#a32e1c;--hs:#2f6b4a;--hn:#8a5a0e;--ht:#6b4423;--hy:#4f6b2a;--hm:#8a3f5a;
+  --top-edge:2px solid #a68a58;--side-edge:2px solid #a68a58;--pane-edge:#a68a58;--pane-glow:0 4px 18px rgba(80,50,15,.22);
+  --pane-head:#dfc99c;--pane-wash:repeating-linear-gradient(0deg,rgba(110,70,30,.06) 0 1px,transparent 1px 28px),repeating-linear-gradient(90deg,rgba(110,70,30,.06) 0 1px,transparent 1px 28px);
+  --wash:radial-gradient(ellipse at 50% 45%,transparent 45%,rgba(90,55,20,.32)),repeating-linear-gradient(0deg,rgba(110,70,30,.14) 0 1px,transparent 1px 56px),repeating-linear-gradient(90deg,rgba(110,70,30,.14) 0 1px,transparent 1px 56px),radial-gradient(circle at 80% 75%,rgba(163,46,28,.10) 0 90px,transparent 91px);
+}
+:root[data-theme=greenhouse],.thsw[data-theme=greenhouse]{   /* Greenhouse: a glasshouse in the afternoon: sage glass in white mullions, slanting sun, dark moss ink, amber */
+  --bg:#a9bf9b;--panel:#dfe8d6;--panel-2:#c3d4b4;--ink:#1a3020;--muted:#3d5742;--faint:#66806b;
+  --line:#c9d6bd;--line2:#8fa883;--user-bg:#ebe5c3;--code-bg:#d4dfca;--accent:#8a560a;--danger:#a8402b;
+  --hk:#2f6b45;--hs:#8a5a0e;--hn:#8a3f6a;--ht:#3f6b2a;--hy:#6b6a12;--hm:#a8402b;
+  --top-edge:3px solid #8a560a;--side-edge:3px solid #f4f7ee;--pane-edge:#f4f7ee;--pane-glow:0 4px 20px rgba(30,60,30,.18);
+  --pane-head:#d0ddc3;
+  --wash:linear-gradient(155deg,rgba(255,236,170,.55) 0%,rgba(255,236,170,0) 45%),repeating-linear-gradient(90deg,rgba(248,252,242,.6) 0 3px,transparent 3px 140px),repeating-linear-gradient(0deg,rgba(248,252,242,.6) 0 3px,transparent 3px 110px),linear-gradient(180deg,#b9cfa8,#97b088);
+}
+:root[data-theme=reading-room],.thsw[data-theme=reading-room]{   /* Reading Room: an old library by lamplight: shelves of book spines behind candlelit pages, walnut ink, oxblood and brass */
+  --bg:#8a6a4a;--panel:#e8dcc2;--panel-2:#d6c39f;--ink:#2e1f15;--muted:#573f2c;--faint:#806850;
+  --line:#d8c8a6;--line2:#a88a5c;--user-bg:#efdcc0;--code-bg:#dccfb2;--accent:#7a2018;--danger:#a3321e;
+  --hk:#7a2018;--hs:#6e5010;--hn:#8a3a52;--ht:#4a5a2a;--hy:#6b4423;--hm:#a3501e;
+  --top-edge:3px double #a88a5c;--side-edge:3px solid #5a2a1e;--pane-edge:#b89a62;--pane-glow:0 8px 30px rgba(40,15,5,.40);
+  --pane-head:#dcc7a0;
+  --wash:radial-gradient(ellipse 60% 55% at 50% 35%,rgba(255,205,130,.40),transparent 72%),radial-gradient(ellipse at 50% 50%,transparent 40%,rgba(30,12,4,.45)),repeating-linear-gradient(90deg,#6e2a20 0 26px,#5a3a22 26px 29px,#2f4a3a 29px 50px,#5a3a22 50px 53px,#8a6a2e 53px 70px,#5a3a22 70px 73px,#3a2a4a 73px 92px,#5a3a22 92px 95px,#7a4a2a 95px 118px,#5a3a22 118px 121px);
+}
+:root[data-theme=rainforest-day],.thsw[data-theme=rainforest-day]{   /* Rainforest Day: under the leaves at noon: bright leaf green, dappled sunlight, pale-green pages, deep green ink */
+  --bg:#6fb85e;--panel:#eef8e2;--panel-2:#c4e8a8;--ink:#123619;--muted:#2c5532;--faint:#557f56;
+  --line:#cfe6bb;--line2:#7fb86a;--user-bg:#d4efb4;--code-bg:#e2f2d2;--accent:#1a7232;--danger:#b03c1d;
+  --hk:#1a7232;--hs:#8a500a;--hn:#a8335f;--ht:#0f6a63;--hy:#5f6c08;--hm:#b03c1d;
+  --top-edge:3px solid #1a7232;--side-edge:2px solid #5fa64e;--pane-edge:#8fc77a;--pane-glow:0 6px 24px rgba(20,70,20,.25);
+  --pane-head:#d8f0c0;
+  --wash:radial-gradient(ellipse 18% 14% at 20% 25%,rgba(255,250,170,.55),transparent 70%),radial-gradient(ellipse 14% 10% at 64% 18%,rgba(255,250,170,.45),transparent 70%),radial-gradient(ellipse 20% 15% at 82% 70%,rgba(255,250,170,.45),transparent 70%),radial-gradient(ellipse 30% 22% at 40% 80%,rgba(30,100,40,.35),transparent 70%),radial-gradient(ellipse 28% 20% at 92% 30%,rgba(30,100,40,.30),transparent 70%),radial-gradient(ellipse 25% 18% at 5% 60%,rgba(30,100,40,.30),transparent 70%),linear-gradient(170deg,#8fd078,#4f9e48);
+}
+:root[data-theme=rainforest-night],.thsw[data-theme=rainforest-night]{   /* Rainforest Night: a warm green evening, dim but never black: leaf green panes, a mossy olive sidebar, teal-green pane headers, lantern gold, soft cream ink */
+  --bg:#0a2414;--panel:#11301d;--panel-2:#1c3519;--ink:#dde8cc;--muted:#a8c598;--faint:#7a9c70;
+  --line:#1d452b;--line2:#33603b;--user-bg:#1a4236;--code-bg:#0d2817;--accent:#dcaa48;--danger:#e2806a;
+  --hk:#e2bc5e;--hs:#a2d679;--hn:#e09872;--ht:#72c9ad;--hy:#c8da88;--hm:#d696bc;
+  --top-edge:2px solid #4a8c50;--side-edge:2px solid #3d5a2a;--pane-edge:#2c5f3a;--pane-glow:0 10px 32px rgba(0,15,5,.55);
+  --pane-head:#163b28;
+  --wash:radial-gradient(ellipse 28% 20% at 18% 22%,rgba(230,180,80,.10),transparent 70%),radial-gradient(ellipse 40% 30% at 85% 12%,rgba(60,150,130,.22),transparent 70%),radial-gradient(ellipse 45% 35% at 10% 85%,rgba(110,140,50,.25),transparent 70%),radial-gradient(ellipse 35% 25% at 55% 50%,rgba(40,110,60,.22),transparent 70%),radial-gradient(ellipse 30% 22% at 80% 80%,rgba(30,100,90,.20),transparent 70%),linear-gradient(180deg,#123a20,#071d10);
+}
+:root[data-theme=canopy],.thsw[data-theme=canopy]{   /* Canopy: rainforest at night: deep green under the leaves, fireflies, fern and moss, firefly yellow */
+  --bg:#06100a;--panel:#0b170e;--panel-2:#0f2615;--ink:#d4e8c2;--muted:#a3c290;--faint:#6d8c62;
+  --line:#173020;--line2:#2c5434;--user-bg:#16341d;--code-bg:#08130b;--accent:#f0dc5a;--danger:#e0745a;
+  --hk:#f0dc5a;--hs:#8fd06a;--hn:#e0a85a;--ht:#6fd0a6;--hy:#c8e08a;--hm:#d08fb4;
+  --top-edge:2px solid #2c5434;--side-edge:2px solid #2c5434;--pane-edge:#2c5434;--pane-glow:0 0 0 1px rgba(240,220,90,.06),0 10px 40px rgba(0,0,0,.6);
+  --pane-head:#11281a;
+  --wash:radial-gradient(circle at 8% 20%,#fff6a0 0 1.5px,rgba(240,220,90,.35) 2.5px,transparent 9px),radial-gradient(circle at 23% 72%,#fff6a0 0 1.5px,rgba(240,220,90,.3) 2.5px,transparent 8px),radial-gradient(circle at 41% 12%,#fff6a0 0 1px,rgba(240,220,90,.3) 2px,transparent 7px),radial-gradient(circle at 57% 86%,#fff6a0 0 1.5px,rgba(240,220,90,.35) 2.5px,transparent 9px),radial-gradient(circle at 71% 33%,#fff6a0 0 1px,rgba(240,220,90,.3) 2px,transparent 7px),radial-gradient(circle at 88% 64%,#fff6a0 0 1.5px,rgba(240,220,90,.35) 2.5px,transparent 9px),radial-gradient(circle at 95% 10%,#fff6a0 0 1px,rgba(240,220,90,.3) 2px,transparent 7px),radial-gradient(circle at 34% 45%,#fff6a0 0 1px,rgba(240,220,90,.25) 2px,transparent 6px),radial-gradient(ellipse 80% 50% at 50% 0%,rgba(40,90,50,.45),transparent 70%),radial-gradient(ellipse 60% 40% at 15% 100%,rgba(30,80,40,.5),transparent 70%),linear-gradient(180deg,#0a1a0e,#030805);
+}
+:root[data-theme=lost-city],.thsw[data-theme=lost-city]{   /* Lost City: a jungle temple by torchlight: torchlight on carved stone, moss creeping in, parchment, torch amber, jade and gold leaf */
+  --bg:#0e110a;--panel:#1a1810;--panel-2:#2e2215;--ink:#f0e3c2;--muted:#c9b68f;--faint:#8f7f5e;
+  --line:#2e2a1c;--line2:#8a6f2e;--user-bg:#1d2e22;--code-bg:#14130c;--accent:#f2a03c;--danger:#e05a3f;
+  --hk:#f2a03c;--hs:#6fcf98;--hn:#e0805a;--ht:#e6c060;--hy:#a8c870;--hm:#d0906a;
+  --top-edge:2px solid #b8912f;--side-edge:2px solid #8a6f2e;--pane-edge:#6e5a26;--pane-glow:0 0 30px rgba(242,160,60,.08),0 10px 30px rgba(0,0,0,.55);
+  --pane-head:#2c2115;
+  --wash:radial-gradient(ellipse 45% 55% at 0% 0%,rgba(242,140,40,.35),transparent 70%),radial-gradient(ellipse 35% 45% at 100% 0%,rgba(242,140,40,.22),transparent 70%),radial-gradient(ellipse 70% 40% at 50% 100%,rgba(60,130,70,.40),transparent 70%),repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 2px,transparent 2px 64px),repeating-linear-gradient(90deg,rgba(0,0,0,.18) 0 2px,transparent 2px 128px),linear-gradient(180deg,#2a2618,#14150d);
+}
+:root[data-theme=speakeasy],.thsw[data-theme=speakeasy]{   /* Speakeasy: Art Deco after hours: a brass sunburst over oxblood, whiskey, cream */
+  --bg:#140808;--panel:#1c0f0e;--panel-2:#3b1216;--ink:#f4e6cc;--muted:#d8bf98;--faint:#9a8262;
+  --line:#3a2018;--line2:#7a5c2a;--user-bg:#43181b;--code-bg:#170b0a;--accent:#e8b958;--danger:#f0705a;
+  --hk:#e8b958;--hs:#d49458;--hn:#e88270;--ht:#f0d08e;--hy:#b4bc80;--hm:#d48eaa;
+  --top-edge:3px double #e8b958;--side-edge:3px double #e8b958;--pane-edge:#8a6a2e;--pane-glow:0 10px 36px rgba(0,0,0,.6);
+  --pane-head:#36121a;
+  --wash:radial-gradient(ellipse 70% 60% at 50% 105%,rgba(232,185,88,.22),transparent 70%),repeating-conic-gradient(from -90deg at 50% 108%,rgba(232,185,88,.13) 0deg 3deg,transparent 3deg 9deg),linear-gradient(180deg,#1a0909,#3a1014);
+}
+:root[data-theme=phosphor],.thsw[data-theme=phosphor]{   /* Phosphor: an amber terminal: scanlines and a phosphor glow, one amber at a few brightnesses, no blue at all */
+  --bg:#080501;--panel:#0f0a03;--panel-2:#140d03;--ink:#ffb646;--muted:#e09a30;--faint:#a06c20;
+  --line:#3a2608;--line2:#6b4610;--user-bg:#241703;--code-bg:#0b0702;--accent:#ffd27a;--danger:#ff6a3d;
+  --hk:#ffd27a;--hs:#e0a040;--hn:#ffe0a8;--ht:#ffbf55;--hy:#c88a30;--hm:#f0b060;
+  --top-edge:1px solid #ffb646;--side-edge:1px solid #6b4610;--pane-edge:#8a5a14;--pane-glow:0 0 0 1px rgba(255,182,70,.12),0 0 28px rgba(255,160,40,.18);
+  --pane-head:#1c1204;--pane-wash:repeating-linear-gradient(0deg,rgba(255,182,70,.035) 0 1px,transparent 1px 3px);
+  --wash:repeating-linear-gradient(0deg,rgba(255,182,70,.07) 0 1px,transparent 1px 3px),radial-gradient(ellipse 70% 60% at 50% 45%,rgba(255,150,30,.16),transparent 75%),radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(0,0,0,.6));
+}
 :root[data-theme=everforest],.thsw[data-theme=everforest]{   /* Everforest Dark */
   --bg:#232a2e;--panel:#2d353b;--panel-2:#343f44;--ink:#d3c6aa;--muted:#9da9a0;--faint:#7a8478;
   --line:#3d484d;--line2:#475258;--user-bg:#343f44;--code-bg:#293136;--accent:#a7c080;--danger:#e67e80;
   --hk:#e67e80;--hs:#a7c080;--hn:#d699b6;--ht:#7fbbb3;--hy:#dbbc7f;--hm:#e69875;
-}
-:root[data-theme=moon],.thsw[data-theme=moon]{   /* Rosé Pine Moon */
-  --bg:#232136;--panel:#2a273f;--panel-2:#2f2c47;--ink:#e0def4;--muted:#908caa;--faint:#6e6a86;
-  --line:#393552;--line2:#44415a;--user-bg:#393552;--code-bg:#26233a;--accent:#ea9a97;--danger:#eb6f92;
-  --hk:#9ccfd8;--hs:#f6c177;--hn:#eb6f92;--ht:#ea9a97;--hy:#3e8fb0;--hm:#c4a7e7;
 }
 :root[data-theme=mocha],.thsw[data-theme=mocha]{   /* Catppuccin Mocha */
   --bg:#181825;--panel:#1e1e2e;--panel-2:#232334;--ink:#cdd6f4;--muted:#a6adc8;--faint:#7f849c;
@@ -192,11 +268,6 @@ window.applyTheme=function(id){
   --line:#dddddd;--line2:#bbbbbb;--user-bg:#eeeeee;--code-bg:#f5f5f5;--accent:#222222;--danger:#a3271c;
   --hk:#000000;--hs:#4d4d4d;--hn:#333333;--ht:#000000;--hy:#3d3d3d;--hm:#808080;
 }
-:root[data-theme=tokyo-day],.thsw[data-theme=tokyo-day]{   /* Tokyo Night Day */
-  --bg:#d0d5e3;--panel:#e1e2e7;--panel-2:#dadce5;--ink:#3760bf;--muted:#6172b0;--faint:#8990b3;
-  --line:#c8ccdc;--line2:#a8aecb;--user-bg:#d4d8e6;--code-bg:#d9dbe4;--accent:#2e7de9;--danger:#f52a65;
-  --hk:#9854f1;--hs:#587539;--hn:#b15c00;--ht:#2e7de9;--hy:#007197;--hm:#8c6c3e;
-}
 :root[data-theme=github-light],.thsw[data-theme=github-light]{   /* GitHub Light */
   --bg:#f6f8fa;--panel:#ffffff;--panel-2:#f6f8fa;--ink:#1f2328;--muted:#59636e;--faint:#818b98;
   --line:#d8dee4;--line2:#c3ccd6;--user-bg:#eef4fb;--code-bg:#f6f8fa;--accent:#0969da;--danger:#d1242f;
@@ -207,80 +278,35 @@ window.applyTheme=function(id){
   --line:#1e1e1e;--line2:#2e2e2e;--user-bg:#141414;--code-bg:#0e0e0e;--accent:#d9825b;--danger:#e5675a;
   --hk:#c79bf2;--hs:#93c48b;--hn:#e9a06f;--ht:#7cb2ef;--hy:#dcc070;--hm:#a89a85;
 }
-:root[data-theme=tokyo-night],.thsw[data-theme=tokyo-night]{   /* Tokyo Night */
-  --bg:#16161e;--panel:#1a1b26;--panel-2:#1f2335;--ink:#c0caf5;--muted:#9aa5ce;--faint:#565f89;
-  --line:#292e42;--line2:#3b4261;--user-bg:#24283b;--code-bg:#16161e;--accent:#7aa2f7;--danger:#f7768e;
-  --hk:#bb9af7;--hs:#9ece6a;--hn:#ff9e64;--ht:#7aa2f7;--hy:#2ac3de;--hm:#e0af68;
-}
 :root[data-theme=github-dark],.thsw[data-theme=github-dark]{   /* GitHub Dark */
   --bg:#010409;--panel:#0d1117;--panel-2:#151b23;--ink:#f0f6fc;--muted:#9198a1;--faint:#656c76;
   --line:#262c36;--line2:#3d444d;--user-bg:#18202b;--code-bg:#151b23;--accent:#4493f8;--danger:#f85149;
   --hk:#ff7b72;--hs:#a5d6ff;--hn:#79c0ff;--ht:#d2a8ff;--hy:#ffa657;--hm:#8b949e;
-}
-:root[data-theme=ayu-light],.thsw[data-theme=ayu-light]{   /* Ayu Light */
-  --bg:#f3f4f5;--panel:#fcfcfc;--panel-2:#f8f9fa;--ink:#5c6166;--muted:#8a9199;--faint:#adaeb1;
-  --line:#e7eaed;--line2:#d8dce0;--user-bg:#eef0f2;--code-bg:#f3f4f5;--accent:#fa8d3e;--danger:#e65050;
-  --hk:#fa8d3e;--hs:#86b300;--hn:#a37acc;--ht:#399ee6;--hy:#55b4d4;--hm:#ed9366;
-}
-:root[data-theme=nord-light],.thsw[data-theme=nord-light]{   /* Nord Light */
-  --bg:#e5e9f0;--panel:#eceff4;--panel-2:#e8ebf1;--ink:#2e3440;--muted:#4c566a;--faint:#7b88a1;
-  --line:#d8dee9;--line2:#c6cedb;--user-bg:#e1e6ee;--code-bg:#e5e9f0;--accent:#5e81ac;--danger:#bf616a;
-  --hk:#5e81ac;--hs:#5f8a45;--hn:#9a6b94;--ht:#3f7a9c;--hy:#3b8a8c;--hm:#c2703d;
-}
-:root[data-theme=alabaster],.thsw[data-theme=alabaster]{   /* Alabaster */
-  --bg:#ececec;--panel:#f7f7f7;--panel-2:#f2f2f2;--ink:#000000;--muted:#666666;--faint:#999999;
-  --line:#e2e2e2;--line2:#d0d0d0;--user-bg:#ebebeb;--code-bg:#f0f0f0;--accent:#325cc0;--danger:#aa3731;
-  --hk:#000000;--hs:#448c27;--hn:#7a3e9d;--ht:#325cc0;--hy:#000000;--hm:#aa3731;
-}
-:root[data-theme=kanagawa-dragon],.thsw[data-theme=kanagawa-dragon]{   /* Kanagawa Dragon */
-  --bg:#0d0c0c;--panel:#181616;--panel-2:#1d1c19;--ink:#c5c9c5;--muted:#a6a69c;--faint:#737c73;
-  --line:#282727;--line2:#393836;--user-bg:#282727;--code-bg:#12120f;--accent:#8ba4b0;--danger:#c4746e;
-  --hk:#8992a7;--hs:#8a9a7b;--hn:#a292a3;--ht:#8ba4b0;--hy:#8ea4a2;--hm:#b6927b;
 }
 :root[data-theme=rose-pine],.thsw[data-theme=rose-pine]{   /* Rosé Pine */
   --bg:#12101c;--panel:#191724;--panel-2:#1f1d2e;--ink:#e0def4;--muted:#908caa;--faint:#6e6a86;
   --line:#26233a;--line2:#403d52;--user-bg:#26233a;--code-bg:#1f1d2e;--accent:#ebbcba;--danger:#eb6f92;
   --hk:#31748f;--hs:#f6c177;--hn:#eb6f92;--ht:#ebbcba;--hy:#9ccfd8;--hm:#c4a7e7;
 }
-:root[data-theme=frappe],.thsw[data-theme=frappe]{   /* Catppuccin Frappé */
-  --bg:#292c3c;--panel:#303446;--panel-2:#353a4d;--ink:#c6d0f5;--muted:#a5adce;--faint:#838ba7;
-  --line:#414559;--line2:#51576d;--user-bg:#414559;--code-bg:#2b2f40;--accent:#ca9ee6;--danger:#e78284;
-  --hk:#ca9ee6;--hs:#a6d189;--hn:#ef9f76;--ht:#8caaee;--hy:#e5c890;--hm:#81c8be;
-}
-:root[data-theme=macchiato],.thsw[data-theme=macchiato]{   /* Catppuccin Macchiato */
-  --bg:#1e2030;--panel:#24273a;--panel-2:#292c40;--ink:#cad3f5;--muted:#a5adcb;--faint:#8087a2;
-  --line:#363a4f;--line2:#494d64;--user-bg:#363a4f;--code-bg:#202335;--accent:#c6a0f6;--danger:#ed8796;
-  --hk:#c6a0f6;--hs:#a6da95;--hn:#f5a97f;--ht:#8aadf4;--hy:#eed49f;--hm:#8bd5ca;
-}
-:root[data-theme=ayu-mirage],.thsw[data-theme=ayu-mirage]{   /* Ayu Mirage */
-  --bg:#1f2430;--panel:#242936;--panel-2:#282e3b;--ink:#cccac2;--muted:#9ba0a8;--faint:#707a8c;
-  --line:#2d3340;--line2:#3a4150;--user-bg:#2d3340;--code-bg:#1f2430;--accent:#ffcc66;--danger:#ff6666;
-  --hk:#ffad66;--hs:#d5ff80;--hn:#dfbfff;--ht:#ffd173;--hy:#73d0ff;--hm:#5ccfe6;
-}
-:root[data-theme=gruvbox-material],.thsw[data-theme=gruvbox-material]{   /* Gruvbox Material */
-  --bg:#1d1d1d;--panel:#282828;--panel-2:#2d2c2b;--ink:#d4be98;--muted:#a89984;--faint:#7c6f64;
-  --line:#32302f;--line2:#45403d;--user-bg:#32302f;--code-bg:#222222;--accent:#e78a4e;--danger:#ea6962;
-  --hk:#ea6962;--hs:#a9b665;--hn:#d3869b;--ht:#7daea3;--hy:#d8a657;--hm:#e78a4e;
-}
-:root[data-theme=zenburn],.thsw[data-theme=zenburn]{   /* Zenburn */
-  --bg:#333333;--panel:#3f3f3f;--panel-2:#444444;--ink:#dcdccc;--muted:#acac9c;--faint:#808070;
-  --line:#4f4f4f;--line2:#5f5f5f;--user-bg:#494949;--code-bg:#383838;--accent:#8cd0d3;--danger:#dc8c8c;
-  --hk:#f0dfaf;--hs:#cc9393;--hn:#8cd0d3;--ht:#efef8f;--hy:#7cb8bb;--hm:#dfaf8f;
-}
 /* Fonts (Appearance → Font): FONTS in the <head> script; data-font on the root. Each sets the UI's (--sans)
    and the replies' (--serif) font; code keeps --mono. */
-:root[data-font=sans]{--serif:'Inter Variable',system-ui,sans-serif}
-:root[data-font=serif]{--sans:'Source Serif 4 Variable',Georgia,serif}
-:root[data-font=system]{--sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--serif:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
-:root[data-font=mono]{--sans:'JetBrains Mono Variable',ui-monospace,monospace;--serif:'JetBrains Mono Variable',ui-monospace,monospace}
-:root[data-font=lexend]{--sans:'Lexend Variable',system-ui,sans-serif;--serif:'Lexend Variable',system-ui,sans-serif}
-:root[data-font=atkinson]{--sans:'Atkinson Hyperlegible Next Variable',system-ui,sans-serif;--serif:'Atkinson Hyperlegible Next Variable',system-ui,sans-serif}
-:root[data-font=literata]{--serif:'Literata Variable',Georgia,serif}
-:root[data-font=newsreader]{--serif:'Newsreader Variable',Georgia,serif}
-:root[data-font=plex]{--sans:'IBM Plex Sans Variable',system-ui,sans-serif;--serif:'IBM Plex Serif',Georgia,serif}
-:root[data-font=inclusive]{--sans:'Inclusive Sans Variable',system-ui,sans-serif;--serif:'Inclusive Sans Variable',system-ui,sans-serif}
-:root[data-font=sourcesans]{--sans:'Source Sans 3 Variable',system-ui,sans-serif;--serif:'Source Sans 3 Variable',system-ui,sans-serif}
-:root[data-font=comicneue]{--sans:'Comic Neue',system-ui,sans-serif;--serif:'Comic Neue',system-ui,sans-serif}
+/* A font sets the conversation's type only (replies, your messages, documents, quotes: --serif and --you; and
+   the titles in the sidebar: conversations, folders, branches, --you), never the app's buttons, sidebar and headings (--sans, --uiserif). */
+:root[data-font=sans]{--serif:'Inter Variable',system-ui,sans-serif;--you:'Inter Variable',system-ui,sans-serif}
+:root[data-font=serif]{--serif:'Source Serif 4 Variable',Georgia,serif;--you:'Source Serif 4 Variable',Georgia,serif}
+:root[data-font=system]{--serif:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--you:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+:root[data-font=mono]{--serif:'JetBrains Mono Variable',ui-monospace,monospace;--you:'JetBrains Mono Variable',ui-monospace,monospace}
+:root[data-font=lexend]{--serif:'Lexend Variable',system-ui,sans-serif;--you:'Lexend Variable',system-ui,sans-serif}
+:root[data-font=atkinson]{--serif:'Atkinson Hyperlegible Next Variable',system-ui,sans-serif;--you:'Atkinson Hyperlegible Next Variable',system-ui,sans-serif}
+:root[data-font=literata]{--serif:'Literata Variable',Georgia,serif;--you:'Literata Variable',Georgia,serif}
+:root[data-font=newsreader]{--serif:'Newsreader Variable',Georgia,serif;--you:'Newsreader Variable',Georgia,serif}
+:root[data-font=fraunces]{--serif:'Fraunces Variable',Georgia,serif;--you:'Fraunces Variable',Georgia,serif}
+:root[data-font=jost]{--serif:'Jost Variable',system-ui,sans-serif;--you:'Jost Variable',system-ui,sans-serif}
+:root[data-font=spacegrotesk]{--serif:'Space Grotesk Variable',system-ui,sans-serif;--you:'Space Grotesk Variable',system-ui,sans-serif}
+:root[data-font=plex]{--serif:'IBM Plex Serif',Georgia,serif;--you:'IBM Plex Serif',Georgia,serif}
+:root[data-font=inclusive]{--serif:'Inclusive Sans Variable',system-ui,sans-serif;--you:'Inclusive Sans Variable',system-ui,sans-serif}
+:root[data-font=sourcesans]{--serif:'Source Sans 3 Variable',system-ui,sans-serif;--you:'Source Sans 3 Variable',system-ui,sans-serif}
+:root[data-font=comicneue]{--serif:'Comic Neue',system-ui,sans-serif;--you:'Comic Neue',system-ui,sans-serif}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
@@ -320,7 +346,7 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .app.zen.zenside .side{display:block !important;position:fixed;top:0;bottom:0;left:0;width:min(var(--sidew,272px),86vw);z-index:46;box-shadow:var(--shadow)}
 .side{grid-column:1;grid-row:2}
 .stage{grid-column:2;grid-row:2}
-.top{grid-column:1/3;display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:1px solid var(--line);background:var(--panel);min-width:0;overflow:hidden}
+.top{grid-column:1/3;display:flex;align-items:center;gap:6px;padding:0 10px;border-bottom:var(--top-edge,1px solid var(--line));background:var(--panel);min-width:0;overflow:hidden}
 /* what doesn't fit in the top bar goes in the "more" menu (fitTop) */
 .tmore{position:fixed;z-index:60;display:none;flex-direction:column;align-items:stretch;gap:8px;padding:10px;border:1px solid var(--line2);border-radius:12px;background:var(--panel);box-shadow:var(--shadow);min-width:230px;max-width:calc(100vw - 16px)}
 .tmore.open{display:flex}
@@ -456,7 +482,7 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .mdef .i{width:14px;height:14px}
 .mdef:hover{color:var(--accent);background:var(--panel)}
 
-.side{overflow:auto;border-right:1px solid var(--line);background:var(--panel-2);padding:12px 10px}
+.side{overflow:auto;border-right:var(--side-edge,1px solid var(--line));background:var(--panel-2);padding:12px 10px}
 .app.noside .side{display:none}
 .sh{display:flex;align-items:center;justify-content:space-between;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin:6px 6px 6px}
 .newbtn{display:flex;align-items:center;gap:6px;width:100%;padding:8px 10px;border-radius:9px;border:1px dashed var(--line2);color:var(--muted);margin-bottom:6px}
@@ -489,10 +515,10 @@ svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stro
 .acload{color:var(--faint);padding:60px 0;text-align:center}
 .acskel{display:flex;flex-direction:column;gap:16px}.acskel i{display:block;border-radius:12px;background:linear-gradient(90deg,var(--line) 0%,color-mix(in srgb,var(--line) 40%,transparent) 50%,var(--line) 100%);background-size:200% 100%;opacity:.5;animation:acsk 1.3s linear infinite}
 @keyframes acsk{to{background-position:-200% 0}}@media (prefers-reduced-motion:reduce){.acskel i{animation:none}}
-.achead{display:flex;align-items:center;margin-bottom:18px}.achead h1{font:600 26px var(--serif);margin:0}.achead .sp{flex:1}
+.achead{display:flex;align-items:center;margin-bottom:18px}.achead h1{font:600 26px var(--uiserif);margin:0}.achead .sp{flex:1}
 .acsec{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:16px;animation:kin .25s ease-out}
-.acsec h2{font:600 18px var(--serif);margin:0 0 12px}
-.actop{display:flex;flex-wrap:wrap;gap:8px 26px;margin-bottom:12px;font-size:13.5px;color:var(--muted)}.acstat b{font:600 20px var(--serif);color:var(--ink);margin-right:3px}
+.acsec h2{font:600 18px var(--uiserif);margin:0 0 12px}
+.actop{display:flex;flex-wrap:wrap;gap:8px 26px;margin-bottom:12px;font-size:13.5px;color:var(--muted)}.acstat b{font:600 20px var(--uiserif);color:var(--ink);margin-right:3px}
 .ackinds{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .ackinds button{border:1px solid var(--line2);border-radius:999px;background:none;color:var(--muted);font:12.5px var(--sans);padding:3px 11px;cursor:pointer}.ackinds button:hover{color:var(--ink)}.ackinds button.on{background:var(--user-bg);color:var(--ink);border-color:var(--muted)}
 .acscroll{overflow-x:auto;padding-bottom:4px;container-type:inline-size}
@@ -511,7 +537,7 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .acbar{background:color-mix(in srgb,var(--line) 30%,transparent);margin-bottom:3px}.acbar::before{content:'';position:absolute;left:0;top:3px;bottom:3px;width:var(--w);border-radius:6px;background:color-mix(in srgb,var(--accent) 13%,transparent)}
 .acnums{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px}
 .acnum{flex:1 1 220px;display:flex;flex-direction:column;gap:2px;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-.acnum b{font:600 32px/1.1 var(--serif)}.acnum span{font-size:13px;color:var(--muted)}.acnum small{font-size:11.5px;color:var(--faint)}
+.acnum b{font:600 32px/1.1 var(--uiserif)}.acnum span{font-size:13px;color:var(--muted)}.acnum small{font-size:11.5px;color:var(--faint)}
 .accharts{display:grid;grid-template-columns:1fr 1fr;gap:14px}.acfig{margin:0;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
 .acfig figcaption{font-size:12px;color:var(--muted);margin-bottom:6px}.acfig svg{width:100%;height:96px;display:block;overflow:visible}
 .acline .ln{fill:none;stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke}.acline .area{fill:color-mix(in srgb,var(--accent) 12%,transparent)}.acline circle{fill:var(--accent)}
@@ -531,7 +557,7 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .citem{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;cursor:pointer;color:var(--muted)}
 .citem:hover{background:var(--user-bg);color:var(--ink)}
 .citem.cur{background:var(--user-bg);color:var(--ink);font-weight:500}
-.citem .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.citem .t{font-family:var(--you);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .citem .cbadge{flex:none;display:inline-flex;align-items:center;gap:2px;font-size:11px;color:var(--faint)}
 .citem .cbadge .i{width:12px;height:12px}
 .citem .cbadge.due{color:var(--accent);font-weight:600}
@@ -551,7 +577,7 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .mnode:hover{background:var(--user-bg)}
 .mnode .dot{width:9px;height:9px;border-radius:50%;border:2px solid var(--c);margin-top:4px;flex:none}
 .mnode.open .dot{background:var(--c)}
-.mnode .mt{line-height:1.35}
+.mnode .mt{line-height:1.35;font-family:var(--you)}
 .mnode .ma{font-size:11.5px;color:var(--faint);font-family:var(--serif);font-style:italic;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
 .mnode .mc{margin-left:auto;font-size:11px;color:var(--faint);padding-top:1px}
 /* everything above Branches spans every conversation; Branches is only the open one's, so a line sets it apart */
@@ -609,19 +635,19 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .help .keys .ksec+dd{display:none}
 .help li{margin:0 0 6px}
 
-.stage{position:relative;min-width:0;min-height:0}
+.stage{position:relative;min-width:0;min-height:0;background:var(--wash,none)}   /* a theme's backdrop behind the panes (optional) */
 .panes{position:absolute;inset:0;display:flex;padding:12px;overflow:auto}
 .panes.rows{flex-direction:column;padding-left:22px}
 #wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;overflow:visible}
 .stage.canvas .panes,.stage.canvas #wires{display:none}
 
-.pane{--c:var(--faint);display:flex;flex-direction:column;flex:1 1 0;min-width:360px;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;position:relative;transition:box-shadow .2s,border-color .2s}
+.pane{--c:var(--faint);display:flex;flex-direction:column;flex:1 1 0;min-width:360px;min-height:0;background:var(--panel);background-image:var(--pane-wash,none);border:1px solid var(--pane-edge,var(--line));border-radius:14px;overflow:hidden;position:relative;box-shadow:var(--pane-glow,none);transition:box-shadow .2s,border-color .2s}
 .panes.rows .pane{min-width:0;min-height:340px}
 .pane::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--c);opacity:.9}
 .pane.main::before{opacity:0}
 .pane.cur{border-color:color-mix(in srgb,var(--c) 45%,var(--line2))}   /* the pane ⌘\ and ⌘⇧\ act on (only with 2+ panes) */
 .pane.hl{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 22%,transparent)}
-.ph{display:flex;align-items:center;gap:8px;padding:12px 8px 10px 14px;border-bottom:1px solid var(--line);min-height:52px}
+.ph{display:flex;align-items:center;gap:8px;padding:12px 8px 10px 14px;border-bottom:1px solid var(--line);min-height:52px;background:var(--pane-head,transparent)}   /* --pane-head, --pane-wash: a theme's optional header tint and texture */
 .ph .dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
 .pane.main .ph .dot{background:none;border:2px solid var(--faint)}
 .ph-main{flex:1;min-width:0}
@@ -727,7 +753,7 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .esteps li{counter-increment:es;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.5;display:flex;flex-direction:column;gap:2px}
 .esteps li::before{content:counter(es);font:500 12px var(--sans);color:var(--accent);margin-bottom:4px}.esteps b{color:var(--ink);font-weight:600}
 .ekeys{margin-top:16px;font-size:12.5px;color:var(--faint)}@media (hover:none) and (pointer:coarse){.ekeys{display:none}}.ekeys kbd{font:11px var(--mono);border:1px solid var(--line2);border-radius:4px;padding:0 5px;color:var(--muted)}
-.empty h2{font-family:var(--serif);font-weight:400;font-size:28px;color:var(--ink);margin:12vh 0 8px;letter-spacing:-.01em}
+.empty h2{font-family:var(--uiserif);font-weight:400;font-size:28px;color:var(--ink);margin:12vh 0 8px;letter-spacing:-.01em}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
 .chip{border:1px solid var(--line2);border-radius:999px;padding:6px 12px;font-size:13px;color:var(--muted);background:var(--panel)}
 .chip:hover{color:var(--ink);border-color:var(--faint)}
@@ -740,7 +766,7 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .uimgs{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-bottom:6px;max-width:88%}
 .uimg{border:0;padding:0;background:none;cursor:zoom-in}.uimg img{display:block;max-height:160px;max-width:min(100%,280px);border-radius:10px;border:1px solid var(--line);background:#fff}
 .uimg .gone{display:inline-block;padding:8px 10px;border:1px dashed var(--line2);border-radius:10px;font-size:12px;color:var(--muted)}
-.msg.user .body{background:var(--user-bg);border-radius:14px;padding:9px 14px;max-width:88%;white-space:pre-wrap;line-height:1.5;font-size:14.5px}
+.msg.user .body{font-family:var(--you);background:var(--user-bg);border-radius:14px;padding:9px 14px;max-width:88%;white-space:pre-wrap;line-height:1.5;font-size:14.5px}
 .msg.assistant .body{font-family:var(--serif);font-size:16.5px;line-height:1.68;padding:6px 0 2px;overflow-wrap:break-word}
 .msg.assistant .body>*:first-child{margin-top:6px}
 .msg.note{margin:14px 0;border:1px solid color-mix(in srgb,var(--c) 45%,var(--line));background:color-mix(in srgb,var(--c) 6%,var(--panel));border-radius:12px;padding:10px 14px 6px}
@@ -891,9 +917,9 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 @keyframes kdin{from{opacity:0;transform:translateY(6px)}}
 .kdmark{width:44px;height:44px;margin:0 auto 10px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
 .kdmark .i{width:24px;height:24px;stroke-width:2.2}
-.kdt{font-family:var(--serif);font-size:22px;color:var(--text)}
+.kdt{font-family:var(--uiserif);font-size:22px;color:var(--text)}
 .kdstats{display:flex;justify-content:center;gap:34px;margin:16px 0 12px}
-.kdstats div{display:flex;flex-direction:column;gap:2px}.kdstats b{font-family:var(--serif);font-size:26px;font-weight:500;color:var(--text);font-variant-numeric:tabular-nums}
+.kdstats div{display:flex;flex-direction:column;gap:2px}.kdstats b{font-family:var(--uiserif);font-size:26px;font-weight:500;color:var(--text);font-variant-numeric:tabular-nums}
 .kdstats span{font-size:12px;color:var(--muted)}
 .kdbar{display:flex;gap:2px;height:6px;max-width:280px;margin:0 auto;border-radius:3px;overflow:hidden}
 .kdbar i{display:block;min-width:4px;background:var(--accent)}.kdbar i[data-g="1"]{background:var(--danger)}.kdbar i[data-g="2"]{opacity:.55}.kdbar i[data-g="4"]{filter:brightness(1.15)}
@@ -1062,7 +1088,7 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .cnode .crs{padding:0 6px 8px}
 .cr{padding:5px 6px;border-radius:7px;cursor:pointer;font-size:12.5px;line-height:1.4;position:relative}
 .cr:hover{background:var(--user-bg)}
-.cr.q{font-weight:500}
+.cr.q{font-weight:500;font-family:var(--you)}
 .cr.a{font-family:var(--serif);color:var(--muted)}
 .cr.gap{font-size:12px;color:var(--faint);text-align:center;letter-spacing:.02em}
 .cr.n{font-size:12px;color:var(--muted);border-left:2px solid var(--line2);border-radius:0}
@@ -1291,8 +1317,14 @@ sup.fn.res{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px va
 /* PDF pages: Original (as printed), Dark (inverted, hues turned back, not quite black), Dim, Sepia; "Match the
    theme" is Dark under a dark theme. Only the drawn page is filtered: the text layer, markers and the reading mark
    aren't, and what the model gets (snips, page images) is drawn from the PDF unfiltered. */
-:root[data-pdf=dark] .dpage,:root[data-pdf=match][data-mode=dark] .dpage{background:#1c1c1c}
-:root[data-pdf=dark] .dpage canvas,:root[data-pdf=match][data-mode=dark] .dpage canvas{filter:invert(.89) hue-rotate(180deg) contrast(.95)}
+:root[data-pdf=dark] .dpage{background:#1c1c1c}
+/* Match the theme: the page takes the theme's own paper. Dark: inverted, then lighten over --panel, so the page's
+   black becomes the theme's background and its text stays light. Light: multiply over --panel, so white becomes the
+   theme's paper and dark text stays dark. Only the canvas is blended (isolated to its page), never the text layer. */
+:root[data-pdf=match] .dpage{background:var(--panel);isolation:isolate}
+:root[data-pdf=match][data-mode=dark] .dpage canvas{filter:invert(1) hue-rotate(180deg) contrast(.9);mix-blend-mode:lighten}
+:root[data-pdf=match][data-mode=light] .dpage canvas{filter:contrast(.97);mix-blend-mode:multiply}
+:root[data-pdf=dark] .dpage canvas{filter:invert(.89) hue-rotate(180deg) contrast(.95)}
 :root[data-pdf=dim] .dpage canvas{filter:brightness(.78) contrast(1.04)}
 :root[data-pdf=dim] .dpage{background:#c7c7c7}
 :root[data-pdf=sepia] .dpage canvas{filter:sepia(.38) brightness(.97) contrast(1.02)}
@@ -1617,7 +1649,7 @@ const msgCache=new Map(),paneEls=new Map(),gutEls=new Map(),streaming=new Map();
 // threads whose reply finished while you couldn't see them: per window, in memory only (a reload forgets them)
 const unread=new Set();
 window.__digressBusy=()=>streaming.size>0; // read by the server's dev live-reload, so it never reloads mid-reply
-window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList},get keys(){return KEYS},get custom(){return CUSTOM},skillLink:(u)=>skillLink(u),putSkill:(t,o)=>putSkill(t,o),get cards(){return CARDS},runDocTool:(n,i,t)=>runDocTool(n,i,t),set docState(v){docState=v}};   // for tests and the console
+window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList},get keys(){return KEYS},get custom(){return CUSTOM},skillLink:(u)=>skillLink(u),putSkill:(t,o)=>putSkill(t,o),get cards(){return CARDS},runDocTool:(n,i,t)=>runDocTool(n,i,t),set docState(v){docState=v},linkPages:(r)=>linkPages(r)};   // for tests and the console
 let mathReady=false,mermaidReady=null,mermaidOk=false;
 let popState=null;
 
@@ -5793,12 +5825,25 @@ async function revealDocAnchor(t,quiet){
   });
 }
 function linkPages(root){
-  const test=/\[(?:pp?\.|pages?)\s*\d+/i,re=/\[(?:pp?\.|pages?)\s*(\d+)(?:\s*[–-]\s*\d+)?\]/gi;
+  // [p. 4], [p. 20–22], and lists: [p. 2, 7], [pp. 5, 13–15], [p. 4; p. 26–27]: each page or range is its own link
+  const ITEM=String.raw`(?:pp?\.\s*)?\d+(?:\s*[–-]\s*\d+)?`;
+  const test=/\[(?:pp?\.|pages?)\s*\d+/i,re=new RegExp(String.raw`\[(?:pp?\.|pages?)\s*`+ITEM+String.raw`(?:\s*[,;]\s*`+ITEM+String.raw`)*\]`,'gi'),item=new RegExp(ITEM,'g');
   const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement&&n.parentElement.closest('pre,code,.math,svg,a,mjx-container')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
   const hits=[];let n;while((n=w.nextNode()))if(test.test(n.nodeValue))hits.push(n);
   for(const node of hits){
     const s=node.nodeValue,frag=document.createDocumentFragment();let last=0,m;re.lastIndex=0;
-    while((m=re.exec(s))){frag.append(s.slice(last,m.index));const a=document.createElement('a');a.className='pref';a.dataset.page=m[1];a.textContent=m[0];a.title=`Show page ${m[1]} in the document`;frag.append(a);last=m.index+m[0].length}
+    const link=(text,page)=>{const a=document.createElement('a');a.className='pref';a.dataset.page=page;a.textContent=text;a.title=`Show page ${page} in the document`;return a};
+    while((m=re.exec(s))){
+      frag.append(s.slice(last,m.index));
+      // the citation's items, past its opening "[p. ": the first link takes the "[p. " and the last the "]", so one item reads as before
+      const c=m[0],open=c.match(/^\[(?:pp?\.|pages?)\s*/i)[0],items=[];let it;item.lastIndex=open.length;
+      while((it=item.exec(c)))items.push({at:it.index,end:it.index+it[0].length,page:it[0].match(/\d+/)[0]});
+      items.forEach((x,i)=>{
+        if(i)frag.append(c.slice(items[i-1].end,x.at));
+        frag.append(link((i===0?c.slice(0,x.at):'')+c.slice(x.at,x.end)+(i===items.length-1?c.slice(x.end):''),x.page));
+      });
+      last=m.index+c.length;
+    }
     frag.append(s.slice(last));node.replaceWith(frag);
   }
 }
@@ -8063,7 +8108,7 @@ setPdfLook(settings.pdf||'original',true);
 function setFont(id,keep){applyFont(id);if(keep){settings.font=document.documentElement.dataset.font;saveSettings();themeMenu.querySelectorAll('button[data-font]').forEach(b=>b.setAttribute('aria-checked',b.dataset.font===settings.font?'true':'false'));themeHeads()}}
 setFont(settings.font||'default',true);
 function setTheme(id,keep){
-  const was=document.documentElement.dataset.theme;applyTheme(id);
+  const was=document.documentElement.dataset.theme;id=applyTheme(id);
   if(keep){settings.theme=id;saveSettings();themeMenu.querySelectorAll('button[data-theme]').forEach(b=>b.setAttribute('aria-checked',b.dataset.theme===settings.theme?'true':'false'));themeHeads()}
   if(document.documentElement.dataset.theme!==was&&mermaidOk){mermaidTheme();document.querySelectorAll('.mermaid-box[data-done]').forEach(b=>b.removeAttribute('data-done'));renderMermaid(document)}
 }

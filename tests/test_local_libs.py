@@ -54,7 +54,8 @@ async def fonts_missing(pg, more=()):
     once Lexend takes over, a font not loaded yet is no longer needed, so it never would be."""
     miss = await pg.evaluate(FONTS_LOADED, ['Inter Variable', 'Source Serif 4 Variable'])
     if more:
-        await pg.evaluate("applyFont('lexend')")
+        # a font sets only the conversation's type, so it loads once some reply text is on screen: put a line there
+        await pg.evaluate("applyFont('lexend');const p=document.createElement('p');p.style.fontFamily='var(--serif)';p.textContent='A reply';document.body.appendChild(p)")
         miss += await pg.evaluate(FONTS_LOADED, list(more))
     return miss
 
