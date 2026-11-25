@@ -48,7 +48,7 @@ async def main():
           const css=[...document.styleSheets].flatMap(s=>{try{return [...s.cssRules]}catch(e){return []}});
           const vars=r=>new Set([...r.style].filter(p=>p.startsWith('--')));
           const base=css.find(r=>r.selectorText===':root, .thsw[data-theme="light"]');
-          const need=[...vars(base)].filter(v=>!['--sans','--serif','--mono','--shadow'].includes(v));
+          const need=[...vars(base)].filter(v=>!['--sans','--serif','--you','--uiserif','--mono','--shadow'].includes(v));
           const out={};for(const [id] of THEMES){if(id==='system'||id==='light')continue;
             const r=css.find(r=>r.selectorText&&r.selectorText.startsWith(`:root[data-theme="${id}"]`));
             out[id]=r?need.filter(v=>!vars(r).has(v)):['(no rule)']}
