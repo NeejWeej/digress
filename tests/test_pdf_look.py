@@ -1,7 +1,8 @@
 """How PDF pages look, set in the theme menu apart from the theme, and the newer themes.
   - "PDF pages": Original, Match the theme, Dark, Dim, Sepia. Only the drawn page is filtered (CSS), never the text
     layer, and never the pixels: what the model gets from a page is drawn unfiltered.
-  - Match the theme: dark pages under a dark theme, as printed under a light one.
+  - Match the theme: the page takes the theme's paper: under a dark theme inverted and blended (lighten) over the
+    pane's color, under a light one multiplied over it (white becomes the theme's paper); the text layer isn't blended.
   - Hovering previews it, clicking keeps it (also after a reload); it doesn't change the theme, nor the theme it.
   - Every theme in the menu sets every color variable the default does.
 Asserts and exits non-zero."""
@@ -84,9 +85,14 @@ async def main():
         # Match the theme
         await pg.locator('#themeB').click(); await pg.evaluate(UNFOLD); await pg.locator('.thmenu.open button[data-pdf=match]').click()
         await pg.locator('.thmenu.open button[data-theme=light]').click(); await frames(pg)
-        check('Match the theme, light theme: as printed', await pg.evaluate(FILTER) == 'none', await pg.evaluate(FILTER))
+        BLEND = "getComputedStyle(document.querySelector('.pane[data-tid=doc] .dpage canvas')).mixBlendMode"
+        PAGE_BG = "[getComputedStyle(document.querySelector('.pane[data-tid=doc] .dpage')).backgroundColor, getComputedStyle(document.querySelector('.pane[data-tid=doc]')).getPropertyValue('--panel').trim()]"
+        check('Match the theme, light theme: not inverted', 'invert' not in await pg.evaluate(FILTER), await pg.evaluate(FILTER))
+        check('…multiplied over the theme’s paper', await pg.evaluate(BLEND) == 'multiply', await pg.evaluate(BLEND))
         await pg.locator('.thmenu.open button[data-theme=kanagawa]').click(); await frames(pg)
         check('…dark theme: dark pages', 'invert' in await pg.evaluate(FILTER), await pg.evaluate(FILTER))
+        check('…blended (lighten) into the theme’s color', await pg.evaluate(BLEND) == 'lighten', await pg.evaluate(BLEND))
+        check('…the text layer isn’t blended', await pg.evaluate("getComputedStyle(document.querySelector('.pane[data-tid=doc] .textLayer')).mixBlendMode") == 'normal')
         await pg.screenshot(path=OUT + '/pdf_match_kanagawa.png')
         await pg.keyboard.press('Escape')
 

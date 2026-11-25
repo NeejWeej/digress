@@ -11,7 +11,7 @@
 <script>
 /* Themes: [id, name, mode]. The colors are in the CSS (:root[data-theme=…]); 'system' follows the device's
    light or dark setting. Set here, before anything paints, so there's no flash of the wrong one. */
-window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['kanagawa-lotus','Kanagawa Lotus','light'],['eink','E-ink','light'],['tokyo-day','Tokyo Night Day','light'],['github-light','GitHub Light','light'],['ayu-light','Ayu Light','light'],['nord-light','Nord Light','light'],['alabaster','Alabaster','light'],['dark','Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['moon','Rosé Pine Moon','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark'],['black','Pure black','dark'],['tokyo-night','Tokyo Night','dark'],['github-dark','GitHub Dark','dark'],['kanagawa-dragon','Kanagawa Dragon','dark'],['rose-pine','Rosé Pine','dark'],['frappe','Catppuccin Frappé','dark'],['macchiato','Catppuccin Macchiato','dark'],['ayu-mirage','Ayu Mirage','dark'],['gruvbox-material','Gruvbox Material','dark'],['zenburn','Zenburn','dark']];
+window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['columbia','Columbia','light'],['solarpunk-light','Solarpunk Light','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['kanagawa-lotus','Kanagawa Lotus','light'],['eink','E-ink','light'],['tokyo-day','Tokyo Night Day','light'],['github-light','GitHub Light','light'],['ayu-light','Ayu Light','light'],['nord-light','Nord Light','light'],['alabaster','Alabaster','light'],['dark','Dark','dark'],['atompunk','Atompunk','dark'],['solarpunk-dark','Solarpunk Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['moon','Rosé Pine Moon','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark'],['black','Pure black','dark'],['tokyo-night','Tokyo Night','dark'],['github-dark','GitHub Dark','dark'],['kanagawa-dragon','Kanagawa Dragon','dark'],['rose-pine','Rosé Pine','dark'],['frappe','Catppuccin Frappé','dark'],['macchiato','Catppuccin Macchiato','dark'],['ayu-mirage','Ayu Mirage','dark'],['gruvbox-material','Gruvbox Material','dark'],['zenburn','Zenburn','dark']];
 /* How PDF pages look (pdf.js draws them as images, in the PDF's own colors): [id, name]. 'match' is dark pages with
    a dark theme. Only the page images are filtered (CSS), never what the model gets. */
 window.PDF_LOOKS=[['original','Original'],['match','Match the theme'],['dark','Dark'],['dim','Dim'],['sepia','Sepia']];
@@ -20,6 +20,9 @@ window.applyPdfLook=function(id){document.documentElement.dataset.pdf=PDF_LOOKS.
 window.FONTS=[['default','Default',[]],['sans','Sans',[]],['serif','Serif',[]],['system','System',[]],['mono','Mono',[]],
   ['literata','Literata',['https://cdn.jsdelivr.net/npm/@fontsource-variable/literata@5.3.0/opsz.css','https://cdn.jsdelivr.net/npm/@fontsource-variable/literata@5.3.0/opsz-italic.css']],
   ['newsreader','Newsreader',['https://cdn.jsdelivr.net/npm/@fontsource-variable/newsreader@5.3.0/opsz.css','https://cdn.jsdelivr.net/npm/@fontsource-variable/newsreader@5.3.0/opsz-italic.css']],
+  ['fraunces','Fraunces',['https://cdn.jsdelivr.net/npm/@fontsource-variable/fraunces@5.3.0/opsz.css','https://cdn.jsdelivr.net/npm/@fontsource-variable/fraunces@5.3.0/opsz-italic.css']],
+  ['jost','Jost',['https://cdn.jsdelivr.net/npm/@fontsource-variable/jost@5.3.0/index.css','https://cdn.jsdelivr.net/npm/@fontsource-variable/jost@5.3.0/wght-italic.css']],
+  ['spacegrotesk','Space Grotesk',['https://cdn.jsdelivr.net/npm/@fontsource-variable/space-grotesk@5.3.0/index.css']],
   ['plex','IBM Plex',['https://cdn.jsdelivr.net/npm/@fontsource-variable/ibm-plex-sans@5.3.0/index.css','https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-serif@5.3.0/400.css','https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-serif@5.3.0/600.css','https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-serif@5.3.0/400-italic.css']],
   ['lexend','Lexend',['https://cdn.jsdelivr.net/npm/@fontsource-variable/lexend@5.3.0/index.css']],
   ['atkinson','Atkinson Hyperlegible',['https://cdn.jsdelivr.net/npm/@fontsource-variable/atkinson-hyperlegible-next@5.3.0/index.css']],
@@ -60,6 +63,11 @@ window.LIBS={
   'https://cdn.jsdelivr.net/npm/@fontsource/comic-neue@5.3.0/400.css':['lib/@fontsource/comic-neue@5.3.0/400.css','sha384-K1DosZW63giE8Pd9GSh9ExGbbomieyy+GNy0yZfsZlpACouLtqz9lEodpx0B8rTZ'],
   'https://cdn.jsdelivr.net/npm/@fontsource/comic-neue@5.3.0/700.css':['lib/@fontsource/comic-neue@5.3.0/700.css','sha384-gfUFTi/VVml1wvXIfL3yZ8I2aULaGKhlBtPL4fsnRQ+H5qnsw/K849SjCGP61hSB'],
   'https://cdn.jsdelivr.net/npm/@fontsource/comic-neue@5.3.0/400-italic.css':['lib/@fontsource/comic-neue@5.3.0/400-italic.css','sha384-TaRlR0gr4VkprLLZSaU+VVDcWHutLAXz2loF7SjZGFUQ+sjtzSHlKuKI1OsmlGhr'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/fraunces@5.3.0/opsz.css':['lib/@fontsource-variable/fraunces@5.3.0/opsz.css','sha384-Yg2cu354oiIXPVHcymtfrRF2FgOmZJG+x6Fy0eJCAzj2ebjH/kaJw/X4wvo8pF+x'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/fraunces@5.3.0/opsz-italic.css':['lib/@fontsource-variable/fraunces@5.3.0/opsz-italic.css','sha384-w29LqNcGer+at/8rfNqFsvGtJDQ+62THWMIWKd0iwUVlUC5ayCY+ZfOq2d7Wrlnn'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/jost@5.3.0/index.css':['lib/@fontsource-variable/jost@5.3.0/index.css','sha384-B50tE6zW38cC82hiTN0z9u2y8gO9t6C8GejOB152B/5fDNYh5bZi58k6dlkJrRQg'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/jost@5.3.0/wght-italic.css':['lib/@fontsource-variable/jost@5.3.0/wght-italic.css','sha384-NhWBzce4ehUrKcK0/Le41/sRrf349he8qnc0zO3pWult+8ZCzlqSenb6Up6yFrEi'],
+  'https://cdn.jsdelivr.net/npm/@fontsource-variable/space-grotesk@5.3.0/index.css':['lib/@fontsource-variable/space-grotesk@5.3.0/index.css','sha384-b3Dtcpab/ltw+oDnVHstCCa9ENEb2hKouCSRAfb8o0ROkWOb2uNWYG6+l7HGrHmG'],
 };
 /* A font's stylesheet (a CDN address, a key of LIBS): this server's copy, else the CDN's, both checked against its
    hash, like the libraries; the .woff2 files it names come from the same place. Without either, system fonts. */
@@ -172,6 +180,26 @@ window.applyTheme=function(id){
   --line:#2a2a37;--line2:#363646;--user-bg:#2a2a37;--code-bg:#1a1a22;--accent:#7e9cd8;--danger:#e46876;
   --hk:#957fb8;--hs:#98bb6c;--hn:#d27e99;--ht:#7e9cd8;--hy:#7aa89f;--hm:#ffa066;
 }
+:root[data-theme=atompunk],.thsw[data-theme=atompunk]{   /* Atompunk: 1960s space age, atomic orange and phosphor cyan */
+  --bg:#11151c;--panel:#181e29;--panel-2:#212938;--ink:#f2f0e6;--muted:#b8c0cc;--faint:#7c8798;
+  --line:#283244;--line2:#3b4861;--user-bg:#212938;--code-bg:#141922;--accent:#ff6b35;--danger:#ff5d73;
+  --hk:#ff6b35;--hs:#2ec4b6;--hn:#f7c548;--ht:#7fb8ff;--hy:#c792ea;--hm:#ff9f6b;
+}
+:root[data-theme=solarpunk-dark],.thsw[data-theme=solarpunk-dark]{   /* Solarpunk Dark: botanical emerald and sunlit amber */
+  --bg:#0d1b17;--panel:#132620;--panel-2:#1b352d;--ink:#f3efe6;--muted:#b9cfc6;--faint:#7a9b8e;
+  --line:#234238;--line2:#325e50;--user-bg:#1b352d;--code-bg:#10211c;--accent:#e9b44c;--danger:#e06c5a;
+  --hk:#e9b44c;--hs:#38b28b;--hn:#e89a6b;--ht:#7cc4e0;--hy:#c9d86b;--hm:#d99bc4;
+}
+:root[data-theme=columbia],.thsw[data-theme=columbia]{   /* Columbia: a gilded world's fair, cerulean and brass on paper */
+  --bg:#f2ece1;--panel:#faf6ee;--panel-2:#f4eee3;--ink:#1a2639;--muted:#475569;--faint:#7a8699;
+  --line:#e2d9c8;--line2:#c7b99e;--user-bg:#efe7d8;--code-bg:#f3ede2;--accent:#2b6cb0;--danger:#b83a3a;
+  --hk:#2b6cb0;--hs:#8a6a12;--hn:#a23b72;--ht:#1f6f6b;--hy:#9c7414;--hm:#7a5c2e;
+}
+:root[data-theme=solarpunk-light],.thsw[data-theme=solarpunk-light]{   /* Solarpunk Light: sunlit parchment and forest */
+  --bg:#ede9dc;--panel:#f7f4eb;--panel-2:#fffdf7;--ink:#162b22;--muted:#3e594e;--faint:#6e857b;
+  --line:#ddd7c5;--line2:#bfb7a0;--user-bg:#e9e4d4;--code-bg:#f0ecdf;--accent:#1f7a5c;--danger:#b3412e;
+  --hk:#1f7a5c;--hs:#a8650f;--hn:#8e4fa0;--ht:#2c6e99;--hy:#8a7a12;--hm:#b3412e;
+}
 :root[data-theme=everforest],.thsw[data-theme=everforest]{   /* Everforest Dark */
   --bg:#232a2e;--panel:#2d353b;--panel-2:#343f44;--ink:#d3c6aa;--muted:#9da9a0;--faint:#7a8478;
   --line:#3d484d;--line2:#475258;--user-bg:#343f44;--code-bg:#293136;--accent:#a7c080;--danger:#e67e80;
@@ -277,6 +305,9 @@ window.applyTheme=function(id){
 :root[data-font=atkinson]{--sans:'Atkinson Hyperlegible Next Variable',system-ui,sans-serif;--serif:'Atkinson Hyperlegible Next Variable',system-ui,sans-serif}
 :root[data-font=literata]{--serif:'Literata Variable',Georgia,serif}
 :root[data-font=newsreader]{--serif:'Newsreader Variable',Georgia,serif}
+:root[data-font=fraunces]{--serif:'Fraunces Variable',Georgia,serif}
+:root[data-font=jost]{--sans:'Jost Variable',system-ui,sans-serif}
+:root[data-font=spacegrotesk]{--sans:'Space Grotesk Variable',system-ui,sans-serif}
 :root[data-font=plex]{--sans:'IBM Plex Sans Variable',system-ui,sans-serif;--serif:'IBM Plex Serif',Georgia,serif}
 :root[data-font=inclusive]{--sans:'Inclusive Sans Variable',system-ui,sans-serif;--serif:'Inclusive Sans Variable',system-ui,sans-serif}
 :root[data-font=sourcesans]{--sans:'Source Sans 3 Variable',system-ui,sans-serif;--serif:'Source Sans 3 Variable',system-ui,sans-serif}
@@ -1291,8 +1322,14 @@ sup.fn.res{background:transparent;color:var(--c);box-shadow:inset 0 0 0 1.3px va
 /* PDF pages: Original (as printed), Dark (inverted, hues turned back, not quite black), Dim, Sepia; "Match the
    theme" is Dark under a dark theme. Only the drawn page is filtered: the text layer, markers and the reading mark
    aren't, and what the model gets (snips, page images) is drawn from the PDF unfiltered. */
-:root[data-pdf=dark] .dpage,:root[data-pdf=match][data-mode=dark] .dpage{background:#1c1c1c}
-:root[data-pdf=dark] .dpage canvas,:root[data-pdf=match][data-mode=dark] .dpage canvas{filter:invert(.89) hue-rotate(180deg) contrast(.95)}
+:root[data-pdf=dark] .dpage{background:#1c1c1c}
+/* Match the theme: the page takes the theme's own paper. Dark: inverted, then lighten over --panel, so the page's
+   black becomes the theme's background and its text stays light. Light: multiply over --panel, so white becomes the
+   theme's paper and dark text stays dark. Only the canvas is blended (isolated to its page), never the text layer. */
+:root[data-pdf=match] .dpage{background:var(--panel);isolation:isolate}
+:root[data-pdf=match][data-mode=dark] .dpage canvas{filter:invert(1) hue-rotate(180deg) contrast(.9);mix-blend-mode:lighten}
+:root[data-pdf=match][data-mode=light] .dpage canvas{filter:contrast(.97);mix-blend-mode:multiply}
+:root[data-pdf=dark] .dpage canvas{filter:invert(.89) hue-rotate(180deg) contrast(.95)}
 :root[data-pdf=dim] .dpage canvas{filter:brightness(.78) contrast(1.04)}
 :root[data-pdf=dim] .dpage{background:#c7c7c7}
 :root[data-pdf=sepia] .dpage canvas{filter:sepia(.38) brightness(.97) contrast(1.02)}
