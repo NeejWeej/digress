@@ -52,6 +52,16 @@ def main():
         check(u.get('ctx', 0) > 0 and u.get('out') == 11 and u.get('window') == 1048576, 'with token counts and the context window', u)
         st, text, lines = chat(base, {'messages': [{'role': 'user', 'content': 'SEARCHME please'}], 'model': 'gemini-3.8-flash', 'web': True})
         check(any(l.get('search') == 'gemini search' for l in lines) and any(l.get('sources') for l in lines) and 'Searched' in text, 'Web on: Google Search runs, its query and sources come through', lines)
+        # no groundingChunks, but the reply links through Google's redirect: those links are the sources (deduped, titles without * _ `)
+        R = 'https://vertexaisearch.cloud.google.com/grounding-api-redirect/'
+        srcs = lambda ls: [s for l in ls for s in (l.get('sources') or [])]
+        st, text, lines = chat(base, {'messages': [{'role': 'user', 'content': 'REDIRLINKS'}], 'model': 'gemini-3.8-flash', 'web': True})
+        check(st == 200 and [(s['title'], s['url']) for s in srcs(lines)] == [('Alphasite', R + 'AbC123-_='), ('Beta', R + 'Zed789')] and sum(1 for l in lines if l.get('sources')) == 1 and lines[-1].get('done'),
+              'Web on, no groundingChunks: the redirect links in the reply become the sources (deduped, titles cleaned, other links ignored)', [st, lines])
+        st, text, lines = chat(base, {'messages': [{'role': 'user', 'content': 'REDIRLINKS'}], 'model': 'gemini-3.8-flash', 'web': False})
+        check(st == 200 and not srcs(lines) and 'Alpha' in text, '…with Web off, links in the text give no sources', lines)
+        st, text, lines = chat(base, {'messages': [{'role': 'user', 'content': 'REDIRLINKS WITHCHUNKS'}], 'model': 'gemini-3.8-flash', 'web': True})
+        check(st == 200 and [s['url'] for s in srcs(lines)] == ['https://example.org/real'] and sum(1 for l in lines if l.get('sources')) == 1, '…with real groundingChunks, the fallback adds nothing', lines)
         st, text, lines = chat(base, {'messages': [{'role': 'user', 'content': 'SEARCHME please'}], 'model': 'gemini-3.8-flash', 'web': False})
         check('web=false' in text, '…Web off sends no search tool', text)
         # the document tools' schemas, as Google checks them (lists stay lists; nothing it doesn't take)

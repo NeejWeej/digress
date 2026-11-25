@@ -11,6 +11,11 @@ MAP = {
     'mermaid.min.js': ROOT + 'mermaid/dist/mermaid.min.js',
 }
 
+fails = []
+def check(name, ok, detail=''):
+    print(('ok   ' if ok else 'FAIL ') + name, detail)
+    if not ok: fails.append(name)
+
 FAKE = r"""
 const REPLY = `## Self-attention
 
@@ -159,7 +164,56 @@ async def main():
         await pg.locator('[data-v=cols]').click(); await calm(pg); await pg.locator('[data-v=canvas]').click(); await calm(pg)
         print('stacking remembered:', int(await pg.locator(f'.cnode[data-ctid="{ids[1]}"]').evaluate('e=>e.style.zIndex')) > int(await pg.locator(f'.cnode[data-ctid="{ids[0]}"]').evaluate('e=>e.style.zIndex')))
         await pg.screenshot(path=OUT + '/z1.png')
+
+        # --- the pinned section's order: a pinned conversation's pinned branches come right after its row (indented, no
+        # "· title"); pinned branches of conversations that aren't pinned stay at the end, with the conversation's name
+        await pg.locator('[data-v=cols]').click(); await calm(pg)
+        await new_conv(pg)
+        tb = pg.locator('.pane[data-tid="main"] textarea'); await tb.fill('Third topic'); await answered(pg, tb.press('Enter')); await saved(pg)
+        await pg.evaluate(SEL, ['.pane[data-tid=main] .msg.assistant .body', 'soft dictionary lookup'])
+        await pg.locator('#popIn').fill('Why lookup again?'); await answered(pg, pg.locator('#popIn').press('Enter'))
+        await changed(pg, "[...document.querySelectorAll('#plist .citem')].map(c=>c.textContent)", pg.locator('.pane').nth(1).locator('[data-act=pin]').click())
+        ROWS = """[...document.querySelectorAll('#plist .citem')].map(c=>({cls:c.className.replace(/ ?cur/,''),t:c.querySelector('.t').firstChild.textContent.trim(),small:c.querySelector('small')?c.querySelector('small').textContent:null}))"""
+        rows = await pg.evaluate(ROWS)
+        print('pinned rows:', rows)
+        want = [('citem', 'Explain self-attention', None), ('citem pb psub', 'Why lookup?', None), ('citem pb', 'Why lookup again?', '· Third topic')]
+        check('a pinned conversation, then its pinned branches (no title), then branches of unpinned conversations (with title)',
+              [(r['cls'], r['t'], r['small']) for r in rows] == want, rows)
+        # pin the third conversation too: its branch moves up under it, ahead of nothing left at the end
+        third = pg.locator('#clist .citem', has_text='Third topic'); await third.hover()
+        await changed(pg, "[...document.querySelectorAll('#plist .citem')].map(c=>c.className)", third.locator('[data-pinconv]').click())
+        rows = await pg.evaluate(ROWS)
+        check('both conversations pinned: each is followed by its own branch, all indented, none with a title',
+              [r['cls'] for r in rows] == ['citem', 'citem pb psub', 'citem', 'citem pb psub'],
+              rows)
+        check('…and no branch row names its conversation', all(r['small'] is None for r in rows), rows)
+        names = [r['t'] for r in rows]
+        check('…each branch directly after its own conversation', names.index('Why lookup?') == names.index('Explain self-attention') + 1 and names.index('Why lookup again?') == names.index('Third topic') + 1, names)
+        # unpin the first conversation: its branch drops to the end with the title again
+        first = pg.locator('#plist .citem:not(.pb)', has_text='Explain self-attention'); await first.hover()
+        await changed(pg, "[...document.querySelectorAll('#plist .citem')].map(c=>c.className)", first.locator('[data-pinconv]').click())
+        rows = await pg.evaluate(ROWS)
+        check('unpinning a conversation sends its pinned branch to the end, titled again',
+              [(r['cls'], r['t']) for r in rows] == [('citem', 'Third topic'), ('citem pb psub', 'Why lookup again?'), ('citem pb', 'Why lookup?')] and rows[-1]['small'] == '· Explain self-attention', rows)
+
+        # --- touch screens: only the pin button shows on a pinned row (the "pinned" mark beside the title is hidden there)
+        tctx = await b.new_context(viewport={'width': 412, 'height': 860}, has_touch=True, is_mobile=True)
+        tp = await tctx.new_page(); terrs = []
+        tp.on('pageerror', lambda e: terrs.append(str(e)))
+        await tp.route('**/*', route); await tp.add_init_script(FAKE)
+        await goto_app(tp); await booted(tp)
+        if not await tp.evaluate("matchMedia('(hover:none)').matches"):
+            print('note: this browser context does not report (hover:none); the touch pin-icon check is skipped')
+        else:
+            tt = tp.locator('.pane[data-tid="main"] textarea'); await tt.fill('Touch topic'); await answered(tp, tt.press('Enter')); await saved(tp)
+            await tp.evaluate("document.querySelector('#clist [data-pinconv]').click()")
+            await tp.wait_for_function("document.querySelectorAll('#plist .citem').length===1")
+            vis = await tp.evaluate("""[...document.querySelectorAll('#plist .citem:not(.pb) :is(.pmark,[data-pinconv]) svg.i')].filter(s=>{const cs=getComputedStyle(s);for(let e=s;e&&e.id!=='plist';e=e.parentElement){if(getComputedStyle(e).display==='none'||getComputedStyle(e).visibility==='hidden')return false}return true}).map(s=>s.closest('.pmark')?'pmark':s.closest('button')?s.closest('button').getAttributeNames().join():'?')""")
+            check('on a touch screen a pinned row shows exactly one pin icon (the button, not the mark)', len(vis) == 1 and 'pmark' not in vis and 'data-pinconv' in vis[0], vis)
+        check('no page errors (touch)', not terrs, '; '.join(terrs[:3]))
+        await tctx.close()
         print('\n'.join(errs[:20]) or 'no errors')
         await b.close()
+    sys.exit(1 if fails else 0)
 
 asyncio.run(main())

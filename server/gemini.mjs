@@ -15,6 +15,17 @@ const MAX_OUTPUT = Number(process.env.MAX_TOKENS || 16000);
 const WAIT_MS = Number(process.env.GEMINI_WAIT_MS || 90000);
 const RETRY_MS = Number(process.env.GEMINI_RETRY_MS || 2000);
 
+// Markdown links to Google Search's result redirects in a reply's text: [title](https://vertexaisearch.cloud.google.com/grounding-api-redirect/…)
+const REDIRECT = /\[([^\]\n]{1,300})\]\((https:\/\/vertexaisearch\.cloud\.google\.com\/grounding-api-redirect\/[A-Za-z0-9_\-=%.~]+)\)/g;
+export function groundedLinks(text) {
+  const out = [], seen = new Set();
+  for (const m of String(text || '').matchAll(REDIRECT)) {
+    if (seen.has(m[2])) continue; seen.add(m[2]);
+    out.push({ title: m[1].replace(/[*_`]/g, '').trim() || 'Source', url: m[2] });
+  }
+  return out;
+}
+
 // ---- models ----------------------------------------------------------------------------------
 const windows = new Map();   // model id -> context window (the model list's inputTokenLimit)
 let cache = null;
@@ -148,8 +159,8 @@ export async function chat(payload, res, h, key) {
 
   const out = h.startStream(res);
   if (payload.session) payload.session.out = out;
-  const st = { model: null, any: false, usage: null, end: null };
-  const sources = (list) => { const s = h.sourcesLine(list); if (s) out(s); };
+  const st = { model: null, any: false, usage: null, end: null, text: '', gotSources: false, grounding: null };
+  const sources = (list) => { const s = h.sourcesLine(list); if (s) { st.gotSources = true; out(s); } };
   for (let round = 0; ; round++) {
     const modelParts = [], calls = [];
     let finish = null, searched = new Set();
@@ -171,11 +182,12 @@ export async function chat(payload, res, h, key) {
           for (const p of (c.content && c.content.parts) || []) {
             modelParts.push(p);   // kept as sent (with any thoughtSignature), to send back in a tool loop
             if (p.thought) continue;
-            if (typeof p.text === 'string' && p.text) { st.any = true; out({ d: p.text }); }
+            if (typeof p.text === 'string' && p.text) { st.any = true; st.text += p.text; out({ d: p.text }); }
             if (p.functionCall) calls.push(p.functionCall);
           }
           const g = c.groundingMetadata;
           if (g) {
+            st.grounding = Object.keys(g);
             for (const q of g.webSearchQueries || []) if (!searched.has(q)) { searched.add(q); out({ search: String(q).slice(0, 500) }); }
             sources((g.groundingChunks || []).map((x) => x.web).filter(Boolean).map((w) => ({ title: w.title, url: w.uri })));
           }
@@ -209,6 +221,15 @@ export async function chat(payload, res, h, key) {
   }
   if (st.end && st.end.error) out({ error: st.end.error });
   else {
+    // Google sometimes leaves out the list of what a search found (no groundingChunks) while the reply still links
+    // to its results through Google's redirect: then those links are the sources, named by their link text.
+    if (!st.gotSources && payload.web) {
+      const found = groundedLinks(st.text);
+      if (found.length) {
+        if (process.env.DEV) console.warn(`gemini: no grounding sources came (grounding keys: ${st.grounding ? st.grounding.join(',') || 'none' : 'no groundingMetadata'}); took ${found.length} from the reply's links`);
+        sources(found);
+      }
+    }
     const w = windows.get(payload.model), u = st.usage;
     out({ done: true, model: payload.model, truncated: !!(st.end && st.end.truncated), ...(u ? { usage: { ctx: u.ctx, cached: u.cached, out: u.out, rounds: u.rounds, ...(w ? { window: w } : {}) } } : {}) });
   }
