@@ -11,7 +11,7 @@
 <script>
 /* Themes: [id, name, mode]. The colors are in the CSS (:root[data-theme=…]); 'system' follows the device's
    light or dark setting. Set here, before anything paints, so there's no flash of the wrong one. */
-window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['columbia','Columbia','light'],['solarpunk-light','Solarpunk Light','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['kanagawa-lotus','Kanagawa Lotus','light'],['eink','E-ink','light'],['tokyo-day','Tokyo Night Day','light'],['github-light','GitHub Light','light'],['ayu-light','Ayu Light','light'],['nord-light','Nord Light','light'],['alabaster','Alabaster','light'],['dark','Dark','dark'],['atompunk','Atompunk','dark'],['solarpunk-dark','Solarpunk Dark','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark'],['black','Pure black','dark'],['tokyo-night','Tokyo Night','dark'],['github-dark','GitHub Dark','dark'],['rose-pine','Rosé Pine','dark'],['ayu-mirage','Ayu Mirage','dark']];
+window.THEMES=[['system','Match device','auto'],['light','Paper','light'],['columbia','Columbia','light'],['solarpunk-light','Solarpunk Light','light'],['map-room','Map Room','light'],['greenhouse','Greenhouse','light'],['reading-room','Reading Room','light'],['sand','Sand','light'],['seaglass','Sea glass','light'],['dawn','Rosé Pine Dawn','light'],['solarized-light','Solarized Light','light'],['everforest-light','Everforest Light','light'],['latte','Catppuccin Latte','light'],['gruvbox-light','Gruvbox Light','light'],['flexoki-light','Flexoki Light','light'],['kanagawa-lotus','Kanagawa Lotus','light'],['eink','E-ink','light'],['tokyo-day','Tokyo Night Day','light'],['github-light','GitHub Light','light'],['ayu-light','Ayu Light','light'],['nord-light','Nord Light','light'],['alabaster','Alabaster','light'],['dark','Dark','dark'],['atompunk','Atompunk','dark'],['solarpunk-dark','Solarpunk Dark','dark'],['canopy','Canopy','dark'],['lost-city','Lost City','dark'],['speakeasy','Speakeasy','dark'],['phosphor','Phosphor','dark'],['kanagawa','Kanagawa','dark'],['everforest','Everforest Dark','dark'],['mocha','Catppuccin Mocha','dark'],['gruvbox','Gruvbox Dark','dark'],['purple','Shades of Purple','dark'],['nord','Nord','dark'],['flexoki','Flexoki Dark','dark'],['black','Pure black','dark'],['tokyo-night','Tokyo Night','dark'],['github-dark','GitHub Dark','dark'],['rose-pine','Rosé Pine','dark'],['ayu-mirage','Ayu Mirage','dark']];
 /* How PDF pages look (pdf.js draws them as images, in the PDF's own colors): [id, name]. 'match' is dark pages with
    a dark theme. Only the page images are filtered (CSS), never what the model gets. */
 window.PDF_LOOKS=[['original','Original'],['match','Match the theme'],['dark','Dark'],['dim','Dim'],['sepia','Sepia']];
@@ -202,6 +202,41 @@ window.applyTheme=function(id){
   --bg:#ede9dc;--panel:#f7f4eb;--panel-2:#fffdf7;--ink:#162b22;--muted:#3e594e;--faint:#6e857b;
   --line:#ddd7c5;--line2:#bfb7a0;--user-bg:#e9e4d4;--code-bg:#f0ecdf;--accent:#1f7a5c;--danger:#b3412e;
   --hk:#1f7a5c;--hs:#a8650f;--hn:#8e4fa0;--ht:#2c6e99;--hy:#8a7a12;--hm:#b3412e;
+}
+:root[data-theme=map-room],.thsw[data-theme=map-room]{   /* Map Room: an expedition's aged, tea-stained map, sepia ink, faded red route lines, compass gold */
+  --bg:#d6c6a2;--panel:#e6d9bb;--panel-2:#ddcca8;--ink:#3a2a18;--muted:#5e4a30;--faint:#8a7656;
+  --line:#cdbb95;--line2:#b39f75;--user-bg:#dccba5;--code-bg:#ddd0b0;--accent:#a33a26;--danger:#8e1f2f;
+  --hk:#a33a26;--hs:#2f6b4a;--hn:#8a5a0e;--ht:#6b4423;--hy:#4f6b2a;--hm:#8a3f5a;
+}
+:root[data-theme=greenhouse],.thsw[data-theme=greenhouse]{   /* Greenhouse: Solarpunk's soft side, muted sage glass, dark moss ink, amber */
+  --bg:#c9d3bf;--panel:#dbe3d1;--panel-2:#d1dbc6;--ink:#1f3324;--muted:#435a47;--faint:#6f8471;
+  --line:#c4cfb8;--line2:#a7b59a;--user-bg:#cfdac3;--code-bg:#d3dcc8;--accent:#8a5a0c;--danger:#a8402b;
+  --hk:#2f6b45;--hs:#8a5a0e;--hn:#8a3f6a;--ht:#3f6b2a;--hy:#6b6a12;--hm:#a8402b;
+}
+:root[data-theme=reading-room],.thsw[data-theme=reading-room]{   /* Reading Room: an old library by lamplight, candlelit tan pages, walnut ink, oxblood and brass */
+  --bg:#cfbf9f;--panel:#e2d6bd;--panel-2:#d8c9aa;--ink:#33241a;--muted:#5c4532;--faint:#86705a;
+  --line:#d2c3a4;--line2:#b5a07e;--user-bg:#d9cbae;--code-bg:#dacdb2;--accent:#7e2a22;--danger:#a3321e;
+  --hk:#7e2a22;--hs:#7a5a12;--hn:#8a3a52;--ht:#4a5a2a;--hy:#6b4423;--hm:#a3501e;
+}
+:root[data-theme=canopy],.thsw[data-theme=canopy]{   /* Canopy: rainforest at night, near-black green, fern and moss, firefly yellow */
+  --bg:#070d08;--panel:#0c140d;--panel-2:#111c12;--ink:#cfe0bf;--muted:#9fb88e;--faint:#6a8060;
+  --line:#172418;--line2:#26392a;--user-bg:#142116;--code-bg:#0a110b;--accent:#e8d65a;--danger:#e0745a;
+  --hk:#e8d65a;--hs:#8fc46a;--hn:#d9a05a;--ht:#6fc4a0;--hy:#c4d88a;--hm:#c98fb0;
+}
+:root[data-theme=lost-city],.thsw[data-theme=lost-city]{   /* Lost City: a jungle temple by torchlight, mossy stone, leather, parchment, torch amber, jade and gold leaf */
+  --bg:#14140e;--panel:#1c1b13;--panel-2:#2a2116;--ink:#eadfc4;--muted:#c2b393;--faint:#8a7d62;
+  --line:#2c2a1e;--line2:#6b5a2e;--user-bg:#2a2418;--code-bg:#171610;--accent:#e8963a;--danger:#d9583f;
+  --hk:#e8963a;--hs:#6fbf8e;--hn:#d07a4f;--ht:#d9b45a;--hy:#9fb86a;--hm:#c98a6a;
+}
+:root[data-theme=speakeasy],.thsw[data-theme=speakeasy]{   /* Speakeasy: Art Deco after hours, oxblood leather, whiskey, brass, cream */
+  --bg:#140c0b;--panel:#1d1210;--panel-2:#2a1714;--ink:#f1e4cc;--muted:#cbb390;--faint:#8f7a60;
+  --line:#2e1d19;--line2:#5a4426;--user-bg:#2c1a15;--code-bg:#170e0c;--accent:#d4a84f;--danger:#e0604f;
+  --hk:#d4a84f;--hs:#c98a52;--hn:#d9776a;--ht:#e6c88a;--hy:#a8b07a;--hm:#c78aa0;
+}
+:root[data-theme=phosphor],.thsw[data-theme=phosphor]{   /* Phosphor: an amber terminal, one glowing amber at a few brightnesses, no blue at all */
+  --bg:#0a0702;--panel:#110c04;--panel-2:#161005;--ink:#ffb646;--muted:#d9952f;--faint:#9a6a22;
+  --line:#2a1c08;--line2:#4a320e;--user-bg:#1f1607;--code-bg:#0d0903;--accent:#ffd27a;--danger:#ff6a3d;
+  --hk:#ffd27a;--hs:#e0a040;--hn:#ffe0a8;--ht:#ffbf55;--hy:#c88a30;--hm:#f0b060;
 }
 :root[data-theme=everforest],.thsw[data-theme=everforest]{   /* Everforest Dark */
   --bg:#232a2e;--panel:#2d353b;--panel-2:#343f44;--ink:#d3c6aa;--muted:#9da9a0;--faint:#7a8478;
