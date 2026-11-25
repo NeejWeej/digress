@@ -726,7 +726,9 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .panes .pane:not(.rail)>.ph>.pgrip{display:block}
 .panes .pane>.ph:hover>.pgrip{opacity:.9}
 .pgrip:hover{background-color:var(--user-bg)}
-@media (hover:none){.panes .pane>.ph>.pgrip{opacity:.6;width:13px;height:28px;left:0}}
+@media (hover:none){.panes .pane>.ph>.pgrip{opacity:.6;width:13px;height:28px;left:0}
+  /* a long press on the header picks the pane up (paneReorder), so it mustn't select the title or open the callout */
+  .panes .pane>.ph{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.panes .pane>.ph [contenteditable=true]{-webkit-user-select:text;user-select:text}}
 .panes .pane>.ph :is(button,q,.crumb,[data-resolve],[contenteditable=true]){cursor:pointer}
 .pane.pdrag{opacity:.7;box-shadow:0 0 0 2px var(--c),0 10px 30px rgba(0,0,0,.18);z-index:5}
 .panes.reordering,.panes.reordering *{cursor:grabbing !important;user-select:none !important}
@@ -827,7 +829,15 @@ mjx-assistive-mml{position:absolute!important;top:0;left:0;clip:rect(1px,1px,1px
 .mm-sep{width:1px;height:16px;background:var(--line2);margin:0 6px}
 .mm-tog{opacity:.55}
 .mermaid-box.mmz-on .mm-tog{opacity:1}
-@media (hover:hover){.mm-tog{opacity:0}.mermaid-box:hover .mm-tog,.mermaid-box:focus-within .mm-tog{opacity:.7}}
+@media (hover:hover){.mm-tog{opacity:0}.mermaid-box:hover .mm-tog,.mermaid-box:focus-within .mm-tog,.rimgbox:hover .mm-tog,.rimgbox:focus-within .mm-tog{opacity:.7}}
+/* a reply's loaded image: framed like a diagram, fits the column and RIMG_MAX tall, the same zoom strip */
+.rimgbox{display:block;margin:.8em 0;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel-2);text-align:center;line-height:0}
+.rimgbox .mm-view{display:block;overflow:hidden}
+.rimgbox .mm-view>img{display:block;margin:0 auto;max-width:100%;max-height:min(50vh,420px);height:auto;border-radius:6px;cursor:zoom-in}
+.rimgbox[data-k] .mm-view{cursor:grab;touch-action:none}.rimgbox[data-k] .mm-view>img{cursor:inherit}
+.rimgbox[data-k] .mm-view.mm-drag{cursor:grabbing}
+.rimgbox.mmz-on .mm-ctl{display:inline-flex}.rimgbox.mmz-on .mm-tog{opacity:1}
+.rimgbox .mm-bar{line-height:normal}
 @media (hover:none) and (pointer:coarse){.mm-bar{display:none}}   /* phones and tablets without a mouse: the browser's own pinch-zoom does it better */
 .mm-err{text-align:left}
 .mermaid-box.mm-bad{text-align:left;color:var(--muted)}
@@ -845,6 +855,12 @@ mjx-assistive-mml{position:absolute!important;top:0;left:0;clip:rect(1px,1px,1px
 .msg:hover .mfoot .ib,.msg:hover .mfoot .tb{opacity:1}
 .mfoot .model{font-size:11px;color:var(--faint);margin-left:2px}
 .mfoot .model+.ctxu::before{content:'·';margin-right:5px}
+.mfoot button.ctxu{border:0;background:none;padding:2px 4px;margin-left:-2px;border-radius:5px;font-family:inherit;cursor:pointer}
+.mfoot button.ctxu:hover{background:var(--user-bg);color:var(--muted)}
+.upop{min-width:220px;max-width:300px;font:12.5px var(--sans);color:var(--ink)}
+.upop .ur{display:flex;justify-content:space-between;gap:16px;padding:3px 8px}.upop .ur b{font-weight:600;font-variant-numeric:tabular-nums}
+.upop .ur.usub{padding-left:20px;color:var(--muted)}.upop .ur.usub b{font-weight:400}
+.upop .unote{margin-top:6px;padding:6px 8px 2px;border-top:1px solid var(--line);font-size:11.5px;line-height:1.45;color:var(--faint)}
 .bchips{display:flex;flex-wrap:wrap;gap:5px;width:100%;margin-top:4px}
 .bchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 4px 2px 3px;max-width:280px;cursor:pointer;background:var(--panel)}
 .bchip .n{min-width:18px;height:18px;border-radius:9px;background:var(--c);color:#fff;font-size:10.5px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;padding:0 4px;flex:none}
@@ -1135,6 +1151,7 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .citem .pmark svg.i{width:12px;height:12px}
 .citem.pb .t small{color:var(--faint);font-size:11.5px}
 .citem .bd{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.citem.psub{padding-left:26px}   /* a pinned branch under its pinned conversation */
 /* folders: one section that folds, each folder in it folds too (the header row is a .citem, so its buttons behave like a row's) */
 #flist{position:relative;max-height:26vh;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:1px}
 #foldWrap.folded #flist{display:none}
@@ -1428,6 +1445,7 @@ a.pref:hover{border-bottom-style:solid}
   .pop{width:auto;left:8px !important;right:8px}.pal{padding-top:8vh}}
 /* touch screens have no hover: show the controls that otherwise appear on hover */
 @media (hover:none){.dmark .mx{opacity:1}.zenx{opacity:.85;height:20px;line-height:18px}.msg.user .uact{opacity:1}.mnode .macts{position:static;opacity:1;pointer-events:auto;background:none;padding:0}.mnode .mpin{display:none}}
+@media (hover:none){.citem .pmark{display:none}}   /* the pin button, always shown here, already says it's pinned */
 @media (hover:none){.citem .acts{position:static;transform:none;background:none;padding:0;pointer-events:auto}.citem .acts,.mnode .mp,.mnode .mx,.bchip .bx,.del,.mfoot .ib,.mfoot .tb,.cnode .ch .ib{opacity:1 !important}.tipbox{display:none !important}}
 </style>
 </head>
@@ -2050,7 +2068,7 @@ function userMsgBody(el,m){
 }
 function lightbox(ref){
   const d=document.createElement('div');d.className='lightbox';d.innerHTML='<img alt="">';document.body.appendChild(d);
-  imageURL(ref).then(u=>{d.firstChild.src=u}).catch(()=>d.remove());
+  (ref.url?Promise.resolve(ref.url):imageURL(ref)).then(u=>{d.firstChild.src=u}).catch(()=>d.remove());   // {url}: a reply's image, already loaded by the reader
   const close=()=>{d.remove();removeEventListener('keydown',esc_,true)};const esc_=(e)=>{if(e.key==='Escape'){e.stopPropagation();close()}};
   d.addEventListener('click',close);addEventListener('keydown',esc_,true);
 }
@@ -3644,13 +3662,58 @@ async function bringBack(tid,focus){
   await generate(note,ctx,parent);
 }
 
+/* A PDF passage selected across a page break. The browser's range follows the text layer's order, which isn't always
+   the reading order: a selection from the foot of one page onto the next once took a box printed at the top of the
+   first page and its footer along with it (both highlighted, and quoted to the model in the middle of the passage).
+   So only the text that sits where the selection is counts: on the first page from where it starts, on down, up to
+   the first piece that isn't (so the highlight is one run), on the last page from its first piece that is, up to
+   where it ends, and nowhere a running header or footer (the top and bottom PAGE_EDGE of a page, except the line
+   the selection itself starts or ends on). Lines are joined with a space: the text layer marks a line's end with
+   a <br>, which a range's text leaves out ("Oneof"). Returns the text, where the first page's part starts and
+   ends (s, e1), and where the last page's starts and ends (s2, e2), as anchor offsets. */
+const PAGE_EDGE=0.07;
+function crossPageText(rng,tl1,p1,p2){
+  const pane=tl1.closest('.pane'),pieces=[];let s=-1,e1=-1,s2=-1,e2=-1;
+  const sr=document.createRange();sr.setStart(rng.startContainer,rng.startOffset);sr.collapse(true);
+  const er=document.createRange();er.setStart(rng.endContainer,rng.endOffset);er.collapse(true);
+  const at=(r)=>{const b=r.getClientRects();return b.length?b[0]:r.getBoundingClientRect()};
+  const startY=at(sr),endY=at(er);
+  for(let i=p1;i<=p2;i++){
+    const tl=pane.querySelector(`.dpage[data-page="${i}"] .textLayer`);if(!tl)continue;
+    const box=tl.getBoundingClientRect(),first=i===p1,last=i===p2;
+    const w=textWalker(tl);let n,c=0,run=first?'on':'wait';
+    while((n=w.nextNode())){
+      const L=n.nodeValue.length,before=c;c+=nonWs(n.nodeValue);
+      if(!rng.intersectsNode(n))continue;
+      const a=n===rng.startContainer?rng.startOffset:0,b=n===rng.endContainer?rng.endOffset:L;if(b<=a)continue;
+      const str=n.nodeValue.slice(a,b);if(!str.trim())continue;
+      const r=document.createRange();r.setStart(n,a);r.setEnd(n,b);const q=r.getBoundingClientRect();if(!q.height)continue;
+      const mid=(q.top+q.bottom)/2,own=(first&&mid>=startY.top-1&&mid<=startY.bottom+1)||(last&&mid>=endY.top-1&&mid<=endY.bottom+1);
+      let ok=own||(mid>box.top+box.height*PAGE_EDGE&&mid<box.bottom-box.height*PAGE_EDGE);
+      if(ok&&first&&q.bottom<startY.top-1)ok=false;   // printed above where the selection starts
+      if(ok&&last&&q.top>endY.bottom+1)ok=false;      // below where it ends
+      const from=before+nonWs(n.nodeValue.slice(0,a)),to=before+nonWs(n.nodeValue.slice(0,b));
+      if(first){if(run!=='on')continue;if(!ok){run='done';continue}if(s<0)s=from;e1=to}
+      else if(!ok)continue;
+      else if(last){if(s2<0)s2=from;e2=to}
+      pieces.push({str,q,page:i});
+    }
+  }
+  if(s<0||s2<0)return null;
+  let text='';
+  for(let k=0;k<pieces.length;k++){const x=pieces[k],p=pieces[k-1];
+    if(p&&(p.page!==x.page||x.q.top>=p.q.bottom-p.q.height*0.5||x.q.bottom<=p.q.top))text=text.replace(/\s+$/,'')+(p.page!==x.page?'\n':' ')+x.str.replace(/^\s+/,'');
+    else text+=x.str}
+  return {text:text.trim(),s,e1,s2,e2};
+}
+
 /* ---------- branching ---------- */
 function createBranch(mid,anchorText,question,title,range,page,img){
   const isDoc=mid==='DOC';const m=isDoc?null:conv.msgs[mid];const parent=isDoc?'main':m.thread;
   const t={id:'t'+rid(),parent,anchorMsg:mid,anchorText:anchorText||'',created:Date.now(),colorIdx:conv.nextColor++};
   if(anchorText&&range)t.anchorRange=range;
   if(isDoc)t.anchorPage=page||0;
-  if(isDoc&&range&&img&&img.end&&img.end.page>t.anchorPage)t.anchorEnd={page:img.end.page,e:img.end.e};   // runs on to a later page
+  if(isDoc&&range&&img&&img.end&&img.end.page>t.anchorPage)t.anchorEnd={page:img.end.page,e:img.end.e,...(img.end.s>0?{s:img.end.s}:{})};   // runs on to a later page (from s on it, when a header comes first)
   const r4=(v)=>Math.round(v*1e4)/1e4;
   if(isDoc&&img&&img.region){const g=img.region;t.anchorRegion={x:r4(g.x),y:r4(g.y),w:r4(g.w),h:r4(g.h)};if(img.regionText)t.regionText=img.regionText}
   if(isDoc&&img&&img.image){const g=img.image;t.anchorImg={key:g.key,n:g.n,x:r4(g.x),y:r4(g.y),w:r4(g.w),h:r4(g.h)}}
@@ -3823,7 +3886,7 @@ const purifyNoRemote=(html,cfg)=>{noRemote=true;try{return DOMPurify.sanitize(ht
 const RIMG_OK=new Set();   // images loaded with their button, this visit: shown at once from then on (a streaming reply redraws)
 function remoteImg(im){
   const url=im.dataset.rsrc;im.removeAttribute('data-rsrc');
-  if(RIMG_OK.has(url)){im.src=url;return}
+  if(RIMG_OK.has(url)){im.replaceWith(rimgBox(url,im.getAttribute('alt')||''));return}
   let host='';try{host=new URL(url).host}catch(e){}
   const alt=(im.getAttribute('alt')||'').replace(/\s+/g,' ').trim();
   const f=document.createElement('span');f.className='rimg';f.dataset.rurl=url;
@@ -3834,7 +3897,21 @@ function remoteImg(im){
 document.addEventListener('click',e=>{
   const b=e.target.closest&&e.target.closest('.rimg [data-rload]');if(!b)return;
   e.preventDefault();e.stopPropagation();const url=b.closest('.rimg').dataset.rurl;RIMG_OK.add(url);
-  document.querySelectorAll('.rimg').forEach(f=>{if(f.dataset.rurl!==url)return;const im=document.createElement('img');im.src=url;const a=f.querySelector('.rtx').dataset.label.replace(/^Image(: )?/,'').replace(/ · from .*$/,'');if(a)im.alt=a;f.replaceWith(im)});
+  document.querySelectorAll('.rimg').forEach(f=>{if(f.dataset.rurl!==url)return;const a=f.querySelector('.rtx').dataset.label.replace(/^Image(: )?/,'').replace(/ · from .*$/,'');f.replaceWith(rimgBox(url,a))});
+},true);
+/* A loaded image in a reply sits in a frame like a diagram's: it fits the column and at most RIMG_MAX tall, the same
+   zoom strip (mmZoom works on an <img> as on a diagram's svg), and a click on it (not zoomed in) shows it full screen.
+   No text: the alt is an attribute, the strip is icons, so anchors in the reply don't move. */
+function rimgBox(url,alt){
+  const box=document.createElement('span');box.className='rimgbox';
+  const v=document.createElement('span');v.className='mm-view';const im=document.createElement('img');im.src=url;if(alt)im.alt=alt;im.title='Show larger';
+  im.addEventListener('load',()=>{if(box.dataset.k)mmZoom(box,+box.dataset.k);else mmState(box)});
+  v.appendChild(im);box.appendChild(v);box.insertAdjacentHTML('beforeend',MM_BAR.replace('Zoom into this diagram','Zoom into this image'));
+  return box;
+}
+document.addEventListener('click',e=>{
+  const im=e.target.closest&&e.target.closest('.rimgbox:not([data-k]) .mm-view>img');if(!im)return;
+  e.stopPropagation();e.preventDefault();lightbox({url:im.currentSrc||im.src});   // (inside a link too: the picture, not the page)
 },true);
 function renderRich(el,md,final,o={}){
   const maths=[];
@@ -3944,7 +4021,7 @@ const MM_BAR=`<div class="mm-bar"><span class="mm-ctl"><button type="button" dat
   `</span><button type="button" class="mm-tog" data-mmz="tog" title="Zoom into this diagram" aria-expanded="false">${ic('zoom')}</button></div>`;
 const MMZ_MAX=6,MMZ_STEP=1.5;
 function mmZoom(box,k){
-  const v=box.querySelector('.mm-view'),svg=v&&v.querySelector('svg');if(!svg)return;
+  const v=box.querySelector('.mm-view'),svg=v&&v.querySelector(':scope>svg,:scope>img');if(!svg)return;   // a diagram, or a reply's image
   k=Math.max(1,Math.min(MMZ_MAX,k));const was=+box.dataset.k||1;
   if(k===1){if(was!==1){svg.style.width='';svg.style.maxHeight='';svg.style.maxWidth=box.dataset.mw||'';v.style.height=''}v.scrollTo(0,0);delete box.dataset.k;mmState(box);return}
   if(was===1){const vb=svg.viewBox&&svg.viewBox.baseVal,a=vb&&vb.width?vb.height/vb.width:0;
@@ -3964,8 +4041,8 @@ function mmState(box){
 const MM_DIR={l:[-1,0],r:[1,0],u:[0,-1],d:[0,1]};
 function mmMove(box,d,frac,smooth){const v=box.querySelector('.mm-view');if(!v)return;const [x,y]=MM_DIR[d];v.scrollBy({left:x*v.clientWidth*frac,top:y*v.clientHeight*frac,behavior:smooth?'smooth':'auto'})}
 function mmAct(btn){
-  const box=btn.closest('.mermaid-box'),a=btn.dataset.mmz;if(!box)return;
-  if(a==='tog'){const on=box.classList.toggle('mmz-on');btn.setAttribute('aria-expanded',on);btn.innerHTML=ic(on?'x':'zoom');btn.title=on?'Done: back to the whole diagram':'Zoom into this diagram';if(!on)mmZoom(box,1);else mmState(box);return}
+  const box=btn.closest('.mermaid-box,.rimgbox'),a=btn.dataset.mmz;if(!box)return;
+  if(a==='tog'){const on=box.classList.toggle('mmz-on'),what=box.classList.contains('rimgbox')?'image':'diagram';btn.setAttribute('aria-expanded',on);btn.innerHTML=ic(on?'x':'zoom');btn.title=on?`Done: back to the whole ${what}`:`Zoom into this ${what}`;if(!on)mmZoom(box,1);else mmState(box);return}
   if(a==='in'||a==='out'){mmZoom(box,(+box.dataset.k||1)*(a==='in'?MMZ_STEP:1/MMZ_STEP));return}
   if(a==='fit'){mmZoom(box,1);return}
   if(MM_DIR[a]){if(mmHold.done){mmHold.done=false;return}mmMove(box,a,.5,true)}
@@ -3975,13 +4052,13 @@ const mmHold={t:0,iv:0,done:false};
 function mmHoldEnd(){clearTimeout(mmHold.t);clearInterval(mmHold.iv);mmHold.t=mmHold.iv=0}
 document.addEventListener('pointerdown',e=>{
   const b=e.target.closest&&e.target.closest('.mm-bar [data-mmz]');if(!b||!MM_DIR[b.dataset.mmz]||b.disabled)return;
-  const box=b.closest('.mermaid-box'),d=b.dataset.mmz;mmHoldEnd();mmHold.done=false;
+  const box=b.closest('.mermaid-box,.rimgbox'),d=b.dataset.mmz;mmHoldEnd();mmHold.done=false;
   mmHold.t=setTimeout(()=>{mmHold.done=true;mmHold.iv=setInterval(()=>{if(b.disabled)return mmHoldEnd();mmMove(box,d,.04,false)},30)},350);
 });
 ['pointerup','pointercancel','blur'].forEach(t=>addEventListener(t,mmHoldEnd,true));
 // once zoomed in, dragging the diagram moves it (at the whole diagram there's nothing to move, and swipes scroll the chat)
 document.addEventListener('pointerdown',e=>{
-  const v=e.target.closest&&e.target.closest('.mermaid-box[data-k] .mm-view');if(!v||e.button>0)return;
+  const v=e.target.closest&&e.target.closest('.mermaid-box[data-k] .mm-view,.rimgbox[data-k] .mm-view');if(!v||e.button>0)return;
   e.preventDefault();v.classList.add('mm-drag');let x=e.clientX,y=e.clientY;try{v.setPointerCapture(e.pointerId)}catch(_){}
   const z=v.getBoundingClientRect().width/v.clientWidth||1;   // screen px per diagram px (a canvas card may be scaled)
   const mv=ev=>{v.scrollLeft-=(ev.clientX-x)/z;v.scrollTop-=(ev.clientY-y)/z;x=ev.clientX;y=ev.clientY};
@@ -3989,7 +4066,7 @@ document.addEventListener('pointerdown',e=>{
   v.addEventListener('pointermove',mv);v.addEventListener('pointerup',up);v.addEventListener('pointercancel',up);
 });
 document.addEventListener('pointerleave',e=>{if(e.target.closest&&e.target.closest('.mm-bar [data-mmz]'))mmHoldEnd()},true);
-document.addEventListener('scroll',e=>{const v=e.target;if(v.classList&&v.classList.contains('mm-view'))mmState(v.closest('.mermaid-box'))},true);
+document.addEventListener('scroll',e=>{const v=e.target;if(v.classList&&v.classList.contains('mm-view'))mmState(v.closest('.mermaid-box,.rimgbox'))},true);
 /* A diagram that can't be drawn: say why, show its source, and (in a reply) offer to ask for a fixed one.
    "Ask for a fix" only fills in the question; the reader sends it. */
 function showMermaidSrc(box,why,err){
@@ -4098,8 +4175,32 @@ function ctxLabel(u){
   const tip=`Context when this reply ended: ${n(ctx)} tokens`+(w?` of the model’s ${n(w)} (${Math.max(ctx/w*100,0.1).toFixed(ctx/w<0.1?1:0)}%)`:'')+'.'
     +(cached?` ${n(cached)} of them came from the cache.`:'')+(out?` It wrote ${n(out)} tokens.`:'')
     +(rounds>1?` That took ${rounds} requests (reading the document or searching), each sending the whole context again.`:'');
-  return `<span class="model ctxu" title="${esc(tip)}">${ktok(ctx)}${w?` / ${ktok(w)}`:''} context</span>`;
+  return `<button type="button" class="model ctxu" data-act="ctxinfo" aria-haspopup="dialog" title="${esc(tip+' Click for the breakdown.')}">${ktok(ctx)}${w?` / ${ktok(w)}`:''} context</button>`;
 }
+// The breakdown behind that label, on click (a tap on a tablet, which has no hover): input (cached and new),
+// output, how many requests, how full the window was. All from the saved usage; nothing is estimated.
+function openUsage(btn,mid){
+  let el=$('#usagePop');
+  if(!el){el=document.createElement('div');el.className='thmenu upop';el.id='usagePop';el.setAttribute('role','dialog');el.setAttribute('aria-label','Tokens for this reply');document.body.appendChild(el);
+    document.addEventListener('pointerdown',e=>{if(el.classList.contains('open')&&!el.contains(e.target)&&!e.target.closest('[data-act=ctxinfo]'))el.classList.remove('open')},true);
+    document.addEventListener('scroll',e=>{if(el.classList.contains('open')&&!el.contains(e.target))el.classList.remove('open')},true);
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&el.classList.contains('open')){el.classList.remove('open');e.stopPropagation();e.preventDefault()}},true)}
+  if(el.classList.contains('open')&&el.dataset.mid===mid){el.classList.remove('open');return}
+  const m=conv.msgs[mid],u=m&&m.usage,ctx=u&&+u.ctx;if(!ctx)return;
+  const w=+u.window>0?+u.window:0,cached=Math.min(+u.cached||0,ctx),out=+u.out||0,rounds=+u.rounds||1,n=(x)=>Math.round(x).toLocaleString(),pc=(a,b)=>{const v=a/b*100;return (v>0&&v<1?v.toFixed(1):Math.round(v))+'%'};
+  const row=(k,v,sub)=>`<div class="ur${sub?' usub':''}"><span>${k}</span><b>${v}</b></div>`;
+  el.dataset.mid=mid;
+  el.innerHTML=`<div class="thh">Tokens for this reply${m.model?' · '+esc(modelLabel(m.model)):''}</div>`
+    +row('Input',n(ctx))+row('from the cache',cached?`${n(cached)} (${pc(cached,ctx)})`:'none',1)+row('new',n(ctx-cached),1)
+    +row('Output',out?n(out):'not reported')
+    +(rounds>1?row('Requests',String(rounds)):'')
+    +(w?row('Context window',`${pc(ctx,w)} of ${ktok(w)}`):'')
+    +`<div class="unote">${rounds>1?`Input is the last of the ${rounds} requests (reading the document or searching each sent the whole context again); output counts all of them.`:'Input is everything the model was sent for this reply: the system prompt, the conversation so far and your question.'}${cached?'':' Nothing came from the cache: the provider caches a prefix only when it’s long enough and was sent recently.'}</div>`;
+  el.classList.add('open');const r=btn.getBoundingClientRect();
+  el.style.left=Math.max(8,Math.min(innerWidth-el.offsetWidth-8,r.left))+'px';
+  el.style.top=(r.bottom+4+el.offsetHeight<=innerHeight-8?r.bottom+4:Math.max(8,r.top-4-el.offsetHeight))+'px';
+}
+const closeUsage=()=>{const m=$('#usagePop');if(m&&m.classList.contains('open')){m.classList.remove('open');return true}return false};
 function buildFoot(f,m){
   f.innerHTML=`<button class="tb" data-act="wbranch" title="Open a side branch about this whole reply (no specific passage)">${ic('branch')}Side question</button><button class="ib" data-act="copy" title="Copy Markdown">${ic('copy')}</button>`+(replyMenuItems(m).length?`<button class="ib" data-act="rmore" title="More">${ic('dots')}</button>`:'')+(m.cut&&!retryBlock(m.id)?`<button class="tb" data-act="continue" title="Ask the model to carry on from where it stopped">${ic('send')}Continue</button>`:'')+(m.error?`<button class="ib" data-act="retry" title="${m.role==='assistant'&&retryBlock(m.id)?'Ask again as another version, next to this one ('+REDO_WHY[retryBlock(m.id)]+'). Nothing here changes.':m.cut?'Ask again from the start':'Retry'}">${ic('retry')}</button>`:m.role==='assistant'&&redoBlock(m.id)!=='busy'&&questionOf(m.id)?`<button class="ib" data-act="redo" title="${redoKeep(m.id)?'Redo in a new branch beside this one, with the model and effort selected now. This answer stays as it is.':'Redo: ask again with the model and effort selected now'}">${ic('retry')}</button>`:'')+(m.model?`<span class="model">${esc(modelLabel(m.model))}${m.effort?` · ${esc(effortLabel(m.effort))}`:''}</span>`:'')+ctxLabel(m.usage);
   const w=branchChips(m.id);if(w)f.appendChild(w);
@@ -4487,11 +4588,20 @@ function layout(){
 /* Reorder panes by dragging the grip at the left of a pane's header, or a collapsed strip itself (Columns / Rows). The drag starts after a
    few pixels, so a click on the grip does nothing. Only the grip drags: the header's crumbs, quote, title and
    buttons are left to clicks, and a swipe on the header scrolls. The order is conv.ui.open. */
+const PANE_HOLD_MS=380;   // how long a finger rests on a pane's header before the pane comes up to be dragged
 (function paneReorder(){
   let st=null,quietUntil=0;
   addEventListener('click',e=>{if(Date.now()<quietUntil){e.stopPropagation();e.preventDefault()}},true);   // the click that ends a drag does nothing
   $('#panes').addEventListener('pointerdown',e=>{
-    const g=e.target.closest('.pane>.ph>.pgrip, .pane.rail');if(!g||e.button>0)return;   // a collapsed strip is its own grip: a click still expands it
+    const g=e.target.closest('.pane>.ph>.pgrip, .pane.rail');
+    // by touch, a long press anywhere on a pane's header (not its buttons or a title being renamed) picks it up too:
+    // the grip alone is a thin strip at the edge, and a press that missed it selected the title instead
+    const h=!g&&e.pointerType==='touch'&&e.target.closest('.panes>.pane>.ph');
+    if(h&&!e.target.closest('button,a,input,textarea,select,[contenteditable=true],.sdot,.dot')){
+      if(conv.ui.open.length<2)return;
+      st={tid:h.parentElement.dataset.tid,pane:h.parentElement,x:e.clientX,y:e.clientY,id:e.pointerId,touch:true,on:false,timer:0};
+      st.timer=setTimeout(()=>{if(st&&st.touch&&!st.on)begin()},PANE_HOLD_MS);return}
+    if(!g||e.button>0)return;   // a collapsed strip is its own grip: a click still expands it
     const pane=g.classList.contains('pane')?g:g.parentElement.parentElement;if(conv.ui.open.length<2)return;
     e.preventDefault();
     st={tid:pane.dataset.tid,pane,x:e.clientX,y:e.clientY,id:e.pointerId,touch:false,on:false,timer:0};
@@ -4676,6 +4786,7 @@ function replyAct(a,mid,btn){
   switch(a){
     case 'wbranch':createBranch(mid,'',null);break;
     case 'rmore':openReplyMenu(btn,mid);break;
+    case 'ctxinfo':openUsage(btn,mid);break;
     case 'copy':copyText(conv.msgs[mid].content).then(()=>toast('Copied'),()=>toast('Copy isn\'t allowed here'));break;
     case 'retry':retry(mid);break;
     case 'continue':continueReply(mid);break;
@@ -5627,8 +5738,8 @@ function applyDocAnchorsPdf(pg,tl,pageIdx){
   const used=[];delete pg.dataset.cont;
   // the rest of a passage that started on an earlier page: highlighted here, its marker stays where it starts
   for(const t of docBranches().filter(t=>t.anchorEnd&&t.anchorPage<pageIdx&&t.anchorEnd.page>=pageIdx)){
-    const e=t.anchorEnd.page===pageIdx?t.anchorEnd.e:flatLen(tl);
-    if(e>0&&wrapText(tl,'',{...t,anchorRange:{s:0,e}},{noMarker:true}))pg.dataset.cont='1';
+    const lastPg=t.anchorEnd.page===pageIdx,e=lastPg?t.anchorEnd.e:flatLen(tl),s0=lastPg&&t.anchorEnd.s>0?t.anchorEnd.s:0;
+    if(e>s0&&wrapText(tl,'',{...t,anchorRange:{s:s0,e}},{noMarker:true}))pg.dataset.cont='1';
   }
   for(const t of docBranches().filter(t=>t.anchorPage===pageIdx)){
     let y=6;
@@ -7039,17 +7150,19 @@ function renderConvList(){
     return d;
   };
   const trash=items.filter(c=>c.trashed).sort((a,b)=>b.trashed-a.trashed),active=items.filter(c=>!c.archived&&!c.trashed),arch=items.filter(c=>c.archived&&!c.trashed);
-  // pinned: whole conversations, then individual branches
+  // pinned: whole conversations, each with its own pinned branches under it (indented, no conversation name),
+  // then the pinned branches of conversations that aren't pinned themselves
   const pl=$('#plist');pl.replaceChildren();
-  for(const c of active.filter(c=>c.pinned))pl.appendChild(row(c,`<span class="pmark" title="Pinned">${ic('pin')}</span>`));
-  for(const c of active)for(const b of (c.pins||[])){
-    const d=document.createElement('div');d.className='citem pb';d.dataset.pinb=c.id+'|'+b.tid;d.style.setProperty('--c',PALETTE[(b.ci||0)%PALETTE.length]);
-    d.title='Jump to this pinned branch';
+  const pinRow=(c,b,under)=>{
+    const d=document.createElement('div');d.className='citem pb'+(under?' psub':'');d.dataset.pinb=c.id+'|'+b.tid;d.style.setProperty('--c',PALETTE[(b.ci||0)%PALETTE.length]);
     d.innerHTML=`<span class="bd"></span><span class="t"></span><span class="acts"><button class="ib pinned" data-unpinb="${esc(c.id+'|'+b.tid)}" title="Unpin this branch">${ic('pin')}</button></span>`;
-    const tt=d.querySelector('.t');tt.textContent=b.title+' ';const sm=document.createElement('small');sm.textContent='· '+(c.title||'');tt.appendChild(sm);
-    d.removeAttribute('title');d.dataset.tip=b.title+' · '+(c.title||'');d.dataset.clip='';
-    pl.appendChild(d);
-  }
+    const tt=d.querySelector('.t');tt.textContent=b.title+(under?'':' ');
+    if(!under){const sm=document.createElement('small');sm.textContent='· '+(c.title||'');tt.appendChild(sm)}
+    d.dataset.tip=b.title+' · '+(c.title||'');d.dataset.clip='';
+    return d;
+  };
+  for(const c of active.filter(c=>c.pinned)){pl.appendChild(row(c,`<span class="pmark" title="Pinned">${ic('pin')}</span>`));for(const b of (c.pins||[]))pl.appendChild(pinRow(c,b,true))}
+  for(const c of active.filter(c=>!c.pinned))for(const b of (c.pins||[]))pl.appendChild(pinRow(c,b,false));
   $('#pinWrap').style.display=pl.children.length?'':'none';
   // folders: every conversation filed in one (pinned ones too: a folder shows all of its own), by name
   const fl=$('#flist');fl.replaceChildren();const byF=new Map();
@@ -7574,15 +7687,15 @@ function checkSelection(){
   const tl1=conv.doc&&elOf(rng.startContainer)&&elOf(rng.startContainer).closest('.textLayer'),tl2=conv.doc&&elOf(rng.endContainer)&&elOf(rng.endContainer).closest('.textLayer');
   const p1=tl1&&+tl1.closest('.dpage').dataset.page,p2=tl2&&+tl2.closest('.dpage').dataset.page;
   const across=!!(tl1&&tl2&&p2>p1&&tl1.closest('.pane')===tl2.closest('.pane'));
-  if(across){const parts=[];for(let i=p1;i<=p2;i++){const tl=i===p1?tl1:i===p2?tl2:tl1.closest('.pane').querySelector(`.dpage[data-page="${i}"] .textLayer`);if(!tl)continue;
-    const r=document.createRange();r.selectNodeContents(tl);if(i===p1)r.setStart(rng.startContainer,rng.startOffset);if(i===p2)r.setEnd(rng.endContainer,rng.endOffset);parts.push(r.toString().trim())}
-    raw=parts.filter(Boolean).join('\n')}
+  const cross=across&&crossPageText(rng,tl1,p1,p2);
+  if(across&&!cross)return;   // nothing of it sits on the pages' text (it was all header, footer or out of place)
+  if(cross)raw=cross.text;
   const txt=raw.replace(/\s+/g,' ');if(txt.length<2)return;
   const d1=conv.doc&&elOf(sel.anchorNode)&&elOf(sel.anchorNode).closest('.textLayer,.docbody');
   const d2=conv.doc&&elOf(sel.focusNode)&&elOf(sel.focusNode).closest('.textLayer,.docbody');
   if(across){
-    const s=charPos(tl1,rng.startContainer,rng.startOffset),e1=flatLen(tl1),e2=charPos(tl2,rng.endContainer,rng.endOffset);
-    popState={doc:true,page:p1-1,text:txt.slice(0,1500),range:s>=0&&e1>s?{s,e:e1}:null,end:e2>0?{page:p2-1,e:e2}:null};
+    const {s,e1,s2,e2}=cross;
+    popState={doc:true,page:p1-1,text:txt.slice(0,1500),range:s>=0&&e1>s?{s,e:e1}:null,end:e2>s2?{page:p2-1,e:e2,...(s2>0?{s:s2}:{})}:null};
   }else if(d1&&d1===d2){
     const page=d1.classList.contains('textLayer')?(+d1.closest('.dpage').dataset.page-1):0;
     const s=charPos(d1,rng.startContainer,rng.startOffset),e2=charPos(d1,rng.endContainer,rng.endOffset);
@@ -7764,7 +7877,7 @@ document.addEventListener('click',e=>{
       case 'cards':openCards('conv');break;
       case 'mkcards':makeCardsFor(tid);break;
       case 'take':{const tk=pane.querySelector('.tk');tk.classList.toggle('show');if(tk.classList.contains('show'))tk.querySelector('input').focus();break}
-      case 'wbranch':case 'rmore':case 'copy':case 'retry':case 'continue':case 'redo':replyAct(act.dataset.act,mid,act);break;
+      case 'wbranch':case 'rmore':case 'ctxinfo':case 'copy':case 'retry':case 'continue':case 'redo':replyAct(act.dataset.act,mid,act);break;
       case 'edit':startEdit(act.closest('.msg'),mid);break;
       case 'delnote':{const m=conv.msgs[mid];if(!m)break;const s=streaming.get(m.thread);if(s&&s.mid===mid)stopReply(s);try{ThreadOps.removeNote(conv,mid)}catch(e){toast('This takeaway can’t be deleted: '+e.message+'.');break}msgCache.delete(mid);renderPane(m.thread);renderMap();save();break}
     }
@@ -7950,6 +8063,7 @@ function closeTopmost(){
   const vw=$('#cvViews');if(vw&&vw.classList.contains('open')){closeViews();return true}
   if(brPop){closeBrList();return true}
   if(closeReplyMenu())return true;
+  if(closeUsage())return true;
   if(closeFolderMenu())return true;
   if(pop.classList.contains('show')){hidePop();return true}
   if(document.querySelector('.docpane.snipping')){setSnip(false);return true}

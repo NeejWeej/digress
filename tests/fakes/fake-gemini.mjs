@@ -6,6 +6,8 @@
 //     back with the model's turn, as Gemini requires; a turn sent back without it is refused (400).
 //   - NEVERSTOP: keeps calling search until toolConfig says NONE, then answers FINALANSWER.
 //   - SEARCHME with the googleSearch tool: a grounded answer with a query and a source.
+//   - REDIRLINKS: a reply whose text links to Google's grounding redirects (two titles, one link twice), with no groundingChunks;
+//     REDIRLINKS WITHCHUNKS also sends real groundingChunks (when the search tool is on).
 //   - RATELIMIT: 429. OVERLOAD: 503, as Google answers when a model is busy (BUSYONCE: only the first time). HANG: no answer.
 //   - function declarations are checked like the real API's OpenAPI schemas: `required` and `enum` must be lists of
 //     strings, and additionalProperties isn't allowed (400 INVALID_ARGUMENT otherwise).
@@ -94,6 +96,12 @@ http.createServer((req, res) => {
     }
     if (search && q.includes('SEARCHME')) {
       chunk([{ text: 'Searched and found it.' }], { groundingMetadata: { webSearchQueries: ['gemini search'], groundingChunks: [{ web: { uri: 'https://example.org/g', title: 'Gemini source' } }] } });
+      return end();
+    }
+    if (q.includes('REDIRLINKS')) {
+      const R = 'https://vertexaisearch.cloud.google.com/grounding-api-redirect/';
+      const meta = search && q.includes('WITHCHUNKS') ? { groundingMetadata: { webSearchQueries: ['redir q'], groundingChunks: [{ web: { uri: 'https://example.org/real', title: 'Real source' } }] } } : {};
+      chunk([{ text: `It says so ([**Alpha_site**](${R}AbC123-_=) and [\`Beta\`](${R}Zed789)). Again: [Alpha again](${R}AbC123-_=). Not one: [x](https://example.com/y).` }], meta);
       return end();
     }
     const thinking = ((j.generationConfig || {}).thinkingConfig || {}).thinkingLevel || 'none';
