@@ -23,7 +23,10 @@ import http from 'node:http';
 import { promises as fs, createReadStream, readFileSync, existsSync, watch } from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import zlib from 'node:zlib';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+const gzipAsync = promisify(zlib.gzip);
 import { spawn, spawnSync } from 'node:child_process';
 import os from 'node:os';
 import * as chatgpt from './chatgpt.mjs';
@@ -70,10 +73,49 @@ const FILE_TYPES = new Set(['application/pdf', 'text/markdown', 'text/plain', ..
 // ---- helpers --------------------------------------------------------------
 const validId = (id) => typeof id === 'string' && /^[A-Za-z0-9_.:@+-]{1,200}$/.test(id) && id !== '.' && id !== '..';
 
+const acceptsGzip = (req) => !!(req && /\bgzip\b/i.test(req.headers['accept-encoding'] || ''));
+const COMPRESSIBLE = /^(text\/|application\/(json|javascript|manifest\+json)|image\/svg\+xml)/i;
+
 function send(res, status, body, headers = {}) {
   const data = typeof body === 'string' ? body : JSON.stringify(body);
   res.writeHead(status, { 'content-type': typeof body === 'string' ? 'text/plain; charset=utf-8' : 'application/json', 'cache-control': 'no-store', ...headers });
   res.end(data);
+}
+async function sendJson(req, res, status, body, headers = {}) {
+  const raw = Buffer.from(JSON.stringify(body), 'utf8');
+  if (raw.length >= 1024 && acceptsGzip(req)) {
+    const gz = await gzipAsync(raw, { level: 1 });
+    res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'content-encoding': 'gzip', 'vary': 'accept-encoding', 'content-length': gz.length, ...headers });
+    return res.end(gz);
+  }
+  res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store', 'content-length': raw.length, ...headers });
+  res.end(raw);
+}
+async function sendStatic(req, res, file, contentType, headers = {}, transform = null) {
+  let st;
+  try { st = await fs.stat(file); } catch { return fail(res, 404, 'Not found'); }
+  const etag = `W/"${st.size}-${Math.trunc(st.mtimeMs)}${transform ? '-t' : ''}"`;
+  if (req.headers['if-none-match'] === etag) {
+    res.writeHead(304, { etag, ...headers });
+    return res.end();
+  }
+  const canGz = st.size >= 1024 && COMPRESSIBLE.test(contentType) && acceptsGzip(req);
+  if (transform) {
+    const out = Buffer.from(transform(await fs.readFile(file, 'utf8')), 'utf8');
+    if (canGz) {
+      const gz = await gzipAsync(out, { level: 1 });
+      res.writeHead(200, { 'content-type': contentType, etag, 'content-encoding': 'gzip', 'vary': 'accept-encoding', 'content-length': gz.length, ...headers });
+      return res.end(gz);
+    }
+    res.writeHead(200, { 'content-type': contentType, etag, 'content-length': out.length, ...headers });
+    return res.end(out);
+  }
+  if (canGz) {
+    res.writeHead(200, { 'content-type': contentType, etag, 'content-encoding': 'gzip', 'vary': 'accept-encoding', ...headers });
+    return createReadStream(file).pipe(zlib.createGzip({ level: 1 })).pipe(res);
+  }
+  res.writeHead(200, { 'content-type': contentType, etag, 'content-length': st.size, ...headers });
+  return createReadStream(file).pipe(res);
 }
 const fail = (res, status, error) => send(res, status, { error });
 
@@ -118,16 +160,46 @@ function withLock(key, fn) {
 
 // ---- storage: one JSON file per document ------------------------------------
 const docPath = (coll, id) => path.join(DATA, coll, id + '.json');
+const convMetaCache = new Map(); // id -> { mtimeMs, size, meta }
+function convMetaOf(id, c) {
+  return {
+    _meta: true, dropCards: !!c.dropCards, id: c.id || id, title: c.title, updated: c.updated, created: c.created,
+    pinned: !!c.pinned, archived: !!c.archived, trashed: c.trashed || 0, folder: c.folder || '',
+    system: typeof c.system === 'string' ? c.system : '', doc: !!c.doc, docName: c.doc ? c.doc.name || '' : '',
+    asset: (c.doc && c.doc.assetId) || '',
+    pins: Object.values(c.threads || {}).filter((t) => t && t.pinned).map((t) => ({ tid: t.id, title: t.title, ci: t.colorIdx })),
+  };
+}
+async function listConvMeta() {
+  const dir = path.join(DATA, 'convs');
+  let names = [];
+  try { names = (await fs.readdir(dir)).filter((n) => n.endsWith('.json')); } catch { convMetaCache.clear(); return []; }
+  const live = new Set();
+  const rows = await Promise.all(names.map(async (n) => {
+    const id = n.slice(0, -5);
+    live.add(id);
+    const file = path.join(dir, n);
+    try {
+      const st = await fs.stat(file);
+      const hit = convMetaCache.get(id);
+      if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size) return { id, data: hit.meta };
+      const d = JSON.parse(await fs.readFile(file, 'utf8'));
+      const meta = convMetaOf(id, d);
+      convMetaCache.set(id, { mtimeMs: st.mtimeMs, size: st.size, meta });
+      return { id, data: meta };
+    } catch { return null; }
+  }));
+  for (const id of convMetaCache.keys()) if (!live.has(id)) convMetaCache.delete(id);
+  return rows.filter(Boolean);
+}
 async function listDocs(coll) {
   const dir = path.join(DATA, coll);
   let names = [];
-  try { names = await fs.readdir(dir); } catch { return []; }
-  const out = [];
-  for (const n of names) {
-    if (!n.endsWith('.json')) continue;
-    try { out.push({ id: n.slice(0, -5), data: JSON.parse(await fs.readFile(path.join(dir, n), 'utf8')) }); } catch { /* skip unreadable */ }
-  }
-  return out;
+  try { names = (await fs.readdir(dir)).filter((n) => n.endsWith('.json')); } catch { return []; }
+  const rows = await Promise.all(names.map(async (n) => {
+    try { return { id: n.slice(0, -5), data: JSON.parse(await fs.readFile(path.join(dir, n), 'utf8')) }; } catch { return null; }
+  }));
+  return rows.filter(Boolean);
 }
 async function readDoc(coll, id) {
   try { return JSON.parse(await fs.readFile(docPath(coll, id), 'utf8')); } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
@@ -743,26 +815,20 @@ async function route(req, res) {
   const parts = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
 
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' });
-    if (DEV) {
-      const html = await fs.readFile(WEB, 'utf8');
-      const i = html.lastIndexOf('</body>');
-      return res.end(i < 0 ? html + DEV_CLIENT : html.slice(0, i) + DEV_CLIENT + html.slice(i));
-    }
-    return createReadStream(WEB).pipe(res);
+    const inject = DEV ? (html) => { const i = html.lastIndexOf('</body>'); return i < 0 ? html + DEV_CLIENT : html.slice(0, i) + DEV_CLIENT + html.slice(i); } : null;
+    return sendStatic(req, res, WEB, 'text/html; charset=utf-8', { 'cache-control': 'no-cache' }, inject);
   }
   // sw.js: the service worker that lets you review flashcards offline; prompts.js: what the page tells the
   // model; threads.js: how a conversation's threads fit together
-  if (req.method === 'GET' && ['/sw.js', '/prompts.js', '/threads.js'].includes(url.pathname)) {
-    res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache' });
-    return createReadStream(path.join(ROOT, 'web', url.pathname.slice(1))).pipe(res);
+  if (req.method === 'GET' && ['/sw.js', '/prompts.js', '/threads.js', '/styles.css'].includes(url.pathname)) {
+    const type = url.pathname.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8';
+    return sendStatic(req, res, path.join(ROOT, 'web', url.pathname.slice(1)), type, { 'cache-control': 'no-cache' });
   }
   // the logo: the browser tab icon (follows light/dark), the phone home-screen icons, and the manifest that makes
   // the page installable as an app (Install app on Android)
   if (req.method === 'GET' && ['/icon.svg', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/manifest.webmanifest'].includes(url.pathname)) {
     const type = url.pathname.endsWith('.svg') ? 'image/svg+xml' : url.pathname.endsWith('.webmanifest') ? 'application/manifest+json' : 'image/png';
-    res.writeHead(200, { 'content-type': type, 'cache-control': url.pathname.endsWith('.webmanifest') ? 'no-cache' : 'public, max-age=86400', 'x-content-type-options': 'nosniff' });
-    return createReadStream(path.join(ROOT, 'web', url.pathname.slice(1))).pipe(res);
+    return sendStatic(req, res, path.join(ROOT, 'web', url.pathname.slice(1)), type, { 'cache-control': url.pathname.endsWith('.webmanifest') ? 'no-cache' : 'public, max-age=86400', 'x-content-type-options': 'nosniff' });
   }
   // the page's libraries (marked, MathJax, pdf.js, …) and fonts, from node_modules when installed (server/libs.mjs); the page
   // falls back to a CDN on a 404. Versioned paths, so they're cached for good.
@@ -770,8 +836,7 @@ async function route(req, res) {
     let f = null;
     try { f = libFile(decodeURIComponent(url.pathname.slice(5))); } catch { /* a malformed path */ }
     if (!f) return fail(res, 404, 'Not found');
-    res.writeHead(200, { 'content-type': libType(f), 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' });
-    return createReadStream(f).pipe(res);
+    return sendStatic(req, res, f, libType(f), { 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' });
   }
   if (DEV && url.pathname === '/__dev/events') return devEvents(req, res);
   if (parts[0] !== 'api') return fail(res, 404, 'Not found');
@@ -849,12 +914,12 @@ async function route(req, res) {
   if (parts[1] === 'store') {
     const [, , coll, id] = parts;
     if (!COLLECTIONS.has(coll)) return fail(res, 404, 'Unknown collection');
-    if (!id) return req.method === 'GET' ? send(res, 200, await listDocs(coll)) : fail(res, 405, 'Method not allowed');
+    if (!id) return req.method === 'GET' ? sendJson(req, res, 200, coll === 'convs' && url.searchParams.has('meta') ? await listConvMeta() : await listDocs(coll)) : fail(res, 405, 'Method not allowed');
     if (!validId(id) || parts.length > 4) return fail(res, 400, 'Bad id');
     await fs.mkdir(path.join(DATA, coll), { recursive: true });
     const file = docPath(coll, id);
     if (req.method === 'GET' && url.searchParams.has('rev')) { const d = await readDoc(coll, id); return d === null ? fail(res, 404, 'Not found') : send(res, 200, { rev: d.rev || 0 }); }
-    if (req.method === 'GET') { const d = await readDoc(coll, id); return d === null ? fail(res, 404, 'Not found') : send(res, 200, d); }
+    if (req.method === 'GET') { const d = await readDoc(coll, id); return d === null ? fail(res, 404, 'Not found') : sendJson(req, res, 200, d); }
     if (req.method === 'PUT') {
       const d = await readJson(req); if (!d || typeof d !== 'object' || Array.isArray(d)) return fail(res, 400, 'Body must be an object');
       if (coll !== 'convs') { await withLock(file, () => writeAtomic(file, JSON.stringify(d))); return send(res, 200, { ok: true }); }
