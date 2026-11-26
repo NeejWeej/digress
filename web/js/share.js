@@ -8,6 +8,29 @@ export const SHARE_GOOD_LEN = 8000;          // comfortable in almost every chat
 export const SHARE_MAX_LEN = 65536;          // 64 KB URL cap; larger conversations use .digress files
 export const SHARE_MAX_DECODED = 2 * 1024 * 1024;   // 2 MiB uncompressed cap for links (gzip-bomb protection)
 export const FILE_MAX_DECODED = 100 * 1024 * 1024;  // 100 MiB uncompressed cap for .digress files (allows PDFs/images)
+export const MAX_INLINE_IMAGE_BYTES = 16 * 1024 * 1024;  // 16 MiB cap for inline data:image/*;base64,… payloads
+const INLINE_IMG_RE = /^data:(image\/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/=]+)$/i;
+
+// Decode and validate a supported inline raster image data URL locally (never via fetch()).
+export function parseInlineImageDataUrl(dataUrl, maxBytes = MAX_INLINE_IMAGE_BYTES) {
+  if (typeof dataUrl !== 'string') throw new Error('Invalid inline image data.');
+  const m = INLINE_IMG_RE.exec(dataUrl);
+  if (!m) throw new Error('Unsupported or invalid inline image data.');
+  const b64 = m[2];
+  const approxBytes = Math.floor((b64.length * 3) / 4);
+  if (approxBytes > maxBytes) throw new Error('Inline image is too large.');
+  let bin;
+  try { bin = atob(b64); } catch { throw new Error('Invalid inline image encoding.'); }
+  if (bin.length > maxBytes) throw new Error('Inline image is too large.');
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { type: m[1].toLowerCase(), bytes };
+}
+
+// Validate a 0-based document page index as a bounded non-negative integer.
+export function normalizePageIndex(v, max = 100000) {
+  return typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= max ? v : null;
+}
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();

@@ -299,6 +299,103 @@ async def main():
               await soon(pg, "() => !location.hash.startsWith('#share=') && [...document.querySelectorAll('.toast')].some(t => /damaged/.test(t.textContent))", timeout=5000)
               and await pg.evaluate("__digress.convList.length") == before_cyc)
 
+        # security: invalid image ref.data (e.g. '/api/store/convs') never triggers fetch() or leaks bytes to the provider;
+        # valid inline data:image/png and stored asset attachments both still work (positive controls)
+        bad_img_conv = {
+            'id': 'cx_bad_img', 'title': 'Bad image ref',
+            'threads': {'main': {'id': 'main', 'parent': None, 'title': 'Main thread', 'colorIdx': -1}},
+            'msgs': {
+                'u_bad': {'id': 'u_bad', 'role': 'user', 'thread': 'main', 'content': 'look at this',
+                          'images': [{'data': '/api/store/convs', 'type': 'image/png', 'w': 1, 'h': 1}]},
+                'a_bad': {'id': 'a_bad', 'role': 'assistant', 'thread': 'main', 'content': 'ok'},
+            },
+            'order': {'main': ['u_bad', 'a_bad']},
+        }
+        good_img_conv = {
+            'id': 'cx_good_img', 'title': 'Good image refs',
+            'threads': {'main': {'id': 'main', 'parent': None, 'title': 'Main thread', 'colorIdx': -1}},
+            'msgs': {
+                'u_good': {'id': 'u_good', 'role': 'user', 'thread': 'main', 'content': 'two valid imgs',
+                           'images': [
+                               {'data': f'data:image/png;base64,{PNG}', 'type': 'image/png', 'w': 1, 'h': 1},
+                               {'asset': 'img1', 'type': 'image/png', 'w': 1, 'h': 1},
+                           ]},
+                'a_good': {'id': 'a_good', 'role': 'assistant', 'thread': 'main', 'content': 'ok'},
+            },
+            'order': {'main': ['u_good', 'a_good']},
+        }
+        await pg.evaluate("""([badC, goodC]) => {
+            localStorage.setItem('fakesrv:convs/cx_bad_img', JSON.stringify(badC));
+            localStorage.setItem('fakesrv:convs/cx_good_img', JSON.stringify(goodC));
+        }""", [bad_img_conv, good_img_conv])
+        await pg.reload(); await booted(pg)
+        await pg.evaluate("""() => {
+            window.__badFetches = [];
+            window.__sentImgs = [];
+            const origFetch = window.fetch.bind(window);
+            window.fetch = (input, init) => {
+                const u = typeof input === 'string' ? input : (input && input.url) || '';
+                if (u.includes('/api/store/convs')) window.__badFetches.push(u);
+                return origFetch(input, init);
+            };
+        }""")
+        await pg.evaluate("document.querySelector('#clist .citem[data-conv=cx_bad_img]').click()")
+        await pg.wait_for_function("__digress.conv && __digress.conv.id === 'cx_bad_img'")
+        await frames(pg, 4)
+        await pg.evaluate("window.__badFetches = []; window.__chatBodies = [];")
+        await pg.locator('.pane[data-tid=main] textarea').fill('follow up')
+        await pg.locator('.pane[data-tid=main] .sendb').click()
+        await soon(pg, "() => [...document.querySelectorAll('.toast')].some(t => /couldn’t be loaded|nothing was sent/.test(t.textContent))", timeout=5000)
+        bad_res = await pg.evaluate("({ fetches: window.__badFetches, bodies: (window.__chatBodies || []).length })")
+        check('invalid ref.data causes zero fetches and sends zero bytes to the provider',
+              not bad_res['fetches'] and bad_res['bodies'] == 0, bad_res)
+
+        # positive controls: valid inline PNG data URL + valid stored asset both resolve and send image bytes
+        await pg.evaluate("document.querySelector('#clist .citem[data-conv=cx_good_img]').click()")
+        await pg.wait_for_function("__digress.conv && __digress.conv.id === 'cx_good_img'")
+        await pg.evaluate("window.__chatBodies = [];")
+        await pg.locator('.pane[data-tid=main] textarea').fill('describe both')
+        await pg.locator('.pane[data-tid=main] .sendb').click()
+        await soon(pg, "() => (window.__chatBodies || []).length > 0", timeout=5000)
+        good_imgs = await pg.evaluate("""() => {
+            const imgs = [];
+            for (const b of window.__chatBodies || []) for (const m of b.messages || []) if (Array.isArray(m.content)) for (const p of m.content) if (p.type === 'image') imgs.push({ mediaType: p.mediaType, len: (p.data || '').length });
+            return imgs;
+        }""")
+        check('valid inline PNG and stored asset attachment both resolve and send to the provider',
+              len(good_imgs) == 2 and all(x['mediaType'] == 'image/png' and x['len'] > 0 for x in good_imgs), good_imgs)
+
+        # security: malformed anchorPage / anchorEnd.page strings never inject HTML; valid page ranges still display
+        pg_evil_conv = {
+            'id': 'cx_pg_evil', 'title': 'Page label test',
+            'doc': {'kind': 'pdf', 'name': 'paper.pdf', 'left': True},
+            'threads': {
+                'main': {'id': 'main', 'parent': None, 'title': 'Main thread', 'colorIdx': -1},
+                'tp1': {'id': 'tp1', 'parent': 'main', 'anchorMsg': 'DOC', 'anchorPage': '<img src=x onerror="window.__pgxss=1">', 'anchorText': 'quote 1', 'title': 'Bad single page', 'colorIdx': 0},
+                'tp2': {'id': 'tp2', 'parent': 'main', 'anchorMsg': 'DOC', 'anchorPage': '<b id="injected-region">boom</b>', 'anchorRegion': {'x': 0, 'y': 0, 'w': 1, 'h': 1}, 'anchorText': 'snip', 'title': 'Bad region page', 'colorIdx': 1},
+                'tp3': {'id': 'tp3', 'parent': 'main', 'anchorMsg': 'DOC', 'anchorPage': 0, 'anchorEnd': {'page': 2, 'e': 10}, 'anchorText': 'range quote', 'title': 'Valid range', 'colorIdx': 2},
+            },
+            'msgs': {
+                'mp1': {'id': 'mp1', 'role': 'user', 'thread': 'tp1', 'content': 'q1'},
+                'mp2': {'id': 'mp2', 'role': 'user', 'thread': 'tp2', 'content': 'q2'},
+                'mp3': {'id': 'mp3', 'role': 'user', 'thread': 'tp3', 'content': 'q3'},
+            },
+            'order': {'main': [], 'tp1': ['mp1'], 'tp2': ['mp2'], 'tp3': ['mp3']},
+        }
+        await pg.evaluate("c => { window.__pgxss = 0; localStorage.setItem('fakesrv:convs/cx_pg_evil', JSON.stringify(c)); }", pg_evil_conv)
+        await pg.reload(); await booted(pg)
+        await pg.evaluate("document.querySelector('#clist .citem[data-conv=cx_pg_evil]').click()")
+        await pg.wait_for_function("__digress.conv && __digress.conv.id === 'cx_pg_evil'")
+        for lbl in ('Bad single page', 'Bad region page', 'Valid range'):
+            await pg.locator('#tree .mnode', has_text=lbl).first.click(); await frames(pg, 3)
+        pg_check = await pg.evaluate("""() => ({
+            xss: !!window.__pgxss,
+            injected: document.querySelectorAll('#injected-region, .origin img[src=x]').length,
+            rangeText: (document.querySelector('.pane[data-tid=tp3] .origin .ol span') || {}).textContent || '',
+        })""")
+        check('malformed anchorPage strings create zero HTML elements and valid page ranges still display',
+              not pg_check['xss'] and pg_check['injected'] == 0 and 'pages 1–3' in pg_check['rangeText'], pg_check)
+
         check('no page errors', not errs, errs[:3])
         await b.close()
     print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')

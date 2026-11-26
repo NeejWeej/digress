@@ -6,6 +6,7 @@ import { esc, trunc, texText, stripCiteQuotes, plain, pdfTitleOk, passages, inde
 import {
   PUBLIC_DEMO_URL, SHARE_GOOD_LEN, SHARE_MAX_LEN,
   encodeSharePayload, decodeSharePayload, buildShareUrl, parseShareHash, shareSizeStatus, sliceBranch, remapConvIds,
+  parseInlineImageDataUrl, normalizePageIndex,
 } from '../web/js/share.js';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -245,6 +246,28 @@ await test('threads.js & share.js: cyclic parent graphs terminate cleanly withou
   const problems = ThreadOps.check(cyc);
   assert.ok(problems.some((p) => /cycle|not under main/.test(p)), `expected cycle error, got ${problems}`);
   assert.equal(sliceBranch(cyc, 'a'), cyc);
+});
+
+await test('share.js: parseInlineImageDataUrl decodes raster images locally and rejects URLs/SVG/oversized', () => {
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const ok = parseInlineImageDataUrl(png);
+  assert.equal(ok.type, 'image/png');
+  assert.ok(ok.bytes instanceof Uint8Array && ok.bytes.length > 0);
+  assert.throws(() => parseInlineImageDataUrl('/api/store/convs'), /Unsupported|Invalid/);
+  assert.throws(() => parseInlineImageDataUrl('https://example.com/a.png'), /Unsupported|Invalid/);
+  assert.throws(() => parseInlineImageDataUrl('data:image/svg+xml;base64,PHN2Zz48L3N2Zz4='), /Unsupported|Invalid/);
+  assert.throws(() => parseInlineImageDataUrl('data:text/plain;base64,aGVsbG8='), /Unsupported|Invalid/);
+  assert.throws(() => parseInlineImageDataUrl(png, 10), /too large/);
+});
+
+await test('share.js: normalizePageIndex accepts bounded non-negative integers and rejects strings/malformed', () => {
+  assert.equal(normalizePageIndex(0), 0);
+  assert.equal(normalizePageIndex(42), 42);
+  assert.equal(normalizePageIndex(-1), null);
+  assert.equal(normalizePageIndex(1.5), null);
+  assert.equal(normalizePageIndex('0'), null);
+  assert.equal(normalizePageIndex('<img src=x onerror=alert(1)>'), null);
+  assert.equal(normalizePageIndex(99999999), null);
 });
 
 console.log(`\nall passed (${passed} tests)`);

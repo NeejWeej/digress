@@ -11,6 +11,7 @@ import {
 import {
   PUBLIC_DEMO_URL, FILE_MAX_DECODED, gunzipBytesCapped, encodeSharePayload, decodeSharePayload,
   buildShareUrl, parseShareHash, shareSizeStatus, sliceBranch, remapConvIds,
+  parseInlineImageDataUrl, normalizePageIndex,
 } from './share.js';
 
 /* ---------- constants ---------- */
@@ -441,13 +442,18 @@ async function renderCrop(c){
   return encodeCanvas(cv);
 }
 function imageBlob(ref){   // ref: {region:{page,x,y,w,h}} | {crop:{asset|data,type,x,y,w,h}} | {asset,type} | {data:'data:…'}
-  const cs=(c)=>c.asset?'a'+c.asset:c.data?'d'+c.data.length+c.data.slice(-64):'-';
-  const k=ref.region?['r',docState&&docState.key,ref.region.page,ref.region.x,ref.region.y,ref.region.w,ref.region.h].join('|'):ref.crop?['c',cs(ref.crop),ref.crop.x,ref.crop.y,ref.crop.w,ref.crop.h].join('|'):ref.asset?'a|'+ref.asset:'d|'+ref.data.length+'|'+ref.data.slice(-64);
+  if(!ref||typeof ref!=='object')return Promise.reject(new Error('Invalid image reference.'));
+  const cs=(c)=>c&&c.asset?'a'+c.asset:c&&typeof c.data==='string'?'d'+c.data.length+c.data.slice(-64):'-';
+  const k=ref.region?['r',docState&&docState.key,ref.region.page,ref.region.x,ref.region.y,ref.region.w,ref.region.h].join('|'):ref.crop?['c',cs(ref.crop),ref.crop.x,ref.crop.y,ref.crop.w,ref.crop.h].join('|'):ref.asset?'a|'+ref.asset:typeof ref.data==='string'?'d|'+ref.data.length+'|'+ref.data.slice(-64):'bad';
   if(!imgMemo.has(k))memoSet(imgMemo,k,(async()=>{
     if(ref.region)return encodeCanvas(await renderRegion(ref.region.page,ref.region));
     if(ref.crop)return renderCrop(ref.crop);
-    if(ref.asset){await io.ready;if(!io.files)throw new Error('No file storage here.');return new Blob([await io.files.fetch(ref.asset,'arrayBuffer')],{type:ref.type})}
-    return (await fetch(ref.data)).blob();
+    if(ref.asset){
+      if(typeof ref.asset!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(ref.asset))throw new Error('Invalid image attachment reference.');
+      await io.ready;if(!io.files)throw new Error('No file storage here.');return new Blob([await io.files.fetch(ref.asset,'arrayBuffer')],{type:ref.type});
+    }
+    const {type,bytes}=parseInlineImageDataUrl(ref.data);
+    return new Blob([bytes],{type});
   })().catch(e=>{imgMemo.delete(k);throw e}),IMG_MEMO_MAX);
   return imgMemo.get(k);
 }
@@ -1588,9 +1594,11 @@ async function importDigressData(d,kind='file'){
   if(!d||d.digress!==DIGRESS_V||!Array.isArray(d.conversations)||!d.conversations.length){toast(d&&d.digress>DIGRESS_V?`That ${kind} is from a newer Digress. Update this one to open it.`:`That isn’t a Digress ${kind}.`);return false}
   await io.ready;if(!io.store){toast('Nothing can be saved here, so it can’t be imported.');return false}
   const files=d.files&&typeof d.files==='object'?d.files:{},made=new Map();
-  const restore=async(rec)=>{if(!rec||!rec.asset)return;const f=files[rec.asset];const old=rec.asset;delete rec.asset;if(!f||typeof f.data!=='string')return;
-    if(!made.has(old))made.set(old,(await storeImages([{blob:b64Blob(f.data,f.type),type:f.type,w:rec.w,h:rec.h}]))[0]);
-    const r=made.get(old);if(r.asset)rec.asset=r.asset;else rec.data=r.data};
+  const restore=async(rec)=>{if(!rec||typeof rec!=='object')return;
+    if(rec.asset){const f=files[rec.asset];const old=rec.asset;delete rec.asset;delete rec.data;if(!f||typeof f.data!=='string')return;
+      if(!made.has(old))made.set(old,(await storeImages([{blob:b64Blob(f.data,f.type),type:f.type,w:rec.w,h:rec.h}]))[0]);
+      const r=made.get(old);if(r.asset)rec.asset=r.asset;else rec.data=r.data;return}
+    if(rec.data!=null){try{parseInlineImageDataUrl(rec.data)}catch(_){delete rec.data}}};
   let first=null,n=0,nc=0;
   for(const src of d.conversations){
     const c=JSON.parse(JSON.stringify(src)),problems=fresh(c);
@@ -1611,7 +1619,16 @@ async function importDigressData(d,kind='file'){
         for(const t of Object.values(c.threads||{}))if(t&&t.anchorShot)await restore(t.anchorShot);
       }
     }
-    for(const t of Object.values(c.threads||{}))for(const im of (t&&t.anchorImages)||[])await restore(im);
+    for(const t of Object.values(c.threads||{})){
+      if(!t)continue;
+      if(t.anchorPage!=null){const p=normalizePageIndex(t.anchorPage);if(p==null)delete t.anchorPage;else t.anchorPage=p}
+      if(t.anchorEnd!=null){
+        const pe=typeof t.anchorEnd==='object'?normalizePageIndex(t.anchorEnd.page):null;
+        if(pe==null||t.anchorPage==null||pe<=t.anchorPage)delete t.anchorEnd;
+        else t.anchorEnd={...t.anchorEnd,page:pe};
+      }
+      for(const im of t.anchorImages||[])await restore(im);
+    }
     try{const r=await io.store.save(id,c,0);if(!r||!r.rev)throw new Error('not saved')}catch(e){console.warn(e);toast('Couldn’t save the imported conversation.');continue}
     n++;first=first||{id,title:c.title};
     for(const k of Array.isArray(d.cards)?d.cards:[]){
@@ -2907,8 +2924,8 @@ function originCard(t){
   const d=document.createElement('div');d.className='origin';d.style.setProperty('--c',color(t));
   if(isDocBranch(t)&&t.anchorShot){const ref=shotRef(t);d.innerHTML=`<div class="ol"><span>Branched from a snip of the document</span><button data-back="1" title="Scroll the document to where it came from">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(ref).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The snip isn’t available, so it can’t be shown.'}))});d.querySelector('.oimg').__ref=ref;return d}
   if(isDocBranch(t)&&t.anchorImg){const whole=isWholePage(t.anchorImg),ref=docImgRef(t);d.innerHTML=`<div class="ol"><span>Branched from ${whole?'an image':'a snip of an image'} in the document</span><button data-back="1" title="Scroll the document to this image">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(ref).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The image isn’t kept with this conversation, so it can’t be shown.'}))});d.querySelector('.oimg').__ref=ref;return d}
-  if(isDocBranch(t)&&t.anchorRegion){d.innerHTML=`<div class="ol"><span>Branched from ${isWholePage(t.anchorRegion)?'':'a snip of '}page ${t.anchorPage+1} of the document</span><button data-back="1" title="Scroll the document to this ${isWholePage(t.anchorRegion)?'page':'snip'}">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(regionRef(t)).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The document isn’t loaded, so the snip can’t be shown.'}))});d.querySelector('.oimg').__ref=regionRef(t);return d}
-  if(isDocBranch(t)){d.innerHTML=`<div class="ol"><span>Branched from the document${conv.doc&&conv.doc.kind==='pdf'?`, ${docPagesLabel(t,true)}`:''}</span><button data-back="1" title="Scroll the document to the exact passage this branch came from">Show in source</button></div><div class="oq"></div>`;const oq0=d.querySelector('.oq');oq0.textContent=t.anchorText;oq0.dataset.back='1';oq0.title='Jump to this passage in the document';return d}
+  if(isDocBranch(t)&&t.anchorRegion){const p=normalizePageIndex(t.anchorPage);d.innerHTML=`<div class="ol"><span></span><button data-back="1" title="Scroll the document to this ${isWholePage(t.anchorRegion)?'page':'snip'}">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;d.querySelector('.ol span').textContent=`Branched from ${isWholePage(t.anchorRegion)?'':'a snip of '}${p!=null?`page ${p+1} of `:''}the document`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(regionRef(t)).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The document isn’t loaded, so the snip can’t be shown.'}))});d.querySelector('.oimg').__ref=regionRef(t);return d}
+  if(isDocBranch(t)){const pl=conv.doc&&conv.doc.kind==='pdf'?docPagesLabel(t,true):'';d.innerHTML=`<div class="ol"><span></span><button data-back="1" title="Scroll the document to the exact passage this branch came from">Show in source</button></div><div class="oq"></div>`;d.querySelector('.ol span').textContent='Branched from the document'+(pl?`, ${pl}`:'');const oq0=d.querySelector('.oq');oq0.textContent=t.anchorText;oq0.dataset.back='1';oq0.title='Jump to this passage in the document';return d}
   if(isClipBranch(t)){
     const safeUrl=t.anchorUrl&&/^https?:\/\//i.test(t.anchorUrl)?t.anchorUrl:'';
     const host=safeUrl?(()=>{try{return new URL(safeUrl).hostname.replace(/^www\./,'')}catch(_){return ''}})():'';
@@ -3988,7 +4005,7 @@ const MAX_PDF_PAGES=16;
 const docBlobCache=new Map();
 function cacheDocBlob(id,data){memoSet(docBlobCache,id,data,3)}
 function destroyDoc(st){if(st&&st.pdf){try{st.pdf.destroy().catch(()=>{})}catch(_){}}}
-const docPagesLabel=(t,long)=>t.anchorEnd&&t.anchorEnd.page>t.anchorPage?`${long?'pages':'pp.'} ${t.anchorPage+1}–${t.anchorEnd.page+1}`:`${long?'page':'p.'} ${t.anchorPage+1}`;   // a passage can run on to the next page
+const docPagesLabel=(t,long)=>{const p=normalizePageIndex(t&&t.anchorPage);if(p==null)return '';const pe=t&&t.anchorEnd?normalizePageIndex(t.anchorEnd.page):null;return pe!=null&&pe>p?`${long?'pages':'pp.'} ${p+1}–${pe+1}`:`${long?'page':'p.'} ${p+1}`};   // a passage can run on to the next page
 const docBranches=()=>conv&&conv.doc?Object.values(conv.threads).filter(isDocBranch).sort((a,b)=>(a.anchorPage-b.anchorPage)||(a.created-b.created)):[];
 // a library (by its CDN address, a key of LIBS): this server's copy, else the CDN's, both checked against its hash;
 // resolves with the address it came from

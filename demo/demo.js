@@ -42,6 +42,7 @@
   // ---- BYOK key state (private to this closure; never exposed on window or returned by /api/connections) ----
   let activeKey = null;          // decrypted Gemini API key, kept in memory only
   let keyGen = 0;                // incremented on Lock / Forget / key change to invalidate in-flight runs & caches
+  let credOp = 0;                // monotonic credential transition counter so an older Unlock/Connect cannot beat a newer Forget/Lock
   let savedMeta = null;          // { last4 } if an encrypted key exists in IndexedDB ('byok/gemini')
   let pendingAction = null;      // { type: 'unlock'|'lock'|'forget', pass? } coordinated with #connModal
   let modelsCache = null;        // { gen, at, list }
@@ -294,8 +295,14 @@
     if (!model || model === 'demo') return json({ error: 'No Gemini models were returned for this key.' }, 502);
 
     const ctrl = new AbortController();
-    let stopped = false, session = null;
-    const stopAll = () => { stopped = true; ctrl.abort(); if (session) session.close(); };
+    let stopped = false, session = null, activeRd = null, reqCleanup = null;
+    const detachReq = () => { if (reqCleanup) { reqCleanup(); reqCleanup = null; } };
+    const stopAll = () => {
+      stopped = true;
+      ctrl.abort();
+      if (activeRd) { const r = activeRd; activeRd = null; r.cancel().catch(() => {}); }
+      if (session) session.close();
+    };
     const runKey = body.chat || Symbol('run');
     runs.set(runKey, { abort: stopAll });
 
@@ -311,17 +318,25 @@
           const NO_ANSWER = `Gemini hasn’t answered in ${Math.round(WAIT_MS / 1000)} seconds (Google may be overloaded). Try again in a little while, or pick another model.`;
           const once = async () => {
             if (stopped || gen !== keyGen) throw new DOMException('Aborted', 'AbortError');
+            detachReq();
             const reqCtrl = new AbortController();
             const onStop = () => reqCtrl.abort();
             ctrl.signal.addEventListener('abort', onStop, { once: true });
+            reqCleanup = () => ctrl.signal.removeEventListener('abort', onStop);
             const t = setTimeout(() => reqCtrl.abort(new Error('no answer')), WAIT_MS);
             try {
-              return await realFetch(`${GEMINI_API}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
+              const r = await realFetch(`${GEMINI_API}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
                 method: 'POST', signal: reqCtrl.signal,
                 headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
                 body: JSON.stringify(geminiRequestBody({ system: body.system, contents, effort: body.effort, web: !!body.web, session, final }, withEffort, withSearch)),
               });
-            } finally { clearTimeout(t); ctrl.signal.removeEventListener('abort', onStop); }
+              clearTimeout(t);
+              return r;
+            } catch (e) {
+              clearTimeout(t);
+              detachReq();
+              throw e;
+            }
           };
           const send = async () => {
             for (let i = 0; ; i++) {
@@ -361,11 +376,14 @@
             let finish = null; const searched = new Set();
             try {
               const rd = up.body.getReader(), sdec = new TextDecoder();
+              activeRd = rd;
+              if (stopped || gen !== keyGen) { rd.cancel().catch(() => {}); }
               let buf = '';
               for (;;) {
+                if (stopped || gen !== keyGen) { rd.cancel().catch(() => {}); break; }
                 const { value, done } = await rd.read();
                 if (done) break;
-                if (stopped) { rd.cancel().catch(() => {}); break; }
+                if (stopped || gen !== keyGen) { rd.cancel().catch(() => {}); break; }
                 buf += sdec.decode(value, { stream: true });
                 let i;
                 while ((i = buf.indexOf('\n')) >= 0) {
@@ -391,8 +409,11 @@
                 }
               }
             } catch {
-              if (stopped) { line({ stopped: 'stop' }); return; }
+              if (stopped || gen !== keyGen) { line({ stopped: 'stop' }); return; }
               st.end = { error: 'The connection to Gemini was interrupted.' };
+            } finally {
+              activeRd = null;
+              detachReq();
             }
             if (stopped) { line({ stopped: 'stop' }); return; }
             if (st.lastUsage) {
@@ -430,6 +451,7 @@
           }
         } finally {
           clearInterval(hb);
+          detachReq();
           if (session) session.close();
           runs.delete(runKey);
           try { c.close(); } catch { /* already closed */ }
@@ -488,13 +510,17 @@
       if (method === 'GET') return json(connectionPayload());
       if (p[1] !== 'gemini') return json({ error: 'Only Google Gemini is supported in the browser demo.' }, 404);
       if (method === 'PUT') {
+        const op = ++credOp;
         const act = pendingAction; pendingAction = null;
         if (act && act.type === 'unlock') {
           const rec = await kv.get('byok/gemini');
+          if (op !== credOp) return json(connectionPayload());
           if (!rec || !rec.ct) return json({ error: 'No saved key found in this browser.' }, 404);
           let key;
           try { key = await decryptKey(rec, act.pass); } catch (e) { return json({ error: e.message }, 400); }
+          if (op !== credOp) return json(connectionPayload());
           const chk = await checkGeminiKey(key);
+          if (op !== credOp) return json(connectionPayload());
           if (!chk.ok) return json({ error: chk.error }, 400);
           setActiveKey(key);
           dismissDemoNote(); syncDemoUi();
@@ -508,22 +534,27 @@
         const wantSave = !!(rem && rem.checked), pass = passIn ? passIn.value : '';
         if (wantSave && pass.length < 4) return json({ error: 'Choose a password of at least 4 characters to encrypt the saved key (or uncheck Remember for session-only).' }, 400);
         const chk = await checkGeminiKey(key);
+        if (op !== credOp) return json(connectionPayload());
         if (!chk.ok) return json({ error: chk.error }, 400);
         if (wantSave) {
           try {
             const encRec = await encryptKey(key, pass);
+            if (op !== credOp) return json(connectionPayload());
             await kv.put('byok/gemini', encRec);
+            if (op !== credOp) { await kv.del('byok/gemini'); savedMeta = null; return json(connectionPayload()); }
             savedMeta = { last4: encRec.last4 };
             if (passIn) passIn.value = '';
           } catch (e) { return json({ error: (e && e.message) || 'Could not encrypt key.' }, 400); }
         } else {
           await kv.del('byok/gemini'); savedMeta = null;
         }
+        if (op !== credOp) return json(connectionPayload());
         setActiveKey(key);
         dismissDemoNote(); syncDemoUi();
         return json(connectionPayload());
       }
       if (method === 'DELETE') {
+        credOp++;
         const act = pendingAction; pendingAction = null;
         setActiveKey(null);
         if (!act || act.type !== 'lock') {
