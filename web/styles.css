@@ -660,7 +660,7 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .chip{border:1px solid var(--line2);border-radius:999px;padding:6px 12px;font-size:13px;color:var(--muted);background:var(--panel)}
 .chip:hover{color:var(--ink);border-color:var(--faint)}
 
-.msg{margin:4px 0}
+.msg{margin:4px 0;contain:layout style}
 .msg.user{display:flex;flex-wrap:wrap;justify-content:flex-end;margin-top:20px}
 .msg.user .uact{flex-basis:100%}
 .msg.user.hasimg{flex-direction:column;align-items:flex-end}
@@ -979,7 +979,7 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .cv.drag{cursor:grabbing}
 #world{position:absolute;left:0;top:0;transform-origin:0 0}
 #edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
-.cnode{--c:var(--faint);position:absolute;width:320px;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:default;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:border-color .15s,box-shadow .15s}
+.cnode{--c:var(--faint);position:absolute;width:320px;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:default;box-shadow:0 1px 3px rgba(0,0,0,.05);transition:border-color .15s,box-shadow .15s;contain:layout style}
 .cnode.exp{width:580px;box-shadow:0 6px 24px rgba(0,0,0,.08)}
 .cnode::before{content:"";display:block;height:3px;background:var(--c)}
 .cnode.main::before{background:transparent}

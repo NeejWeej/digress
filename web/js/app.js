@@ -124,14 +124,29 @@ const T=(id)=>conv.threads[id];
 const color=(t)=>t&&t.parent?PALETTE[t.colorIdx%PALETTE.length]:'var(--faint)';
 function ancestors(tid){const p=[];let t=T(tid);while(t){p.unshift(t.id);t=t.parent?T(t.parent):null}return p}
 function isDesc(a,b){let t=T(a);while(t&&t.parent){if(t.parent===b)return true;t=T(t.parent)}return false}
-const children=(tid)=>Object.values(conv.threads).filter(t=>t.parent===tid).sort((a,b)=>a.created-b.created);
-const branchesOn=(mid)=>Object.values(conv.threads).filter(t=>t.anchorMsg===mid).sort((a,b)=>a.created-b.created);
+const EMPTY_ARR=Object.freeze([]);
+let _tidx=null,_tidxQueued=false;
+function resetThreadIdx(){_tidx=null}
+function threadIdx(){
+  if(_tidx&&_tidx.conv===conv)return _tidx;
+  const byParent=new Map(),byAnchor=new Map(),numOf=new Map();
+  const all=Object.values(conv.threads).sort((a,b)=>(a.created||0)-(b.created||0));
+  for(const t of all){
+    if(t.parent!=null){let l=byParent.get(t.parent);if(!l){l=[];byParent.set(t.parent,l)}l.push(t)}
+    if(t.anchorMsg!=null){let l=byAnchor.get(t.anchorMsg);if(!l){l=[];byAnchor.set(t.anchorMsg,l)}l.push(t);numOf.set(t.id,l.length)}
+  }
+  _tidx={conv,byParent,byAnchor,numOf};
+  if(!_tidxQueued){_tidxQueued=true;queueMicrotask(()=>{_tidx=null;_tidxQueued=false})}
+  return _tidx;
+}
+const children=(tid)=>threadIdx().byParent.get(tid)||EMPTY_ARR;
+const branchesOn=(mid)=>threadIdx().byAnchor.get(mid)||EMPTY_ARR;
 // branches you hid (and everything under them) stay out of the tree, the canvas and the reply chips, unless
 // "show hidden" is on; the versions marker on a question still lists hidden versions
 function hiddenNow(tid){if(conv.ui.showHidden)return false;let t=T(tid);while(t){if(t.hidden)return true;t=t.parent?T(t.parent):null}return false}
 // the side branches shown on a reply (other versions show on their question instead)
 const shownOn=(mid)=>branchesOn(mid).filter(t=>!t.alt&&!hiddenNow(t.id));
-const branchNum=(t)=>branchesOn(t.anchorMsg).indexOf(t)+1;
+const branchNum=(t)=>threadIdx().numOf.get(t.id)||0;
 const isCollapsed=(tid)=>conv.ui.collapsed.includes(tid);
 
 /* ---------- connectors: the only code that knows where the app is running ----------
@@ -3031,6 +3046,7 @@ async function rebuildPdf(){
   const cur=docView.current;await buildPdfPages(el,el.querySelector('.docwrap'));scrollDocToPage(cur,false);
 }
 function renderPane(tid,toBottom){
+  resetThreadIdx();
   applyPaneZoom(tid);
   if(tid==='doc'){renderDocPane();return}
   const el=paneEls.get(tid);if(!el||!T(tid))return;
@@ -3076,6 +3092,7 @@ function placeDocPane(){
   renderDocPane();
 }
 function layout(){
+  resetThreadIdx();
   const wrap=$('#panes'),ui=conv.ui;
   wrap.className='panes '+ui.layout;
   for(const [tid,el] of paneEls)if(!ui.open.includes(tid)||(!T(tid)&&!(tid==='doc'&&conv.doc))){el.remove();paneEls.delete(tid);gutEls.get(tid)&&gutEls.get(tid).remove();gutEls.delete(tid)}
@@ -3320,20 +3337,42 @@ function statusDot(t){
   return `<span class="sdot${t.resolved?' res':''}" data-resolve="${esc(t.id)}" style="--c:${color(t)}" title="${t.resolved?'Resolved. Click to mark as still open.':'Open. Click to mark as resolved once you\'ve got it.'}"></span>`;
 }
 const CARD_ROWS_ALL=8;   // a card's summary lists every message up to this many (renderCanvas)
+let cvNodes=new Map();
 function renderCanvas(){
+  resetThreadIdx();
   const S=cvState(),world=$('#world'),dock=$('#dock');S.dock=S.dock||{};S.cz=S.cz||{};
   for(const id of Object.keys(S.dock))if(!(conv.threads[id]||(id==='doc'&&conv.doc)))delete S.dock[id];
-  const keep={};
-  $('#cv').querySelectorAll('.cnode').forEach(n=>{const f=n.querySelector('.cfull'),i=n.querySelector('.cask textarea');keep[n.dataset.ctid]={st:f?f.scrollTop:0,v:i?i.value:'',focus:i&&document.activeElement===i}});
-  $('#cv').querySelectorAll('.cnode').forEach(n=>n.remove());
+  const keep={},prevNodes=new Map();
+  $('#cv').querySelectorAll('.cnode').forEach(n=>{
+    const id=n.dataset.ctid;prevNodes.set(id,n);
+    const f=n.querySelector('.cfull'),i=n.querySelector('.cask textarea');
+    keep[id]={st:f?f.scrollTop:0,v:i?i.value:'',focus:i&&document.activeElement===i};
+  });
   S.open=S.open.filter(id=>conv.threads[id]);S.fold=S.fold.filter(id=>conv.threads[id]||(id==='doc'&&conv.doc));
-  const nodes={};
+  const descMemo=new Map();
+  const descCount=(id)=>{if(descMemo.has(id))return descMemo.get(id);let c=0;for(const k of kidsOf(id))c+=1+descCount(k.id);descMemo.set(id,c);return c};
+  const nodes={},rebuilt=new Set();
   for(const t of Object.values(conv.threads)){
     if(foldHidden(t.id))continue;
-    const docked=!!S.dock[t.id],exp=S.open.includes(t.id)||docked,kids=kidsOf(t.id),folded=S.fold.includes(t.id);
-    const n=document.createElement('div');n.className='cnode'+(t.parent?'':' main')+(exp?' exp':'')+(docked?' docked':'')+(t.resolved?' res':'');n.dataset.ctid=t.id;n.style.setProperty('--c',color(t));
+    const docked=!!S.dock[t.id],exp=S.open.includes(t.id)||docked,kids=kidsOf(t.id),folded=S.fold.includes(t.id),nd=kids.length?descCount(t.id):0;
+    const mids=(conv.order[t.id]||[]).filter(id=>conv.msgs[id]);
+    const cuts=exp?takeawayCuts(t.id):null;
+    const sz=S.size[t.id],dk=S.dock[t.id];
+    let csig=`${conv.id}|${t.id}|${t.parent?t.title:conv.title}|${t.resolved?1:0}|${t.colorIdx}|${t.alt?1:0}|${t.alt&&joinable(t)?1:0}|${t.anchorMsg||''}|${t.anchorText||''}|${exp?1:0}|${docked?1:0}|${folded?1:0}|${kids.length}|${nd}|${S.cz[t.id]||''}|${sz?sz.w+'x'+sz.h:''}|${dk?dk.x+','+dk.y+','+dk.w+','+dk.h:''}|${(pendingImgs.get(t.id)||[]).length}|${cvPrev.has(cvPrevKey(t.id))?1:0}|`;
+    if(exp){
+      for(const mid of mids){const m=conv.msgs[mid];csig+=(m.pending?'P'+Math.random():msgKey(m))+';';if(cuts&&cuts.has(mid))csig+='c'+cuts.get(mid).length+';'}
+    }else{
+      csig+=mids.length+':';
+      for(const mid of mids){const m=conv.msgs[mid];const bs=branchesOn(mid);csig+=mid+m.role+(m.content||'').length+(m.ver||0)+bs.map(b=>b.id+(b.resolved?'r':'')+b.colorIdx+branchNum(b)).join(',')+';'}
+    }
+    const targetParent=docked?dock:world;
+    const prev=prevNodes.get(t.id);
+    if(prev&&prev.__csig===csig&&prev.parentElement===targetParent){
+      prev.classList.remove('flash');prevNodes.delete(t.id);nodes[t.id]=prev;continue;
+    }
+    const n=document.createElement('div');n.className='cnode'+(t.parent?'':' main')+(exp?' exp':'')+(docked?' docked':'')+(t.resolved?' res':'');n.dataset.ctid=t.id;n.style.setProperty('--c',color(t));n.__csig=csig;
     n.innerHTML=`<div class="ch" title="Drag to move. Shift-drag moves its sub-branches too. Double-click to open in panes.">${statusDot(t)}<span class="ct"></span>`+
-      (kids.length?`<button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} the ${descendants(t.id).length} branch${descendants(t.id).length===1?'':'es'} below this card">${folded?'+'+descendants(t.id).length:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+kids.length}</button>`:'')+
+      (kids.length?`<button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} the ${nd} branch${nd===1?'':'es'} below this card">${folded?'+'+nd:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+kids.length}</button>`:'')+
       `<span class="czoom"><button class="ib" data-cact="zout" title="Make just this card smaller (or Alt+scroll over it)">−</button><span class="zl" data-cact="zedit" title="This card's own zoom. Click to type a zoom level.">100%</span><button class="ib" data-cact="zin" title="Make just this card bigger (or Alt+scroll over it)">+</button></span>`+
       `<button class="ib${docked?' stuck':''}" data-cact="stick" title="${docked?'Stuck to the screen: it stays put while you pan and zoom. Click to drop it onto the canvas where it is.':'Stick to the screen: keep this card in view at reading size while you pan and zoom around it.'}">${ic('pin')}</button>`+
       (docked?`<button class="ib" data-cact="restore" title="Put it back where it was on the canvas (↓ or Esc)">${ic('unfocus')}</button>`:`<button class="ib" data-cact="exp" title="${exp?'Shrink back to a summary':'Expand to read the full thread here'} (⌘\\ / Ctrl+\\ for the selected card)">${ic(exp?'unfocus':'expand')}</button>`)+
@@ -3347,12 +3386,10 @@ function renderCanvas(){
       cq.innerHTML=altLine(t,40,false)}
     else if(cq&&t.anchorText){cq.textContent=t.anchorText;cq.title='Jump to this passage in the card it came from'}
     else if(cq){cq.textContent='The whole reply';cq.classList.add('cqw');cq.title='Jump to the reply this branch is about, in the card it came from'}
-    const mids=(conv.order[t.id]||[]).filter(id=>conv.msgs[id]);
     if(exp){
       const full=document.createElement('div');full.className='cfull';
       if(!mids.length)full.innerHTML='<div class="empty" style="padding:12px 0">Nothing here yet. Ask below.</div>';
-      const cuts=takeawayCuts(t.id);
-      for(const mid of mids){full.appendChild(canvasMsgEl(conv.msgs[mid]));for(const n of cuts.get(mid)||[])full.appendChild(tkcutEl(n))}
+      for(const mid of mids){full.appendChild(canvasMsgEl(conv.msgs[mid]));for(const nn of cuts.get(mid)||[])full.appendChild(tkcutEl(nn))}
       n.appendChild(full);
       const cj=document.createElement('div');cj.className='cjump';
       cj.innerHTML=`<button class="ib cjp" data-cact="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button><button class="ib" data-cact="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib" data-cact="jend" title="Jump to the very bottom">${ic('jend')}</button>`;
@@ -3388,36 +3425,54 @@ function renderCanvas(){
       n.appendChild(rows);
     }
     addSizing(n,t.id,exp,S);
-    (docked?dock:world).appendChild(n);nodes[t.id]=n;
+    if(prev&&prev.parentElement===targetParent){prev.replaceWith(n);prevNodes.delete(t.id)}
+    else{if(prev){prev.remove();prevNodes.delete(t.id)}targetParent.appendChild(n)}
+    nodes[t.id]=n;rebuilt.add(t.id);
   }
   if(conv.doc&&S.dock.doc){
     // stuck to the screen: the real document pane (the one Columns shows) sits in it, at reading size, so
     // pages stay sharp and highlighting, snips, zoom and page jumps all work as in the pane (placeDocPane)
-    const n=document.createElement('div');n.className='cnode main docnode docked docpanecard';n.dataset.ctid='doc';n.style.setProperty('--c','var(--faint)');
-    // Expand fills the canvas; dragging it to a side edge (or Side) keeps it to half, with the canvas beside it
     const whole=S.dock.doc.w>=.99&&S.dock.doc.h>=.99;
-    n.innerHTML=`<div class="ch" title="Drag to move it, or to another edge. Double-click to open the document in the pane view."><span class="docico">${ic('doc')}</span><span class="ct"></span>${whole?`<button class="ib" data-cact="docside" title="Keep it to the left half, with the canvas beside it (or drag it to an edge)">${ic('side')}</button>`:`<button class="ib" data-cact="docdock" title="Fill the canvas with the document">${ic('expand')}</button>`}<button class="ib" data-cact="restore" title="Put it back on the canvas as a card (Esc)">${ic('unfocus')}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="cdocpane"></div>`;
-    n.querySelector('.ct').textContent=conv.doc.name;
-    addSizing(n,'doc',true,S);
-    dock.appendChild(n);nodes.doc=n;
-  }else if(conv.doc){
-    const n=document.createElement('div');n.className='cnode main docnode';n.dataset.ctid='doc';n.style.setProperty('--c','var(--faint)');
-    const nb=docBranches(),folded=S.fold.includes('doc'),nd=descendants('doc').length;
-    const hasThumb=docViewReady()&&docState.kind==='pdf'&&docState.pdf;
-    n.innerHTML=`<div class="ch" title="Drag to move. Double-click to open the document."><span class="docico">${ic('doc')}</span><span class="ct"></span><button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} everything below the document">${folded?'+'+nd:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+(nb.length+1)}</button><button class="ib" data-cact="docdock" title="Read the document here, filling the canvas (or drag this card to an edge to keep it to one side)">${ic('expand')}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="crs"></div>`;
-    n.querySelector('.ct').textContent=conv.doc.name;
-    const rows=n.querySelector('.crs');
-    if(hasThumb){   // first page preview; fixed height, so the layout doesn't shift when the image arrives
-      const th=document.createElement('div');th.className='cthumb';th.dataset.cact='panes';th.title='Open the document';rows.before(th);
-      docThumbUrl().then(u=>{if(!th.isConnected)return;if(!u){th.remove();return}const img=new Image();img.alt='First page of '+conv.doc.name;img.src=u;th.appendChild(img)});
+    const dsig=`doc-dock|${conv.id}|${conv.doc.name}|${whole?1:0}|${S.dock.doc.x},${S.dock.doc.y},${S.dock.doc.w},${S.dock.doc.h}`;
+    const prev=prevNodes.get('doc');
+    if(prev&&prev.__csig===dsig&&prev.parentElement===dock){
+      prev.classList.remove('flash');prevNodes.delete('doc');nodes.doc=prev;
+    }else{
+      const n=document.createElement('div');n.className='cnode main docnode docked docpanecard';n.dataset.ctid='doc';n.style.setProperty('--c','var(--faint)');n.__csig=dsig;
+      // Expand fills the canvas; dragging it to a side edge (or Side) keeps it to half, with the canvas beside it
+      n.innerHTML=`<div class="ch" title="Drag to move it, or to another edge. Double-click to open the document in the pane view."><span class="docico">${ic('doc')}</span><span class="ct"></span>${whole?`<button class="ib" data-cact="docside" title="Keep it to the left half, with the canvas beside it (or drag it to an edge)">${ic('side')}</button>`:`<button class="ib" data-cact="docdock" title="Fill the canvas with the document">${ic('expand')}</button>`}<button class="ib" data-cact="restore" title="Put it back on the canvas as a card (Esc)">${ic('unfocus')}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="cdocpane"></div>`;
+      n.querySelector('.ct').textContent=conv.doc.name;
+      addSizing(n,'doc',true,S);
+      if(prev){prev.remove();prevNodes.delete('doc')}
+      dock.appendChild(n);nodes.doc=n;
     }
-    const info=document.createElement('div');info.className='cr a';info.textContent=docViewReady()?(docState.kind==='pdf'?`${docState.n} pages`:'Text document'):'Loading…';rows.appendChild(info);
-    for(const b of nb){const r=document.createElement('div');r.className='cr';r.dataset.cdocrow=b.id;r.title='Go to this branch';
-      const f=document.createElement('span');f.className='fns';const sp=document.createElement('sup');sp.className='fn'+(b.resolved?' res':'');sp.dataset.tid=b.id;sp.style.setProperty('--c',color(b));sp.textContent=branchNum(b);f.appendChild(sp);r.appendChild(f);
-      r.append((conv.doc.kind==='pdf'?`${docPagesLabel(b)} · `:'')+'“'+trunc(b.anchorText,70)+'”');rows.appendChild(r)}
-    addSizing(n,'doc',false,S);
-    world.appendChild(n);nodes.doc=n;
+  }else if(conv.doc){
+    const nb=docBranches(),folded=S.fold.includes('doc'),nd=descCount('doc');
+    const hasThumb=docViewReady()&&docState.kind==='pdf'&&docState.pdf;
+    const dsig=`doc-card|${conv.id}|${conv.doc.name}|${folded?1:0}|${nd}|${hasThumb?1:0}|${docViewReady()?(docState.kind==='pdf'?docState.n:'t'):'l'}|${nb.map(b=>b.id+(b.resolved?'r':'')+b.colorIdx+branchNum(b)+b.anchorText).join(';')}`;
+    const prev=prevNodes.get('doc');
+    if(prev&&prev.__csig===dsig&&prev.parentElement===world){
+      prev.classList.remove('flash');prevNodes.delete('doc');nodes.doc=prev;
+    }else{
+      const n=document.createElement('div');n.className='cnode main docnode';n.dataset.ctid='doc';n.style.setProperty('--c','var(--faint)');n.__csig=dsig;
+      n.innerHTML=`<div class="ch" title="Drag to move. Double-click to open the document."><span class="docico">${ic('doc')}</span><span class="ct"></span><button class="fold${folded?' on':''}" data-cact="fold" title="${folded?'Show':'Hide'} everything below the document">${folded?'+'+nd:ic('minus').replace('class="i"','class="i" style="width:12px;height:12px"')+(nb.length+1)}</button><button class="ib" data-cact="docdock" title="Read the document here, filling the canvas (or drag this card to an edge to keep it to one side)">${ic('expand')}</button><button class="ib" data-cact="panes" title="Open the document in the pane view">${ic('cols')}</button></div><div class="crs"></div>`;
+      n.querySelector('.ct').textContent=conv.doc.name;
+      const rows=n.querySelector('.crs');
+      if(hasThumb){   // first page preview; fixed height, so the layout doesn't shift when the image arrives
+        const th=document.createElement('div');th.className='cthumb';th.dataset.cact='panes';th.title='Open the document';rows.before(th);
+        docThumbUrl().then(u=>{if(!th.isConnected)return;if(!u){th.remove();return}const img=new Image();img.alt='First page of '+conv.doc.name;img.src=u;th.appendChild(img)});
+      }
+      const info=document.createElement('div');info.className='cr a';info.textContent=docViewReady()?(docState.kind==='pdf'?`${docState.n} pages`:'Text document'):'Loading…';rows.appendChild(info);
+      for(const b of nb){const r=document.createElement('div');r.className='cr';r.dataset.cdocrow=b.id;r.title='Go to this branch';
+        const f=document.createElement('span');f.className='fns';const sp=document.createElement('sup');sp.className='fn'+(b.resolved?' res':'');sp.dataset.tid=b.id;sp.style.setProperty('--c',color(b));sp.textContent=branchNum(b);f.appendChild(sp);r.appendChild(f);
+        r.append((conv.doc.kind==='pdf'?`${docPagesLabel(b)} · `:'')+'“'+trunc(b.anchorText,70)+'”');rows.appendChild(r)}
+      addSizing(n,'doc',false,S);
+      if(prev){prev.remove();prevNodes.delete('doc')}
+      world.appendChild(n);nodes.doc=n;
+    }
   }
+  for(const stale of prevNodes.values())stale.remove();
+  cvNodes=new Map(Object.entries(nodes));
   // positions: saved positions win; unsaved cards sit where the automatic layout puts them, relative to their parent
   const auto={},colW=[],depthOf={};
   const root=conv.doc?'doc':'main';
@@ -3448,7 +3503,7 @@ function renderCanvas(){
   walk(root);
   for(const [tid,p] of Object.entries(fin)){if(isD(tid))continue;nodes[tid].style.left=p.x+'px';nodes[tid].style.top=p.y+'px'}
   placeDocked();
-  for(const [tid,k] of Object.entries(keep)){const n=nodes[tid];if(!n)continue;const f=n.querySelector('.cfull');if(f)f.scrollTop=k.st;if(k.focus){const i=n.querySelector('.cask textarea');i&&i.focus()}}
+  for(const tid of rebuilt){const k=keep[tid],n=nodes[tid];if(!k||!n)continue;const f=n.querySelector('.cfull');if(f)f.scrollTop=k.st;if(k.focus){const i=n.querySelector('.cask textarea');i&&i.focus()}}
   applyStack();
   drawEdges();
   if(!camFitted){fitCanvas();camFitted=true}else applyCam();
@@ -3466,7 +3521,7 @@ function drawEdges(){
   const wr=world.getBoundingClientRect();let paths='';
   for(const t of Object.values(conv.threads)){
     const pid=visParentId(t.id);if(!pid)continue;
-    const cEl=$('#cv').querySelector(`.cnode[data-ctid="${qid(t.id)}"]`),pEl=$('#cv').querySelector(`.cnode[data-ctid="${qid(pid)}"]`);if(!cEl||!pEl)continue;
+    const cEl=cvNodes.get(t.id),pEl=cvNodes.get(pid);if(!cEl||!pEl||!cEl.isConnected||!pEl.isConnected)continue;
     const p=boxW(pEl,wr),c=boxW(cEl,wr);
     const a=pid==='doc'?(t.id==='main'?null:pEl.querySelector(`[data-cdocrow="${qid(t.id)}"]`)):(pEl.querySelector(`.cfull sup.fn[data-tid="${qid(t.id)}"]`)||pEl.querySelector(`.cfull .bchip[data-tid="${qid(t.id)}"]`)||pEl.querySelector(`[data-cmid="${qid(t.anchorMsg)}"]`)||pEl.querySelector(`.cfull .msg[data-mid="${qid(t.anchorMsg)}"]`));
     let ay;
@@ -6361,7 +6416,7 @@ function setConv(c){
   // after ui is complete: a document already loaded draws straight away, and its header reads ui.collapsed
   destroyDoc(docState);if(docView.obs)docView.obs.disconnect();docState=null;if(conv.doc)startDoc();
   for(const m of Object.values(conv.msgs)){m.ver=m.ver||0;if(m.pending){delete m.pending;if(!m.content)m.error='Interrupted.'}}
-  msgCache.clear();cvMsgCache.clear();for(const el of paneEls.values())el.remove();paneEls.clear();for(const g of gutEls.values())g.remove();gutEls.clear();
+  msgCache.clear();cvMsgCache.clear();cvNodes.clear();resetThreadIdx();for(const el of paneEls.values())el.remove();paneEls.clear();for(const g of gutEls.values())g.remove();gutEls.clear();
   camFitted=false;
   layout();renderTitle();renderMap();renderConvList();hidePop();syncCardsUI();
   $('#stage').classList.toggle('canvas',ui.view==='canvas');if(ui.view==='canvas')renderCanvas();
