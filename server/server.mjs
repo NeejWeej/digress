@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Digress server: serves the app, keeps your data on disk, and relays model calls to Claude
 // (through the Claude Code CLI on your subscription, or the Anthropic API with a key).
-// No dependencies; needs Node 18 or newer. Configuration comes from the environment or a .env file.
+// No dependencies; needs Node 22.5 or newer (uses built-in node:sqlite). Configuration comes from the environment or a .env file.
 //
 //   GET  /api/health                   {app:'digress', llm:bool, provider, web:bool, why}
 //   GET  /api/models                   {models:[[id,label]], defaultLabel, default, chosen}
@@ -37,6 +37,7 @@ import { createRun, getRun, DETACH_MS } from './runs.mjs';
 import { guideDocs } from './guide.mjs';
 import { libFile, libType } from './libs.mjs';
 import { openSession, deliverResult, handleMcp, toolsForAnthropic, resultForAnthropic, claudeCodeToolNames, pickTools, ALL_TOOLS, MAX_TOOL_CALLS, MAX_CARD_CALLS, MAX_TOOL_ROUNDS } from './doctools.mjs';
+import { openDb } from './db.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -158,82 +159,23 @@ function withLock(key, fn) {
   return next;
 }
 
-// ---- storage: one JSON file per document ------------------------------------
-const docPath = (coll, id) => path.join(DATA, coll, id + '.json');
-const convMetaCache = new Map(); // id -> { mtimeMs, size, meta }
-function convMetaOf(id, c) {
-  return {
-    _meta: true, dropCards: !!c.dropCards, id: c.id || id, title: c.title, updated: c.updated, created: c.created,
-    pinned: !!c.pinned, archived: !!c.archived, trashed: c.trashed || 0, folder: c.folder || '',
-    system: typeof c.system === 'string' ? c.system : '', doc: !!c.doc, docName: c.doc ? c.doc.name || '' : '',
-    asset: (c.doc && c.doc.assetId) || '',
-    pins: Object.values(c.threads || {}).filter((t) => t && t.pinned).map((t) => ({ tid: t.id, title: t.title, ci: t.colorIdx })),
-  };
-}
-async function listConvMeta() {
-  const dir = path.join(DATA, 'convs');
-  let names = [];
-  try { names = (await fs.readdir(dir)).filter((n) => n.endsWith('.json')); } catch { convMetaCache.clear(); return []; }
-  const live = new Set();
-  const rows = await Promise.all(names.map(async (n) => {
-    const id = n.slice(0, -5);
-    live.add(id);
-    const file = path.join(dir, n);
-    try {
-      const st = await fs.stat(file);
-      const hit = convMetaCache.get(id);
-      if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size) return { id, data: hit.meta };
-      const d = JSON.parse(await fs.readFile(file, 'utf8'));
-      const meta = convMetaOf(id, d);
-      convMetaCache.set(id, { mtimeMs: st.mtimeMs, size: st.size, meta });
-      return { id, data: meta };
-    } catch { return null; }
-  }));
-  for (const id of convMetaCache.keys()) if (!live.has(id)) convMetaCache.delete(id);
-  return rows.filter(Boolean);
-}
-async function listDocs(coll) {
-  const dir = path.join(DATA, coll);
-  let names = [];
-  try { names = (await fs.readdir(dir)).filter((n) => n.endsWith('.json')); } catch { return []; }
-  const rows = await Promise.all(names.map(async (n) => {
-    try { return { id: n.slice(0, -5), data: JSON.parse(await fs.readFile(path.join(dir, n), 'utf8')) }; } catch { return null; }
-  }));
-  return rows.filter(Boolean);
-}
-async function readDoc(coll, id) {
-  try { return JSON.parse(await fs.readFile(docPath(coll, id), 'utf8')); } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
-}
-
-// change a stored conversation in place, as one more version (rev), the way a page's save would
-async function updateConv(id, fn) {
-  const file = docPath('convs', id);
-  return withLock(file, async () => {
-    const d = await readDoc('convs', id);
-    if (!d || !fn(d)) return false;
-    d.rev = (d.rev || 0) + 1; d.updated = Date.now();
-    await writeAtomic(file, JSON.stringify(d));
-    return true;
-  });
-}
+// ---- storage: SQLite + FTS5 (server/db.mjs) ---------------------------------
+const db = openDb(DATA);
+if (db.migratedCount) console.log(`Migrated ${db.migratedCount} legacy JSON records into SQLite (backup kept in _legacy_json/).`);
+const listConvMeta = () => db.listConvMeta();
+const listDocs = (coll) => db.listDocs(coll);
+const readDoc = (coll, id) => db.readDoc(coll, id);
+const updateConv = (id, fn) => db.updateConv(id, fn);
 const LAYOUT_DAYS = Number(process.env.LAYOUT_DAYS || 90);
-const layoutPath = (conv) => path.join(DATA, 'layouts', conv + '.json');
 
 // Uploaded files (documents, pasted images, article images, card snips) are referenced from conversations and
 // cards as "asset" / "assetId". Delete the ones nothing references any more. Files younger than minAgeMs are
-// left alone (a page uploads before it saves the conversation that points at it). If any conversation or card
-// can't be read, nothing is deleted: better a leftover file than a missing one.
+// left alone (a page uploads before it saves the conversation that points at it).
 async function sweepFiles(minAgeMs = 24 * 3600e3) {
   const dir = path.join(DATA, 'files');
   let names; try { names = await fs.readdir(dir); } catch { return 0; }
-  const used = new Set();
-  for (const coll of ['convs', 'cards']) {
-    let files = []; try { files = (await fs.readdir(path.join(DATA, coll))).filter((n) => n.endsWith('.json')); } catch { continue; }
-    for (const n of files) {
-      let txt; try { txt = await fs.readFile(path.join(DATA, coll, n), 'utf8'); JSON.parse(txt); } catch { return 0; }
-      for (const m of txt.matchAll(/"asset(?:Id)?":"([a-f0-9]{32})"/g)) used.add(m[1]);
-    }
-  }
+  let used;
+  try { used = db.allUsedAssets(); } catch { return 0; }
   let gone = 0;
   for (const n of names) {
     const m = n.match(/^([a-f0-9]{32})$/); if (!m || used.has(m[1])) continue;
@@ -249,22 +191,9 @@ async function sweepFiles(minAgeMs = 24 * 3600e3) {
 // and every hour.
 const TRASH_DAYS = 7;   // the page says so too (index.html TRASH_DAYS)
 async function purgeTrash() {
-  let names = []; try { names = (await fs.readdir(path.join(DATA, 'convs'))).filter((n) => n.endsWith('.json')); } catch { return 0; }
-  let gone = 0;
-  for (const n of names) {
-    const id = n.slice(0, -5); let d; try { d = await readDoc('convs', id); } catch { continue; }
-    if (!d || !d.trashed || Date.now() - d.trashed < TRASH_DAYS * 864e5) continue;
-    const file = docPath('convs', id);
-    await withLock(file, async () => { const now = await readDoc('convs', id); if (now && now.trashed === d.trashed) await fs.rm(file, { force: true }); });
-    await fs.rm(layoutPath(id), { force: true }); await fs.rm(docPath('index', id), { force: true }); gone++;
-    if (d.dropCards) await dropCardsOf(id);   // "Also delete its flashcards", chosen when it was trashed
-  }
+  const gone = db.purgeTrash(TRASH_DAYS);
   if (gone) await sweepFiles(10 * 60e3);
   return gone;
-}
-async function dropCardsOf(conv) {
-  let names = []; try { names = (await fs.readdir(path.join(DATA, 'cards'))).filter((n) => n.endsWith('.json')); } catch { return; }
-  for (const n of names) { const id = n.slice(0, -5); let c; try { c = await readDoc('cards', id); } catch { continue; } if (c && c.conv === conv) await withLock(docPath('cards', id), () => fs.rm(docPath('cards', id), { force: true })); }
 }
 function trashTick() { purgeTrash().then((n) => { if (n) console.log(`Emptied ${n} conversation${n > 1 ? 's' : ''} from the trash (deleted over ${TRASH_DAYS} days ago).`); }).catch((e) => console.warn('trash:', e.message)); }
 
@@ -850,7 +779,7 @@ async function route(req, res) {
 
   if (parts[1] === 'health' && req.method === 'GET') {
     const on = enabled();
-    return send(res, 200, { app: 'digress', llm: on.length > 0, provider: on[0] || primary(), providers: on, web: on.some(webOk), tools: on.length > 0 && on.every((k) => PROVIDERS[k].tools), why: on.length ? undefined : llmWhy() });
+    return send(res, 200, { app: 'digress', search: true, llm: on.length > 0, provider: on[0] || primary(), providers: on, web: on.some(webOk), tools: on.length > 0 && on.every((k) => PROVIDERS[k].tools), why: on.length ? undefined : llmWhy() });
   }
   if (parts[1] === 'models' && req.method === 'GET') {
     const models = await listModels(), def = await defaultModel();
@@ -918,71 +847,53 @@ async function route(req, res) {
   if (parts[1] === 'mcp' && parts.length === 3) return handleMcp(parts[2], req, res, readJson);   // Claude Code calling the document tools
   if (parts[1] === 'fetch-doc' && req.method === 'POST' && parts.length === 2) return handleFetchDoc(req, res);
 
+  if (parts[1] === 'search' && req.method === 'GET' && parts.length === 2) {
+    const q = url.searchParams.get('q') || '';
+    const scope = url.searchParams.get('scope') || 'all';
+    const cid = url.searchParams.get('cid') || '';
+    const tid = url.searchParams.get('tid') || '';
+    const limit = Number(url.searchParams.get('limit') || 120);
+    return sendJson(req, res, 200, { results: db.searchPassages(q, { scope, cid, tid, limit }) });
+  }
+
   if (parts[1] === 'store') {
     const [, , coll, id] = parts;
     if (!COLLECTIONS.has(coll)) return fail(res, 404, 'Unknown collection');
-    if (!id) return req.method === 'GET' ? sendJson(req, res, 200, coll === 'convs' && url.searchParams.has('meta') ? await listConvMeta() : await listDocs(coll)) : fail(res, 405, 'Method not allowed');
+    if (!id) return req.method === 'GET' ? sendJson(req, res, 200, coll === 'convs' && url.searchParams.has('meta') ? listConvMeta() : listDocs(coll)) : fail(res, 405, 'Method not allowed');
     if (!validId(id) || parts.length > 4) return fail(res, 400, 'Bad id');
-    await fs.mkdir(path.join(DATA, coll), { recursive: true });
-    const file = docPath(coll, id);
-    if (req.method === 'GET' && url.searchParams.has('rev')) { const d = await readDoc(coll, id); return d === null ? fail(res, 404, 'Not found') : send(res, 200, { rev: d.rev || 0 }); }
-    if (req.method === 'GET') { const d = await readDoc(coll, id); return d === null ? fail(res, 404, 'Not found') : sendJson(req, res, 200, d); }
+    if (req.method === 'GET' && url.searchParams.has('rev')) { const rev = db.getRev(coll, id); return rev === null ? fail(res, 404, 'Not found') : send(res, 200, { rev }); }
+    if (req.method === 'GET') { const d = readDoc(coll, id); return d === null ? fail(res, 404, 'Not found') : sendJson(req, res, 200, d); }
     if (req.method === 'PUT') {
       const d = await readJson(req); if (!d || typeof d !== 'object' || Array.isArray(d)) return fail(res, 400, 'Body must be an object');
-      if (coll !== 'convs') { await withLock(file, () => writeAtomic(file, JSON.stringify(d))); return send(res, 200, { ok: true }); }
-      // Conversations carry a version (rev). A page says which one its changes started from (x-base-rev);
-      // if another device saved since, it gets 409 with the current copy and merges (web/threads.js: merge).
-      // A conversation that's gone was deleted elsewhere: 410, so a stale tab can't bring it back.
-      // No x-base-rev (an older page, or a new conversation): saved as before.
-      const base = req.headers['x-base-rev'];
-      return withLock(file, async () => {
-        const cur = await readDoc(coll, id);
-        if (base !== undefined) {
-          if (cur === null && Number(base) > 0) return fail(res, 410, 'This conversation was deleted.');
-          if (cur !== null && (cur.rev || 0) !== Number(base)) return send(res, 409, { error: 'Changed elsewhere', current: cur });
-        }
-        d.rev = (cur ? cur.rev || 0 : 0) + 1;
-        await writeAtomic(file, JSON.stringify(d));
-        send(res, 200, { ok: true, rev: d.rev });
-      });
+      if (coll !== 'convs') { db.putDoc(coll, id, d); return send(res, 200, { ok: true }); }
+      const r = db.saveConv(id, d, req.headers['x-base-rev']);
+      if (r.status === 410) return fail(res, 410, r.error);
+      if (r.status === 409) return send(res, 409, { error: r.error, current: r.current });
+      return send(res, 200, { ok: true, rev: r.rev });
     }
     if (req.method === 'PATCH') {
       const p = await readJson(req);
-      return withLock(file, async () => {
-        const d = await readDoc(coll, id);
-        if (d === null) return fail(res, 404, 'Not found');
-        Object.assign(d, p); if (coll === 'convs') d.rev = (d.rev || 0) + 1;
-        await writeAtomic(file, JSON.stringify(d)); send(res, 200, { ok: true });
-      });
+      if (!db.patchDoc(coll, id, p)) return fail(res, 404, 'Not found');
+      return send(res, 200, { ok: true });
     }
     if (req.method === 'DELETE') {
-      await withLock(file, () => fs.rm(file, { force: true }));
-      if (coll === 'convs') { await fs.rm(layoutPath(id), { force: true }); await fs.rm(docPath('index', id), { force: true }); await sweepFiles(10 * 60e3); } // its layouts, search index, and files nothing uses now
+      db.deleteDoc(coll, id);
+      if (coll === 'convs') await sweepFiles(10 * 60e3);
       return send(res, 200, { ok: true });
     }
     return fail(res, 405, 'Method not allowed');
   }
 
   // Layout (open panes, sizes, view, zoom, canvas) is per device: GET /api/layout/:conv -> {devices:{id:{ui,at}}},
-  // PUT /api/layout/:conv?device=ID with the ui. One small file per conversation, removed with it; a device
-  // that hasn't opened it for LAYOUT_DAYS drops out the next time the file is written.
+  // PUT /api/layout/:conv?device=ID with the ui.
   if (parts[1] === 'layout' && parts.length === 3) {
     const conv = parts[2]; if (!validId(conv)) return fail(res, 400, 'Bad id');
-    const file = layoutPath(conv);
-    if (req.method === 'GET') { let d = null; try { d = JSON.parse(await fs.readFile(file, 'utf8')); } catch { /* none yet */ } return send(res, 200, d && d.devices ? d : { devices: {} }); }
+    if (req.method === 'GET') return send(res, 200, db.getLayout(conv));
     if (req.method === 'PUT') {
       const device = url.searchParams.get('device') || '', ui = await readJson(req);
       if (!validId(device) || !ui || typeof ui !== 'object' || Array.isArray(ui)) return fail(res, 400, 'Bad layout');
-      if (!existsSync(docPath('convs', conv))) return send(res, 200, { ok: false }); // not saved yet, or deleted: nothing to lay out
-      await fs.mkdir(path.dirname(file), { recursive: true });
-      return withLock(file, async () => {
-        let d = { devices: {} }; try { d = JSON.parse(await fs.readFile(file, 'utf8')); } catch { /* new */ }
-        const now = Date.now(), devices = {};
-        for (const [k, v] of Object.entries(d.devices || {})) if (v && now - (v.at || 0) < LAYOUT_DAYS * 864e5) devices[k] = v;
-        devices[device] = { ui, at: now };
-        await writeAtomic(file, JSON.stringify({ devices }));
-        send(res, 200, { ok: true });
-      });
+      const ok = db.putLayout(conv, device, ui, LAYOUT_DAYS);
+      return send(res, 200, { ok });
     }
     return fail(res, 405, 'Method not allowed');
   }

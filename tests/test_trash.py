@@ -144,15 +144,18 @@ def server_part():
     proc, base = start({'DATA_DIR': data, 'CLAUDE_BIN': '/nonexistent/claude'})
     try:
         ex = lambda *p: os.path.exists(os.path.join(data, *p))
+        has_conv = lambda cid: req(base, 'GET', f'/api/store/convs/{cid}')[0] == 200
+        has_idx = lambda cid: req(base, 'GET', f'/api/store/index/{cid}')[0] == 200
         for _ in range(50):
-            if not ex('convs', 'old1.json') and not ex('convs', 'old2.json') and not ex('files', Y): break   # (the file goes a moment after its conversation)
+            if not has_conv('old1') and not has_conv('old2') and not ex('files', Y): break   # (the file goes a moment after its conversation)
             time.sleep(0.1)
-        check('server: trashed over 7 days ago is deleted at startup, with its layout and search index', not ex('convs', 'old1.json') and not ex('layouts', 'old1.json') and not ex('index', 'old1.json') and not ex('convs', 'old2.json'))
+        check('server: legacy JSON folders migrated to SQLite with backup', ex('digress.db') and ex('_legacy_json', 'convs'))
+        check('server: trashed over 7 days ago is deleted at startup, with its layout and search index', not has_conv('old1') and not has_idx('old1') and not has_conv('old2'))
         check('server: …its file goes when nothing else uses it', not ex('files', Y))
         check('server: …and stays when another conversation uses it', ex('files', X))
-        check('server: recently trashed stays, with its file', ex('convs', 'recent.json') and ex('files', Z))
+        check('server: recently trashed stays, with its file', has_conv('recent') and ex('files', Z))
         st, _ = req(base, 'DELETE', '/api/store/convs/gone')
-        check('server: deleting a conversation keeps a file another (trashed) one still uses', st == 200 and ex('files', Z) and not ex('index', 'gone.json'))
+        check('server: deleting a conversation keeps a file another (trashed) one still uses', st == 200 and ex('files', Z) and not has_idx('gone'))
     finally:
         proc.kill()
 

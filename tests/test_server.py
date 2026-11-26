@@ -149,7 +149,11 @@ async def browser_checks(base, data_dir):
         check(any('gradient' in (i or '').lower() or (title or '') in (i or '') for i in items), f'conversation listed in a fresh browser {items[:3]}')
         msgs = await pg2.locator('.pane[data-tid="main"] .msg.assistant').count()
         check(msgs >= 1, 'conversation reopened with its reply in a fresh browser')
-        check(len(os.listdir(os.path.join(data_dir, 'convs'))) >= 1, 'conversation written to the data folder')
+        check(os.path.exists(os.path.join(data_dir, 'digress.db')), 'conversation written to SQLite in the data folder')
+        # server-side FTS5 search finds the saved conversation
+        st_s, s_raw = req(base, 'GET', '/api/search?q=gradient')
+        s_res = json.loads(s_raw) if st_s == 200 else {}
+        check(st_s == 200 and len(s_res.get('results') or []) >= 1, f'server-side FTS5 search returned results: {s_res}')
 
         # documents are stored as files on the server and survive a reload
         await pg2.locator('#newDoc').click()

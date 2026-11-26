@@ -11,7 +11,7 @@ import asyncio, json, os, sys, tempfile, time
 from playwright.async_api import async_playwright
 from common import ROOT, OUT, launch_args, goto_app, booted, answered, saved, frames, new_conv, soon, settle
 from common import CORS
-from test_server import start
+from test_server import start, req
 
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
@@ -168,12 +168,13 @@ def server_part():
         json.dump(k, open(os.path.join(data, 'cards', k['id'] + '.json'), 'w'), separators=(',', ':'))
     proc, base = start({'DATA_DIR': data, 'CLAUDE_BIN': '/nonexistent/claude'})
     try:
-        ex = lambda *p: os.path.exists(os.path.join(data, *p))
+        has_conv = lambda cid: req(base, 'GET', f'/api/store/convs/{cid}')[0] == 200
+        has_card = lambda kid: req(base, 'GET', f'/api/store/cards/{kid}')[0] == 200
         for _ in range(50):
-            if not ex('convs', 'drop.json') and not ex('convs', 'keepcards.json'): break
+            if not has_conv('drop') and not has_conv('keepcards'): break
             time.sleep(0.1)
-        check('server: the cleanup deletes the cards of one trashed with “also delete its flashcards”', not ex('cards', 'kdrop0.json') and not ex('cards', 'kdrop1.json') and not ex('convs', 'drop.json'))
-        check('server: …and keeps the cards of one trashed without it', ex('cards', 'kkeepcards0.json') and not ex('convs', 'keepcards.json'))
+        check('server: the cleanup deletes the cards of one trashed with “also delete its flashcards”', not has_card('kdrop0') and not has_card('kdrop1') and not has_conv('drop'))
+        check('server: …and keeps the cards of one trashed without it', has_card('kkeepcards0') and not has_conv('keepcards'))
     finally:
         proc.kill()
 
