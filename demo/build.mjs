@@ -42,11 +42,11 @@ fs.writeFileSync(path.join(OUT, 'demo', 'guide.json'), JSON.stringify({ docs }))
 // the tools the model can be given, for the Prompts page (GET /api/tools on the real server)
 fs.writeFileSync(path.join(OUT, 'demo', 'tools.json'), JSON.stringify({ tools: ALL_TOOLS.map((t) => ({ name: t.name, description: t.description, schema: t.schema })), maxCalls: MAX_TOOL_CALLS, maxCards: MAX_CARD_CALLS }));
 fs.writeFileSync(path.join(OUT, '.nojekyll'), '');
-// Cloudflare Workers static-asset headers: strict CSP (connect-src allows only self + Anthropic/Gemini for BYOK),
+// Cloudflare Workers static-asset headers: strict CSP (connect-src allows only self + Gemini for browser BYOK),
 // no-cache revalidation on app files, and immutable caching on versioned /lib/* files.
 fs.writeFileSync(path.join(OUT, '_headers'), [
   '/*',
-  "  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://api.anthropic.com https://generativelanguage.googleapis.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+  "  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://generativelanguage.googleapis.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
   '  X-Content-Type-Options: nosniff',
   '  Referrer-Policy: no-referrer',
   '  X-Frame-Options: DENY',

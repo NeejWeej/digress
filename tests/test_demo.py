@@ -168,6 +168,25 @@ async def main():
             box2 = await pg.locator('#demoNote').bounding_box()
             check('…and stays there after a reload', abs(box2['x'] - box1['x']) < 3 and abs(box2['y'] - box1['y']) < 3, [box1, box2])
 
+            # the note can be hidden completely, stays hidden across a reload, and comes back from the sidebar
+            await note.locator('[data-demo=dismiss]').first.click(); await frames(pg)
+            check('the demo note can be hidden completely', not await note.is_visible())
+            await pg.reload(); await booted(pg)
+            check('…and stays hidden after a reload', not await pg.locator('#demoNote').is_visible())
+            await pg.locator('#demoSide [data-demo=toggle-note]').click(); await frames(pg)
+            check('…and comes back from the sidebar', await pg.locator('#demoNote').is_visible())
+
+            # Connections in the demo: Gemini BYOK with privacy/security/MIT notice and opt-in password encryption
+            await pg.locator('#demoSide [data-demo=conn]').click()
+            await pg.wait_for_selector('#connModal.show .cnrow[data-cid=gemini] .demo-byok-box')
+            crow = pg.locator('#connModal .cnrow[data-cid=gemini]')
+            ctext = await crow.inner_text()
+            check('Connections offers browser-direct Gemini with privacy, security and MIT notices',
+                  'directly from your browser' in ctext and 'MIT License' in ctext and await crow.locator('.demo-rem-cb').count() == 1)
+            await crow.locator('.demo-rem-cb').check()
+            check('…checking Remember reveals the encryption password input', await crow.locator('.demo-rem-pass').is_visible())
+            await pg.locator('#connModal [data-cx=close]').click(); await frames(pg)
+
             # a phone: the note can be made small
             ph = await b.new_page(viewport={'width': 390, 'height': 800})
             ph.on('pageerror', lambda e: errs.append(str(e)))
