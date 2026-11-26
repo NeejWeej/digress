@@ -176,7 +176,8 @@ async def main():
         check('the defaults include Quiz me, last', await pg.evaluate("[PROMPTS.quick.length, PROMPTS.quick.at(-1)[0], [...document.querySelectorAll('#popChips .chip')].at(-1).textContent]") == [5, 'Quiz me', 'Quiz me'])
 
         # the other conversation kept its own prompt through all that
-        await quiet(pg); await pg.goto(pg.url.split('#')[0] + '#c=' + own_cid); await booted(pg); await frames(pg, 3)
+        await quiet(pg); await pg.goto(pg.url.split('#')[0] + '#c=' + own_cid)
+        await pg.wait_for_function("id => __digress.conv && __digress.conv.id === id", arg=own_cid); await frames(pg, 3)
         check('a conversation’s own prompt is saved with it', await pg.evaluate('__digress.conv.system') == 'You are a patient guide.' and await pg.locator('#skillT').inner_text() == 'Own prompt')
         await ask('Back here.')
         check('…and still sent after the default was reset', sys_of((await pg.evaluate('window.__calls'))[-1]) == 'You are a patient guide.\n\n' + HOW)

@@ -54,7 +54,7 @@ jobs:
             python -m playwright install --with-deps ${{ matrix.browser }}
           fi
         timeout-minutes: 12
-      - run: python tests/run_all.py -j 3 --shard ${{ matrix.shard }}/2
+      - run: python tests/run_all.py -j 2 --shard ${{ matrix.shard }}/2
       - name: Keep the logs and screenshots of a failed run
         if: failure()
         uses: actions/upload-artifact@v7
