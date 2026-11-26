@@ -206,6 +206,23 @@ async def main():
         check('a bogus #share= link is refused and cleared',
               await soon(pg, "() => !location.hash.startsWith('#share=') && [...document.querySelectorAll('.toast')].some(t => /Invalid|share link/.test(t.textContent))")
               and await pg.evaluate("__digress.convList.length") == n_bad)
+
+        # branch-level export: clicking Export in a branch pane's header exports just that branch (pruning main after the fork)
+        await pg.evaluate("document.querySelector('#clist .citem[data-conv=cx1], #plist .citem[data-conv=cx1]').click()")
+        await pg.wait_for_function("__digress.conv.id === 'cx1'")
+        await pg.locator('#tree .mnode', has_text='Why the gradient').first.click(); await frames(pg, 4)
+        bpane = pg.locator('.pane[data-tid=b1]')
+        check('branch header replaced Back with an Export icon button',
+              await bpane.locator('[data-act=back]').count() == 0 and await bpane.locator('[data-act=export]').count() == 1)
+        await bpane.locator('[data-act=export]').click(); await pg.wait_for_selector('#modal.show')
+        check('branch export dialog names the branch', 'Export branch “Why the gradient”' in await pg.locator('#mTitle').inner_text())
+        async with pg.expect_download() as bdl:
+            await pg.locator('#mOk').click()
+        bpath = os.path.join(tmp, 'branch.digress'); await (await bdl.value).save_as(bpath)
+        bf = json.loads(gzip.decompress(open(bpath, 'rb').read()))
+        bc = bf['conversations'][0]
+        check('branch export keeps main only up to the fork (dropping takeaway n1 after it) and keeps branch b1',
+              bc['title'] == 'Why the gradient' and bc['order']['main'] == ['u1', 'a1'] and bc['order']['b1'] == ['u2', 'a2'] and 'n1' not in bc['msgs'], bc['order'])
         check('no page errors', not errs, errs[:3])
         await b.close()
     print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')
