@@ -133,7 +133,7 @@ async def main():
         await pg.locator('#mOk').click(); await soon(pg, "() => !__digress.conv.system")
         check('…and saving it follows the default again', await pg.locator('#skillT').inner_text() == 'Prompt')
         await edit_prompt(); await pg.locator('#cSysEd').fill('You are a patient guide.'); await pg.locator('#mOk').click()
-        await soon(pg, "() => __digress.conv.system === 'You are a patient guide.'")
+        await soon(pg, "() => __digress.sync.base && __digress.sync.base.system === 'You are a patient guide.'")
 
         # --- after a reload ---
         await quiet(pg); await pg.goto(pg.url.split('#')[0] + '#c=' + cid); await booted(pg); await frames(pg, 3)
