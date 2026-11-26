@@ -4445,7 +4445,16 @@ async function makeTextLayer(page,vp){
   let prev=null;
   const reset=(tl)=>{const end=tl.querySelector('.endOfContent');if(end&&end!==tl.lastElementChild)tl.append(end);tl.classList.remove('selecting')};
   const layers=()=>document.querySelectorAll('.docpane .textLayer');
-  document.addEventListener('pointerdown',e=>{const tl=e.target.closest&&e.target.closest('.docpane .textLayer');if(tl)tl.classList.add('selecting')},true);
+  document.addEventListener('pointerdown',e=>{
+    const tl=e.target.closest&&e.target.closest('.docpane .textLayer');if(!tl)return;
+    tl.classList.add('selecting');
+    let a=e.target;if(a.nodeType===3)a=a.parentNode;
+    if(a!==tl){
+      while(a.parentElement&&a.parentElement!==tl&&!a.parentElement.classList.contains('markedContent'))a=a.parentElement;
+      const end=tl.querySelector('.endOfContent');
+      if(end&&end!==a&&a.parentElement)a.parentElement.insertBefore(end,a.nextSibling);
+    }
+  },true);
   document.addEventListener('pointerup',()=>{prev=null;layers().forEach(reset)});
   document.addEventListener('selectionchange',()=>{
     const sel=getSelection();
