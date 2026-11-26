@@ -1,6 +1,7 @@
 // Runs on x.com / twitter.com:
 //  1. Remembers the last right-clicked tweet so context-menu "Send to Digress" grabs that exact tweet from the feed.
-//  2. Injects a subtle 1-click Digress button into each tweet's action bar.
+//  2. Supports clipping either a single tweet or the thread up to that tweet.
+//  3. Injects a subtle 1-click Digress button into each tweet's action bar (Shift+Click opens Digress immediately).
 (() => {
   let lastTweet = null;
 
@@ -26,37 +27,150 @@
     }
   }
 
-  async function extractTweet(art) {
-    if (!art) art = lastTweet || document.querySelector('article[data-testid="tweet"]');
-    const sel = String(window.getSelection() || '').trim();
-    if (!art) {
-      return { title: document.title, url: location.href, text: sel || document.body.innerText.slice(0, 4000), images: [] };
-    }
-    const nameEl = art.querySelector('[data-testid="User-Name"]');
-    const nameText = nameEl ? nameEl.innerText.replace(/\s+/g, ' ').trim() : '';
-    const handleMatch = nameText.match(/@[A-Za-z0-9_]+/);
-    const handle = handleMatch ? handleMatch[0] : '';
-    const author = handle ? nameText.split(handle)[0].trim() : nameText;
+  function parseUserHeader(el) {
+    const raw = el ? el.innerText.replace(/\s+/g, ' ').trim() : '';
+    const m = raw.match(/@[A-Za-z0-9_]+/);
+    const handle = m ? m[0] : '';
+    const author = handle ? raw.split(handle)[0].trim() : raw;
+    return { author, handle };
+  }
 
+  function tweetUrlOf(art) {
     const timeEl = art.querySelector('time');
     const linkEl = timeEl ? timeEl.closest('a') : null;
-    const url = linkEl && linkEl.href ? linkEl.href : location.href;
+    if (linkEl && linkEl.href) return linkEl.href;
+    const statusLink = art.querySelector('a[href*="/status/"]');
+    return (statusLink && statusLink.href) || location.href;
+  }
 
+  function parseTweetNode(art) {
+    const userEls = [...art.querySelectorAll('[data-testid="User-Name"]')];
+    const mainUser = parseUserHeader(userEls[0]);
+    const quotedUser = userEls[1] ? parseUserHeader(userEls[1]) : { author: '', handle: '' };
+    const url = tweetUrlOf(art);
     const textEls = [...art.querySelectorAll('[data-testid="tweetText"]')];
     const mainText = textEls[0] ? textEls[0].innerText.trim() : '';
     const quotedText = textEls[1] ? textEls[1].innerText.trim() : '';
+    const imgSrcs = [...art.querySelectorAll('img[src*="pbs.twimg.com/media"]')].map((im) => im.src).filter(Boolean);
+    return {
+      author: mainUser.author,
+      handle: mainUser.handle,
+      url,
+      mainText,
+      quotedAuthor: quotedUser.author,
+      quotedHandle: quotedUser.handle,
+      quotedText,
+      imgSrcs,
+    };
+  }
 
+  function formatTweetPart(info, sel) {
     const parts = [];
-    if (author || handle) parts.push(`**${author || handle}**${author && handle ? ` (${handle})` : ''}`);
-    if (mainText) parts.push(mainText);
-    if (quotedText) parts.push('> ' + quotedText.replace(/\n+/g, '\n> '));
-    if (sel && (!mainText || !mainText.includes(sel))) parts.push(`Highlighted: “${sel}”`);
+    if (info.author || info.handle) {
+      parts.push(`**${info.author || info.handle}**${info.author && info.handle ? ` (${info.handle})` : ''}`);
+    }
+    if (info.mainText) parts.push(info.mainText);
+    if (info.quotedText) {
+      const qHead = (info.quotedAuthor || info.quotedHandle)
+        ? `**${info.quotedAuthor || info.quotedHandle}**${info.quotedAuthor && info.quotedHandle ? ` (${info.quotedHandle})` : ''}: `
+        : '';
+      parts.push('> ' + (qHead + info.quotedText).replace(/\n+/g, '\n> '));
+    }
+    if (sel && (!info.mainText || !info.mainText.includes(sel))) {
+      parts.push(`Highlighted: “${sel}”`);
+    }
+    return parts.join('\n\n') || '(empty post)';
+  }
 
-    const imgEls = [...art.querySelectorAll('img[src*="pbs.twimg.com/media"]')].slice(0, 4);
-    const images = (await Promise.all(imgEls.map((im) => imgToDataUrl(im.src)))).filter(Boolean);
+  // Detects X's 2px vertical thread-connector bar linking a tweet cell down to the next cell.
+  function hasDownConnector(art) {
+    if (!art) return false;
+    const avatar = art.querySelector('[data-testid="Tweet-User-Avatar"]');
+    const col = avatar ? avatar.parentElement : null;
+    if (!col) return false;
+    for (const el of col.querySelectorAll('div')) {
+      const r = el.getBoundingClientRect();
+      if (r.width >= 1.5 && r.width <= 3 && r.height >= 12) return true;
+    }
+    return false;
+  }
 
-    const title = handle ? `${handle} on X` : (author ? `${author} on X` : 'Post on X');
-    return { title, url, text: parts.join('\n\n') || sel || '(empty post)', images };
+  function statusPathMatch(url) {
+    try {
+      const u = new URL(url);
+      return u.pathname.replace(/\/+$/, '').toLowerCase() === location.pathname.replace(/\/+$/, '').toLowerCase();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function collectThreadArticles(targetArt) {
+    const col = targetArt.closest('[data-testid="primaryColumn"]') || document;
+    const all = [...col.querySelectorAll('article[data-testid="tweet"]')];
+    const idx = all.indexOf(targetArt);
+    if (idx <= 0) return [targetArt];
+
+    const onStatusPage = /\/status\/\d+/.test(location.pathname);
+    if (onStatusPage) {
+      const focalIdx = all.findIndex((a) => statusPathMatch(tweetUrlOf(a)));
+      // Target is the focal tweet or one of its ancestors: every preceding tweet in the column is part of the thread.
+      if (focalIdx < 0 || idx <= focalIdx) {
+        return all.slice(0, idx + 1);
+      }
+      // Target is a reply below the focal tweet: include ancestors up through focal, plus any directly connected replies leading to target.
+      const ancestors = all.slice(0, focalIdx + 1);
+      const chain = [targetArt];
+      for (let i = idx - 1; i > focalIdx; i--) {
+        if (hasDownConnector(all[i])) chain.unshift(all[i]);
+        else break;
+      }
+      return [...ancestors, ...chain];
+    }
+
+    // Feed / profile page: walk backwards while each preceding tweet has a vertical thread connector line.
+    const chain = [targetArt];
+    for (let i = idx - 1; i >= 0; i--) {
+      if (hasDownConnector(all[i])) chain.unshift(all[i]);
+      else break;
+    }
+    return chain;
+  }
+
+  async function extractTweet(art, opts) {
+    const includeThread = !!(opts && opts.includeThread);
+    if (!art) art = lastTweet || document.querySelector('article[data-testid="tweet"]');
+    const sel = String(window.getSelection() || '').trim();
+    if (!art) {
+      return { title: document.title, url: location.href, text: sel || document.body.innerText.slice(0, 4000), images: [], tweetCount: 0 };
+    }
+
+    const arts = includeThread ? collectThreadArticles(art) : [art];
+    // Deduplicate by permalink while preserving chronological order
+    const seen = new Set();
+    const parsed = [];
+    for (const a of arts) {
+      const info = parseTweetNode(a);
+      const key = info.url + '|' + info.mainText.slice(0, 40);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      parsed.push(info);
+    }
+
+    const targetInfo = parsed[parsed.length - 1] || parseTweetNode(art);
+    const blocks = parsed.map((info, i) => formatTweetPart(info, i === parsed.length - 1 ? sel : ''));
+    const text = blocks.join('\n\n---\n\n') || sel || '(empty post)';
+
+    // Prioritize images from the clicked tweet first, then earlier tweets in the thread, up to 4 total.
+    const orderedSrcs = [
+      ...targetInfo.imgSrcs,
+      ...parsed.slice(0, -1).flatMap((p) => p.imgSrcs),
+    ];
+    const uniqueSrcs = [...new Set(orderedSrcs)].slice(0, 4);
+    const images = (await Promise.all(uniqueSrcs.map((src) => imgToDataUrl(src)))).filter(Boolean);
+
+    const who = targetInfo.handle || targetInfo.author || 'Post';
+    const title = parsed.length > 1 ? `${who} thread (${parsed.length} tweets)` : `${who} on X`;
+    return { title, url: targetInfo.url, text, images, tweetCount: parsed.length };
   }
 
   // Subtle 1-click Digress button in each tweet's action bar
@@ -70,7 +184,7 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'digress-clip-btn';
-      btn.title = 'Send to Digress';
+      btn.title = 'Send to Digress (Shift+Click to open Digress)';
       btn.setAttribute('aria-label', 'Send to Digress');
       btn.style.cssText = 'background:none;border:0;color:rgb(113,118,123);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0 6px;border-radius:999px;transition:color .15s,background .15s;';
       btn.innerHTML = ICON;
@@ -83,8 +197,14 @@
         btn.disabled = true;
         btn.style.opacity = '0.5';
         try {
-          const payload = await extractTweet(art);
-          const res = await chrome.runtime.sendMessage({ type: 'clipFromPage', payload });
+          const saved = await chrome.storage.local.get(['xThreadMode']).catch(() => ({}));
+          const includeThread = saved && saved.xThreadMode === 'thread';
+          const payload = await extractTweet(art, { includeThread });
+          const res = await chrome.runtime.sendMessage({
+            type: 'clipFromPage',
+            payload,
+            forceFocus: !!e.shiftKey,
+          });
           if (res && res.ok) {
             btn.innerHTML = CHECK;
             btn.style.color = '#16a34a';
@@ -112,8 +232,11 @@
   }).observe(document.body, { childList: true, subtree: true });
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (!msg || msg.type !== 'extractTweet') return;
-    extractTweet(null).then((payload) => sendResponse({ ok: true, payload }), (e) => sendResponse({ ok: false, error: String(e) }));
-    return true;
+    if (!msg) return;
+    if (msg.type === 'extractTweet') {
+      extractTweet(null, { includeThread: !!msg.includeThread })
+        .then((payload) => sendResponse({ ok: true, payload }), (e) => sendResponse({ ok: false, error: String(e) }));
+      return true;
+    }
   });
 })();

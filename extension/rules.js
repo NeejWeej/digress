@@ -9,6 +9,8 @@
       { pattern: 'news.ycombinator.com', mode: 'branch', convTitle: 'HN clippings', focus: true },
     ],
     fallback: { mode: 'doc', convTitle: '', focus: true },
+    xThreadMode: 'single', // 'single' | 'thread'
+    showToast: true,
   };
 
   function normalizeDigressUrl(raw) {
@@ -20,6 +22,17 @@
     } catch (_) {
       return DEFAULT_SETTINGS.digressUrl;
     }
+  }
+
+  function mergeSettings(saved) {
+    const s = saved || {};
+    return {
+      digressUrl: normalizeDigressUrl(s.digressUrl || DEFAULT_SETTINGS.digressUrl),
+      rules: Array.isArray(s.rules) ? s.rules : DEFAULT_SETTINGS.rules.map((r) => ({ ...r })),
+      fallback: s.fallback ? { ...DEFAULT_SETTINGS.fallback, ...s.fallback } : { ...DEFAULT_SETTINGS.fallback },
+      xThreadMode: s.xThreadMode === 'thread' ? 'thread' : 'single',
+      showToast: s.showToast !== false,
+    };
   }
 
   // Matches a URL against a rule pattern:
@@ -72,7 +85,7 @@
     };
   }
 
-  const api = { DEFAULT_SETTINGS, normalizeDigressUrl, ruleMatches, matchRule };
+  const api = { DEFAULT_SETTINGS, normalizeDigressUrl, mergeSettings, ruleMatches, matchRule };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.DigressRules = api;
 })(typeof self !== 'undefined' ? self : globalThis);
