@@ -4,7 +4,7 @@
 
 https://github.com/user-attachments/assets/4435b865-4ed3-46e9-b086-07de01d6515c
 
-**[Try the demo](https://digress.nijat-khanbabayev.workers.dev/)** in your browser (nothing to install; pre-written sample replies, everything stays local) — or run it locally with your Claude, ChatGPT, or Gemini account in 30 seconds.
+**[Try the demo](https://digress.neejweej.workers.dev/)** in your browser (nothing to install; pre-written sample replies, everything stays local) — or run it locally with your Claude, ChatGPT, or Gemini account in 30 seconds.
 
 ## Quick start
 
