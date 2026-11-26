@@ -6,4 +6,4 @@ import fs from 'node:fs';
 const agentNotes = () => { try { return fs.readdirSync(new URL('../agents/', import.meta.url)).filter(f => f.endsWith('.md')).sort()
   .map(f => ['agents/' + f, 'How it works inside: ' + f.replace(/\.md$/, '')]); } catch { return []; } };
 export const guideDocs = () => [['README.md', 'What Digress does (README)'], ['docs/guide.md', 'Feature guide'], ['docs/setup.md', 'Setting it up'], ['docs/remote-access.md', 'Using it from your phone and other devices'],
-  ['docs/flashcards.md', 'Flashcards'], ['docs/development.md', 'Developing Digress'], ['AGENTS.md', 'How it works inside (notes for developers)'], ...agentNotes(), ['docs/future.md', 'Ideas that are NOT built yet']];
+  ['docs/clipper.md', 'Browser Clipper extension'], ['docs/flashcards.md', 'Flashcards'], ['docs/development.md', 'Developing Digress'], ['AGENTS.md', 'How it works inside (notes for developers)'], ...agentNotes(), ['docs/future.md', 'Ideas that are NOT built yet']];

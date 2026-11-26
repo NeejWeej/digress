@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Send to Digress</title>
+<style>
+  body{font:13px/1.4 system-ui,-apple-system,sans-serif;margin:0;padding:12px 14px;width:290px;color:#1f2328;background:#fff}
+  @media (prefers-color-scheme:dark){body{color:#e6edf3;background:#161b22}input,select{background:#0d1117;color:#e6edf3;border-color:#30363d}button.sec{background:#21262d;color:#e6edf3;border-color:#30363d}}
+  h1{font-size:14px;margin:0 0 8px;display:flex;align-items:center;justify-content:space-between}
+  h1 a{font-size:12px;font-weight:400;color:#d97706;text-decoration:none}
+  .meta{font-size:11.5px;color:#6e7781;margin-bottom:10px;word-break:break-all}
+  label{display:block;font-size:12px;font-weight:500;margin:8px 0 3px}
+  input[type=text],select{width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #d0d7de;border-radius:6px;font:inherit}
+  .row{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px}
+  .acts{display:flex;gap:8px;margin-top:12px}
+  button{flex:1;padding:7px 10px;border-radius:6px;font:inherit;font-weight:500;cursor:pointer;border:1px solid transparent}
+  button.pri{background:#d97706;color:#fff}
+  button.pri:disabled{opacity:.6;cursor:default}
+  .msg{margin-top:8px;font-size:12px;min-height:16px}
+  .msg.ok{color:#16a34a}.msg.err{color:#dc2626}
+</style>
+</head>
+<body>
+  <h1><span>Send to Digress</span><a href="options.html" target="_blank">Settings</a></h1>
+  <div class="meta" id="meta"></div>
+  <label for="mode">Destination</label>
+  <select id="mode">
+    <option value="doc">New document conversation</option>
+    <option value="branch">Branch in an existing conversation</option>
+  </select>
+  <div id="convWrap">
+    <label for="convTitle">Conversation name</label>
+    <input id="convTitle" type="text" placeholder="e.g. Twitter clippings">
+  </div>
+  <label class="row"><input id="focus" type="checkbox"> Switch to Digress tab</label>
+  <div class="acts">
+    <button class="pri" id="send">Send to Digress</button>
+  </div>
+  <div class="msg" id="msg"></div>
+  <script src="rules.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

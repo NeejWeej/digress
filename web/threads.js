@@ -42,7 +42,7 @@ const ThreadOps = (() => {
 
   // what a message sees: the messages before it, with each prefix and takeaway label as it would be sent
   const noteTitle = (c, m) => (T(c, m.fromThread) ? T(c, m.fromThread).title : m.fromTitle || '(deleted)');
-  const prefixKey = (t) => JSON.stringify([t.anchorMsg, t.anchorText || '', t.anchorPage ?? null, t.anchorRegion || null, t.regionText || '', ...(t.anchorImg ? [t.anchorImg] : []), ...(t.anchorShot ? [t.anchorShot.asset || (t.anchorShot.data || '').length] : [])]);
+  const prefixKey = (t) => JSON.stringify([t.anchorMsg, t.anchorText || '', t.anchorPage ?? null, t.anchorRegion || null, t.regionText || '', t.anchorUrl || '', ...(t.anchorImg ? [t.anchorImg] : []), ...(t.anchorShot ? [t.anchorShot.asset || (t.anchorShot.data || '').length] : []), ...(t.anchorImages ? [t.anchorImages.map((x) => x.asset || (x.data || '').length)] : [])]);
   function signature(c, mid, o = {}) {
     const m = c.msgs[mid], out = [];
     let stop = false;
@@ -72,7 +72,7 @@ const ThreadOps = (() => {
       if (t.id === 'main') continue;
       const p = T(c, t.parent);
       if (!p) { bad.push(`thread ${t.id}: missing parent ${t.parent}`); continue; }
-      if (t.anchorMsg === 'DOC') { if (t.parent !== 'main') bad.push(`thread ${t.id}: a document branch off ${t.parent}`); }
+      if (t.anchorMsg === 'DOC' || t.anchorMsg === 'CLIP') { if (t.parent !== 'main') bad.push(`thread ${t.id}: a ${t.anchorMsg === 'CLIP' ? 'clipped' : 'document'} branch off ${t.parent}`); }
       else if (t.anchorMsg === 'START') { if (!t.alt || prefixed(p)) bad.push(`thread ${t.id}: starts before its parent's first message, which only another version of an unprefixed thread can`); }
       else if (!(c.order[t.parent] || []).includes(t.anchorMsg)) bad.push(`thread ${t.id}: anchor ${t.anchorMsg} isn't in its parent ${t.parent}`);
       if (ancestors(c, t.id)[0] !== 'main') bad.push(`thread ${t.id}: not under main (a cycle?)`);
@@ -304,7 +304,7 @@ const ThreadOps = (() => {
             if (k >= 0) { if (where.has(ord[k])) progress = attach(run, ord[k], tid) || progress; }
             else {
               const t = side.threads[tid];
-              const fresh = t && t.anchorMsg !== 'START' && t.anchorMsg !== 'DOC' && t.parent && !(B.threads || {})[tid];
+              const fresh = t && t.anchorMsg !== 'START' && t.anchorMsg !== 'DOC' && t.anchorMsg !== 'CLIP' && t.parent && !(B.threads || {})[tid];
               if (!(fresh && !out.threads[tid])) progress = attach(run, 'START', tid) || progress;
             }
             i = j;
@@ -313,7 +313,7 @@ const ThreadOps = (() => {
       }
     }
     // a branch starts in whichever thread its starting message is in now
-    for (const t of Object.values(out.threads)) if (t.id !== 'main' && t.anchorMsg !== 'START' && t.anchorMsg !== 'DOC' && where.has(t.anchorMsg)) t.parent = where.get(t.anchorMsg);
+    for (const t of Object.values(out.threads)) if (t.id !== 'main' && t.anchorMsg !== 'START' && t.anchorMsg !== 'DOC' && t.anchorMsg !== 'CLIP' && where.has(t.anchorMsg)) t.parent = where.get(t.anchorMsg);
     for (const [id, tid] of where) out.msgs[id].thread = tid;
 
     // changed in place on one side while the other built on it (or changed it too): fork the question and reply
@@ -362,7 +362,7 @@ const ThreadOps = (() => {
       again = false; const l = listedNow();
       for (const t of Object.values(out.threads)) {
         if (t.id === 'main') continue;
-        let anchorGone = t.anchorMsg !== 'START' && t.anchorMsg !== 'DOC' && !l.has(t.anchorMsg);
+        let anchorGone = t.anchorMsg !== 'START' && t.anchorMsg !== 'DOC' && t.anchorMsg !== 'CLIP' && !l.has(t.anchorMsg);
         if (anchorGone && t.alt) {   // another version that started right after a takeaway that was deleted: it starts where that did
           for (const side of [M, Th, B]) {
             const n = (side.msgs || {})[t.anchorMsg]; if (!n || n.role !== 'note') continue;
@@ -375,7 +375,7 @@ const ThreadOps = (() => {
         // another version from the start of a version that was deleted (the other side's swap put other messages
         // in it first): it's a version from wherever that one started
         for (let p; t.alt && t.anchorMsg === 'START' && !out.threads[t.parent] && (p = [M, Th, B].map((x) => (x.threads || {})[t.parent]).find(Boolean)) && p.alt;) { t.parent = p.parent; t.anchorMsg = p.anchorMsg; }
-        if (t.anchorMsg !== 'START' && t.anchorMsg !== 'DOC' && l.has(t.anchorMsg) && where.has(t.anchorMsg)) t.parent = where.get(t.anchorMsg);
+        if (t.anchorMsg !== 'START' && t.anchorMsg !== 'DOC' && t.anchorMsg !== 'CLIP' && l.has(t.anchorMsg) && where.has(t.anchorMsg)) t.parent = where.get(t.anchorMsg);
         // otherwise the branch it came from was deleted
         if (!out.threads[t.parent] || anchorGone) { delete out.threads[t.id]; delete out.order[t.id]; again = true; }
       }

@@ -318,7 +318,7 @@ const msgCache=new Map(),cvMsgCache=new Map(),paneEls=new Map(),gutEls=new Map()
 // threads whose reply finished while you couldn't see them: per window, in memory only (a reload forgets them)
 const unread=new Set();
 window.__digressBusy=()=>streaming.size>0; // read by the server's dev live-reload, so it never reloads mid-reply
-window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList},get keys(){return KEYS},get custom(){return CUSTOM},skillLink:(u)=>skillLink(u),putSkill:(t,o)=>putSkill(t,o),get cards(){return CARDS},runDocTool:(n,i,t)=>runDocTool(n,i,t),set docState(v){docState=v},linkPages:(r,o)=>linkPages(r,o),renderRich:(el,md,f,o)=>renderRich(el,md,f,o),plain,convMarkdown:(c)=>convMarkdown(c)};   // for tests and the console
+window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList},get keys(){return KEYS},get custom(){return CUSTOM},skillLink:(u)=>skillLink(u),putSkill:(t,o)=>putSkill(t,o),get cards(){return CARDS},runDocTool:(n,i,t)=>runDocTool(n,i,t),set docState(v){docState=v},linkPages:(r,o)=>linkPages(r,o),renderRich:(el,md,f,o)=>renderRich(el,md,f,o),plain,convMarkdown:(c)=>convMarkdown(c),ingestClip:(p)=>ingestClip(p)};   // for tests and the console
 let mathReady=false,mermaidReady=null,mermaidOk=false;
 let popState=null;
 
@@ -1709,7 +1709,7 @@ function convMarkdown(c){
   const walk=(tid,depth)=>{
     const t=c.threads[tid];if(!t)return;const h='#'.repeat(Math.min(6,2+depth));
     out.push(`${h} ${tid==='main'?'Main thread':(t.title||'Branch')}`,'');
-    if(t.parent){const p=c.threads[t.parent],from=t.anchorMsg==='DOC'?`the document${t.anchorPage!=null?`, ${docPagesLabel(t)}`:''}`:(t.parent==='main'?'the main thread':`“${(p&&p.title)||'a branch'}”`);
+    if(t.parent){const p=c.threads[t.parent],from=t.anchorMsg==='DOC'?`the document${t.anchorPage!=null?`, ${docPagesLabel(t)}`:''}`:t.anchorMsg==='CLIP'?`${t.anchorTitle?`“${t.anchorTitle}”`:'a clipping'}${t.anchorUrl?` (${t.anchorUrl})`:''}`:(t.parent==='main'?'the main thread':`“${(p&&p.title)||'a branch'}”`);
       out.push(t.anchorText?`> ${String(t.anchorText).replace(/\s+/g,' ').trim()}`:'',`*Branched from ${from}${t.anchorText?'':' (the whole reply)'}.*`,'')}
     for(const id of c.order[tid]||[]){const m=c.msgs[id];if(!m)continue;const x=say(m);
       if(m.role==='user')out.push(`**You:** ${x}${(m.images||[]).length?` *(${m.images.length} image${m.images.length>1?'s':''})*`:''}`,'');
@@ -1811,6 +1811,13 @@ function aroundParts(t){
   return [{type:'text',text:PROMPTS.branch.around(a===b?lab(a):`${pdf?'pp.':'parts'} ${a+1}–${b+1}`,P.slice(a,b+1).map((_,k)=>`[${lab(a+k)}]\n${pageText(a+k)}`).join('\n\n'))}];
 }
 function branchParts(t,tools){
+  if(isClipBranch(t)){
+    const quote=(x)=>'> '+String(x||'').replace(/\n+/g,'\n> ');
+    const imgs=Array.isArray(t.anchorImages)?t.anchorImages:[];
+    return [{type:'text',text:PROMPTS.branch.clip(quote(t.anchorText||''),t.anchorTitle||'',t.anchorUrl||'',imgs.length>0)},
+      ...imgs.map((ref,k)=>({type:'image',ref,label:`clipped image ${k+1}`})),
+      ...(imgs.length?[{type:'text',text:'\n\n'}]:[])];
+  }
   if(tools&&isDocBranch(t)&&docTooLong()&&Number.isInteger(t.anchorPage))return [...branchParts(t,false),...aroundParts(t)];
   if(isDocBranch(t)&&t.anchorShot){
     return [{type:'text',text:PROMPTS.branch.docShot(t.regionText)},{type:'image',ref:shotRef(t),label:'the snip of the document'},{type:'text',text:'\n\n'}];
@@ -3121,6 +3128,19 @@ function originCard(t){
   if(isDocBranch(t)&&t.anchorImg){const whole=isWholePage(t.anchorImg),ref=docImgRef(t);d.innerHTML=`<div class="ol"><span>Branched from ${whole?'an image':'a snip of an image'} in the document</span><button data-back="1" title="Scroll the document to this image">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(ref).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The image isn’t kept with this conversation, so it can’t be shown.'}))});d.querySelector('.oimg').__ref=ref;return d}
   if(isDocBranch(t)&&t.anchorRegion){d.innerHTML=`<div class="ol"><span>Branched from ${isWholePage(t.anchorRegion)?'':'a snip of '}page ${t.anchorPage+1} of the document</span><button data-back="1" title="Scroll the document to this ${isWholePage(t.anchorRegion)?'page':'snip'}">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(regionRef(t)).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The document isn’t loaded, so the snip can’t be shown.'}))});d.querySelector('.oimg').__ref=regionRef(t);return d}
   if(isDocBranch(t)){d.innerHTML=`<div class="ol"><span>Branched from the document${conv.doc&&conv.doc.kind==='pdf'?`, ${docPagesLabel(t,true)}`:''}</span><button data-back="1" title="Scroll the document to the exact passage this branch came from">Show in source</button></div><div class="oq"></div>`;const oq0=d.querySelector('.oq');oq0.textContent=t.anchorText;oq0.dataset.back='1';oq0.title='Jump to this passage in the document';return d}
+  if(isClipBranch(t)){
+    const safeUrl=t.anchorUrl&&/^https?:\/\//i.test(t.anchorUrl)?t.anchorUrl:'';
+    const host=safeUrl?(()=>{try{return new URL(safeUrl).hostname.replace(/^www\./,'')}catch(_){return ''}})():'';
+    const label=t.anchorTitle||host||'the web';
+    d.innerHTML=`<div class="ol"><span>Clipped from ${esc(label)}</span>${safeUrl?`<a class="clink" href="${esc(safeUrl)}" target="_blank" rel="noopener">Open source ↗</a>`:''}</div>${t.anchorText?'<div class="oq"></div>':''}`;
+    if(t.anchorText)d.querySelector('.oq').textContent=t.anchorText;
+    for(const ref of (t.anchorImages||[])){
+      const btn=document.createElement('button');btn.className='oimg';btn.dataset.zoomref='1';btn.title='Show larger';btn.__ref=ref;
+      const im=document.createElement('img');im.alt=t.anchorTitle||'Clipped image';btn.appendChild(im);d.appendChild(btn);
+      imageURL(ref).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The image isn’t available.'}))});
+    }
+    return d;
+  }
   const p=T(t.parent);
   if(t.alt){d.innerHTML=altLine(t,60,'Show');return d}
   d.innerHTML=`<div class="ol"><span>Branched from ${esc(p.parent?p.title:'the main thread')}${t.anchorText?'':' (the whole reply)'}</span><button data-back="1" title="Scroll the parent to the exact passage this branch came from">Show in source</button></div>${t.anchorText?'<div class="oq"></div>':''}`;
@@ -4188,6 +4208,7 @@ const docBlobCache=new Map();
 function cacheDocBlob(id,data){memoSet(docBlobCache,id,data,3)}
 function destroyDoc(st){if(st&&st.pdf){try{st.pdf.destroy().catch(()=>{})}catch(_){}}}
 const isDocBranch=(t)=>!!t&&t.anchorMsg==='DOC';
+const isClipBranch=(t)=>!!t&&t.anchorMsg==='CLIP';
 const docPagesLabel=(t,long)=>t.anchorEnd&&t.anchorEnd.page>t.anchorPage?`${long?'pages':'pp.'} ${t.anchorPage+1}–${t.anchorEnd.page+1}`:`${long?'page':'p.'} ${t.anchorPage+1}`;   // a passage can run on to the next page
 const docBranches=()=>conv&&conv.doc?Object.values(conv.threads).filter(isDocBranch).sort((a,b)=>(a.anchorPage-b.anchorPage)||(a.created-b.created)):[];
 // a library (by its CDN address, a key of LIBS): this server's copy, else the CDN's, both checked against its hash;
@@ -4424,7 +4445,16 @@ async function makeTextLayer(page,vp){
   let prev=null;
   const reset=(tl)=>{const end=tl.querySelector('.endOfContent');if(end&&end!==tl.lastElementChild)tl.append(end);tl.classList.remove('selecting')};
   const layers=()=>document.querySelectorAll('.docpane .textLayer');
-  document.addEventListener('pointerdown',e=>{const tl=e.target.closest&&e.target.closest('.docpane .textLayer');if(tl)tl.classList.add('selecting')},true);
+  document.addEventListener('pointerdown',e=>{
+    const tl=e.target.closest&&e.target.closest('.docpane .textLayer');if(!tl)return;
+    tl.classList.add('selecting');
+    let a=e.target;if(a.nodeType===3)a=a.parentNode;
+    if(a!==tl){
+      while(a.parentElement&&a.parentElement!==tl&&!a.parentElement.classList.contains('markedContent'))a=a.parentElement;
+      const end=tl.querySelector('.endOfContent');
+      if(end&&end!==a&&a.parentElement)a.parentElement.insertBefore(end,a.nextSibling);
+    }
+  },true);
   document.addEventListener('pointerup',()=>{prev=null;layers().forEach(reset)});
   document.addEventListener('selectionchange',()=>{
     const sel=getSelection();
@@ -5347,6 +5377,68 @@ async function startFromDoc(){
   $('#docModal').addEventListener('mousedown',e=>{if(e.target.id==='docModal')closeDocModal()});
   $('#docModal').addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();closeDocModal()}});
 })();
+// Browser clipper handoff (extension/bridge.js -> window.postMessage on this origin).
+// mode: 'doc' (new document conversation from html/text) | 'branch' (new CLIP branch in an existing or newly created conversation)
+async function ingestClip(p){
+  await io.ready;
+  if(!p||typeof p!=='object')throw new Error('Invalid clip payload');
+  const safeUrl=typeof p.url==='string'&&/^https?:\/\//i.test(p.url.trim())?p.url.trim():'';
+  const mode=p.mode==='branch'?'branch':'doc';
+  const title=String(p.title||'').trim();
+  const rawText=String(p.text||'').trim();
+  const rawHtml=String(p.html||'');
+  if(mode==='doc'){
+    let kind='text',text=rawText,name=title,article=null;
+    if(!text&&rawHtml){
+      const a=await articleToMarkdown(rawHtml,safeUrl||'https://example.invalid/');
+      text=a.md;article=a;if(!name&&a.title)name=a.title;
+    }
+    if(!text)throw new Error('Nothing to clip');
+    if(!name)name=trunc(text.split('\n').find(l=>l.trim())||'Clipped page',60).replace(/^#+\s*/,'');
+    const c=newConv();c.title=name;c.titleKept=true;c.doc={kind,name};
+    if(safeUrl)c.doc.source=safeUrl;
+    if(article){c.doc.article=true;c.doc.images={}}
+    c.ui.open=['doc','main'];
+    await storeDocFile(c,kind,null,text);
+    cacheDocBlob(c.id,text);
+    setConv(c);dirty=true;await flushNow();
+    toast(`Clipped “${trunc(name,40)}”`);
+    return {convId:c.id,threadId:'main'};
+  }
+  const convTitle=String(p.convTitle||'Clippings').trim()||'Clippings';
+  const want=convTitle.toLowerCase();
+  const hit=convList.find(c=>!c.trashed&&String(c.title||'').trim().toLowerCase()===want);
+  if(hit){if(!conv||conv.id!==hit.id)await openConv(hit.id)}
+  else{
+    const c=newConv();c.title=convTitle;c.titleKept=true;setConv(c);dirty=true;await flushNow();
+  }
+  const rawImgs=Array.isArray(p.images)?p.images.slice(0,4):[];
+  const readyImgs=[];
+  for(const im of rawImgs){
+    if(!im||typeof im.data!=='string'||!/^data:image\/(png|jpeg|jpg|webp|gif);base64,/i.test(im.data))continue;
+    try{const blob=await (await fetch(im.data)).blob();readyImgs.push(await fileToImage(blob))}catch(_){}
+  }
+  const anchorImages=readyImgs.length?await storeImages(readyImgs):[];
+  const tid='t'+rid();
+  const bTitle=trunc(title||rawText.split('\n').find(l=>l.trim())||'Clipping',52);
+  const t={id:tid,parent:'main',anchorMsg:'CLIP',anchorText:rawText,anchorTitle:title,anchorUrl:safeUrl,title:bTitle,colorIdx:(conv.nextColor++)%6,created:Date.now()};
+  if(anchorImages.length)t.anchorImages=anchorImages;
+  conv.threads[tid]=t;conv.order[tid]=[];
+  if(!conv.ui.open.includes(tid))conv.ui.open.push(tid);
+  conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==tid);
+  if(conv.ui.view==='canvas'){renderCanvas();focusCard(tid)}else{layout();revealPane(tid)}
+  renderMap();dirty=true;await flushNow();
+  const pe=paneEls.get(tid),ta=pe&&pe.querySelector('textarea');
+  if(ta){if(p.question)ta.value=String(p.question);ta.focus()}
+  toast(`Clipped to “${trunc(conv.title,32)}”`);
+  return {convId:conv.id,threadId:tid};
+}
+window.addEventListener('message',async e=>{
+  if(e.source!==window||!e.data||e.data.digressClip!==1)return;
+  const id=e.data.id;
+  try{const r=await ingestClip(e.data.payload);window.postMessage({digressClipAck:1,id,ok:true,...r},location.origin)}
+  catch(err){window.postMessage({digressClipAck:1,id,ok:false,error:(err&&err.message)||'Could not clip'},location.origin)}
+});
 
 /* ---------- search: a per-conversation text index (kept separately, updated on save) + BM25 ranking ---------- */
 const KIND={ct:['Conversation',3],bt:['Branch',2.4],h:['Highlight',2.2],n:['Takeaway',2],q:['Question',1.6],a:['Answer',1],d:['Document',0.9]};

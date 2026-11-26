@@ -26,7 +26,7 @@ function run(s, steps) {
   for (let k = 0; k < steps; k++) {
     const before = JSON.stringify([c, cards]);
     const sig = Object.fromEntries(Object.keys(c.msgs).map((m) => [m, O.signature(c, m)]));
-    const what = pick(['send', 'send', 'branch', 'doc', 'note', 'card', 'alt', 'split', 'split', 'join', 'swap', 'swap']);
+    const what = pick(['send', 'send', 'branch', 'doc', 'clip', 'note', 'card', 'alt', 'split', 'split', 'join', 'swap', 'swap']);
     let rearranged = false;
     try {
       if (what === 'send') send(pick(threads()));
@@ -35,6 +35,7 @@ function run(s, steps) {
         const r = pick(replies), t = { id: id('t'), title: 'b' + n, parent: r.thread, anchorMsg: r.id, anchorText: rnd() < 0.5 ? 'quote' + n : '' };
         c.threads[t.id] = t; c.order[t.id] = []; send(t.id);
       } else if (what === 'doc') { const t = { id: id('t'), title: 'd' + n, parent: 'main', anchorMsg: 'DOC', anchorText: 'passage' + n, anchorPage: n % 5 }; c.threads[t.id] = t; c.order[t.id] = []; send(t.id); }
+      else if (what === 'clip') { const t = { id: id('t'), title: 'cl' + n, parent: 'main', anchorMsg: 'CLIP', anchorText: 'tweet' + n, anchorUrl: 'https://x.com/u/status/' + n }; c.threads[t.id] = t; c.order[t.id] = []; send(t.id); }
       else if (what === 'note') { const b = pick(threads().filter((x) => x !== 'main')); if (!b) continue; add(c.threads[b].parent, 'note', { fromThread: b }); }
       else if (what === 'card') { const r = pick(Object.values(c.msgs).filter((m) => m.role === 'assistant')); cards.push({ id: id('k'), conv: 'c', thread: r.thread, at: { thread: r.thread, msg: r.id } }); }
       else if (what === 'alt') {   // what Redo does when a reply can't be replaced: another version from its question

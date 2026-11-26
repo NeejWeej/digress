@@ -36,6 +36,7 @@ function device(c, tag) {
     send() { send(pick(threads())); },
     branch() { const r = pick(replies()); if (!r) return; const t = { id: id('t'), title: 'b' + tag + n, parent: r.thread, anchorMsg: r.id, anchorText: rnd() < 0.5 ? 'quote' + n : '', colorIdx: n % 6 }; c.threads[t.id] = t; c.order[t.id] = []; if (rnd() < 0.85) send(t.id); },
     doc() { const t = { id: id('t'), title: 'd' + tag + n, parent: 'main', anchorMsg: 'DOC', anchorText: 'passage' + n, anchorPage: n % 5 }; c.threads[t.id] = t; c.order[t.id] = []; send(t.id); },
+    clip() { const t = { id: id('t'), title: 'cl' + tag + n, parent: 'main', anchorMsg: 'CLIP', anchorText: 'tweet' + n, anchorUrl: 'https://x.com/u/status/' + n }; c.threads[t.id] = t; c.order[t.id] = []; send(t.id); },
     note() { const b = pick(threads().filter((x) => x !== 'main')); if (b) add(c.threads[b].parent, 'note', { fromThread: b }); },
     redo() {   // in place, only when nothing depends on it (as redoBlock)
       const r = pick(replies().filter((m) => last(m) && !depends(m))); if (!r) return;
@@ -65,8 +66,8 @@ function device(c, tag) {
     finish() { const m = pick(Object.values(c.msgs).filter((x) => x.run)); if (m) { m.content = 'finished ' + m.run; delete m.run; } },
   };
 }
-const BUILD = ['send', 'send', 'branch', 'doc', 'note', 'alt', 'redo', 'swap'];
-const CHANGE = ['send', 'send', 'send', 'branch', 'branch', 'note', 'redo', 'redo', 'edit', 'alt', 'swap', 'delBranch', 'delNote', 'rename', 'pin', 'hide', 'title', 'doc'];
+const BUILD = ['send', 'send', 'branch', 'doc', 'clip', 'note', 'alt', 'redo', 'swap'];
+const CHANGE = ['send', 'send', 'send', 'branch', 'branch', 'note', 'redo', 'redo', 'edit', 'alt', 'swap', 'delBranch', 'delNote', 'rename', 'pin', 'hide', 'title', 'doc', 'clip'];
 
 // did the other side delete something this message came after (its branch)? then it may go
 const gone = (base, other) => (m, from) => {

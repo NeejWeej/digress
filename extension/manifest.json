@@ -1,0 +1,70 @@
+{
+  "manifest_version": 3,
+  "name": "Digress Clipper",
+  "version": "0.1.0",
+  "description": "Clip tweets, selections, and web articles straight into Digress as new documents or branches in an existing conversation.",
+  "icons": {
+    "192": "icon-192.png"
+  },
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*",
+    "https://*.ts.net/*",
+    "http://*.ts.net/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Send to Digress",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "192": "icon-192.png"
+    }
+  },
+  "options_page": "options.html",
+  "commands": {
+    "clip-now": {
+      "suggested_key": {
+        "default": "Alt+D",
+        "mac": "Alt+D"
+      },
+      "description": "Send current page, selection, or tweet to Digress using its matching site rule"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://x.com/*",
+        "https://twitter.com/*"
+      ],
+      "js": [
+        "x.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://127.0.0.1/*",
+        "http://localhost/*",
+        "https://*.ts.net/*",
+        "http://*.ts.net/*"
+      ],
+      "js": [
+        "bridge.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
