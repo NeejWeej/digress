@@ -195,8 +195,25 @@ async def main():
                   "'unsafe-inline'" not in script_src and "'sha256-" in script_src, script_src)
 
             # Lock/Forget during an in-flight Gemini tool-call run aborts it and sends zero further Gemini requests
+            # Serve on http://127.0.0.1/digress/ (a Secure Context so real Web Crypto PBKDF2/AES-GCM is available for Unlock/Forget tests).
             lock_pg = await b.new_page(viewport={'width': 1280, 'height': 860})
             lock_errs = []; lock_pg.on('pageerror', lambda e: lock_errs.append(str(e)))
+            import mimetypes
+            from common import BOOT_WATCH
+            sec_url = 'http://127.0.0.1/digress/'
+            async def sec_route(r):
+                u = r.request.url.split('#')[0].split('?')[0]
+                if not u.startswith('http'): return await r.continue_()
+                if u.startswith(sec_url):
+                    f = os.path.join(site, u[len(sec_url):] or 'index.html')
+                    if os.path.isdir(f): f = os.path.join(f, 'index.html')
+                    if not os.path.isfile(f): return await r.fulfill(status=404, body='not found')
+                    if f.endswith('index.html'):
+                        h = open(f, encoding='utf-8').read().replace('<script src="demo/demo.js"></script>', '<script src="demo/demo.js"></script><script>' + BOOT_WATCH + '</script>', 1)
+                        return await r.fulfill(body=h, content_type='text/html; charset=utf-8')
+                    ct = 'text/javascript; charset=utf-8' if f.endswith('.js') else (mimetypes.guess_type(f)[0] or 'application/octet-stream')
+                    return await r.fulfill(path=f, content_type=ct)
+                return await r.abort()
             gen_calls = {'count': 0}
             async def fake_gemini(route):
                 u = route.request.url
@@ -211,8 +228,9 @@ async def main():
                     await route.fulfill(status=200, content_type='text/event-stream', body=sse)
                     return
                 await route.abort()
-            await goto_site(lock_pg, site); await booted(lock_pg)
+            await lock_pg.route('**/*', sec_route)
             await lock_pg.route('https://generativelanguage.googleapis.com/**', fake_gemini)
+            await lock_pg.goto(sec_url); await booted(lock_pg)
             # Connect a fake Gemini key, start a chat with tools, hold the tool call, Lock/Disconnect, then release tool result
             res_lock = await lock_pg.evaluate("""async () => {
                 const put = await fetch('api/connections/gemini', { method: 'PUT', headers: {'content-type': 'application/json'}, body: JSON.stringify({ key: 'fake-key-1234' }) });
@@ -247,7 +265,116 @@ async def main():
             check('Lock/Forget aborts in-flight Gemini tool run and sends zero follow-up requests',
                   res_lock.get('ok') and res_lock.get('toolStatus') == 404 and gen_calls['count'] == 1 and not lock_errs,
                   [res_lock, gen_calls, lock_errs[:2]])
+
+            # Unlock vs Forget race: if Forget completes while Unlock is awaiting Google's key check,
+            # the tab stays disconnected, the saved record stays absent, and chat falls back to demo replies.
+            hold_unlock = asyncio.Event()
+            unlock_started = asyncio.Event()
+            async def race_gemini(route):
+                u = route.request.url
+                if 'pageSize=1' in u and route.request.headers.get('x-goog-api-key') == 'race-key-9999':
+                    unlock_started.set()
+                    await hold_unlock.wait()
+                    await route.fulfill(status=200, content_type='application/json', body=json.dumps({'models': [{'name': 'models/gemini-2.5-flash'}]}))
+                    return
+                await fake_gemini(route)
+            await lock_pg.unroute('https://generativelanguage.googleapis.com/**')
+            await lock_pg.route('https://generativelanguage.googleapis.com/**', race_gemini)
+            # Save a remembered key first via the Connections modal, then Lock it
+            await lock_pg.locator('#demoSide [data-demo=conn]').click()
+            await lock_pg.wait_for_selector('#connModal.show .cnrow[data-cid=gemini] .cnkey')
+            await lock_pg.locator('#connModal .cnrow[data-cid=gemini] .cnkey').fill('race-key-9999')
+            await lock_pg.locator('#connModal .cnrow[data-cid=gemini] .demo-rem-cb').check()
+            await lock_pg.locator('#connModal .cnrow[data-cid=gemini] .demo-rem-pass').fill('pass1234')
+            hold_unlock.set()
+            await lock_pg.locator('#connModal .cnrow[data-cid=gemini] [data-cx=add]').click()
+            await lock_pg.locator('#connModal button', has_text='Lock now').wait_for(state='visible', timeout=10000)
+            await lock_pg.locator('#connModal button', has_text='Lock now').click()
+            await soon(lock_pg, "() => !!document.querySelector('#connModal .demo-unlock-pass')", timeout=10000)
+            # Now hold the next validation response, start Unlock, run Forget while held, then release
+            hold_unlock.clear(); unlock_started.clear()
+            await lock_pg.locator('#connModal .demo-unlock-pass').fill('pass1234')
+            await lock_pg.locator('#connModal [data-demo-unlock]').click()
+            await asyncio.wait_for(unlock_started.wait(), timeout=10)
+            # Forget while Unlock is awaiting Google's validation
+            await lock_pg.evaluate("fetch('api/connections/gemini', { method: 'DELETE' })")
+            hold_unlock.set()
+            await frames(lock_pg, 6)
+            race_state = await lock_pg.evaluate("""async () => {
+                const c = await (await fetch('api/connections')).json();
+                const hasRec = await new Promise((ok) => {
+                    const r = indexedDB.open('digress-demo', 1);
+                    r.onsuccess = () => { const tx = r.result.transaction('kv', 'readonly'); const g = tx.objectStore('kv').get('byok/gemini'); g.onsuccess = () => ok(!!g.result); g.onerror = () => ok(false); };
+                    r.onerror = () => ok(false);
+                });
+                const cr = await fetch('api/chat', { method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] }) });
+                const txt = await cr.text();
+                return { on: !!(c.providers[0] && c.providers[0].on), hasRec, usedDemo: txt.includes('"model":"demo"') };
+            }""")
+            check('Forget during in-flight Unlock keeps tab disconnected, deletes record, and uses demo replies',
+                  race_state['on'] is False and race_state['hasRec'] is False and race_state['usedDemo'] is True, race_state)
+
+            # Lock while response headers have arrived and the SSE body reader is paused releases the reader promptly
             await lock_pg.close()
+            pause_pg = await b.new_page(viewport={'width': 1280, 'height': 860})
+            pause_errs = []; pause_pg.on('pageerror', lambda e: pause_errs.append(str(e)))
+            await pause_pg.add_init_script("""(() => {
+                const origFetch = window.fetch.bind(window);
+                const enc = new TextEncoder();
+                window.__bodyCancelled = false;
+                window.fetch = async (input, init) => {
+                    const u = typeof input === 'string' ? input : (input && input.url) || '';
+                    if (u.startsWith('https://generativelanguage.googleapis.com/')) {
+                        if (u.includes('/models?')) {
+                            return new Response(JSON.stringify({ models: [{ name: 'models/gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', supportedGenerationMethods: ['generateContent'], inputTokenLimit: 1000000 }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+                        }
+                        if (u.includes(':streamGenerateContent')) {
+                            const stream = new ReadableStream({
+                                start(c) {
+                                    c.enqueue(enc.encode('data: ' + JSON.stringify({ candidates: [{ content: { parts: [{ text: 'hello' }] } }] }) + '\\n\\n'));
+                                    if (init && init.signal) {
+                                        init.signal.addEventListener('abort', () => {
+                                            window.__bodyCancelled = true;
+                                            try { c.error(new DOMException('Aborted', 'AbortError')); } catch {}
+                                        }, { once: true });
+                                    }
+                                },
+                                cancel() { window.__bodyCancelled = true; },
+                            });
+                            return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+                        }
+                    }
+                    return origFetch(input, init);
+                };
+            })();""")
+            await goto_site(pause_pg, site); await booted(pause_pg)
+            pause_res = await pause_pg.evaluate("""async () => {
+                const put = await fetch('api/connections/gemini', { method: 'PUT', headers: {'content-type': 'application/json'}, body: JSON.stringify({ key: 'pause-key-1234' }) });
+                if (!put.ok) return { ok: false, step: 'put', status: put.status };
+                const resp = await fetch('api/chat', { method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({ chat: 'chat-pause-1', model: 'gemini-2.5-flash', messages: [{ role: 'user', content: 'hi' }] }) });
+                const rd = resp.body.getReader(), dec = new TextDecoder();
+                let out = '', gotFirst = false;
+                while (!gotFirst) {
+                    const { value, done } = await rd.read();
+                    if (done) break;
+                    out += dec.decode(value, { stream: true });
+                    if (out.includes('"hello"')) gotFirst = true;
+                }
+                // Headers have arrived and first chunk was read; body is now paused waiting for next chunk.
+                // Lock/disconnect and ensure the stream terminates promptly.
+                const t0 = Date.now();
+                await fetch('api/connections/gemini', { method: 'DELETE' });
+                for (;;) {
+                    const { value, done } = await rd.read();
+                    if (done) break;
+                    out += dec.decode(value, { stream: true });
+                }
+                return { ok: true, gotFirst, cancelled: !!window.__bodyCancelled, stopped: out.includes('"stopped":"stop"'), elapsedMs: Date.now() - t0 };
+            }""")
+            check('Lock promptly aborts an already-open paused SSE response body',
+                  pause_res.get('ok') and pause_res.get('gotFirst') and pause_res.get('cancelled') and pause_res.get('stopped') and pause_res.get('elapsedMs', 9999) < 3000 and not pause_errs,
+                  [pause_res, pause_errs[:2]])
+            await pause_pg.close()
 
             # a phone: the note can be made small
             ph = await b.new_page(viewport={'width': 390, 'height': 800})
