@@ -16,9 +16,9 @@ async def main():
         st, body = req(s.base, 'GET', '/api/guide')
         docs = json.loads(body)['docs'] if st == 200 else []
         files = [d['file'] for d in docs]
-        check(st == 200 and files[0] == 'README.md' and 'AGENTS.md' in files and 'docs/setup.md' in files
+        check(st == 200 and files[0] == 'README.md' and 'docs/guide.md' in files and 'AGENTS.md' in files and 'docs/setup.md' in files
               and sorted(f for f in files if f.startswith('agents/')) == sorted('agents/' + f for f in os.listdir(os.path.join(REPO, 'agents')) if f.endswith('.md')),
-              'GET /api/guide: the README, the docs and all the developer notes (AGENTS.md and every file in agents/)', files)
+              'GET /api/guide: the README, the feature guide, the docs and all the developer notes (AGENTS.md and every file in agents/)', files)
         check(docs and docs[0]['text'] == open(os.path.join(REPO, 'README.md')).read(), '…read from the files as they are now')
         total = sum(len(d['text']) for d in docs)
 

@@ -1,0 +1,102 @@
+# Feature guide
+
+Everything Digress does, in detail. For installation and model connections see [setup.md](setup.md); for spaced-repetition cards see [flashcards.md](flashcards.md); for using Digress on your phone see [remote-access.md](remote-access.md).
+
+## Branching & takeaways
+
+- **Highlight → branch:** select any text in a reply or document and type a question, or pick a quick question (*Explain simpler*, *Example*, *Why?*, *Go deeper*, *Quiz me*). The answer opens in a new pane beside its parent.
+- **Markers & navigation:** a numbered marker in the parent shows where each branch starts. Click it to open the branch; **Show in source** in the branch jumps back to the exact words and flashes them.
+- **Nested branches:** branches can branch again as deep as needed. The sidebar shows the whole tree, and each pane's header shows how many branches come off it—click that number for a nested list of just those branches.
+- **Takeaways:** press **Takeaway** in a branch to summarize what you learned into two to four bullets (optionally focused on what you ask for) and add them to the end of the parent thread so the main thread builds on them. Clicking the branch's name in a takeaway jumps to the last reply it saw; if you keep going in the branch afterwards, a line marks where the takeaway ends, since what's below it isn't included.
+
+## Versions, rewinding & fixing replies
+
+- **Redo & Edit (non-destructive):** **Redo** asks again with the currently selected model and effort; the pencil on a question lets you **edit** it. Nothing is replaced—the question is asked again in a new branch starting just before it, beside the original, anywhere in a thread (including the last question). The question shows how many versions it has.
+- **Switching versions:** **Use this version** (in the version's pane, or on its card on the canvas) makes the conversation continue with the one you prefer; the other becomes a branch of its own, and the toast's **Delete the old version** removes it in one click (or keep it and switch back any time).
+- **Retry & Continue:** **Retry** on an errored reply retries in place when nothing follows it, or as another version once the conversation has gone on from it (a cut-off reply with later messages offers no **Continue**).
+- **Rewinding ("Move what follows into a branch"):** from the `⋯` menu under a reply, move everything after that reply into a branch of its own while the thread continues from that reply. A chip under the reply reopens it, and the chip's delete button removes it (rewinding the thread). **Undo** or **Move back** puts it back as long as the thread still ends at that reply; once the thread continues, it becomes another version you can switch to with **Use this version**. Every version states which message it starts after.
+- **Start over & fresh starts:** **Start over** in the main thread's header empties main so the next question starts fresh from just the document; the old main becomes another version under Branches (with its branches and flashcards), and **Move back** / **Use this version** brings it back. Branches off the document itself stay put. **New conversation from this document** (in the document's header) starts a separate conversation sharing the same file.
+- **Hiding branches:** branches you're done with can be hidden from the tree without deleting them.
+
+## Documents & web articles
+
+- **Supported sources:** upload a PDF, Markdown, or plain text file, paste text, or paste a link and the server downloads it. Web articles open in reader view (just the article, as Markdown; nothing on the page runs).
+- **Reading & navigation:** the document opens beside a main thread about the whole thing, with page numbers. In a long PDF, click **Page N** in its header to jump to any page. Page references in answers (`[p. 2]`) are clickable links. The document's header lists its branches (*"3 branches"*) with the main thread at the top so the whole-document chat is one tap away even when closed.
+- **Document tools (`search`, `read_pages`, `view_page`):** documents up to ~200k characters (~100 dense pages) are sent whole. Longer ones start from the table of contents and first pages, and the model reads what it needs with its tools. `search` takes several wordings at once, forgives case, accents, quotes, and hyphenated line breaks, and returns the closest passages if no exact match exists. Under each reply you see what the model read, with links to the pages. These tools only read the open document—nothing else on your machine.
+- **Highlighting, pages & snips:** highlight any passage in a PDF (including across page breaks) to branch from it; markers sit in the margin. Ask about a whole page, or **Snip** a figure, table, or equation to send a sharp rendered image. Markdown documents and web articles support **Snip** anywhere on the page (sending both the image and its text); the branch button on an image asks about all of it, and snipping inside an image sends a sharp crop. Remote article images are downloaded once by the server and kept with the conversation. You can also paste or drop screenshots into any message box.
+- **Reading mark:** in a long document, the ribbon button in its corner marks where you got up to (no chat attached). It syncs with the conversation, offers to take you back when you reopen it, and can be dragged to move.
+- **Image safety:** images in replies, takeaways, flashcards, and web articles aren't loaded until you ask—each shows a placeholder with its description and host, preventing prompt-injected image URLs from leaking conversation text. Loaded images sit in a framed box with a zoom strip and click-to-fullscreen.
+
+## Views, panes & canvas
+
+Switch views from the top bar at any time; the conversation is the same.
+
+- **Columns & Rows:** threads side by side (Columns) or stacked full-width (Rows), with connector lines linking each branch to its source. Drag a pane's resize handle to adjust it; holding at the window edge keeps growing the pane while scrolling. Reaching exact window width snaps to *"Fits the window"*. A lone open pane fills the space and restores your dragged width when another opens.
+- **Collapsing, reordering & Zen:** panes collapse to thin strips; **Collapse others** in a pane's header folds every other pane away (again or `Esc` restores them). Drag a pane's grip or a collapsed strip to reorder (on touch screens, long-press anywhere on a pane header). Each pane keeps its own zoom. Any pane—including main and the document—can be closed and reopened from **Branches** in the sidebar. **Zen** (`⌘.` / `Ctrl+.`, or `⌃.` on iPadOS) hides the top bar and sidebar while keeping branching and `⌘B` sidebar overlay available.
+- **Background replies:** minimize, fold, or close a pane while a reply is streaming; its strip, card, and sidebar row show three dots (`···`), then **Ready** once finished until you open it. A reply finishing while you're in another browser tab adds a dot to the tab title.
+- **Canvas:** the whole tree as cards on an infinite canvas. Drag the background to pan, scroll to zoom, drag cards by their title to move or to a screen edge to dock, `Alt`+scroll over a card to zoom just that card, and `Space` to read the selected card full screen. Works with touch.
+  - **Document on the canvas:** the document card's **Expand** button fills the canvas with the document at full sharpness; dragging it to an edge (or clicking **Side**) docks it beside the canvas. Following a branch marker from the expanded document moves it to the side automatically.
+  - **Canvas views:** save and name canvas arrangements from **Views** in the corner to switch setups or open the same arrangement on another device.
+- **Small screens & per-device layout:** on narrow windows or phones, overflow top-bar controls move into a `⋯` menu, and narrow panes wrap buttons onto a second row instead of hiding them. Each device keeps its own pane widths, zoom levels, and docked cards; opening a conversation on a new device inherits open panes, view, and canvas arrangement without desktop widths/zooms. **Fit to this screen** in Appearance resets widths and zoom levels for the open conversation.
+
+## Rendering, appearance & context info
+
+- **Rich answers:** Markdown, syntax-highlighted code with a copy button, LaTeX math, and Mermaid diagrams. Tall diagrams fit within ~60% of the window height; diagrams that are too small have an inline zoom strip (**+ / − / Fit** and pan arrows, plus drag when zoomed) without hijacking conversation scroll.
+- **Reply metadata & token usage:** while streaming, replies show live status (searching, reading pages) and elapsed time. Under each reply: the model, effort, document coverage, and a quiet context line (e.g., `52k / 1M context · 75% cached`) from the provider's own token counts. Click or tap it for the full breakdown (cached vs. new input, output, request rounds, window fullness, and—for Claude's 5-minute or 1-hour ephemeral cache—until what local time the cache stays warm).
+- **Themes (Appearance → palette button):** organized into foldable **Light**, **Dark**, and **PDF pages** sections (with system-match option):
+  - *Core & classic:* Light, Dark, Sand, Sea glass, Rosé Pine (Dawn & original), Everforest Dark, Catppuccin (Latte & Mocha), Kanagawa (Wave & Lotus), Gruvbox Dark, Shades of Purple, Nord, GitHub (light & dark), E-ink (black on white), Pure black (OLED).
+  - *Retro-futurist:* **Atompunk** (space-age navy and atomic orange), **Columbia** (cerulean and brass), **Solarpunk** (dark and light, emerald and amber).
+  - *Blue-free night themes* (look right under blue-light filters like f.lux): **Rainforest Night**, **Canopy**, **Lost City**, **Speakeasy**, **Phosphor**.
+  - *Soft low-glare light themes:* **Rainforest Day**, **Map Room**, **Greenhouse**, **Reading Room**.
+  - The atmospheric themes also dress the background around panes (clouds, scanlines, fireflies, book spines, map grid) and their edges.
+- **PDF page appearance:** leave PDFs as printed or switch to **Dark**, **Dim**, **Sepia**, or **Match the theme**. This only changes display—the model always sees the original pages.
+- **Fonts:** changes conversation text (replies, messages, documents, quotes, sidebar titles) while keeping UI controls unchanged: Default (serif replies, sans messages), Sans, Serif, Mono, System, **Literata**, **Newsreader**, **Fraunces**, **IBM Plex**, **Jost**, **Space Grotesk**, **Source Sans**, and readability-focused **Lexend**, **Atkinson Hyperlegible**, **Inclusive Sans**, and **Comic Neue**.
+- **Lines between panes:** toggle connector lines in Columns and Rows from Appearance (canvas always keeps its own).
+
+## Search, organization & trash
+
+- **Full-text search (`⌘K` / `Ctrl+K`):** typo-tolerant BM25 index across every conversation's questions, answers, highlights, takeaways, and documents. Jumps straight to the highlighted match with a **Back** chip to return to where you were (even in another conversation). Press `Tab` to switch scope (everywhere / this conversation / this thread), or click a pane's bottom-right magnifier to search that thread.
+- **"Describe it instead":** half-remember something without the exact words? Choose **Describe it instead** under search results: a fast model suggests likely search terms from your description and conversation titles (never message text), and optionally picks from short snippets of the best matches. It has its own model selector (`Asks: …`) right in its row (defaults to a fast non-Gemini model).
+- **Pins, Archive & Filters:** pin frequent conversations and branches, archive the rest, and filter by **All · Docs · Chats** once you have document conversations. **Pinned**, **Folders**, **Conversations**, and **Branches** all fold from their headings and scroll independently. Double-click any sidebar title to rename it; duplicate titles show their start date.
+- **Folders & folder prompts:** group conversations in **Folders** (one folder per conversation, no nesting). Filed conversations also remain in **Conversations** (tagged with their folder name) so recents still work. Each folder can hold a starting system prompt (sliders button on its row); `+` starts a new chat with a copy of it. Editing a folder's prompt doesn't alter existing chats, and moving a chat in asks whether to switch prompts (keeping its own is the default). Removing a folder deletes no conversations.
+- **Auto-titling & blank chats:** conversations and branches are named from their first question; if long or vague, a fast model generates a short title after the first reply (never overwriting a title you set). Empty new conversations aren't saved when closed or deleted.
+- **Trash:** deleting a conversation moves it to **Trash** across all devices for 7 days before permanent cleanup (or remove immediately with **Delete for good**). Shared document files are only deleted if no other conversation uses them. Deleting a conversation or branch lets you choose whether to also delete its flashcards (which leave review immediately and come back if restored). Cards whose conversation is in the trash show a **Restore** button in review; cards whose source was permanently deleted note that they can no longer jump back.
+
+## Prompts, skills & tools
+
+Open **Prompts, skills & tools** (the sliders button beside Activity in the sidebar) to view and customize what Digress sends the model:
+
+- **Default system prompt:** rewrite who the tutor is and how it writes; applies across all devices to every conversation without its own prompt, with **Reset to default** to restore the built-in one. Digress always appends a read-only **how Digress works** block (formatting, web search rules, branch markers, and context visibility) so custom prompts can't break app features.
+- **Per-conversation system prompt:** set it in a new conversation's empty main thread before the first question, or later via **Prompt** in the top bar (**Own prompt** shows when active; **Put my default back** reverts). Applies to main and every branch (including document branches) from the next reply onward.
+- **Quick questions:** customize the highlight-popup and new-branch chips.
+- **Skills (`SKILL.md`):** paste, upload, or import a `SKILL.md` from a link (including GitHub folder/file URLs). Turn skills on per conversation from **Prompt** in the top bar; they append to that conversation's system prompt (ignored by flashcard drafting and takeaways).
+- **Tools:** read-only list of tools the model can receive and what activates them:
+  - **Web search** — only when **Web** is toggled on in the top bar, question by question. Runs on the provider's side (Anthropic, OpenAI, or Google); never fetches pages or runs tools on your machine. With Claude Code and ChatGPT, toggling Web keeps the tool list unchanged so the prompt cache stays warm.
+  - **Document tools (`search`, `read_pages`, `view_page`)** — always on in document conversations; read only the open document in your browser.
+  - **Suggest flashcards (`suggest_card`)** — offered when flashcards are enabled for the conversation so the model can propose cards into your inbox while answering.
+- **What the model sees:** each reply receives only one linear path:
+  - *Main thread:* main so far.
+  - *Side branch:* parent up to the fork point, then the branch (marked once at the fork with `[Side question about …]`). Branches off the document start fresh with just the document.
+  - *Not sent:* sibling branches, later main-thread messages after a fork, or UI metadata like thread titles. Only takeaways carry results back.
+  - *Moved branches:* keep no fork marker, preserving exact prior context and prompt caching across moves and version swaps.
+  - Inspect the exact next request anytime via **Prompt → What the model sees here…** (with **Copy as JSON**).
+- **Other prompts:** internal prompts (branch markers, takeaways, flashcards, titles) live in [`web/prompts.js`](../web/prompts.js) and are shown read-only in the UI.
+
+## Models & provider behavior
+
+- **Per-branch models:** the model picker follows the active pane (or selected canvas card). New branches inherit their parent's model; their first question fixes it so switching the parent later doesn't affect them. Each reply records which model wrote it.
+- **Grouping & fallback:** models are grouped under foldable **Anthropic**, **OpenAI**, and **Google** sections (showing the newest of each tier, with older versions under **Older**). If a branch's model isn't available on the current machine (disconnected provider or retired model), Digress falls back to the newest model of the same tier/family and notes it, returning to the original once available again.
+- **Connections:** manage API keys (Anthropic, Gemini) and see active providers from **Connections…** at the bottom of the model picker. Keys added in the app stay on your server (`0600`) and are never displayed again (only their last 4 characters).
+
+## Activity, sync & export/import
+
+- **Activity** (sidebar, under Review) computes your learning stats from saved data without recording anything new:
+  - **Activity grid:** up to a year of days shaded by questions, branches, and flashcard reviews (click any day for its conversations).
+  - **What you remember:** FSRS estimated recall count and growth, 30-day recall rate, upcoming 2-week due schedule, and cards you keep missing.
+  - **Rabbit holes:** deepest branch chain, most branched conversations, and passages you branched from more than once—all clickable.
+- **Multi-device sync & resilience:** switching back to a tab pulls updates without reloading while preserving per-device layout. Concurrent edits merge automatically (conflicting replies from the same point become versions). Unsaved changes on flaky connections show in the top bar, retry automatically, warn before closing, and flush on tab switch/lock. Replies continue on the server if you lock your phone, switch apps, or reload, and time out after 10 minutes with **Continue** available.
+- **Export & import (`⤓` on a conversation row):**
+  - **`.digress` archive:** full conversation, branches, highlights, takeaways, and pasted images in one compressed file, with checkboxes to include the document and flashcards (imported into the inbox without review history). Open any `.digress` file via **New from a document**, drag-and-drop, or on the [demo site](https://neejweej.github.io/digress/) (stays local to that browser).
+  - **Markdown (`.md`):** readable export with branches nested under their source passages and takeaways quoted.
+  - **Anki (`.csv`):** kept flashcards with source quotes and conversation tags.
+- **Ask about Digress:** click **?** beside *How it works* in the sidebar for an unsaved chat backed by Digress's own documentation.
