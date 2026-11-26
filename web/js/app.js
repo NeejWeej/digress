@@ -1,6 +1,13 @@
 import { DAY, MIN, fsrsNext, ivlText } from './fsrs.js';
 import { esc, trunc, texText, CITE_Q_RE, stripCiteQuotes, plain, pdfTitleOk, PASS, OVERLAP, passages, indexEntries, idxPages, sigOf } from './text.js';
 import { textWalker, nonWs, flatLen, charPos } from './anchors.js';
+import {
+  DOC_BUDGET, DOC_FIRST, DOC_TOOL_NAMES,
+  isDocBranch, isClipBranch, isWholePage, cropRef, shotRef, docImgRefOf, docImgLabel,
+  defaultSysOf, sysPromptOf, convSkillsOf, skillsPromptOf, fullSysOf,
+  pageText as pageTextOf, docTooLong as docTooLongOf, toolsWantedOf, cardToolOf,
+  partsText, joinParts, appendText, buildContext as buildContextPure,
+} from './context.js';
 
 /* ---------- constants ---------- */
 const PALETTE=['#d9774b','#3f8fd2','#3fa077','#9d6ad6','#cc9a2e','#d65a8a','#2a9ea3','#7f8f36'];
@@ -8,14 +15,14 @@ const PALETTE=['#d9774b','#3f8fd2','#3fa077','#9d6ad6','#cc9a2e','#d65a8a','#2a9
 // (Prompts & skills: CUSTOM.prompts, the store's prompts/custom) and add skills (CUSTOM.skills, the store's skills)
 const CUSTOM={prompts:{},skills:new Map()};
 // the system prompt: a conversation's own (conv.system, set from the Prompts page or its empty main pane), else yours, else Digress's
-const defaultSys=()=>CUSTOM.prompts.system||PROMPTS.system;
-const sysPrompt=(c)=>(c&&typeof c.system==='string'&&c.system.trim())?c.system:defaultSys();
+const defaultSys=()=>defaultSysOf(CUSTOM,PROMPTS);
+const sysPrompt=(c)=>sysPromptOf(c,CUSTOM,PROMPTS);
 // what's sent: the reader's part (sysPrompt), then how Digress works (fixed, whatever they wrote), then the skills
-const fullSys=(c)=>sysPrompt(c)+'\n\n'+PROMPTS.howDigress+skillsPrompt(c);
+const fullSys=(c)=>fullSysOf(c,CUSTOM,PROMPTS);
 const quickList=()=>CUSTOM.prompts.quick&&CUSTOM.prompts.quick.length?CUSTOM.prompts.quick:PROMPTS.quick;
 // the skills a conversation has on (conv.skills: ids; one deleted since is left out), added to its system prompt
-const convSkills=(c)=>((c&&c.skills)||[]).map(id=>CUSTOM.skills.get(id)).filter(Boolean);
-function skillsPrompt(c){const s=convSkills(c);return s.length?'\n\n'+PROMPTS.skills.intro+'\n\n'+s.map(PROMPTS.skills.one).join('\n\n'):''}
+const convSkills=(c)=>convSkillsOf(c,CUSTOM);
+const skillsPrompt=(c)=>skillsPromptOf(c,CUSTOM,PROMPTS);
 const STARTERS=['How does self-attention in transformers work?','Explain the Raft consensus algorithm','What is a Fourier transform, intuitively?','How does a B-tree index speed up queries?'];
 // shown until the server's own model list (/api/models) arrives
 const MODELS=[['auto','Auto'],['claude-opus-5-5','Opus 5.5'],['claude-sonnet-5-5','Sonnet 5.5'],['claude-haiku-5-5','Haiku 5.5'],['claude-fable-5-2','Fable 5.2']];
@@ -399,7 +406,6 @@ const connected=()=>!!(io.store&&io.index&&io.files&&io.llm);
    files): m.images = [{asset|data, type, w, h}]. Images are capped at IMG_MAX px on the long side,
    about what the models look at anyway. */
 const IMG_MAX=1568;
-const isWholePage=(r)=>!!r&&r.x<=0.001&&r.y<=0.001&&r.w>=0.999&&r.h>=0.999;
 const regionRef=(t)=>({region:{page:t.anchorPage+1,x:t.anchorRegion.x,y:t.anchorRegion.y,w:t.anchorRegion.w,h:t.anchorRegion.h}});
 const imgMemo=new Map(),urlMemo=new Map(),IMG_MEMO_MAX=80;
 function memoSet(map,k,v,max,onEvict){
@@ -420,7 +426,6 @@ async function renderRegion(pageNo,r){   // that part of the page, drawn sharp f
   return cv;
 }
 // part of a stored image (an image in a text document: t.anchorImg), as a ref: {crop:{asset|data, type, x,y,w,h}}
-const cropRef=(rec,r)=>({crop:{asset:rec.asset,data:rec.data,type:rec.type,x:r.x,y:r.y,w:r.w,h:r.h}});
 async function renderCrop(c){
   if(!c.asset&&!c.data)throw new Error('The image this branch is about isn’t kept with the conversation.');
   const src=await imageBlob(c.asset?{asset:c.asset,type:c.type}:{data:c.data});if(isWholePage(c))return src;
@@ -1557,86 +1562,12 @@ async function importDigress(file){
 document.addEventListener('dragover',e=>{if(e.dataTransfer&&[...(e.dataTransfer.items||[])].some(i=>i.kind==='file'))e.preventDefault()});
 document.addEventListener('drop',e=>{const f=e.dataTransfer&&[...e.dataTransfer.files].find(isDigressFile);if(!f||e.target.closest('#docDrop'))return;e.preventDefault();importDigress(f)});
 
-/* ---------- context for the model ---------- */
-function branchPrefix(t){
-  const quote=(x)=>'> '+String(x||'').replace(/\n+/g,'\n> ');
-  if(isDocBranch(t))return PROMPTS.branch.docPassage(quote(t.anchorText),conv.doc&&conv.doc.kind==='pdf'?t.anchorPage+1:0,t.anchorEnd?t.anchorEnd.page+1:0);
-  return t.anchorText?PROMPTS.branch.replyPassage(quote(t.anchorText)):PROMPTS.branch.reply();
-}
-/* Messages are built as lists of parts: {type:'text',text} and {type:'image',ref,label}, where ref says
-   where the image comes from (a snip or page of the PDF: {region}, a pasted file: {asset} or {data}).
-   A message that is all text becomes a plain string, exactly as before images existed.
-   resolveContext (below) turns each ref into the image's bytes just before sending. */
-// With the document tools and a document too long to send whole, a branch about a passage also gets the
-// full text of its page and the pages on either side, in its first message, where it stays for the branch.
-function aroundParts(t){
-  const P=docState.pages,pdf=docState.kind==='pdf',a=Math.max(0,t.anchorPage-1),b=Math.min(P.length-1,Math.max(t.anchorPage,t.anchorEnd?t.anchorEnd.page:0)+1),lab=(i)=>pdf?`p. ${i+1}`:`part ${i+1}`;
-  return [{type:'text',text:PROMPTS.branch.around(a===b?lab(a):`${pdf?'pp.':'parts'} ${a+1}–${b+1}`,P.slice(a,b+1).map((_,k)=>`[${lab(a+k)}]\n${pageText(a+k)}`).join('\n\n'))}];
-}
-function branchParts(t,tools){
-  if(isClipBranch(t)){
-    const quote=(x)=>'> '+String(x||'').replace(/\n+/g,'\n> ');
-    const imgs=Array.isArray(t.anchorImages)?t.anchorImages:[];
-    return [{type:'text',text:PROMPTS.branch.clip(quote(t.anchorText||''),t.anchorTitle||'',t.anchorUrl||'',imgs.length>0)},
-      ...imgs.map((ref,k)=>({type:'image',ref,label:`clipped image ${k+1}`})),
-      ...(imgs.length?[{type:'text',text:'\n\n'}]:[])];
-  }
-  if(tools&&isDocBranch(t)&&docTooLong()&&Number.isInteger(t.anchorPage))return [...branchParts(t,false),...aroundParts(t)];
-  if(isDocBranch(t)&&t.anchorShot){
-    return [{type:'text',text:PROMPTS.branch.docShot(t.regionText)},{type:'image',ref:shotRef(t),label:'the snip of the document'},{type:'text',text:'\n\n'}];
-  }
-  if(isDocBranch(t)&&t.anchorImg){
-    const whole=isWholePage(t.anchorImg);
-    return [{type:'text',text:PROMPTS.branch.docImage(docImgLabel(t),whole)},{type:'image',ref:docImgRef(t),label:whole?'the image':'the snip of an image'},{type:'text',text:'\n\n'}];
-  }
-  if(isDocBranch(t)&&t.anchorRegion){
-    const r=t.anchorRegion,p=t.anchorPage+1,whole=isWholePage(r);
-    const head=whole?PROMPTS.branch.docPage(p):PROMPTS.branch.docSnip(p,t.regionText);
-    return [{type:'text',text:head},{type:'image',ref:{region:{page:p,x:r.x,y:r.y,w:r.w,h:r.h}},label:whole?`page ${p}`:`the snip from p. ${p}`},{type:'text',text:'\n\n'}];
-  }
-  return [{type:'text',text:branchPrefix(t)}];
-}
-const partsText=(parts)=>parts.filter(p=>p.type==='text').map(p=>p.text).join('');
-function joinParts(parts){   // neighbouring text parts become one; all-text becomes a string
-  const out=[];for(const p of parts){const l=out[out.length-1];if(p.type==='text'&&l&&l.type==='text')l.text+=p.text;else out.push({...p})}
-  return out.every(p=>p.type==='text')?partsText(out):out.filter(p=>p.type!=='text'||p.text);
-}
-function appendText(msg,s){if(typeof msg.content==='string')msg.content+=s;else msg.content=[...msg.content,{type:'text',text:s}]}
+/* ---------- context for the model (pure logic lives in ./context.js) ---------- */
+const ctxEnv=()=>({conv,docState,docView,custom:CUSTOM,prompts:PROMPTS,threadOps:ThreadOps,settings,io});
 function buildContext(tid,excludeMid,opts){
-  const tools=toolsWanted(opts);   // the model can read the document itself (see runDocTool); opts.tools:false for side jobs like drafting cards
-  const out=[];
-  const push=(role,c)=>{const parts=typeof c==='string'?[{type:'text',text:c}]:c;const last=out[out.length-1];if(last&&last.role===role)last.parts.push({type:'text',text:'\n\n'},...parts);else out.push({role,parts:[...parts]})};
-  // the messages on this thread's path, in order (threads.js: the same walk its checks use)
-  const seq=[];ThreadOps.walk(conv,tid,(m,pre)=>seq.push([m,pre]));
-  // Everything added to a question is worked out from what's saved with it (its reply's Web, the page it was asked
-  // on), never from how things are now, so earlier questions read the same in every request: the prompt cache
-  // depends on it. The question being answered (its reply is excludeMid) gets Web as it is now, as generate does.
-  const webFor=(i)=>{for(let j=i+1;j<seq.length;j++){const r=seq[j][0];if(r.role==='user')return false;
-    if(r.role==='assistant')return r.id===excludeMid?!!(settings.web&&io.llm&&io.llm.supportsWeb):!!r.web}return false};
-  let lastQ='';
-  seq.forEach(([m,pre],i)=>{
-    if(m.id===excludeMid)return;
-    let c=m.content||'';if(m.role==='user')lastQ=c;
-    if(m.role==='note'){if(c&&!m.pending)push('user',PROMPTS.takeawayNote(T(m.fromThread)?T(m.fromThread).title:(m.fromTitle||'(deleted)'),c));return}
-    if(m.role==='assistant'&&(!c||m.pending))return;
-    let parts=[{type:'text',text:c}];
-    if(m.role==='user'){
-      if(m.images&&m.images.length)parts=[...m.images.map((ref,k)=>({type:'image',ref,label:`image ${k+1} attached to “${trunc(c||'a message',40)}”`})),...(c?parts:[])];
-      if(pre)parts=[...branchParts(pre,tools),...parts];
-      if(m.lookAt)parts.push({type:'text',text:PROMPTS.lookingAt(m.lookAt)});
-      if(webFor(i))parts.push({type:'text',text:PROMPTS.webOn});
-    }
-    push(m.role,parts);
-  });
-  while(out.length&&out[0].role!=='user')out.shift();
-  // the same for every thread and question in this conversation (the prompt cache): the system prompt, its skills, the document
-  const base=fullSys(conv);let system=base;lastDocSeen=null;
-  if(out.length&&conv.doc){
-    const last=out[out.length-1];
-    system=base+'\n\n'+docPreamble(tid,last.role==='user'?lastQ:'',tools);
-  }
-  const names=[...(tools&&conv.doc&&docState&&docState.loaded?DOC_TOOL_NAMES:[]),...cardTool(opts)];
-  return {system,messages:out.map(o=>({role:o.role,content:joinParts(o.parts)})),docSeen:lastDocSeen,tools:names.length?names:false};
+  const res=buildContextPure(ctxEnv(),tid,excludeMid,opts);
+  lastDocSeen=res.docSeen;
+  return res;
 }
 // Turns image refs into what the connector sends: {type:'image',mediaType,data(base64)}. If an image
 // can't be loaded the whole request fails with a clear error: nothing is sent with a piece missing.
@@ -3956,8 +3887,6 @@ const MAX_PDF_PAGES=16;
 const docBlobCache=new Map();
 function cacheDocBlob(id,data){memoSet(docBlobCache,id,data,3)}
 function destroyDoc(st){if(st&&st.pdf){try{st.pdf.destroy().catch(()=>{})}catch(_){}}}
-const isDocBranch=(t)=>!!t&&t.anchorMsg==='DOC';
-const isClipBranch=(t)=>!!t&&t.anchorMsg==='CLIP';
 const docPagesLabel=(t,long)=>t.anchorEnd&&t.anchorEnd.page>t.anchorPage?`${long?'pages':'pp.'} ${t.anchorPage+1}–${t.anchorEnd.page+1}`:`${long?'page':'p.'} ${t.anchorPage+1}`;   // a passage can run on to the next page
 const docBranches=()=>conv&&conv.doc?Object.values(conv.threads).filter(isDocBranch).sort((a,b)=>(a.anchorPage-b.anchorPage)||(a.created-b.created)):[];
 // a library (by its CDN address, a key of LIBS): this server's copy, else the CDN's, both checked against its hash;
@@ -4545,78 +4474,18 @@ function linkPages(root,opts){
     frag.append(s.slice(last));node.replaceWith(frag);
   }
 }
-const DOC_BUDGET=200000;   // characters of document text per request (~50k tokens)
-let lastDocSeen=null;      // set by docPreamble: which pages the request it just built includes, when not all
-const DOC_FIRST=3;         // with the document tools: pages always given up front when a document is too long to send whole
-const pageText=(i)=>{const t=docState.pages[i],pdf=docState.kind==='pdf';return t.trim()?t:`(no text on this ${pdf?'page':'part'}: it may be a scan, an image or a figure${pdf?'; view_page shows it':''})`};
-const docTooLong=()=>!!(docState&&docState.loaded&&docState.pages.reduce((n,p)=>n+p.length,0)>DOC_BUDGET);
-function docPreamble(tid,question,tools){
-  lastDocSeen=null;
-  if(!conv.doc)return '';
-  if(!docState||!docState.loaded)return PROMPTS.doc.notLoaded(conv.doc.name);
-  const P=docState.pages,pdf=docState.kind==='pdf',label=i=>pdf?`p. ${i+1}`:`part ${i+1}`;
-  const D=PROMPTS.doc,cite=D.cite(pdf),unit=pdf?'pages':'parts';
-  if(tools){
-    // With the document tools the model reads what it needs itself. What it starts with is fixed for the
-    // whole conversation (the same text every question, so every thread shares one prompt cache): all of
-    // it when it fits; otherwise the table of contents and the first pages. Branches about a passage add
-    // the pages around it to their own first message (branchParts), where they stay for the whole branch.
-    const head=D.head(docState.name,P.length,unit,conv.doc.source);
-    const look=pdf?D.lookPdf:conv.doc.article?D.lookArticle:'';
-    if(!docTooLong()){lastDocSeen={of:P.length,all:true,tools:true};return `${head}${D.whole}${look} ${cite}
-<document>
-${P.map((_,i)=>`[${label(i)}]
-${pageText(i)}`).join('\n\n')}
-</document>`}
-    const ol=docState.outline,n=Math.min(DOC_FIRST,P.length);
-    let toc='';if(ol&&ol.length){for(const x of ol){const l='  '.repeat(Math.min(x.depth,6))+x.title+(x.page?` … ${label(x.page-1)}`:'');if(toc.length+l.length>16000){toc+='  … (the contents go on)\n';break}toc+=l+'\n'}}
-    lastDocSeen={of:P.length,tools:true,pages:`${toc?'the contents and ':''}${n>1?`pp. 1–${n}`:'p. 1'}`};
-    return `${head}${D.tooLong({toc:!!toc,n,unit,pdf})}${look} ${cite}
-${toc?`<contents>
-${toc}</contents>
-`:''}<document>
-${P.slice(0,n).map((_,i)=>`[${label(i)}]
-${pageText(i)}`).join('\n\n')}
-[the rest (${n<P.length-1?`${pdf?'pp.':'parts'} ${n+1}–${P.length}`:label(P.length-1)}) is available through the tools]
-</document>`;
-  }
-  // The whole document goes in whenever it fits (most papers, reports, model cards): the model then never
-  // misses a page, and the instructions stay identical for every question in the conversation, so all its
-  // threads share one prompt cache. Only bigger documents are cut down, with every gap marked.
-  const total=P.reduce((n,p)=>n+p.length,0),BUDGET=DOC_BUDGET,pick=new Set();
-  if(total<=BUDGET)P.forEach((_,i)=>pick.add(i));
-  else{
-    let used=0;const add=i=>{if(i<0||i>=P.length||pick.has(i)||used+P[i].length>BUDGET)return;pick.add(i);used+=P[i].length};
-    add(0);add(1);
-    const anc=ancestors(tid).map(T).find(isDocBranch);
-    if(anc){add(anc.anchorPage);add(anc.anchorPage-1);add(anc.anchorPage+1)}else if(pdf)add(docView.current-1);
-    const words=(question||'').toLowerCase().match(/[a-z0-9]{4,}/g)||[];
-    if(words.length)P.map((p,i)=>{const lp=p.toLowerCase();return [words.reduce((s,w)=>s+(lp.split(w).length-1),0),i]}).sort((a,b)=>b[0]-a[0]).forEach(([s,i])=>{if(s>0)add(i)});
-    for(let i=0;i<P.length;i++)add(i);
-  }
-  const partial=pick.size<P.length,sorted=[...pick].sort((a,b)=>a-b),ranges=(ix)=>{const r=[];for(const i of ix){const l=r[r.length-1];if(l&&l[1]===i-1)l[1]=i;else r.push([i,i])}return r};
-  const span=([a,b])=>a===b?label(a):pdf?`pp. ${a+1}–${b+1}`:`parts ${a+1}–${b+1}`;
-  const missing=ranges(P.map((_,i)=>i).filter(i=>!pick.has(i)));
-  const out=[];let prev=-1;
-  for(const i of sorted){
-    if(i>prev+1)out.push(`[${span([prev+1,i-1])} not included]`);
-    out.push(`[${label(i)}]\n${P[i].trim()?P[i]:`(no text on this ${pdf?'page':'part'}: it may be a scan, an image or a figure)`}`);prev=i;
-  }
-  if(prev<P.length-1)out.push(`[${span([prev+1,P.length-1])} not included]`);
-  lastDocSeen=partial?{n:pick.size,of:P.length,pages:ranges(sorted).map(span).join(', ')}:{of:P.length,all:true};
-  const cut=partial?D.cut({n:pick.size,of:P.length,unit,missing:missing.map(span).join(', '),one:pdf?'page':'part'}):'';
-  return `${D.head(docState.name,P.length,unit,conv.doc.source)}${D.textOnly}${cut} ${cite}${D.noVisuals}\n<document>\n${out.join('\n\n')}\n</document>`;
-}
+let lastDocSeen=null;      // set by buildContext: which pages the request it just built includes, when not all
+const pageText=(i)=>pageTextOf(docState,i);
+const docTooLong=()=>docTooLongOf(docState);
 /* ---------- document tools: what runs here when the model calls one ----------
    The definitions the model sees, the rules and the loop are on the server (server/doctools.mjs); the server
    passes each call here, because this page has the document open. Each returns {parts:[text|image]} or
    {error} (which the model gets as an error), and adds an entry to `trail`, shown under the reply. */
 const READ_MAX=8,READ_CHARS=60000;
-const toolsWanted=(o)=>!!(conv&&conv.doc&&io.llm&&io.llm.supportsTools&&!(o&&o.tools===false));
-const DOC_TOOL_NAMES=['search','read_pages','view_page'];
+const toolsWanted=(o)=>toolsWantedOf(conv,io,o);
 // suggest_card is offered in every request of a conversation with flashcards on (replies, card drafts, takeaways
 // alike, so they keep sharing one prompt cache); only a reply runs it (suggestCard), side jobs refuse it below
-const cardTool=(o)=>conv&&conv.cards&&conv.cards.on&&io.llm&&io.llm.supportsTools&&!(o&&o.tools===false)?['suggest_card']:[];
+const cardTool=(o)=>cardToolOf(conv,io,o);
 // the search tool. A query is found word for word, ignoring case, accents (ä = a), ligatures (ﬁ), and the spaces,
 // line breaks, hyphens, dashes and quotes between letters, so "water-hero" finds "water- hero" split across a line;
 // a match starts at the start of a word. A query not found that way gets the passages closest to it instead, ranked
@@ -4908,8 +4777,7 @@ function articleFigures(root){
    with the same checks as a document from a link (loadArticleImage), never from the page. */
 const strHash=(s)=>{let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)}return (h>>>0).toString(16)};
 const docImgKey=(src)=>/^data:/i.test(src)?`data:${src.length}.${strHash(src)}`:src;
-const docImgRef=(t)=>{const a=t.anchorImg,rec=conv.doc&&conv.doc.images&&conv.doc.images[a.key];return cropRef(rec||{},a)};
-const docImgLabel=(t)=>String(t.anchorText||'').replace(/^(Image|Snip of an image)(: )?/,'');
+const docImgRef=(t)=>docImgRefOf(conv,t);
 function docImgAlt(w){const f=w.closest('.aimg'),im=w.querySelector('img');return ((f&&f.querySelector('.acap')&&f.querySelector('.acap').textContent)||(im&&im.getAttribute('alt'))||'').replace(/\s+/g,' ').trim()}
 function docImages(root){
   const seen={};
@@ -4940,7 +4808,6 @@ function imgMarker(w,t,i){
    drawn again the same. */
 const HTML_TO_IMAGE='https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js';
 const BLANK_PX='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-const shotRef=(t)=>{const a=t.anchorShot||{};return a.asset?{asset:a.asset,type:a.type}:{data:a.data||''}};
 let fontCssMemo=null;
 function docFontCss(node){
   const k=(document.documentElement.dataset.font||'default')+(node.querySelector('code,pre')?'+mono':'');   // the families it uses
