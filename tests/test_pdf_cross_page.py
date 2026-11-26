@@ -9,7 +9,7 @@ not glued), keeps where page 2's part starts (anchorEnd.s), and highlights neith
 Asserts and exits non-zero."""
 import asyncio, os, sys, tempfile
 from playwright.async_api import async_playwright
-from common import FIX, launch_args, goto_app, booted, frames, pdf_drawn, settle
+from common import FIX, launch_args, goto_app, booted, frames, pdf_drawn, pdf_fitted, settle
 from common import CORS
 from test_pane_zoom import MAP
 
@@ -29,6 +29,7 @@ SELECT = r"""(()=>{
   const s1=[...t1.querySelectorAll('span')].filter(s=>s.textContent.trim()).at(-1),s2=[...t2.querySelectorAll('span')].find(s=>s.textContent.trim());
   const r=document.createRange();r.setStart(s1.firstChild,0);r.setEnd(s2.firstChild,s2.firstChild.length);
   const sel=getSelection();sel.removeAllRanges();sel.addRange(r);
+  document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));
   return [s1.textContent,s2.textContent];
 })()"""
 
@@ -61,6 +62,7 @@ SELECT2 = r"""(()=>{
   if(!s1||!s2)return null;
   const r=document.createRange();r.setStart(s1.firstChild,0);r.setEnd(s2.firstChild,s2.textContent.indexOf('begins')+'begins'.length);
   const sel=getSelection();sel.removeAllRanges();sel.addRange(r);
+  document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));
   return [spans(1).map(s=>s.textContent),spans(2).map(s=>s.textContent)];
 })()"""
 norm = lambda x: ' '.join((x or '').split())
@@ -80,10 +82,10 @@ async def main():
         await pg.route('**/*', route); await pg.add_init_script(FAKE)
         await goto_app(pg); await booted(pg)
         await pg.locator('#newDoc').click()
-        await pg.set_input_files('#docFile', FIX + '/paper.pdf'); await pg.locator('#docGo').click(); await pdf_drawn(pg)
+        await pg.set_input_files('#docFile', FIX + '/paper.pdf'); await pg.locator('#docGo').click(); await pdf_drawn(pg); await pdf_fitted(pg)
         # bring the page break into view, so page 2 is drawn too
         await pg.evaluate("(()=>{const pb=document.querySelector('.pane[data-tid=doc] .pb'),p2=pb.querySelector('.dpage[data-page=\"2\"]');pb.scrollTop+=p2.getBoundingClientRect().top-pb.getBoundingClientRect().top-pb.clientHeight/2})()")
-        await pg.wait_for_function("!!document.querySelector('.dpage[data-page=\"2\"] .textLayer span')")
+        await pg.wait_for_function("!!document.querySelector('.dpage[data-page=\"2\"] .textLayer .endOfContent')")
         await settle(pg)
         last1, first2 = await pg.evaluate(SELECT)
         await pg.locator('#pop.show').wait_for(timeout=5000)
@@ -115,9 +117,9 @@ async def main():
         await pg2.route('**/*', route); await pg2.add_init_script(FAKE)
         await goto_app(pg2); await booted(pg2)
         await pg2.locator('#newDoc').click()
-        await pg2.set_input_files('#docFile', pdf); await pg2.locator('#docGo').click(); await pdf_drawn(pg2)
+        await pg2.set_input_files('#docFile', pdf); await pg2.locator('#docGo').click(); await pdf_drawn(pg2); await pdf_fitted(pg2)
         await pg2.evaluate("(()=>{const pb=document.querySelector('.pane[data-tid=doc] .pb'),p2=pb.querySelector('.dpage[data-page=\"2\"]');pb.scrollTop+=p2.getBoundingClientRect().top-pb.getBoundingClientRect().top-pb.clientHeight/2})()")
-        await pg2.wait_for_function("!!document.querySelector('.dpage[data-page=\"2\"] .textLayer span')")
+        await pg2.wait_for_function("!!document.querySelector('.dpage[data-page=\"2\"] .textLayer .endOfContent')")
         await settle(pg2)
         texts = await pg2.evaluate(SELECT2)
         check('the generated PDF has the callout and footer after the body in its text layer, and a header on page 2',
