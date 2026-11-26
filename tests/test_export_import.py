@@ -98,15 +98,20 @@ async def main():
         ok = await soon(pg, "__digress.conv && __digress.conv.id !== 'cx1' && __digress.conv.title === 'Backprop, explained'")
         check('importing opens it as a new conversation', ok)
         nc = await pg.evaluate("JSON.parse(JSON.stringify(__digress.conv))")
-        check('…with every message, branch and the branch’s model', set(nc['msgs']) == {'u1', 'a1', 'u2', 'a2', 'n1'} and nc['threads']['b1']['llm'] == ['claude-gone-9', 'high'])
-        img = nc['msgs']['u1']['images'][0]
+        nb1 = next((t for tid, t in nc['threads'].items() if tid != 'main'), None)
+        nu1 = next((m for m in nc['msgs'].values() if m['role'] == 'user' and m['thread'] == 'main'), None)
+        na2 = next((m for m in nc['msgs'].values() if m['role'] == 'assistant' and nb1 and m['thread'] == nb1['id']), None)
+        check('…with every message, branch (with remapped safe ids) and the branch’s model',
+              len(nc['msgs']) == 5 and nb1 and nb1['id'] != 'b1' and nb1['llm'] == ['claude-gone-9', 'high'] and 'u1' not in nc['msgs'])
+        img = nu1['images'][0]
         check('…its image stored again, under a new id', img.get('asset') and img['asset'] != 'img1' and await pg.evaluate("a => !!localStorage.getItem('fakesrv:file/' + a)", img.get('asset')), img)
         check('…not pinned', not nc.get('pinned'))
         await pg.wait_for_selector('.docerr', timeout=10000)
         check('…and its document asks for your own copy', 'Attach your copy of “notes.md”' in await pg.locator('.docerr').inner_text())
         cards = await pg.evaluate("Object.keys(localStorage).filter(k=>k.startsWith('fakesrv:cards/')).map(k=>JSON.parse(localStorage[k]))")
         mine = [x for x in cards if x['conv'] == nc['id']]
-        check('the card arrives in the inbox, fresh', len(mine) == 1 and mine[0]['status'] == 'inbox' and not mine[0]['reviews'] and mine[0]['quote']['msg'] == 'a2', mine)
+        check('the card arrives in the inbox, fresh (with remapped thread/message refs)',
+              len(mine) == 1 and mine[0]['status'] == 'inbox' and not mine[0]['reviews'] and mine[0]['thread'] == nb1['id'] and mine[0]['at']['msg'] == na2['id'] and mine[0]['quote']['msg'] == na2['id'], mine)
         check('the original is untouched', await pg.evaluate("JSON.parse(localStorage['fakesrv:convs/cx1']).pinned === true"))
         check('both are in the sidebar', await pg.locator('#plist .citem, #clist .citem').count() >= 2)
 
@@ -177,8 +182,9 @@ async def main():
         await pg.locator('#mOk').click()
         ok_share = await soon(pg, "n => __digress.convList.length > n && __digress.conv.title === 'Backprop, explained'", before_share, timeout=10000)
         sc = await pg.evaluate("JSON.parse(JSON.stringify(__digress.conv))")
+        su1 = next((m for m in sc['msgs'].values() if m['role'] == 'user' and m['thread'] == 'main'), None)
         check('confirming Open imports the conversation without the excluded image',
-              ok_share and set(sc['msgs']) == {'u1', 'a1', 'u2', 'a2', 'n1'} and not sc['msgs']['u1'].get('images') and sc['doc'].get('left') is True)
+              ok_share and len(sc['msgs']) == 5 and su1 and not su1.get('images') and sc['doc'].get('left') is True)
         await pg.wait_for_selector('.docerr a[href="https://example.com/notes.md"]', timeout=10000)
         check('…and shows the document’s original source link when left out',
               await pg.locator('.docerr a[href="https://example.com/notes.md"]').count() == 1)
@@ -223,6 +229,76 @@ async def main():
         bc = bf['conversations'][0]
         check('branch export keeps main only up to the fork (dropping takeaway n1 after it) and keeps branch b1',
               bc['title'] == 'Why the gradient' and bc['order']['main'] == ['u1', 'a1'] and bc['order']['b1'] == ['u2', 'a2'] and 'n1' not in bc['msgs'], bc['order'])
+
+        # security: adversarial thread/message IDs in a #share= link are remapped and never execute markup
+        import base64
+        evil_tid = '"><img src=x onerror="window.__xss=1">'
+        evil_mid = '"><img src=x onerror="window.__xss=2">'
+        evil_payload = {
+            'digress': 1, 'exported': 1, 'cards': [], 'files': {},
+            'conversations': [{
+                'id': 'evil', 'title': 'Innocent title',
+                'threads': {
+                    'main': {'id': 'main', 'parent': None, 'title': 'Main thread', 'colorIdx': -1},
+                    evil_tid: {'id': evil_tid, 'parent': 'main', 'anchorMsg': evil_mid, 'anchorText': 'hello', 'title': 'Side note', 'colorIdx': 0},
+                },
+                'msgs': {
+                    evil_mid: {'id': evil_mid, 'role': 'assistant', 'thread': 'main', 'content': 'hello world'},
+                    'u_e': {'id': 'u_e', 'role': 'user', 'thread': evil_tid, 'content': 'why?'},
+                    'n_e': {'id': 'n_e', 'role': 'note', 'thread': 'main', 'fromThread': evil_tid, 'content': 'sum'},
+                },
+                'order': {'main': [evil_mid, 'n_e'], evil_tid: ['u_e']},
+            }],
+        }
+        evil_tok = base64.urlsafe_b64encode(gzip.compress(json.dumps(evil_payload).encode())).decode().rstrip('=')
+        before_evil = await pg.evaluate("__digress.convList.length")
+        await pg.evaluate("h => { window.__xss = 0; location.hash = h; }", '#share=' + evil_tok)
+        await pg.wait_for_selector('#modal.show')
+        await pg.locator('#mOk').click()
+        await soon(pg, "n => __digress.convList.length > n && __digress.conv.title === 'Innocent title'", before_evil, timeout=10000)
+        await frames(pg, 4)
+        evil_conv = await pg.evaluate("JSON.parse(JSON.stringify(__digress.conv))")
+        check('imported adversarial thread/message IDs are remapped and never execute XSS',
+              await pg.evaluate("window.__xss === 0")
+              and all(k == 'main' or '<' not in k for k in evil_conv['threads'])
+              and all('<' not in k for k in evil_conv['msgs']), evil_conv['threads'].keys())
+
+        # security: even a pre-existing stored conversation with an adversarial thread ID renders as inert data
+        pre_evil = evil_payload['conversations'][0]
+        pre_evil['id'] = 'cx_evil_stored'
+        pre_evil['title'] = 'Pre-existing evil'
+        await pg.evaluate("c => { window.__xss2 = 0; localStorage.setItem('fakesrv:convs/cx_evil_stored', JSON.stringify(c)); }", pre_evil)
+        await pg.reload(); await booted(pg)
+        await pg.evaluate("document.querySelector('#clist .citem[data-conv=cx_evil_stored]').click()")
+        await pg.wait_for_function("__digress.conv && __digress.conv.id === 'cx_evil_stored'")
+        await pg.locator('#tree .mnode', has_text='Side note').first.click(); await frames(pg, 4)
+        check('pre-existing stored adversarial thread ID renders inert in sidebar and panes',
+              await pg.evaluate("!window.__xss && !window.__xss2 && document.querySelectorAll('#tree img[src=x], .pane img[src=x]').length === 0"))
+
+        # security: cyclic parent graph in a #share= link is rejected cleanly without hanging the tab
+        cyc_payload = {
+            'digress': 1, 'exported': 1, 'cards': [], 'files': {},
+            'conversations': [{
+                'id': 'cyc', 'title': 'Loop',
+                'threads': {
+                    'main': {'id': 'main', 'parent': None, 'title': 'Main'},
+                    'ta': {'id': 'ta', 'parent': 'tb', 'anchorMsg': 'mb', 'title': 'A'},
+                    'tb': {'id': 'tb', 'parent': 'ta', 'anchorMsg': 'ma', 'title': 'B'},
+                },
+                'msgs': {
+                    'ma': {'id': 'ma', 'role': 'assistant', 'thread': 'ta', 'content': 'a'},
+                    'mb': {'id': 'mb', 'role': 'assistant', 'thread': 'tb', 'content': 'b'},
+                },
+                'order': {'main': [], 'ta': ['ma'], 'tb': ['mb']},
+            }],
+        }
+        cyc_tok = base64.urlsafe_b64encode(gzip.compress(json.dumps(cyc_payload).encode())).decode().rstrip('=')
+        before_cyc = await pg.evaluate("__digress.convList.length")
+        await pg.evaluate("h => { location.hash = h; }", '#share=' + cyc_tok)
+        check('cyclic parent graph in #share= link is rejected immediately without hanging',
+              await soon(pg, "() => !location.hash.startsWith('#share=') && [...document.querySelectorAll('.toast')].some(t => /damaged/.test(t.textContent))", timeout=5000)
+              and await pg.evaluate("__digress.convList.length") == before_cyc)
+
         check('no page errors', not errs, errs[:3])
         await b.close()
     print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')
