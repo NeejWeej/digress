@@ -8,6 +8,10 @@ import {
   pageText as pageTextOf, docTooLong as docTooLongOf, toolsWantedOf, cardToolOf,
   partsText, joinParts, appendText, buildContext as buildContextPure,
 } from './context.js';
+import {
+  PUBLIC_DEMO_URL, encodeSharePayload, decodeSharePayload,
+  buildShareUrl, parseShareHash, shareSizeStatus,
+} from './share.js';
 
 /* ---------- constants ---------- */
 const PALETTE=['#d9774b','#3f8fd2','#3fa077','#9d6ad6','#cc9a2e','#d65a8a','#2a9ea3','#7f8f36'];
@@ -1448,22 +1452,28 @@ async function convFull(id){
 // every image record in a conversation (pasted into questions, an article's pictures): {asset|data, type, w, h}
 const imageRecs=(c)=>[...Object.values(c.msgs||{}).flatMap(m=>(m&&m.images)||[]),...Object.values((c.doc&&c.doc.images)||{}),...Object.values(c.threads||{}).map(t=>t&&t.anchorShot)].filter(Boolean);
 async function digressFile(id,o={}){
-  const c=await convFull(id),files={};
+  const c=await convFull(id),files={},withImgs=o.images!==false;
   const grab=async(assetId,type)=>{if(!assetId||files[assetId])return;const buf=await io.files.fetch(assetId);files[assetId]={type:type||'application/octet-stream',data:await blobB64(new Blob([buf]))}};
   for(const k of ['trashed','archived','pinned','folder','dropCards','cards'])delete c[k];
   for(const t of Object.values(c.threads))delete t.pinned;
-  for(const m of Object.values(c.msgs)){delete m.run;delete m.runFrom}
+  for(const m of Object.values(c.msgs)){delete m.run;delete m.runFrom;if(!withImgs)delete m.images}
+  if(!withImgs){for(const t of Object.values(c.threads))delete t.anchorShot}
   if(c.doc){
     delete c.doc.mark;delete c.doc.unsaved;
-    if(o.doc){if(c.doc.assetId)await grab(c.doc.assetId,c.doc.kind==='pdf'?'application/pdf':'text/markdown')}
-    else{delete c.doc.assetId;delete c.doc.text;delete c.doc.images;c.doc.left=true}
+    if(o.doc){
+      if(o.inlineText&&c.doc.kind!=='pdf'&&c.doc.assetId){
+        c.doc.text=await io.files.fetch(c.doc.assetId,'text');
+        delete c.doc.assetId;
+      }else if(c.doc.assetId)await grab(c.doc.assetId,c.doc.kind==='pdf'?'application/pdf':'text/markdown');
+      if(!withImgs)delete c.doc.images;
+    }else{delete c.doc.assetId;delete c.doc.text;delete c.doc.images;c.doc.left=true}
   }
-  for(const im of imageRecs(c))if(im.asset)await grab(im.asset,im.type).catch(e=>{console.warn('image left out',e);delete im.asset});
+  if(withImgs)for(const im of imageRecs(c))if(im.asset)await grab(im.asset,im.type).catch(e=>{console.warn('image left out',e);delete im.asset});
   let cards=[];
   if(o.cards){await loadCards();
     for(const k of CARDS.values()){if(k.conv!==id||k.fix)continue;
       const x={front:k.front,back:k.back,thread:k.thread,at:k.at,where:k.where,src:k.src,created:k.created};
-      if(k.quote)x.quote=k.quote;if(k.image){x.image={...k.image};if(x.image.asset)await grab(x.image.asset,x.image.type).catch(()=>{delete x.image})}
+      if(k.quote)x.quote=k.quote;if(withImgs&&k.image){x.image={...k.image};if(x.image.asset)await grab(x.image.asset,x.image.type).catch(()=>{delete x.image})}
       cards.push(x)}}
   return {file:{digress:DIGRESS_V,exported:Date.now(),conversations:[c],cards,files},title:c.title};
 }
@@ -1497,19 +1507,68 @@ async function exportAnki(id){
   saveFile(new Blob([lines.join('\n')+'\n'],{type:'text/csv'}),fileSafe(c.title)+' (cards).csv');
 }
 async function openExport(id){
-  const m=convList.find(x=>x.id===id)||{};let nCards=0,hasDoc=!!m.doc,docName=m.docName||'';
+  const m=convList.find(x=>x.id===id)||{};let nCards=0,hasDoc=!!m.doc,docName=m.docName||'',hasImgs=false,isPdf=false;
   try{await loadCards();nCards=[...CARDS.values()].filter(k=>k.conv===id&&!k.fix).length}catch(e){}
+  try{const full=await convFull(id);hasImgs=imageRecs(full).length>0;isPdf=!!(full.doc&&full.doc.kind==='pdf')}catch(e){}
   const kept=[...CARDS.values()].filter(k=>k.conv===id&&k.status!=='inbox').length;
+  const curBase=location.origin+location.pathname,onPublic=curBase===PUBLIC_DEMO_URL;
+  let linkUrl='',linkOk=false,linkSeq=0;
   askConfirm(`Export “${trunc(m.title||'this conversation',60)}”`,`<div class="xopts">
     <label class="xopt"><input type="radio" name="xfmt" value="digress" checked><span><span><b>Digress file</b> <i class="xext">.digress</i></span><small>Everything: every branch, highlight and takeaway. Open it in your Digress, or someone else’s, to read it and carry on.</small></span></label>
-    <div class="xsub">${hasDoc?`<label><input type="checkbox" id="xDoc"><span>Include the document <small>${esc(trunc(docName||'the document',50))}. Without it, whoever opens the file attaches their own copy.</small></span></label>`:''}${nCards?`<label><input type="checkbox" id="xCards"><span>Include ${nCards>1?`the ${nCards} flashcards`:'its flashcard'} <small>They arrive in the inbox, without your review history.</small></span></label>`:''}</div>
+    <div class="xsub" id="xFileSub">${hasDoc?`<label><input type="checkbox" id="xDoc"><span>Include the document <small>${esc(trunc(docName||'the document',50))}. Without it, whoever opens the file attaches their own copy.</small></span></label>`:''}${nCards?`<label><input type="checkbox" id="xCards"><span>Include ${nCards>1?`the ${nCards} flashcards`:'its flashcard'} <small>They arrive in the inbox, without your review history.</small></span></label>`:''}</div>
+    <label class="xopt"><input type="radio" name="xfmt" value="link"><span><span><b>Shareable link</b> <i class="xext">#share=…</i></span><small>Paste in a message to share with one click. The conversation lives in the URL’s <code>#</code> fragment, which browsers never send to any server.</small></span></label>
+    <div class="xsub off" id="xLinkSub">
+      ${hasDoc?`<label><input type="checkbox" id="xLDoc"><span>Include the document <small>${esc(trunc(docName||'the document',50))}${isPdf?' (PDFs are usually too large for a link)':''}. Without it, whoever opens the link attaches their own copy.</small></span></label>`:''}
+      ${hasImgs?`<label><input type="checkbox" id="xLImg"><span>Include images <small>Pasted screenshots and snips make links much longer.</small></span></label>`:''}
+      ${nCards?`<label><input type="checkbox" id="xLCards"><span>Include ${nCards>1?`the ${nCards} flashcards`:'its flashcard'} <small>They arrive in the inbox, without your review history.</small></span></label>`:''}
+      ${onPublic?'':`<label><input type="checkbox" id="xLPub"><span>Use public Digress link <small>Links to <code>digress.neejweej.workers.dev</code> instead of this address, so someone outside your network can open it.</small></span></label>`}
+      <div class="xsize" id="xLSize">Select Shareable link to estimate size.</div>
+    </div>
     <label class="xopt"><input type="radio" name="xfmt" value="md"><span><span><b>Markdown</b> <i class="xext">.md</i></span><small>To read in another app: each branch a section, under the passage it came from.</small></span></label>
     ${kept?`<label class="xopt"><input type="radio" name="xfmt" value="anki"><span><span><b>Flashcards for Anki</b> <i class="xext">.csv</i></span><small>Your ${kept} kept card${kept>1?'s':''}, with the sentence each came from. In Anki: File → Import.</small></span></label>`:''}
     <div class="xnote">${ic('check')}Made in your browser and saved to this device. Nothing is uploaded.</div></div>`,
-  async()=>{const f=(document.querySelector('[name=xfmt]:checked')||{}).value,doc=!!($('#xDoc')||{}).checked,cards=!!($('#xCards')||{}).checked;
-    try{if(f==='md')await exportMarkdown(id);else if(f==='anki')await exportAnki(id);else await exportDigress(id,{doc,cards});setStatus('Exported')}
-    catch(e){console.warn(e);toast('Couldn’t export it: '+((e&&e.message)||'error'))}},{ok:'Export',kind:'primary',wide:true});
-  const sub=document.querySelector('#mBody .xsub');document.querySelectorAll('#mBody [name=xfmt]').forEach(r=>r.addEventListener('change',()=>{if(sub)sub.classList.toggle('off',r.value!=='digress'||!r.checked)}));
+  async()=>{const f=(document.querySelector('[name=xfmt]:checked')||{}).value;
+    try{
+      if(f==='md'){await exportMarkdown(id);setStatus('Exported')}
+      else if(f==='anki'){await exportAnki(id);setStatus('Exported')}
+      else if(f==='link'){
+        if(!linkUrl||!linkOk)throw new Error('This conversation is too large for a shareable link. Export it as a .digress file instead.');
+        const p=copyText(linkUrl);await p;setStatus('Link copied');toast('Share link copied. Nothing was uploaded.');
+      }else{
+        const doc=!!($('#xDoc')||{}).checked,cards=!!($('#xCards')||{}).checked;
+        await exportDigress(id,{doc,cards});setStatus('Exported');
+      }
+    }catch(e){console.warn(e);toast('Couldn’t export it: '+((e&&e.message)||'error'))}},{ok:'Export',kind:'primary',wide:true});
+  const fileSub=$('#xFileSub'),linkSub=$('#xLinkSub'),sizeEl=$('#xLSize'),okBtn=$('#mOk');
+  const estimateLink=async()=>{
+    const seq=++linkSeq;linkUrl='';linkOk=false;
+    if(sizeEl){sizeEl.className='xsize';sizeEl.textContent='Estimating link size…'}
+    if(okBtn)okBtn.disabled=true;
+    try{
+      const doc=!!($('#xLDoc')||{}).checked,images=!!($('#xLImg')||{}).checked,cards=!!($('#xLCards')||{}).checked;
+      const pub=!!($('#xLPub')||{}).checked;
+      const {file}=await digressFile(id,{doc,images,cards,inlineText:true});
+      const {token}=await encodeSharePayload(file);
+      if(seq!==linkSeq)return;
+      const url=buildShareUrl(token,pub?PUBLIC_DEMO_URL:curBase);
+      const st=shareSizeStatus(url.length);
+      linkUrl=url;linkOk=st.ok;
+      if(sizeEl){sizeEl.className='xsize '+st.level;sizeEl.textContent=st.text}
+      if(okBtn&&document.querySelector('[name=xfmt]:checked')?.value==='link')okBtn.disabled=!st.ok;
+    }catch(e){
+      if(seq!==linkSeq)return;
+      if(sizeEl){sizeEl.className='xsize over';sizeEl.textContent=(e&&e.message)||'Could not build share link.'}
+    }
+  };
+  const syncFmt=()=>{
+    const v=(document.querySelector('[name=xfmt]:checked')||{}).value;
+    if(fileSub)fileSub.classList.toggle('off',v!=='digress');
+    if(linkSub)linkSub.classList.toggle('off',v!=='link');
+    if(okBtn){okBtn.textContent=v==='link'?'Copy link':'Export';okBtn.disabled=v==='link'&&!linkOk}
+    if(v==='link')estimateLink();
+  };
+  document.querySelectorAll('#mBody [name=xfmt]').forEach(r=>r.addEventListener('change',syncFmt));
+  if(linkSub)linkSub.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.addEventListener('change',()=>{if(document.querySelector('[name=xfmt]:checked')?.value==='link')estimateLink()}));
 }
 // --- import ---
 function fresh(c){
@@ -1517,11 +1576,9 @@ function fresh(c){
   for(const m of Object.values(c.msgs)){if(!m||!['user','assistant','note'].includes(m.role))bad.push('a message of an unknown kind');else for(const k of ['content','text'])if(m[k]!=null&&typeof m[k]!=='string')bad.push('a message that isn’t text')}
   return bad.concat(ThreadOps.check(c));
 }
-async function importDigress(file){
-  let d;
-  try{d=JSON.parse(await gunzipText(await file.arrayBuffer()))}catch(e){toast('That file couldn’t be read as a Digress file.');return}
-  if(!d||d.digress!==DIGRESS_V||!Array.isArray(d.conversations)||!d.conversations.length){toast(d&&d.digress>DIGRESS_V?'That file is from a newer Digress. Update this one to open it.':'That isn’t a Digress file.');return}
-  await io.ready;if(!io.store){toast('Nothing can be saved here, so it can’t be imported.');return}
+async function importDigressData(d,kind='file'){
+  if(!d||d.digress!==DIGRESS_V||!Array.isArray(d.conversations)||!d.conversations.length){toast(d&&d.digress>DIGRESS_V?`That ${kind} is from a newer Digress. Update this one to open it.`:`That isn’t a Digress ${kind}.`);return false}
+  await io.ready;if(!io.store){toast('Nothing can be saved here, so it can’t be imported.');return false}
   const files=d.files&&typeof d.files==='object'?d.files:{},made=new Map();
   const restore=async(rec)=>{if(!rec||!rec.asset)return;const f=files[rec.asset];const old=rec.asset;delete rec.asset;if(!f||typeof f.data!=='string')return;
     if(!made.has(old))made.set(old,(await storeImages([{blob:b64Blob(f.data,f.type),type:f.type,w:rec.w,h:rec.h}]))[0]);
@@ -1529,7 +1586,7 @@ async function importDigress(file){
   let first=null,n=0,nc=0;
   for(const src of d.conversations){
     const c=JSON.parse(JSON.stringify(src)),problems=fresh(c);
-    if(problems.length){console.warn('import: skipped a conversation',problems);toast('Part of that file is damaged, so it was left out.');continue}
+    if(problems.length){console.warn('import: skipped a conversation',problems);toast(`Part of that ${kind} is damaged, so it was left out.`);continue}
     const old=c.id,id='c'+Date.now().toString(36)+rid().slice(0,4);
     for(const k of ['rev','ui','trashed','archived','pinned','folder','dropCards','cards'])delete c[k];
     c.id=id;c.title=typeof c.title==='string'&&c.title?c.title:'Shared conversation';c.created=+c.created||Date.now();c.updated=Date.now();c.nextColor=+c.nextColor||0;
@@ -1539,6 +1596,7 @@ async function importDigress(file){
       else{
         const a=c.doc.assetId&&files[c.doc.assetId];delete c.doc.assetId;
         if(a){const blob=b64Blob(a.data,a.type),pdf=c.doc.kind==='pdf';if(!await storeDocFile(c,c.doc.kind,blob,pdf?null:await blob.text()))c.doc.left=true}
+        else if(typeof c.doc.text==='string'){const txt=c.doc.text;delete c.doc.text;if(!await storeDocFile(c,c.doc.kind,null,txt))c.doc.text=txt}
         else if(c.doc.text==null)c.doc.left=true;
         for(const im of Object.values(c.doc.images||{}))await restore(im);
         for(const t of Object.values(c.threads||{}))if(t&&t.anchorShot)await restore(t.anchorShot);
@@ -1554,10 +1612,41 @@ async function importDigress(file){
       await putCard(card);nc++;
     }
   }
-  if(!first)return;
+  if(!first)return false;
   await loadList();renderConvList();await openConv(first.id);
   toast(`Opened “${trunc(first.title,50)}”${n>1?` and ${n-1} more`:''}${nc?`, with ${nc} card${nc>1?'s':''} in your inbox`:''}.${window.DemoReplies?' It’s kept only in this browser; delete it from the sidebar to remove it.':''}`);
+  return true;
 }
+async function importDigress(file){
+  let d;
+  try{d=JSON.parse(await gunzipText(await file.arrayBuffer()))}catch(e){toast('That file couldn’t be read as a Digress file.');return}
+  await importDigressData(d,'file');
+}
+async function importShareHash(hash){
+  const token=parseShareHash(hash);if(!token)return false;
+  // Clear #share= from the address bar immediately so reloading never prompts a second time.
+  try{history.replaceState(history.state,'',location.pathname+location.search)}catch(e){}
+  let d;
+  try{d=await decodeSharePayload(token)}catch(e){toast((e&&e.message)||'That share link couldn’t be read.');return false}
+  if(!d||d.digress!==DIGRESS_V||!Array.isArray(d.conversations)||!d.conversations.length){toast(d&&d.digress>DIGRESS_V?'That link is from a newer Digress. Update this one to open it.':'That isn’t a Digress link.');return false}
+  const c0=d.conversations[0];
+  if(!c0||fresh(c0).length){toast('That share link is damaged and couldn’t be opened.');return false}
+  const title=typeof c0.title==='string'&&c0.title?c0.title:'Shared conversation';
+  const nMsgs=Object.keys(c0.msgs||{}).length;
+  const nBranches=Object.values(c0.threads||{}).filter(t=>t&&t.parent&&!t.alt).length;
+  const nCards=Array.isArray(d.cards)?d.cards.length:0;
+  const parts=[`${nMsgs} message${nMsgs===1?'':'s'}`];
+  if(nBranches)parts.push(`${nBranches} branch${nBranches===1?'':'es'}`);
+  if(c0.doc&&!c0.doc.left)parts.push('with document');
+  if(nCards)parts.push(`${nCards} flashcard${nCards===1?'':'s'}`);
+  return new Promise((resolve)=>{
+    askConfirm('Open shared conversation?',
+      `<p><b>${esc(trunc(title,80))}</b></p><p style="color:var(--muted);font-size:13px;margin-top:4px">${esc(parts.join(' · '))}. Nothing was uploaded; opening adds a local copy to your Digress.</p>`,
+      async()=>{resolve(await importDigressData(d,'link'))},
+      {ok:'Open',kind:'primary',onCancel:()=>resolve(false)});
+  });
+}
+window.addEventListener('hashchange',()=>{if(parseShareHash(location.hash))importShareHash(location.hash)});
 // a .digress file dropped anywhere (outside a question box) opens as its conversation
 document.addEventListener('dragover',e=>{if(e.dataTransfer&&[...(e.dataTransfer.items||[])].some(i=>i.kind==='file'))e.preventDefault()});
 document.addEventListener('drop',e=>{const f=e.dataTransfer&&[...e.dataTransfer.files].find(isDigressFile);if(!f||e.target.closest('#docDrop'))return;e.preventDefault();importDigress(f)});
@@ -4054,7 +4143,15 @@ function renderDocPane(force){
   wrap.dataset.key=docState.key+(ready?'L':'')+(docState.error?'E':'');
   if(docState.error){
     wrap.innerHTML=`<div class="docerr"></div>`;const box=wrap.firstChild;box.textContent=docState.error.message||String(docState.error);
-    if(docState.error.missing){const i=document.createElement('input');i.type='file';i.accept='.pdf,.md,.markdown,.txt';box.append(document.createElement('br'),i);i.onchange=()=>i.files[0]&&reattachDoc(i.files[0])}
+    if(docState.error.missing){
+      const src=conv.doc&&typeof conv.doc.source==='string'&&/^https?:\/\//i.test(conv.doc.source)?conv.doc.source:'';
+      if(src){
+        const p=document.createElement('div');p.style.marginTop='8px';
+        const a=document.createElement('a');a.href=src;a.target='_blank';a.rel='noopener noreferrer';a.textContent=src;
+        p.append('Original link: ',a);box.appendChild(p);
+      }
+      const i=document.createElement('input');i.type='file';i.accept='.pdf,.md,.markdown,.txt';box.append(document.createElement('br'),i);i.onchange=()=>i.files[0]&&reattachDoc(i.files[0]);
+    }
   }else if(!ready){wrap.innerHTML='<div class="docload">Loading the document…</div>'}
   else if(docState.kind==='pdf'){buildPdfPages(el,wrap)}
   else{
@@ -7046,12 +7143,18 @@ if('serviceWorker' in navigator&&window.isSecureContext&&/^https?:$/.test(locati
 io.ready=initConnectors().catch(e=>{console.warn('connector setup failed',e);noServer()});
 io.ready.then(async()=>{fillModelPicker();await loadList();await maybeOpenLatest();loadCards();guardBack()});
 async function maybeOpenLatest(){
+  const shareHash=parseShareHash(location.hash)?location.hash:'';
+  if(shareHash)try{history.replaceState(history.state,'',location.pathname+location.search)}catch(e){}
   try{
-    if(conv.order.main.length||!convList.length)return;
-    const want=urlConv();
-    if(want&&convList.some(x=>x.id===want))return await openConv(want);
-    if(want)toast('That conversation isn’t here (it may have been deleted), so here’s the latest.');
-    const latest=convList.find(c=>!c.trashed);if(latest)await openConv(latest.id);
+    if(!conv.order.main.length&&convList.length){
+      const want=urlConv();
+      if(want&&convList.some(x=>x.id===want))await openConv(want);
+      else{
+        if(want)toast('That conversation isn’t here (it may have been deleted), so here’s the latest.');
+        const latest=convList.find(c=>!c.trashed);if(latest)await openConv(latest.id);
+      }
+    }
   }finally{urlOn=true;showInUrl()}
+  if(shareHash)await importShareHash(shareHash);
 }
 function showBanner(on,msg){const b=$('#banner');b.textContent=msg||NO_SERVER;b.style.display=on?'block':'none'}

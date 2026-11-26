@@ -933,6 +933,10 @@ sup.fn:hover,sup.fn.hot{transform:scale(1.18)}
 .xopt:has(input:checked){border-color:color-mix(in srgb,var(--accent) 55%,var(--line2));background:color-mix(in srgb,var(--accent) 6%,transparent)}
 .xopt input{margin-top:3px;accent-color:var(--accent)}.xopt>span{display:flex;flex-direction:column;gap:2px;font-size:13.5px}.xext{font:normal 12px var(--mono);color:var(--faint)}.xopt small,.xsub small{color:var(--muted);font-size:12.5px;line-height:1.45}
 .xsub{display:flex;flex-direction:column;gap:6px;margin:0 0 4px 34px;font-size:13px;color:var(--ink)}.xsub label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}.xsub label input{margin-top:3px}.xsub label small{display:block}.xsub input{accent-color:var(--accent)}.xsub.off{opacity:.45;pointer-events:none}.xsub:empty{display:none}
+.xsize{font-size:12px;color:var(--muted);padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg)}
+.xsize.good{border-color:color-mix(in srgb,var(--accent) 40%,var(--line));color:var(--ink)}
+.xsize.warn{border-color:color-mix(in srgb,var(--accent) 60%,var(--line));color:var(--ink)}
+.xsize.over{border-color:var(--danger);color:var(--danger)}
 .xnote{display:flex;align-items:center;gap:6px;margin-top:6px;color:var(--muted);font-size:12.5px}.xnote .i{width:14px;height:14px;color:var(--accent)}
 /* motion: overlays fade in and their boxes rise a little; all of it off for anyone whose device asks for less */
 @keyframes dgFade{from{opacity:0}}

@@ -1,12 +1,16 @@
-// Direct Node unit tests for pure client ES modules (web/js/fsrs.js, web/js/text.js).
+// Direct Node unit tests for pure client ES modules (web/js/fsrs.js, web/js/text.js, web/js/share.js).
 // Runs in milliseconds with no browser; invoked by tests/test_client_modules.py.
 import assert from 'node:assert/strict';
 import { DAY, MIN, fsrsNext, ivlText } from '../web/js/fsrs.js';
 import { esc, trunc, texText, stripCiteQuotes, plain, pdfTitleOk, passages, indexEntries, idxPages, sigOf } from '../web/js/text.js';
+import {
+  PUBLIC_DEMO_URL, SHARE_GOOD_LEN, SHARE_MAX_LEN,
+  encodeSharePayload, decodeSharePayload, buildShareUrl, parseShareHash, shareSizeStatus,
+} from '../web/js/share.js';
 
 let passed = 0;
-function test(name, fn) {
-  fn();
+async function test(name, fn) {
+  await fn();
   passed++;
   console.log('ok  ', name);
 }
@@ -109,6 +113,38 @@ test('passages, indexEntries, idxPages, sigOf round-trip cleanly', () => {
   assert.equal(rebuilt[0], 'Page one intro text.');
   assert.equal(rebuilt[1], longPara);
   assert.equal(sigOf(entries), sigOf(entries));
+});
+
+// --- share.js ---
+await test('share.js: encode/decode round-trips conversations and parses #share= hashes', async () => {
+  const sample = { digress: 1, conversations: [{ id: 'c1', title: 'Hello 🌍', msgs: { m1: { role: 'user', content: 'Hi' } } }], cards: [], files: {} };
+  const { token, gzBytes } = await encodeSharePayload(sample);
+  assert.ok(token.length > 0 && /^[A-Za-z0-9_-]+$/.test(token) && gzBytes > 0);
+  const url = buildShareUrl(token, 'https://box.ts.net/#old');
+  assert.ok(url.startsWith('https://box.ts.net/#share='));
+  assert.equal(parseShareHash(new URL(url).hash), token);
+  assert.equal(parseShareHash('#c=abc123'), null);
+  assert.equal(parseShareHash('#share=' + token + '&extra=1'), token);
+  const decoded = await decodeSharePayload(token);
+  assert.deepEqual(decoded, sample);
+  assert.ok(buildShareUrl(token).startsWith(PUBLIC_DEMO_URL + '#share='));
+});
+
+await test('share.js: shareSizeStatus classifies good, warn, and over limits', () => {
+  assert.equal(shareSizeStatus(1200).level, 'good');
+  assert.equal(shareSizeStatus(1200).ok, true);
+  assert.equal(shareSizeStatus(SHARE_GOOD_LEN + 500).level, 'warn');
+  assert.equal(shareSizeStatus(SHARE_GOOD_LEN + 500).ok, true);
+  assert.equal(shareSizeStatus(SHARE_MAX_LEN + 1).level, 'over');
+  assert.equal(shareSizeStatus(SHARE_MAX_LEN + 1).ok, false);
+});
+
+await test('share.js: decodeSharePayload blocks gzip bombs and rejects invalid tokens', async () => {
+  const big = { digress: 1, pad: 'A'.repeat(100_000) };
+  const { token } = await encodeSharePayload(big);
+  await assert.rejects(() => decodeSharePayload(token, 10_000), /too large/);
+  await assert.rejects(() => decodeSharePayload('not valid base64!!!'), /Invalid/);
+  await assert.rejects(() => decodeSharePayload('YWJjZA'), /Not a gzipped/);
 });
 
 console.log(`\nall passed (${passed} tests)`);

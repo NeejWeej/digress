@@ -22,7 +22,7 @@ const now = Date.now(), day = 864e5;
 localStorage.setItem('fakesrv:file/img1', JSON.stringify({type: 'image/png', data: '%s'}));
 localStorage.setItem('fakesrv:file/docf', JSON.stringify({type: 'text/markdown', data: btoa('# Notes\n\nThe gradient tells each weight which way to move.')}));
 localStorage.setItem('fakesrv:convs/cx1', JSON.stringify({id: 'cx1', title: 'Backprop, explained', created: now - day, updated: now, rev: 3, pinned: true,
-  doc: {kind: 'text', name: 'notes.md', assetId: 'docf', mark: ['o', 12]},
+  doc: {kind: 'text', name: 'notes.md', assetId: 'docf', source: 'https://example.com/notes.md', mark: ['o', 12]},
   threads: {main: {id: 'main', parent: null, title: 'Main thread', colorIdx: -1},
     b1: {id: 'b1', parent: 'main', anchorMsg: 'a1', anchorText: 'the gradient', anchorRange: {s: 20, e: 32}, title: 'Why the gradient', colorIdx: 0, created: now - 1000, llm: ['claude-gone-9', 'high'], pinned: true}},
   msgs: {u1: {id: 'u1', role: 'user', thread: 'main', content: 'What is backprop?', ts: now - 5000, images: [{asset: 'img1', type: 'image/png', w: 1, h: 1}]},
@@ -63,7 +63,7 @@ async def main():
             return path, d.suggested_filename
 
         await pg.evaluate("document.querySelector('[data-expconv=cx1]').click()"); await pg.wait_for_selector('#modal.show')
-        check('the export dialog offers Digress, Markdown and Anki', await pg.locator('[name=xfmt]').count() == 3)
+        check('the export dialog offers Digress, Shareable link, Markdown and Anki', await pg.locator('[name=xfmt]').count() == 4)
         check('…the document and the cards are left out unless ticked', not await pg.locator('#xDoc').is_checked() and not await pg.locator('#xCards').is_checked())
         check('…and it says nothing is uploaded', 'Nothing is uploaded' in await pg.locator('#mBody').inner_text())
         await settle(pg, 400); await pg.locator('#modal .mbox').screenshot(path=OUT + '/export_dialog.png')
@@ -131,6 +131,81 @@ async def main():
         n0 = await pg.evaluate("__digress.convList.length")
         await pg.locator('#docFile').set_input_files(bad); await frames(pg, 6)
         check('a file that isn’t Digress’s is refused', await soon(pg, "[...document.querySelectorAll('.toast')].some(t => /Digress file/.test(t.textContent))") and await pg.evaluate("__digress.convList.length") == n0)
+
+        # shareable link (#share=…): live estimate, defaults to current URL, optional public URL toggle, round-trip import
+        await pg.evaluate("window.__copied = null; Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (t) => { window.__copied = t; } }, configurable: true });")
+        sent.clear()
+        await pg.evaluate("document.querySelector('[data-expconv=cx1]').click()"); await pg.wait_for_selector('#modal.show')
+        await pg.locator('[name=xfmt][value=link]').check()
+        await soon(pg, "() => /link/.test((document.querySelector('#xLSize')||{}).textContent||'') && !document.querySelector('#mOk').disabled")
+        check('Shareable link estimates size live and defaults to current URL (images/doc/cards unchecked)',
+              await pg.locator('#mOk').inner_text() == 'Copy link'
+              and not await pg.locator('#xLPub').is_checked()
+              and not await pg.locator('#xLImg').is_checked()
+              and not await pg.locator('#xLDoc').is_checked())
+        await pg.locator('#mOk').click()
+        await soon(pg, "() => !!window.__copied")
+        local_link = await pg.evaluate("window.__copied")
+        check('copied share link uses current origin and #share=, sending nothing anywhere',
+              '#share=' in local_link and not local_link.startswith('https://digress.neejweej.workers.dev/') and not sent, [local_link[:80], sent])
+
+        # toggling "Use public Digress link" switches base URL to digress.neejweej.workers.dev
+        await pg.evaluate("window.__copied = null; document.querySelector('[data-expconv=cx1]').click()"); await pg.wait_for_selector('#modal.show')
+        await pg.locator('[name=xfmt][value=link]').check()
+        await pg.locator('#xLPub').check()
+        await soon(pg, "() => /link/.test((document.querySelector('#xLSize')||{}).textContent||'') && !document.querySelector('#mOk').disabled")
+        await pg.locator('#mOk').click()
+        await soon(pg, "() => !!window.__copied")
+        pub_link = await pg.evaluate("window.__copied")
+        check('toggling public link uses digress.neejweej.workers.dev', pub_link.startswith('https://digress.neejweej.workers.dev/#share='), pub_link[:80])
+
+        # opening the #share= link asks to confirm first; Cancel leaves sidebar untouched, Open imports a fresh copy
+        before_share = await pg.evaluate("__digress.convList.length")
+        share_hash = '#' + local_link.split('#', 1)[1]
+        await pg.evaluate("h => { location.hash = h; }", share_hash)
+        await pg.wait_for_selector('#modal.show')
+        check('opening a #share= link asks to confirm first (with title and counts)',
+              'Open shared conversation?' in await pg.locator('#mTitle').inner_text()
+              and 'Backprop, explained' in await pg.locator('#mBody').inner_text()
+              and await pg.evaluate("__digress.convList.length") == before_share)
+        check('…and clears #share= from the address bar', await pg.evaluate("!location.hash.startsWith('#share=')"), await pg.evaluate("location.hash"))
+        await pg.locator('#mCancel').click(); await frames(pg)
+        check('cancelling the share prompt leaves the sidebar untouched', await pg.evaluate("__digress.convList.length") == before_share)
+
+        await pg.evaluate("h => { location.hash = h; }", share_hash)
+        await pg.wait_for_selector('#modal.show')
+        await pg.locator('#mOk').click()
+        ok_share = await soon(pg, "n => __digress.convList.length > n && __digress.conv.title === 'Backprop, explained'", before_share, timeout=10000)
+        sc = await pg.evaluate("JSON.parse(JSON.stringify(__digress.conv))")
+        check('confirming Open imports the conversation without the excluded image',
+              ok_share and set(sc['msgs']) == {'u1', 'a1', 'u2', 'a2', 'n1'} and not sc['msgs']['u1'].get('images') and sc['doc'].get('left') is True)
+        await pg.wait_for_selector('.docerr a[href="https://example.com/notes.md"]', timeout=10000)
+        check('…and shows the document’s original source link when left out',
+              await pg.locator('.docerr a[href="https://example.com/notes.md"]').count() == 1)
+
+        # shareable link with text/Markdown document included (inlined as plain UTF-8 before gzip, readable on import)
+        await pg.evaluate("window.__copied = null; document.querySelector('[data-expconv=cx1]').click()"); await pg.wait_for_selector('#modal.show')
+        await pg.locator('[name=xfmt][value=link]').check()
+        await pg.locator('#xLDoc').check()
+        await soon(pg, "() => /link/.test((document.querySelector('#xLSize')||{}).textContent||'') && !document.querySelector('#mOk').disabled")
+        await pg.locator('#mOk').click()
+        await soon(pg, "() => !!window.__copied")
+        doc_link = await pg.evaluate("window.__copied")
+        before_doc_share = await pg.evaluate("__digress.convList.length")
+        await pg.evaluate("h => { location.hash = h; }", '#' + doc_link.split('#', 1)[1])
+        await pg.wait_for_selector('#modal.show')
+        await pg.locator('#mOk').click()
+        await soon(pg, "n => __digress.convList.length > n && __digress.conv.doc && !__digress.conv.doc.left", before_doc_share, timeout=10000)
+        await pg.wait_for_selector('.docbody', timeout=10000)
+        check('shareable link with a Markdown doc inlines it cleanly and opens readable',
+              'which way to move' in await pg.locator('.docbody').inner_text())
+
+        # bogus #share= hash is refused cleanly and cleared
+        n_bad = await pg.evaluate("__digress.convList.length")
+        await pg.evaluate("location.hash = '#share=not-valid!!!'")
+        check('a bogus #share= link is refused and cleared',
+              await soon(pg, "() => !location.hash.startsWith('#share=') && [...document.querySelectorAll('.toast')].some(t => /Invalid|share link/.test(t.textContent))")
+              and await pg.evaluate("__digress.convList.length") == n_bad)
         check('no page errors', not errs, errs[:3])
         await b.close()
     print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')
