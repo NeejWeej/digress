@@ -91,8 +91,8 @@ async def main():
         assert await pg.locator('.pane[data-tid=main] .msg.note').count() == 1
         ctx = await pg.evaluate("JSON.stringify(window.__calls[window.__calls.length-1].slice(-1))")
         assert 'the key idea' in ctx, ctx[-260:]
-        # back from last branch
-        await last.locator('[data-act=back]').click(); await calm(pg)
+        # back from last branch (via the origin crumb in its header)
+        await last.locator('.ph-origin [data-crumb]').first.click(); await calm(pg)
         await pg.screenshot(path=OUT + '/v2.png')
         # canvas
         await pg.locator('[data-v=canvas]').click(); await pg.locator('.cnode.main').wait_for(); await calm(pg)

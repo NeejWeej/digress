@@ -19,9 +19,9 @@ def check(ok, what):
 async def main():
     c = json.loads(open(FIX + '/conv.json').read())
     c['id'] = 'cCRUMB'
-    c['msgs']['a2'] = {'id': 'a2', 'thread': 't1', 'role': 'assistant', 'ver': 0, 'content': 'Complex numbers carry phase and amplitude together.'}
+    c['msgs']['a2'] = {'id': 'a2', 'thread': 't1', 'role': 'assistant', 'ver': 0, 'content': 'Complex numbers carry phase and amplitude together in one compact algebraic object that rotates smoothly under multiplication.'}
     c['order']['t1'] = ['u2', 'a2']
-    c['threads']['t3'] = {'id': 't3', 'parent': 't1', 'anchorMsg': 'a2', 'anchorText': 'phase and amplitude', 'anchorRange': {'s': 19, 'e': 36}, 'colorIdx': 2, 'created': 12, 'title': 'Phase?'}
+    c['threads']['t3'] = {'id': 't3', 'parent': 't1', 'anchorMsg': 'a2', 'anchorText': 'phase and amplitude together in one compact algebraic object that rotates smoothly under multiplication', 'anchorRange': {'s': 19, 'e': 106}, 'colorIdx': 2, 'created': 12, 'title': 'Phase?'}
     c['msgs']['u4'] = {'id': 'u4', 'thread': 't3', 'role': 'user', 'content': 'q3', 'ver': 0}
     c['order']['t3'] = ['u4']
     c['ui']['open'] = ['main', 't1', 't3']
@@ -63,7 +63,7 @@ async def main():
         check(['t1', 't3'] in fl, 'the quote flashes where t3 starts in t1')
         # in a narrow window the line is cut off: a ⌄ shows; it wraps the line, and folds it back
         # (narrow panes put their buttons on a row of their own, so it takes a narrow one to cut the line)
-        await pg.set_viewport_size({'width': 560, 'height': 900}); await calm(pg)
+        await pg.set_viewport_size({'width': 390, 'height': 900}); await calm(pg)
         ph = pg.locator('.pane[data-tid=t3] > .ph'); await ph.scroll_into_view_if_needed()
         check(await ph.locator('.pox').is_visible(), 'a cut-off origin line gets a ⌄')
         h0 = (await ph.bounding_box())['height']

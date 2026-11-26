@@ -114,3 +114,47 @@ export function shareSizeStatus(urlLen) {
   }
   return { ok: false, level: 'over', size, text: `${size} — too large for a link. Uncheck items above, or export as a .digress file.` };
 }
+
+// Prune a conversation down to one branch (tid), its descendants, and the ancestor path leading up to it
+// (each ancestor truncated at the fork message; empty for CLIP/DOC/START branches). Always preserves a valid tree.
+export function sliceBranch(c, tid) {
+  if (!c || !tid || tid === 'main' || !c.threads || !c.threads[tid]) return c;
+  const anc = [];
+  let cur = c.threads[tid];
+  while (cur) { anc.unshift(cur.id); cur = cur.parent ? c.threads[cur.parent] : null; }
+  if (anc[0] !== 'main') return c;
+  const subtree = new Set([tid]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const t of Object.values(c.threads)) {
+      if (t && !subtree.has(t.id) && t.parent && subtree.has(t.parent)) { subtree.add(t.id); grew = true; }
+    }
+  }
+  const keep = new Set([...anc, ...subtree]);
+  const threads = {}, order = {}, msgs = {};
+  for (const id of keep) threads[id] = JSON.parse(JSON.stringify(c.threads[id]));
+  for (let i = 0; i < anc.length - 1; i++) {
+    const a = anc[i], child = c.threads[anc[i + 1]], ids = c.order[a] || [];
+    if (!child || !child.anchorMsg || child.anchorMsg === 'DOC' || child.anchorMsg === 'CLIP' || child.anchorMsg === 'START') {
+      order[a] = [];
+    } else {
+      const idx = ids.indexOf(child.anchorMsg);
+      order[a] = idx >= 0 ? ids.slice(0, idx + 1) : [];
+    }
+  }
+  for (const id of subtree) order[id] = [...(c.order[id] || [])];
+  for (const ids of Object.values(order)) {
+    for (const mid of ids) {
+      if (!c.msgs[mid]) continue;
+      const m = JSON.parse(JSON.stringify(c.msgs[mid]));
+      if (m.role === 'note' && m.fromThread && !keep.has(m.fromThread)) {
+        m.fromTitle = (c.threads[m.fromThread] && c.threads[m.fromThread].title) || m.fromTitle || 'a branch';
+      }
+      msgs[mid] = m;
+    }
+  }
+  const out = { ...JSON.parse(JSON.stringify(c)), threads, order, msgs };
+  out.title = c.threads[tid].title || c.title || 'Shared branch';
+  return out;
+}

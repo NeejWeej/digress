@@ -5,7 +5,7 @@ import { DAY, MIN, fsrsNext, ivlText } from '../web/js/fsrs.js';
 import { esc, trunc, texText, stripCiteQuotes, plain, pdfTitleOk, passages, indexEntries, idxPages, sigOf } from '../web/js/text.js';
 import {
   PUBLIC_DEMO_URL, SHARE_GOOD_LEN, SHARE_MAX_LEN,
-  encodeSharePayload, decodeSharePayload, buildShareUrl, parseShareHash, shareSizeStatus,
+  encodeSharePayload, decodeSharePayload, buildShareUrl, parseShareHash, shareSizeStatus, sliceBranch,
 } from '../web/js/share.js';
 
 let passed = 0;
@@ -145,6 +145,49 @@ await test('share.js: decodeSharePayload blocks gzip bombs and rejects invalid t
   await assert.rejects(() => decodeSharePayload(token, 10_000), /too large/);
   await assert.rejects(() => decodeSharePayload('not valid base64!!!'), /Invalid/);
   await assert.rejects(() => decodeSharePayload('YWJjZA'), /Not a gzipped/);
+});
+
+await test('share.js: sliceBranch prunes sibling branches and truncates ancestors cleanly', () => {
+  const conv = {
+    id: 'c1', title: 'Big chat',
+    threads: {
+      main: { id: 'main', parent: null, title: 'Main thread', colorIdx: -1 },
+      b1: { id: 'b1', parent: 'main', anchorMsg: 'a1', anchorText: 'alpha', title: 'Alpha branch', colorIdx: 0 },
+      b1a: { id: 'b1a', parent: 'b1', anchorMsg: 'a2', anchorText: 'sub', title: 'Sub branch', colorIdx: 1 },
+      b2: { id: 'b2', parent: 'main', anchorMsg: 'a3', anchorText: 'beta', title: 'Other branch', colorIdx: 2 },
+      clip1: { id: 'clip1', parent: 'main', anchorMsg: 'CLIP', anchorText: 'A tweet', anchorUrl: 'https://x.com/1', title: 'Clip 1', colorIdx: 3 },
+      clip2: { id: 'clip2', parent: 'main', anchorMsg: 'CLIP', anchorText: 'Another', anchorUrl: 'https://x.com/2', title: 'Clip 2', colorIdx: 4 },
+    },
+    msgs: {
+      u1: { id: 'u1', thread: 'main', role: 'user', content: 'Q1' },
+      a1: { id: 'a1', thread: 'main', role: 'assistant', content: 'A1 alpha' },
+      u3: { id: 'u3', thread: 'main', role: 'user', content: 'Q2 after fork' },
+      a3: { id: 'a3', thread: 'main', role: 'assistant', content: 'A2 beta' },
+      u2: { id: 'u2', thread: 'b1', role: 'user', content: 'Why alpha?' },
+      a2: { id: 'a2', thread: 'b1', role: 'assistant', content: 'Because sub.' },
+      u4: { id: 'u4', thread: 'b1a', role: 'user', content: 'Sub Q' },
+      u5: { id: 'u5', thread: 'b2', role: 'user', content: 'Sibling Q' },
+      uc1: { id: 'uc1', thread: 'clip1', role: 'user', content: 'Thoughts on tweet' },
+      uc2: { id: 'uc2', thread: 'clip2', role: 'user', content: 'Other clip' },
+    },
+    order: { main: ['u1', 'a1', 'u3', 'a3'], b1: ['u2', 'a2'], b1a: ['u4'], b2: ['u5'], clip1: ['uc1'], clip2: ['uc2'] },
+  };
+  // Reply branch: keeps main up to a1, b1 and its descendant b1a; drops u3/a3 and sibling branches
+  const s1 = sliceBranch(conv, 'b1');
+  assert.equal(s1.title, 'Alpha branch');
+  assert.deepEqual(Object.keys(s1.threads).sort(), ['b1', 'b1a', 'main']);
+  assert.deepEqual(s1.order.main, ['u1', 'a1']);
+  assert.deepEqual(s1.order.b1, ['u2', 'a2']);
+  assert.deepEqual(s1.order.b1a, ['u4']);
+  assert.deepEqual(Object.keys(s1.msgs).sort(), ['a1', 'a2', 'u1', 'u2', 'u4']);
+
+  // CLIP branch: leaves main completely empty and drops all other clips and main chatter
+  const sc = sliceBranch(conv, 'clip1');
+  assert.equal(sc.title, 'Clip 1');
+  assert.deepEqual(Object.keys(sc.threads).sort(), ['clip1', 'main']);
+  assert.deepEqual(sc.order.main, []);
+  assert.deepEqual(sc.order.clip1, ['uc1']);
+  assert.deepEqual(Object.keys(sc.msgs), ['uc1']);
 });
 
 console.log(`\nall passed (${passed} tests)`);

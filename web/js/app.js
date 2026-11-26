@@ -10,7 +10,7 @@ import {
 } from './context.js';
 import {
   PUBLIC_DEMO_URL, encodeSharePayload, decodeSharePayload,
-  buildShareUrl, parseShareHash, shareSizeStatus,
+  buildShareUrl, parseShareHash, shareSizeStatus, sliceBranch,
 } from './share.js';
 
 /* ---------- constants ---------- */
@@ -1449,15 +1449,15 @@ async function convFull(id){
   const d=await io.store.get(id);if(!d)throw new Error('That conversation couldn’t be loaded.');
   const {rev,ui,...rest}=d;return JSON.parse(JSON.stringify({...rest,id}));
 }
-// every image record in a conversation (pasted into questions, an article's pictures): {asset|data, type, w, h}
-const imageRecs=(c)=>[...Object.values(c.msgs||{}).flatMap(m=>(m&&m.images)||[]),...Object.values((c.doc&&c.doc.images)||{}),...Object.values(c.threads||{}).map(t=>t&&t.anchorShot)].filter(Boolean);
+// every image record in a conversation (pasted into questions, an article's pictures, clipped images): {asset|data, type, w, h}
+const imageRecs=(c)=>[...Object.values(c.msgs||{}).flatMap(m=>(m&&m.images)||[]),...Object.values((c.doc&&c.doc.images)||{}),...Object.values(c.threads||{}).map(t=>t&&t.anchorShot),...Object.values(c.threads||{}).flatMap(t=>(t&&t.anchorImages)||[])].filter(Boolean);
 async function digressFile(id,o={}){
-  const c=await convFull(id),files={},withImgs=o.images!==false;
+  const raw=await convFull(id),c=o.branch?sliceBranch(raw,o.branch):raw,files={},withImgs=o.images!==false;
   const grab=async(assetId,type)=>{if(!assetId||files[assetId])return;const buf=await io.files.fetch(assetId);files[assetId]={type:type||'application/octet-stream',data:await blobB64(new Blob([buf]))}};
   for(const k of ['trashed','archived','pinned','folder','dropCards','cards'])delete c[k];
   for(const t of Object.values(c.threads))delete t.pinned;
   for(const m of Object.values(c.msgs)){delete m.run;delete m.runFrom;if(!withImgs)delete m.images}
-  if(!withImgs){for(const t of Object.values(c.threads))delete t.anchorShot}
+  if(!withImgs){for(const t of Object.values(c.threads)){delete t.anchorShot;delete t.anchorImages}}
   if(c.doc){
     delete c.doc.mark;delete c.doc.unsaved;
     if(o.doc){
@@ -1472,6 +1472,7 @@ async function digressFile(id,o={}){
   let cards=[];
   if(o.cards){await loadCards();
     for(const k of CARDS.values()){if(k.conv!==id||k.fix)continue;
+      if(o.branch&&!c.threads[k.thread])continue;
       const x={front:k.front,back:k.back,thread:k.thread,at:k.at,where:k.where,src:k.src,created:k.created};
       if(k.quote)x.quote=k.quote;if(withImgs&&k.image){x.image={...k.image};if(x.image.asset)await grab(x.image.asset,x.image.type).catch(()=>{delete x.image})}
       cards.push(x)}}
@@ -1498,23 +1499,24 @@ function convMarkdown(c){
   walk('main',0);
   return out.filter((l,i,a)=>!(l===''&&a[i-1]==='')).join('\n').trim()+'\n';
 }
-async function exportMarkdown(id){const c=await convFull(id);saveFile(new Blob([convMarkdown(c)],{type:'text/markdown'}),fileSafe(c.title)+'.md')}
+async function exportMarkdown(id,branch){const raw=await convFull(id),c=branch?sliceBranch(raw,branch):raw;saveFile(new Blob([convMarkdown(c)],{type:'text/markdown'}),fileSafe(c.title)+'.md')}
 // Anki imports this as is (File → Import): front, back, the sentence it came from, and a tag for the conversation
-async function exportAnki(id){
-  await loadCards();const c=await convFull(id),cards=[...CARDS.values()].filter(k=>k.conv===id&&k.status!=='inbox');
+async function exportAnki(id,branch){
+  await loadCards();const raw=await convFull(id),c=branch?sliceBranch(raw,branch):raw;
+  const cards=[...CARDS.values()].filter(k=>k.conv===id&&k.status!=='inbox'&&(!branch||c.threads[k.thread]));
   const cell=(v)=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"',tag='digress::'+fileSafe(c.title).replace(/[\s:]+/g,'_');
   const lines=['#separator:comma','#html:false','#columns:Front,Back,Source,Tags','#tags column:4',...cards.map(k=>[k.front,k.back,k.quote?k.quote.text:'',tag].map(cell).join(','))];
   saveFile(new Blob([lines.join('\n')+'\n'],{type:'text/csv'}),fileSafe(c.title)+' (cards).csv');
 }
-async function openExport(id){
-  const m=convList.find(x=>x.id===id)||{};let nCards=0,hasDoc=!!m.doc,docName=m.docName||'',hasImgs=false,isPdf=false;
-  try{await loadCards();nCards=[...CARDS.values()].filter(k=>k.conv===id&&!k.fix).length}catch(e){}
-  try{const full=await convFull(id);hasImgs=imageRecs(full).length>0;isPdf=!!(full.doc&&full.doc.kind==='pdf')}catch(e){}
-  const kept=[...CARDS.values()].filter(k=>k.conv===id&&k.status!=='inbox').length;
+async function openExport(id,branch){
+  const m=convList.find(x=>x.id===id)||{};let nCards=0,hasDoc=!!m.doc,docName=m.docName||'',hasImgs=false,isPdf=false,scope=null,title=m.title||'this conversation';
+  try{const raw=await convFull(id);scope=branch?sliceBranch(raw,branch):raw;hasImgs=imageRecs(scope).length>0;hasDoc=!!scope.doc;docName=(scope.doc&&scope.doc.name)||docName;isPdf=!!(scope.doc&&scope.doc.kind==='pdf');if(branch&&scope.title)title=scope.title}catch(e){}
+  try{await loadCards();nCards=[...CARDS.values()].filter(k=>k.conv===id&&!k.fix&&(!branch||!scope||scope.threads[k.thread])).length}catch(e){}
+  const kept=[...CARDS.values()].filter(k=>k.conv===id&&k.status!=='inbox'&&(!branch||!scope||scope.threads[k.thread])).length;
   const curBase=location.origin+location.pathname,onPublic=curBase===PUBLIC_DEMO_URL;
   let linkUrl='',linkOk=false,linkSeq=0;
-  askConfirm(`Export “${trunc(m.title||'this conversation',60)}”`,`<div class="xopts">
-    <label class="xopt"><input type="radio" name="xfmt" value="digress" checked><span><span><b>Digress file</b> <i class="xext">.digress</i></span><small>Everything: every branch, highlight and takeaway. Open it in your Digress, or someone else’s, to read it and carry on.</small></span></label>
+  askConfirm(`${branch?'Export branch':'Export'} “${trunc(title,60)}”`,`<div class="xopts">
+    <label class="xopt"><input type="radio" name="xfmt" value="digress" checked><span><span><b>Digress file</b> <i class="xext">.digress</i></span><small>${branch?'This branch (its path and any sub-branches). Open it in your Digress, or someone else’s, to read it and carry on.':'Everything: every branch, highlight and takeaway. Open it in your Digress, or someone else’s, to read it and carry on.'}</small></span></label>
     <div class="xsub" id="xFileSub">${hasDoc?`<label><input type="checkbox" id="xDoc"><span>Include the document <small>${esc(trunc(docName||'the document',50))}. Without it, whoever opens the file attaches their own copy.</small></span></label>`:''}${nCards?`<label><input type="checkbox" id="xCards"><span>Include ${nCards>1?`the ${nCards} flashcards`:'its flashcard'} <small>They arrive in the inbox, without your review history.</small></span></label>`:''}</div>
     <label class="xopt"><input type="radio" name="xfmt" value="link"><span><span><b>Shareable link</b> <i class="xext">#share=…</i></span><small>Paste in a message to share with one click. The conversation lives in the URL’s <code>#</code> fragment, which browsers never send to any server.</small></span></label>
     <div class="xsub off" id="xLinkSub">
@@ -1529,14 +1531,14 @@ async function openExport(id){
     <div class="xnote">${ic('check')}Made in your browser and saved to this device. Nothing is uploaded.</div></div>`,
   async()=>{const f=(document.querySelector('[name=xfmt]:checked')||{}).value;
     try{
-      if(f==='md'){await exportMarkdown(id);setStatus('Exported')}
-      else if(f==='anki'){await exportAnki(id);setStatus('Exported')}
+      if(f==='md'){await exportMarkdown(id,branch);setStatus('Exported')}
+      else if(f==='anki'){await exportAnki(id,branch);setStatus('Exported')}
       else if(f==='link'){
         if(!linkUrl||!linkOk)throw new Error('This conversation is too large for a shareable link. Export it as a .digress file instead.');
         const p=copyText(linkUrl);await p;setStatus('Link copied');toast('Share link copied. Nothing was uploaded.');
       }else{
         const doc=!!($('#xDoc')||{}).checked,cards=!!($('#xCards')||{}).checked;
-        await exportDigress(id,{doc,cards});setStatus('Exported');
+        await exportDigress(id,{doc,cards,branch});setStatus('Exported');
       }
     }catch(e){console.warn(e);toast('Couldn’t export it: '+((e&&e.message)||'error'))}},{ok:'Export',kind:'primary',wide:true});
   const fileSub=$('#xFileSub'),linkSub=$('#xLinkSub'),sizeEl=$('#xLSize'),okBtn=$('#mOk');
@@ -1547,7 +1549,7 @@ async function openExport(id){
     try{
       const doc=!!($('#xLDoc')||{}).checked,images=!!($('#xLImg')||{}).checked,cards=!!($('#xLCards')||{}).checked;
       const pub=!!($('#xLPub')||{}).checked;
-      const {file}=await digressFile(id,{doc,images,cards,inlineText:true});
+      const {file}=await digressFile(id,{doc,images,cards,branch,inlineText:true});
       const {token}=await encodeSharePayload(file);
       if(seq!==linkSeq)return;
       const url=buildShareUrl(token,pub?PUBLIC_DEMO_URL:curBase);
@@ -1602,6 +1604,7 @@ async function importDigressData(d,kind='file'){
         for(const t of Object.values(c.threads||{}))if(t&&t.anchorShot)await restore(t.anchorShot);
       }
     }
+    for(const t of Object.values(c.threads||{}))for(const im of (t&&t.anchorImages)||[])await restore(im);
     try{const r=await io.store.save(id,c,0);if(!r||!r.rev)throw new Error('not saved')}catch(e){console.warn(e);toast('Couldn’t save the imported conversation.');continue}
     n++;first=first||{id,title:c.title};
     for(const k of Array.isArray(d.cards)?d.cards:[]){
@@ -2749,8 +2752,8 @@ function paneEl(tid){
   const isMain=tid==='main';
   el=document.createElement('section');el.className='pane'+(isMain?' main':'');el.dataset.tid=tid;
   el.innerHTML=`<div class="ph"><span class="pgrip" title="Drag to reorder panes"></span>${isMain?'<span class="dot"></span>':`<span class="sdot" data-resolve="${tid}"></span>`}<div class="ph-main"><div class="ph-title" spellcheck="false"></div><div class="ph-orow"><div class="ph-origin"></div><button class="pox" data-act="oexp" title="Show the whole line"></button></div></div>
-    <div class="ph-act"><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button></div>${isMain?'':`<button class="tb" data-act="back" title="Go back to where this branched from">${ic('back')}<span class="tl">Back</span></button><button class="tb" data-act="take" title="Add a short takeaway from this branch to its parent">${ic('take')}<span class="tl">Takeaway</span></button><button class="tb kmk" data-act="mkcards" title="Have the model draft flashcards from this branch into your inbox">${ic('cards')}<span class="tl">Cards</span></button>`}${isMain?`<button class="ib kicon" data-act="cards" title="Flashcards for this conversation">${ic('cards')}</button><button class="ib" data-act="restart" title="Start the main thread over: an empty main thread, from just the document. What was in it is kept as another version (Branches in the sidebar), with its branches and flashcards; “Use this version” there brings it back.">${ic('restart')}</button>`:''}
-    <button class="ib" data-act="pin"></button><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it. (⌘\\ / Ctrl+\\ for the pane you’re in)">${ic('collapse')}</button><button class="ib" data-act="focus"></button>${isMain?`<button class="ib" data-act="close" title="Close the main thread’s pane. Main thread, under Branches in the sidebar, brings it back. (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`:`<button class="ib dz" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button><button class="ib" data-act="close" title="Close this pane. Branches open under it stay open; the branch stays saved. (Back goes to where it came from.) (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`}</div></div>
+    <div class="ph-act"><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button></div>${isMain?'':`<button class="tb" data-act="take" title="Add a short takeaway from this branch to its parent">${ic('take')}<span class="tl">Takeaway</span></button><button class="tb kmk" data-act="mkcards" title="Have the model draft flashcards from this branch into your inbox">${ic('cards')}<span class="tl">Cards</span></button>`}${isMain?`<button class="ib kicon" data-act="cards" title="Flashcards for this conversation">${ic('cards')}</button><button class="ib" data-act="restart" title="Start the main thread over: an empty main thread, from just the document. What was in it is kept as another version (Branches in the sidebar), with its branches and flashcards; “Use this version” there brings it back.">${ic('restart')}</button>`:`<button class="ib" data-act="export" title="Export or share this branch">${ic('dl')}</button>`}
+    <button class="ib" data-act="pin"></button><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it. (⌘\\ / Ctrl+\\ for the pane you’re in)">${ic('collapse')}</button><button class="ib" data-act="focus"></button>${isMain?`<button class="ib" data-act="close" title="Close the main thread’s pane. Main thread, under Branches in the sidebar, brings it back. (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`:`<button class="ib dz" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button><button class="ib" data-act="close" title="Close this pane. Branches open under it stay open; the branch stays saved. (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`}</div></div>
     <div class="pb"><div class="msgs"></div></div>
     <div class="jumpw"><div class="jump"><button class="ib js" data-act="jsearch" title="Search this thread">${ic('search')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button><button class="ib jl" data-act="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib je" data-act="jend" title="Jump to the very bottom">${ic('jend')}</button></div></div>
     ${isMain?'':`<div class="tk"><div class="tkb"><span class="tkl">Takeaway to parent</span><input placeholder="Optional: what to focus on" autocomplete="off"><button class="go" title="Generate 2–4 takeaway bullets and add them to the end of the parent thread">Add</button><button class="ib" data-act="take" title="Cancel">${ic('x')}</button></div></div>`}
@@ -6474,6 +6477,7 @@ document.addEventListener('click',e=>{
       case 'restart':startMainOver();break;
       case 'newfromdoc':newFromDoc();break;
       case 'back':revealAnchor(tid);break;
+      case 'export':openExport(conv.id,tid);break;
       case 'jend':{const pb=pane.querySelector('.pb');pb.scrollTo({top:pb.scrollHeight,behavior:'smooth'});break}
       case 'jsearch':openPalette('','thread',tid);break;
       case 'jmark':markButton(act);break;
