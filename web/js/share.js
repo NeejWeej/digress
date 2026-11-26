@@ -5,7 +5,7 @@
 export const PUBLIC_DEMO_URL = 'https://digress.neejweej.workers.dev/';
 export const SHARE_PREFIX = '#share=';
 export const SHARE_GOOD_LEN = 8000;          // comfortable in almost every chat/email app
-export const SHARE_MAX_LEN = 32768;          // 32 KB URL cap; larger conversations use .digress files
+export const SHARE_MAX_LEN = 65536;          // 64 KB URL cap; larger conversations use .digress files
 export const SHARE_MAX_DECODED = 2 * 1024 * 1024;   // 2 MiB uncompressed cap (gzip-bomb protection)
 
 const enc = new TextEncoder();
