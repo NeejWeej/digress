@@ -214,9 +214,9 @@ test('CLIP branch isolation: excludes main history and preserves clipped metadat
   assert.equal(ctx.messages.length, 1);
   assert.ok(Array.isArray(ctx.messages[0].content), 'clipped image makes message multipart');
   const allText = ctx.messages[0].content.filter(p => p.type === 'text').map(p => p.text).join('');
+  const expectedPrefix = PROMPTS.branch.clip('> A sharp claim about caching.', 'Alice on X', 'https://x.com/alice/status/42', true);
   assert.ok(!allText.includes('SECRET_MAIN'), 'main history must not leak into CLIP branch');
-  assert.ok(allText.includes('Alice on X') && allText.includes('https://x.com/alice/status/42'));
-  assert.ok(allText.includes('A sharp claim about caching.'));
+  assert.ok(allText.startsWith(expectedPrefix), 'CLIP prefix includes title, URL, and quoted passage');
   assert.ok(allText.includes('Is this true?'));
   assert.deepEqual(ctx.messages[0].content.find(p => p.type === 'image').ref, imgRef);
 });
