@@ -194,15 +194,15 @@ async def main():
             check('_headers CSP removes unsafe-inline from script-src and uses sha256 hashes',
                   "'unsafe-inline'" not in script_src and "'sha256-" in script_src, script_src)
 
-            # Lock/Forget during an in-flight Gemini tool-call run aborts it and sends zero further Gemini requests
-            # Serve on https://digress.test/digress/ (a Secure Context in both Chromium and WebKit so real Web Crypto PBKDF2/AES-GCM is available).
+            # Lock/Forget during an in-flight Gemini tool-call run aborts it and sends zero further Gemini requests;
+            # Unlock vs Forget race keeps tab disconnected, deletes record, and falls back to demo replies.
+            # Served on https://digress.test/digress/ (Secure Context for Web Crypto) with in-page fetch stub for Gemini.
             lock_ctx = await b.new_context(viewport={'width': 1280, 'height': 860}, ignore_https_errors=True)
             lock_pg = await lock_ctx.new_page()
             lock_errs = []; lock_pg.on('pageerror', lambda e: lock_errs.append(str(e)))
             import mimetypes
             from common import BOOT_WATCH
             sec_url = 'https://digress.test/digress/'
-            cors_hdrs = {'access-control-allow-origin': '*', 'access-control-allow-headers': 'x-goog-api-key, content-type', 'access-control-allow-methods': 'GET, POST, OPTIONS'}
             async def sec_route(r):
                 u = r.request.url.split('#')[0].split('?')[0]
                 if not u.startswith('http'): return await r.continue_()
@@ -216,25 +216,32 @@ async def main():
                     ct = 'text/javascript; charset=utf-8' if f.endswith('.js') else (mimetypes.guess_type(f)[0] or 'application/octet-stream')
                     return await r.fulfill(path=f, content_type=ct)
                 return await r.abort()
-            gen_calls = {'count': 0}
-            async def fake_gemini(route):
-                if route.request.method == 'OPTIONS':
-                    await route.fulfill(status=204, headers=cors_hdrs)
-                    return
-                u = route.request.url
-                if '/models?' in u:
-                    await route.fulfill(status=200, content_type='application/json', headers=cors_hdrs,
-                        body=json.dumps({'models': [{'name': 'models/gemini-2.5-flash', 'displayName': 'Gemini 2.5 Flash', 'supportedGenerationMethods': ['generateContent'], 'inputTokenLimit': 1000000}]}))
-                    return
-                if ':streamGenerateContent' in u:
-                    gen_calls['count'] += 1
-                    # First call requests a document tool call so the run pauses waiting for /api/chat/tool
-                    sse = 'data: ' + json.dumps({'candidates': [{'content': {'parts': [{'functionCall': {'id': 'tc1', 'name': 'search', 'args': {'query': 'bayes'}}}]}, 'finishReason': 'STOP'}]}) + '\n\n'
-                    await route.fulfill(status=200, content_type='text/event-stream', headers=cors_hdrs, body=sse)
-                    return
-                await route.abort()
+            await lock_pg.add_init_script("""(() => {
+                const origFetch = window.fetch.bind(window);
+                window.__genCalls = 0;
+                window.__holdUnlock = false;
+                window.__unlockStarted = false;
+                window.__releaseUnlock = null;
+                window.fetch = async (input, init) => {
+                    const u = typeof input === 'string' ? input : (input && input.url) || '';
+                    if (u.startsWith('https://generativelanguage.googleapis.com/')) {
+                        if (u.includes('pageSize=1') && window.__holdUnlock) {
+                            window.__unlockStarted = true;
+                            await new Promise((r) => { window.__releaseUnlock = r; });
+                        }
+                        if (u.includes('/models?')) {
+                            return new Response(JSON.stringify({ models: [{ name: 'models/gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', supportedGenerationMethods: ['generateContent'], inputTokenLimit: 1000000 }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+                        }
+                        if (u.includes(':streamGenerateContent')) {
+                            window.__genCalls++;
+                            const sse = 'data: ' + JSON.stringify({ candidates: [{ content: { parts: [{ functionCall: { id: 'tc1', name: 'search', args: { query: 'bayes' } } }] }, finishReason: 'STOP' }] }) + '\\n\\n';
+                            return new Response(sse, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+                        }
+                    }
+                    return origFetch(input, init);
+                };
+            })();""")
             await lock_pg.route('**/*', sec_route)
-            await lock_pg.route('https://generativelanguage.googleapis.com/**', fake_gemini)
             await lock_pg.goto(sec_url); await booted(lock_pg)
             # Connect a fake Gemini key, start a chat with tools, hold the tool call, Lock/Disconnect, then release tool result
             res_lock = await lock_pg.evaluate("""async () => {
@@ -265,51 +272,34 @@ async def main():
                 });
                 // Drain stream to completion
                 while (!(await rd.read()).done) {}
-                return { ok: true, toolStatus: tr.status };
+                return { ok: true, toolStatus: tr.status, genCalls: window.__genCalls };
             }""")
             check('Lock/Forget aborts in-flight Gemini tool run and sends zero follow-up requests',
-                  res_lock.get('ok') and res_lock.get('toolStatus') == 404 and gen_calls['count'] == 1 and not lock_errs,
-                  [res_lock, gen_calls, lock_errs[:2]])
+                  res_lock.get('ok') and res_lock.get('toolStatus') == 404 and res_lock.get('genCalls') == 1 and not lock_errs,
+                  [res_lock, lock_errs[:2]])
 
             # Unlock vs Forget race: if Forget completes while Unlock is awaiting Google's key check,
             # the tab stays disconnected, the saved record stays absent, and chat falls back to demo replies.
-            hold_unlock = asyncio.Event()
-            unlock_started = asyncio.Event()
-            async def race_gemini(route):
-                if route.request.method == 'OPTIONS':
-                    await route.fulfill(status=204, headers=cors_hdrs)
-                    return
-                u = route.request.url
-                if 'pageSize=1' in u and route.request.headers.get('x-goog-api-key') == 'race-key-9999':
-                    unlock_started.set()
-                    await hold_unlock.wait()
-                    await route.fulfill(status=200, content_type='application/json', headers=cors_hdrs, body=json.dumps({'models': [{'name': 'models/gemini-2.5-flash'}]}))
-                    return
-                await fake_gemini(route)
-            await lock_pg.unroute('https://generativelanguage.googleapis.com/**')
-            await lock_pg.route('https://generativelanguage.googleapis.com/**', race_gemini)
-            # Save a remembered key first via the Connections modal, then Lock it
             await lock_pg.evaluate("document.querySelector('#demoSide [data-demo=conn]').click()")
             await lock_pg.wait_for_selector('#connModal.show .cnrow[data-cid=gemini] .cnkey')
             await lock_pg.locator('#connModal .cnrow[data-cid=gemini] .cnkey').fill('race-key-9999')
             await lock_pg.locator('#connModal .cnrow[data-cid=gemini] .demo-rem-cb').check()
             await lock_pg.locator('#connModal .cnrow[data-cid=gemini] .demo-rem-pass').fill('pass1234')
-            hold_unlock.set()
             await lock_pg.locator('#connModal .cnrow[data-cid=gemini] [data-cx=add]').click()
             await soon(lock_pg, "() => !![...document.querySelectorAll('#connModal button')].find(b => b.textContent === 'Lock now') || !!document.querySelector('#connModal .cnerr')", timeout=25000)
             conn_err = await lock_pg.evaluate("(document.querySelector('#connModal .cnerr') || {}).textContent || ''")
-            check('remembered Gemini key connects and shows Lock now', not conn_err and await lock_pg.locator('#connModal button', has_text='Lock now').is_visible(),
-                  [conn_err, await lock_pg.evaluate("({ secure: window.isSecureContext, subtle: !!crypto.subtle, text: (document.querySelector('#connModal .cnrow[data-cid=gemini]')||{}).innerText })")])
+            if conn_err:
+                raise RuntimeError(f'Connect with Remember failed: {conn_err}')
             await lock_pg.locator('#connModal button', has_text='Lock now').click()
             await soon(lock_pg, "() => !!document.querySelector('#connModal .demo-unlock-pass')", timeout=10000)
             # Now hold the next validation response, start Unlock, run Forget while held, then release
-            hold_unlock.clear(); unlock_started.clear()
+            await lock_pg.evaluate("window.__holdUnlock = true; window.__unlockStarted = false; window.__releaseUnlock = null;")
             await lock_pg.locator('#connModal .demo-unlock-pass').fill('pass1234')
             await lock_pg.locator('#connModal [data-demo-unlock]').click()
-            await asyncio.wait_for(unlock_started.wait(), timeout=10)
+            await soon(lock_pg, "() => !!window.__unlockStarted", timeout=15000)
             # Forget while Unlock is awaiting Google's validation
             await lock_pg.evaluate("fetch('api/connections/gemini', { method: 'DELETE' })")
-            hold_unlock.set()
+            await lock_pg.evaluate("window.__releaseUnlock && window.__releaseUnlock()")
             await frames(lock_pg, 6)
             race_state = await lock_pg.evaluate("""async () => {
                 const c = await (await fetch('api/connections')).json();
