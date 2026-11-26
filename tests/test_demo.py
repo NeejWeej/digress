@@ -195,12 +195,14 @@ async def main():
                   "'unsafe-inline'" not in script_src and "'sha256-" in script_src, script_src)
 
             # Lock/Forget during an in-flight Gemini tool-call run aborts it and sends zero further Gemini requests
-            # Serve on http://localhost/digress/ (a Secure Context in both Chromium and WebKit so real Web Crypto PBKDF2/AES-GCM is available).
-            lock_pg = await b.new_page(viewport={'width': 1280, 'height': 860})
+            # Serve on https://digress.test/digress/ (a Secure Context in both Chromium and WebKit so real Web Crypto PBKDF2/AES-GCM is available).
+            lock_ctx = await b.new_context(viewport={'width': 1280, 'height': 860}, ignore_https_errors=True)
+            lock_pg = await lock_ctx.new_page()
             lock_errs = []; lock_pg.on('pageerror', lambda e: lock_errs.append(str(e)))
             import mimetypes
             from common import BOOT_WATCH
-            sec_url = 'http://localhost/digress/'
+            sec_url = 'https://digress.test/digress/'
+            cors_hdrs = {'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS'}
             async def sec_route(r):
                 u = r.request.url.split('#')[0].split('?')[0]
                 if not u.startswith('http'): return await r.continue_()
@@ -216,16 +218,19 @@ async def main():
                 return await r.abort()
             gen_calls = {'count': 0}
             async def fake_gemini(route):
+                if route.request.method == 'OPTIONS':
+                    await route.fulfill(status=204, headers=cors_hdrs)
+                    return
                 u = route.request.url
                 if '/models?' in u:
-                    await route.fulfill(status=200, content_type='application/json',
+                    await route.fulfill(status=200, content_type='application/json', headers=cors_hdrs,
                         body=json.dumps({'models': [{'name': 'models/gemini-2.5-flash', 'displayName': 'Gemini 2.5 Flash', 'supportedGenerationMethods': ['generateContent'], 'inputTokenLimit': 1000000}]}))
                     return
                 if ':streamGenerateContent' in u:
                     gen_calls['count'] += 1
                     # First call requests a document tool call so the run pauses waiting for /api/chat/tool
                     sse = 'data: ' + json.dumps({'candidates': [{'content': {'parts': [{'functionCall': {'id': 'tc1', 'name': 'search', 'args': {'query': 'bayes'}}}]}, 'finishReason': 'STOP'}]}) + '\n\n'
-                    await route.fulfill(status=200, content_type='text/event-stream', body=sse)
+                    await route.fulfill(status=200, content_type='text/event-stream', headers=cors_hdrs, body=sse)
                     return
                 await route.abort()
             await lock_pg.route('**/*', sec_route)
@@ -271,11 +276,14 @@ async def main():
             hold_unlock = asyncio.Event()
             unlock_started = asyncio.Event()
             async def race_gemini(route):
+                if route.request.method == 'OPTIONS':
+                    await route.fulfill(status=204, headers=cors_hdrs)
+                    return
                 u = route.request.url
                 if 'pageSize=1' in u and route.request.headers.get('x-goog-api-key') == 'race-key-9999':
                     unlock_started.set()
                     await hold_unlock.wait()
-                    await route.fulfill(status=200, content_type='application/json', body=json.dumps({'models': [{'name': 'models/gemini-2.5-flash'}]}))
+                    await route.fulfill(status=200, content_type='application/json', headers=cors_hdrs, body=json.dumps({'models': [{'name': 'models/gemini-2.5-flash'}]}))
                     return
                 await fake_gemini(route)
             await lock_pg.unroute('https://generativelanguage.googleapis.com/**')
@@ -315,7 +323,7 @@ async def main():
                   race_state['on'] is False and race_state['hasRec'] is False and race_state['usedDemo'] is True, race_state)
 
             # Lock while response headers have arrived and the SSE body reader is paused releases the reader promptly
-            await lock_pg.close()
+            await lock_ctx.close()
             pause_pg = await b.new_page(viewport={'width': 1280, 'height': 860})
             pause_errs = []; pause_pg.on('pageerror', lambda e: pause_errs.append(str(e)))
             await pause_pg.add_init_script("""(() => {
