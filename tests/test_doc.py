@@ -51,8 +51,10 @@ async def main():
         last = await pg.evaluate("window.__calls[0].slice(-1)[0].content")
         print('main ctx has <document>:', '<document>' in first, '| has [p. 2] text:', '[p. 2]' in first, '| page note:', 'currently looking at p. 1' in last)
         print('page links:', await pg.locator('.pane[data-tid=main] a.pref').count())
-        await pg.locator('.pane[data-tid=main] a.pref').nth(1).click(); await pg.locator('.dpage.flash').wait_for(); await calm(pg)
-        print('after link: page flash', await pg.locator('.dpage.flash').get_attribute('data-page'), 'header', await pg.locator('.docpane .ph-origin').text_content())
+        await pg.locator('.pane[data-tid=main] a.pref').nth(1).click(); await pg.locator('.dpage.flash').wait_for()
+        flashed = await pg.locator('.dpage.flash').get_attribute('data-page')
+        await calm(pg)
+        print('after link: page flash', flashed, 'header', await pg.locator('.docpane .ph-origin').text_content())
         # 3. highlight in page 2 and branch
         ok = await pg.evaluate("""() => { const tl=document.querySelector('.dpage[data-page="2"] .textLayer'); if(!tl) return 'no text layer';
             const w=document.createTreeWalker(tl,NodeFilter.SHOW_TEXT); let n; while((n=w.nextNode())){ const i=n.nodeValue.indexOf('square root'); if(i>=0){
