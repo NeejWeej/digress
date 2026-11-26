@@ -40,7 +40,7 @@ self.addEventListener('fetch', (e) => {
   if (LIBS.test(req.url)) return e.respondWith(cacheFirst(req));
   if (url.origin !== self.location.origin) return;
   if (req.mode === 'navigate') return e.respondWith(networkFirst(req, new URL('./', self.registration.scope).href));
-  if (/\/(prompts|threads)\.js$|\/styles\.css$/.test(url.pathname)) return e.respondWith(networkFirst(req, url.origin + url.pathname));
+  if (/\/(prompts|threads)\.js$|\/js\/[^/]+\.js$|\/styles\.css$/.test(url.pathname)) return e.respondWith(networkFirst(req, url.origin + url.pathname));
   if (/\/api\/files\/[a-f0-9]{32}$/.test(url.pathname)) return e.respondWith(cacheFirst(req));
   if (/\/lib\/[^/]+@/.test(url.pathname) || /\/lib\/@[^/]+\/[^/]+@/.test(url.pathname)) return e.respondWith(cacheFirst(req));
 });

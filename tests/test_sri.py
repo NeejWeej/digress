@@ -16,10 +16,13 @@ def check(name, ok, detail=''):
     if not ok: fails.append(name)
 
 page = open(os.path.join(REPO, 'web', 'index.html'), encoding='utf-8').read()
+js_dir = os.path.join(REPO, 'web', 'js')
+js_files = sorted(os.path.join(js_dir, f) for f in os.listdir(js_dir) if f.endswith('.js')) if os.path.isdir(js_dir) else []
+code = page + '\n' + '\n'.join(open(f, encoding='utf-8').read() for f in js_files)
 table = page[page.index('window.LIBS={'):page.index('};', page.index('window.LIBS={'))]
 libs = {c: (l, h) for c, l, h in re.findall(r"'(https://[^']+)':\['(lib/[^']+)','(sha384-[^']+)'\]", table)}
-urls = sorted({u for u in re.findall(r"https://(?:cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com)/[^\"'`\s]+", page) if u.endswith('.js')})
-pdfjs = re.search(r"const PDFJS='([^']+)'", page).group(1)   # pdf.js and its worker: the base URL, then the file names
+urls = sorted({u for u in re.findall(r"https://(?:cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com)/[^\"'`\s]+", code) if u.endswith('.js')})
+pdfjs = re.search(r"const PDFJS='([^']+)'", code).group(1)   # pdf.js and its worker: the base URL, then the file names
 urls = sorted(set(urls) | {pdfjs + 'pdf.min.js', pdfjs + 'pdf.worker.min.js'})
 sha = lambda f: 'sha384-' + base64.b64encode(hashlib.sha384(open(f, 'rb').read()).digest()).decode()
 
@@ -45,6 +48,6 @@ for u in fonts:
     check(f'{u.split("npm/")[1]}: in LIBS, with a copy here and the file’s hash', bool(f) and os.path.isfile(f) and h == sha(f), {'lib': l, 'page': h, 'node_modules': f and os.path.isfile(f) and sha(f)})
 woff = [p for p in LIB_PATHS if p.endswith('.woff2')]
 check('the stylesheets name their .woff2 files, and each is installed', len(woff) >= 50 and all(os.path.isfile(lib_path(p)) for p in woff), len(woff))
-check('nothing from Google Fonts', 'fonts.googleapis.com' not in page and 'fonts.gstatic.com' not in page)
+check('nothing from Google Fonts', 'fonts.googleapis.com' not in code and 'fonts.gstatic.com' not in code)
 print('\nall passed' if not fails else f'\n{len(fails)} failed: {fails}')
 sys.exit(1 if fails else 0)

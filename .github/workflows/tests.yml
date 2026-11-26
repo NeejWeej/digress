@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   test:
-    name: test (${{ matrix.browser }}, ${{ matrix.shard }}/2)
+    name: test (${{ matrix.browser }}, ${{ matrix.shard }}/4)
     runs-on: ubuntu-latest
     # Prebuilt Playwright image has Chromium, WebKit, and all system libraries pre-installed (skips apt-get + browser downloads).
     # Keep the tag in step with tests/webkit/Containerfile.
@@ -25,7 +25,7 @@ jobs:
       fail-fast: false   # a failure in one engine doesn't cancel the other
       matrix:
         browser: [chromium, webkit]
-        shard: [1, 2]
+        shard: [1, 2, 3, 4]
     env:
       DIGRESS_BROWSER: ${{ matrix.browser }}
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
@@ -37,7 +37,7 @@ jobs:
           cache: npm
       - run: npm ci   # the libraries the page loads from CDNs; the tests serve them from node_modules
       - run: pip install --no-cache-dir --break-system-packages playwright==1.65.0
-      - run: python3 tests/run_all.py -j 2 --shard ${{ matrix.shard }}/2
+      - run: python3 tests/run_all.py -j 2 --shard ${{ matrix.shard }}/4
       - name: Keep the logs and screenshots of a failed run
         if: failure()
         uses: actions/upload-artifact@v7

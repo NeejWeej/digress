@@ -6,7 +6,7 @@ If `agents.local/` exists, read `agents.local/README.md` before any work: notes 
 
 ## Where things are
 
-- `web/index.html` + `web/styles.css`: the entire client (HTML + JS in `index.html`, stylesheet in `styles.css`). No build step. Libraries come from this server's `lib/` first and a CDN second, with the same SRI hashes (`window.LIBS`, `server/libs.json`).
+- `web/index.html` + `web/styles.css` + `web/js/`: the entire client (HTML shell + theme/font/lib boot in `index.html`, stylesheet in `styles.css`, native ES modules in `web/js/`, starting at `web/js/app.js`). No build step. Libraries come from this server's `lib/` first and a CDN second, with the same SRI hashes (`window.LIBS`, `server/libs.json`).
 - `web/prompts.js`: every instruction the page sends the model (`PROMPTS`). New model-facing text goes there, never inline.
 - `web/threads.js`: `ThreadOps`, pure functions on a conversation's message tree (`walk`, `split`, `join`, `swap`, `merge`), property-tested.
 - `server/server.mjs`: Node ≥18, **no dependencies**; keep it that way. `server/runs.mjs`: replies as runs that outlive their connection.
