@@ -297,7 +297,9 @@ const trunc=(s,n)=>{s=String(s||'').replace(/\s+/g,' ').trim();return s.length>n
 // inline LaTeX as readable text: \sqrt{d_k} → √d_k, q \cdot k → q · k, \mathrm{Var} → Var
 const TEXW={cdot:'·',times:'×',sqrt:'√',le:'≤',leq:'≤',ge:'≥',geq:'≥',ne:'≠',neq:'≠',approx:'≈',to:'→',rightarrow:'→',infty:'∞',pm:'±',sum:'Σ',int:'∫',in:'∈',alpha:'α',beta:'β',gamma:'γ',delta:'δ',epsilon:'ε',theta:'θ',lambda:'λ',mu:'μ',pi:'π',sigma:'σ',tau:'τ',phi:'φ',omega:'ω',Delta:'Δ',Sigma:'Σ',partial:'∂',nabla:'∇'};
 const texText=(t)=>t.replace(/\\(?:mathrm|text|mathbf|mathit|operatorname|left|right|big|Big)\b/g,'').replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g,'$1/$2').replace(/\\([a-zA-Z]+)/g,(m,w)=>TEXW[w]??w).replace(/[{}]/g,'').replace(/\\[,;! ]/g,' ');
-const plain=(md)=>String(md||'')
+const CITE_Q_RE=/\[((?:pp?\.|pages?|parts?)\s*\d+(?:\s*[–-]\s*\d+)?|earlier|doc)\s+["“]([^"”\n\]]+)["”]\]/gi;
+const stripCiteQuotes=(s)=>String(s||'').replace(CITE_Q_RE,'[$1]');
+const plain=(md)=>stripCiteQuotes(md)
   .replace(/^[ \t]*([-*_])(?:[ \t]*\1){2,}[ \t]*$/gm,'')                     // --- rules
   .replace(/^[ \t]*\|?[ \t]*:?-{2,}[-:| \t]*$/gm,'')                        // table separator rows
   .replace(/^[ \t]*(?:[-*+]|\d+[.)])[ \t]+(.*?)[ \t]*$/gm,(m,x)=>/[.?!:;,]$/.test(x)?x:x+';')   // list markers go; items stay apart
@@ -316,7 +318,7 @@ const msgCache=new Map(),cvMsgCache=new Map(),paneEls=new Map(),gutEls=new Map()
 // threads whose reply finished while you couldn't see them: per window, in memory only (a reload forgets them)
 const unread=new Set();
 window.__digressBusy=()=>streaming.size>0; // read by the server's dev live-reload, so it never reloads mid-reply
-window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList},get keys(){return KEYS},get custom(){return CUSTOM},skillLink:(u)=>skillLink(u),putSkill:(t,o)=>putSkill(t,o),get cards(){return CARDS},runDocTool:(n,i,t)=>runDocTool(n,i,t),set docState(v){docState=v},linkPages:(r)=>linkPages(r)};   // for tests and the console
+window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList},get keys(){return KEYS},get custom(){return CUSTOM},skillLink:(u)=>skillLink(u),putSkill:(t,o)=>putSkill(t,o),get cards(){return CARDS},runDocTool:(n,i,t)=>runDocTool(n,i,t),set docState(v){docState=v},linkPages:(r,o)=>linkPages(r,o),renderRich:(el,md,f,o)=>renderRich(el,md,f,o),plain,convMarkdown:(c)=>convMarkdown(c)};   // for tests and the console
 let mathReady=false,mermaidReady=null,mermaidOk=false;
 let popState=null;
 
@@ -952,13 +954,17 @@ function findQuote(text,mids){
 }
 // highlight the quote inside root and scroll it into view (CSS Highlight API: no DOM changes, so anchors are
 // untouched). Rendered text can differ from the source (math): then it spans from its first words to its last.
-function showQuote(root,scroller,quote,scale){
+function showQuote(root,scroller,quote,scale,opts={}){
   if(!root||!scroller)return false;
   const nodes=[],w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement.closest('.acts,button,svg')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
   let text='',n;while((n=w.nextNode())){nodes.push([n,text.length]);text+=n.data}
-  const low=text.toLowerCase(),ws=quoteWords(quote);if(ws.length<3)return false;
-  let from=-1,to=-1;const m=low.match(quoteRe(ws));
-  if(m){from=m.index;to=m.index+m[0].length}
+  const low=text.toLowerCase(),ws=quoteWords(quote);if(ws.length<(opts.exact?2:3))return false;
+  let from=-1,to=-1;
+  const re=new RegExp(quoteRe(ws).source,'gu'),matches=[...low.matchAll(re)];
+  if(opts.exact){
+    if(!matches.length||(opts.unique&&matches.length!==1))return false;
+    from=matches[0].index;to=from+matches[0][0].length;
+  }else if(matches.length){from=matches[0].index;to=from+matches[0][0].length}
   else{const k=Math.min(6,ws.length),a=low.match(quoteRe(ws.slice(0,k))),b=low.match(quoteRe(ws.slice(-k)));
     if(a&&b&&b.index>=a.index){from=a.index;to=b.index+b[0].length}else return false}
   const at=o=>{let lo=0,hi=nodes.length-1;while(lo<hi){const mid=(lo+hi+1)>>1;if(nodes[mid][1]<=o)lo=mid;else hi=mid-1}return [nodes[lo][0],o-nodes[lo][1]]};
@@ -966,7 +972,8 @@ function showQuote(root,scroller,quote,scale){
   const rr=r.getBoundingClientRect(),sr=scroller.getBoundingClientRect();
   scroller.scrollBy({top:(rr.top-sr.top-sr.height/3)/scale,behavior:'smooth'});
   clearHit();try{CSS.highlights.set('digress-hit',new Highlight(r))}catch(e){}
-  hitTimer=setTimeout(clearHit,8000);return true;
+  if(opts.sticky){hitSticky=true}else{hitTimer=setTimeout(clearHit,8000)}
+  return true;
 }
 // --- the panel: Review / Inbox / All ---
 const KS={scope:'all',thread:null,tab:'review',shown:false,editing:null,fixing:null,skipped:[],reviewed:0};
@@ -1696,7 +1703,7 @@ async function exportDigress(id,o){const {file,title}=await digressFile(id,o);sa
 // Markdown: each thread a section; a branch follows the thread it came from, under the passage it was about
 function convMarkdown(c){
   const kids=(tid)=>Object.values(c.threads).filter(t=>t.parent===tid&&!t.alt).sort((a,b)=>(a.created||0)-(b.created||0));
-  const say=(m)=>String(m.content||m.text||'').trim(),out=[`# ${c.title||'Conversation'}`,''];
+  const say=(m)=>stripCiteQuotes(String(m.content||m.text||'')).trim(),out=[`# ${c.title||'Conversation'}`,''];
   const meta=[`Exported from Digress, ${new Date().toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'})}`,c.doc&&`about “${c.doc.name||'a document'}”`].filter(Boolean).join(', ');
   out.push(`*${meta}.*`,'');
   const walk=(tid,depth)=>{
@@ -2587,7 +2594,9 @@ function highlightCode(code,lang){
 function renderRich(el,md,final,o={}){
   const maths=[];
   const cpys=[...el.querySelectorAll('.cbx>.cpy')];   // copy buttons drawn last time: put back below, so a press survives a streaming redraw
-  let html=marked.parse(protectMath(md||'',maths));
+  let src=md||'';
+  if(!final&&!o.doc)src=src.replace(/\[((?:pp?\.|pages?|parts?)\s*\d+|earlier|doc)\s+["“][^"”\n\]]*$/i,'[$1…]');
+  let html=marked.parse(protectMath(src,maths));
   html=o.doc?DOMPurify.sanitize(html):purifyNoRemote(html);
   html=html.replace(/@@M(\d+)@@/g,(_,i)=>`<span class="math${maths[+i]&&maths[+i].d?' display':''}" data-i="${i}"></span>`);
   el.innerHTML=html;
@@ -2618,7 +2627,7 @@ function renderRich(el,md,final,o={}){
   // click on it, and "Copied" stays showing
   el.querySelectorAll('.cbx').forEach((w,i)=>{const n=w.querySelector('.cpy'),o=cpys[i];if(n&&o){n.replaceWith(o);if(cpyPress&&cpyPress.b===o)cpyPress.moved=true}});
   el.querySelectorAll('a').forEach(a=>{a.target='_blank';a.rel='noopener'});
-  if(conv&&conv.doc&&conv.doc.kind==='pdf'&&!el.classList.contains('docbody'))linkPages(el);
+  if(!o.doc&&!el.classList.contains('docbody'))linkPages(el,{doc:conv&&conv.doc});
 }
 /* a code block's copy button: copies just the code, so there's no selecting (and no branch popup).
    A streaming reply is redrawn many times a second, and a press the redraw took the button out of mid-way (it's put
@@ -4644,12 +4653,64 @@ function offerMark(){
   if(r.top>pr.top&&r.top<pr.bottom)return;   // already in view
   toast(`You left a mark ${m[0]==='p'?'at ':''}${markLabel(m)}.`,{label:'Go back to it',fn:goToMark});
 }
-async function goToPage(n){
+async function goToPage(n,quote){
   openDocPane();await docReady();if(!docState||!docState.loaded)return;
   const el=paneEls.get('doc');if(!el)return;
   if(docState.kind!=='pdf'){revealPane('doc');return}
   n=Math.min(Math.max(1,n),docState.n);rememberSpot(el);
+  if(quote){
+    await scrollDocToPage(n,false);await renderPdfPage(n);revealPane('doc');
+    const pg=el.querySelector(`.dpage[data-page="${n}"]`),pb=el.querySelector('.pb');
+    if(pg&&showQuote(pg,pb,quote,1,{exact:true,unique:true,sticky:true}))return;
+    await scrollDocToPage(n,true);return;
+  }
   requestAnimationFrame(async()=>{await scrollDocToPage(n);revealPane('doc')});
+}
+async function goToDocPart(part,quote){
+  openDocPane();await docReady();if(!docState||!docState.loaded)return;
+  const el=paneEls.get('doc');if(!el)return;
+  revealPane('doc');
+  const body=el.querySelector('.docbody'),pb=el.querySelector('.pb');if(!body||!pb)return;
+  rememberSpot(el);
+  if(quote&&showQuote(body,pb,quote,1,{exact:true,unique:true,sticky:true}))return;
+  if(part>=1&&docState.pages&&docState.pages[part-1]){
+    const line=docState.pages[part-1].split(/\n+/).map(s=>s.trim()).find(s=>quoteWords(s).length>=3);
+    if(line){
+      const nodes=[],w=document.createTreeWalker(body,NodeFilter.SHOW_TEXT);let text='',nd;
+      while((nd=w.nextNode())){nodes.push([nd,text.length]);text+=nd.data}
+      const m=text.toLowerCase().match(quoteRe(quoteWords(line).slice(0,8)));
+      if(m){const at=o=>{let lo=0,hi=nodes.length-1;while(lo<hi){const mid=(lo+hi+1)>>1;if(nodes[mid][1]<=o)lo=mid;else hi=mid-1}return [nodes[lo][0],o-nodes[lo][1]]};
+        const r=document.createRange(),[a,ao]=at(m.index);r.setStart(a,ao);r.setEnd(a,ao);
+        pb.scrollBy({top:r.getBoundingClientRect().top-pb.getBoundingClientRect().top-24,behavior:'smooth'})}
+    }
+  }
+}
+function goToEarlier(fromMid,quote){
+  if(!conv||!quote)return;
+  const from=conv.msgs[fromMid];if(!from)return;
+  const prior=[];let stop=false;
+  ThreadOps.walk(conv,from.thread,m=>{if(stop)return;if(m.id===fromMid){stop=true;return}prior.push(m)});
+  const ws=quoteWords(quote);if(ws.length<2)return;
+  const re=quoteRe(ws);
+  let hit=null;
+  for(const m of [...prior].reverse()){
+    if(m.role!=='assistant'&&m.role!=='user'&&m.role!=='note')continue;
+    if(re.test(String(m.content||'').toLowerCase())||re.test(plain(m.content||'').toLowerCase())){hit=m;break}
+  }
+  if(!hit){toast('Couldn’t find that earlier passage.');return}
+  markBack();
+  if(conv.ui.view==='canvas'){
+    focusCard(hit.thread,hit.id);
+    setTimeout(()=>{const n=$('#cv').querySelector(`.cnode[data-ctid="${hit.thread}"]`);if(!n)return;
+      showQuote(n.querySelector(`.cfull .msg[data-mid="${hit.id}"] .body`),n.querySelector('.cfull'),quote,contentScale(n),{exact:true,sticky:true})},350);
+    return;
+  }
+  openThread(hit.thread);conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==hit.thread);layout();revealPane(hit.thread);
+  requestAnimationFrame(()=>{
+    const pe=paneEls.get(hit.thread),b=pe&&pe.querySelector(`.msg[data-mid="${hit.id}"] .body`);
+    if(b&&showQuote(b,pe.querySelector('.pb'),quote,1,{exact:true,sticky:true}))return;
+    revealMsg(hit.thread,hit.id);
+  });
 }
 async function revealDocAnchor(t,quiet){
   openDocPane();await docReady();if(!docState||!docState.loaded)return;
@@ -4665,24 +4726,54 @@ async function revealDocAnchor(t,quiet){
     setTimeout(wires,450);
   });
 }
-function linkPages(root){
-  // [p. 4], [p. 20–22], and lists: [p. 2, 7], [pp. 5, 13–15], [p. 4; p. 26–27]: each page or range is its own link
+function linkPages(root,opts){
+  // [p. 4], [p. 4 "exact phrase"], [p. 20–22], lists ([p. 2, 7]), [part 4 "exact phrase"], [doc "…"], and [earlier "…"]
+  const hasDoc=opts&&'doc' in opts;
+  const allowPdf=!hasDoc||!!(opts.doc&&opts.doc.kind==='pdf');
+  const allowPart=!hasDoc||!!(opts.doc&&opts.doc.kind!=='pdf');
   const ITEM=String.raw`(?:pp?\.\s*)?\d+(?:\s*[–-]\s*\d+)?`;
-  const test=/\[(?:pp?\.|pages?)\s*\d+/i,re=new RegExp(String.raw`\[(?:pp?\.|pages?)\s*`+ITEM+String.raw`(?:\s*[,;]\s*`+ITEM+String.raw`)*\]`,'gi'),item=new RegExp(ITEM,'g');
+  const PITEM=String.raw`(?:parts?\s*)?\d+(?:\s*[–-]\s*\d+)?`;
+  const parts=[String.raw`\[earlier\s+["“]([^"”\n\]]+)["”]\]`];
+  if(allowPdf){
+    parts.push(String.raw`\[((?:pp?\.|pages?)\s*\d+(?:\s*[–-]\s*\d+)?)\s+["“]([^"”\n\]]+)["”]\]`);
+    parts.push(String.raw`\[(?:pp?\.|pages?)\s*`+ITEM+String.raw`(?:\s*[,;]\s*`+ITEM+String.raw`)*\]`);
+  }
+  if(allowPart){
+    parts.push(String.raw`\[((?:parts?)\s*\d+(?:\s*[–-]\s*\d+)?)\s+["“]([^"”\n\]]+)["”]\]`);
+    parts.push(String.raw`\[doc\s+["“]([^"”\n\]]+)["”]\]`);
+    parts.push(String.raw`\[parts?\s*`+PITEM+String.raw`(?:\s*[,;]\s*`+PITEM+String.raw`)*\]`);
+  }
+  const re=new RegExp(parts.join('|'),'gi'),item=new RegExp(ITEM,'g'),pitem=new RegExp(PITEM,'gi');
   const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement&&n.parentElement.closest('pre,code,.math,svg,a,mjx-container')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
-  const hits=[];let n;while((n=w.nextNode()))if(test.test(n.nodeValue))hits.push(n);
+  const hits=[];let n;while((n=w.nextNode())){re.lastIndex=0;if(re.test(n.nodeValue))hits.push(n)}
   for(const node of hits){
     const s=node.nodeValue,frag=document.createDocumentFragment();let last=0,m;re.lastIndex=0;
-    const link=(text,page)=>{const a=document.createElement('a');a.className='pref';a.dataset.page=page;a.textContent=text;a.title=`Show page ${page} in the document`;return a};
+    const mk=(text,attrs,title)=>{const a=document.createElement('a');a.className='pref';for(const [k,v] of Object.entries(attrs))a.dataset[k]=v;a.textContent=text;a.title=title;return a};
     while((m=re.exec(s))){
       frag.append(s.slice(last,m.index));
-      // the citation's items, past its opening "[p. ": the first link takes the "[p. " and the last the "]", so one item reads as before
-      const c=m[0],open=c.match(/^\[(?:pp?\.|pages?)\s*/i)[0],items=[];let it;item.lastIndex=open.length;
-      while((it=item.exec(c)))items.push({at:it.index,end:it.index+it[0].length,page:it[0].match(/\d+/)[0]});
-      items.forEach((x,i)=>{
-        if(i)frag.append(c.slice(items[i-1].end,x.at));
-        frag.append(link((i===0?c.slice(0,x.at):'')+c.slice(x.at,x.end)+(i===items.length-1?c.slice(x.end):''),x.page));
-      });
+      const c=m[0];
+      const qm=c.match(/^\[((?:pp?\.|pages?|parts?)\s*\d+(?:\s*[–-]\s*\d+)?|earlier|doc)\s+["“]([^"”\n\]]+)["”]\]$/i);
+      if(qm){
+        const head=qm[1],quote=qm[2].trim();
+        if(/^earlier$/i.test(head))frag.append(mk('[earlier]',{earlier:'1',cite:quote},'Show earlier passage'));
+        else if(/^doc$/i.test(head))frag.append(mk('[doc]',{doccite:'1',cite:quote},'Show passage in the document'));
+        else if(/^parts?/i.test(head)){const num=head.match(/\d+/)[0];frag.append(mk(`[${head}]`,{part:num,cite:quote},`Show passage in part ${num}`))}
+        else{const num=head.match(/\d+/)[0];frag.append(mk(`[${head}]`,{page:num,cite:quote},`Show passage on page ${num}`))}
+      }else if(/^\[parts?/i.test(c)){
+        const open=c.match(/^\[parts?\s*/i)[0],items=[];let it;pitem.lastIndex=open.length;
+        while((it=pitem.exec(c)))items.push({at:it.index,end:it.index+it[0].length,part:it[0].match(/\d+/)[0]});
+        items.forEach((x,i)=>{
+          if(i)frag.append(c.slice(items[i-1].end,x.at));
+          frag.append(mk((i===0?c.slice(0,x.at):'')+c.slice(x.at,x.end)+(i===items.length-1?c.slice(x.end):''),{part:x.part},`Show part ${x.part} in the document`));
+        });
+      }else{
+        const open=c.match(/^\[(?:pp?\.|pages?)\s*/i)[0],items=[];let it;item.lastIndex=open.length;
+        while((it=item.exec(c)))items.push({at:it.index,end:it.index+it[0].length,page:it[0].match(/\d+/)[0]});
+        items.forEach((x,i)=>{
+          if(i)frag.append(c.slice(items[i-1].end,x.at));
+          frag.append(mk((i===0?c.slice(0,x.at):'')+c.slice(x.at,x.end)+(i===items.length-1?c.slice(x.end):''),{page:x.page},`Show page ${x.page} in the document`));
+        });
+      }
       last=m.index+c.length;
     }
     frag.append(s.slice(last));node.replaceWith(frag);
@@ -5586,8 +5677,9 @@ async function openResult(r,keep){
    The matched words are painted with the CSS Highlight API (no DOM changes, so anchors are untouched) and
    the pane scrolls to the place where most of them sit close together. Without the API it still scrolls. */
 function hitTerms(r){return matchTerms(r,r.q||PAL.q)}
-let hitTimer=0;
-function clearHit(){clearTimeout(hitTimer);try{CSS.highlights.delete('digress-hit')}catch(e){}}
+let hitTimer=0,hitSticky=false;
+function clearHit(){clearTimeout(hitTimer);hitTimer=0;hitSticky=false;try{CSS.highlights.delete('digress-hit')}catch(e){}}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.defaultPrevented&&hitSticky)clearHit()});
 // where a passage (plain text from the index) sits in the rendered text: find a run of its words
 // (from its start, middle or end, since math and diagrams render differently); null if none matches
 function passageAt(low,near){
@@ -6367,6 +6459,7 @@ async function openConv(id){
     if(pick&&pick[1].ui)data.ui=pick[0].startsWith(DEVICE)?pick[1].ui:otherScreen(pick[1].ui);
   }catch(e){console.warn('layout not loaded',e)}}
   if(conv&&conv.id===id)return;
+  clearHit();
   setConv(data);
   if(conv.trashed)toast(`This conversation is in the trash: it’s deleted for good in ${trashLeft(conv)} day${trashLeft(conv)>1?'s':''}.`,{label:'Restore',fn:()=>restoreConv(id)});
 }
@@ -6570,7 +6663,15 @@ document.addEventListener('click',e=>{
   const brl=e.target.closest('[data-brlist]');if(brl){e.stopPropagation();toggleBrList(brl.dataset.brlist,brl);return}
   const delb=e.target.closest('[data-delb]');
   if(delb){e.stopPropagation();confirmDeleteBranch(delb.dataset.delb);return}
-  const pref=e.target.closest('a.pref');if(pref){e.preventDefault();goToPage(+pref.dataset.page);return}
+  const pref=e.target.closest('a.pref');
+  if(pref){
+    e.preventDefault();
+    if(pref.dataset.earlier){const msg=pref.closest('.msg');if(msg)goToEarlier(msg.dataset.mid,pref.dataset.cite||'')}
+    else if(pref.dataset.part||pref.dataset.doccite)goToDocPart(+(pref.dataset.part||0),pref.dataset.cite||'');
+    else goToPage(+pref.dataset.page,pref.dataset.cite||'');
+    return;
+  }
+  if(hitSticky&&e.target.closest('.docpane')&&window.getSelection().isCollapsed)clearHit();
   const tf=e.target.closest('[data-tfold]');if(tf){e.stopPropagation();toggleTreeFold(tf.dataset.tfold);return}
   const md=e.target.closest('[data-mapdoc]');if(md){if(conv.ui.view==='canvas')focusCard('doc');else{openDocPane();revealPane('doc')}return}
   const rs=e.target.closest('[data-resolve]');if(rs){e.stopPropagation();toggleResolved(rs.dataset.resolve);return}
@@ -6829,6 +6930,7 @@ function closeTopmost(){
   const app=$('#app');
   if(app.classList.contains('zenside')){zenSideAway();return true}
   if(app.classList.contains('sideopen')){app.classList.remove('sideopen');return true}
+  if(hitSticky){clearHit();return true}
   return false;
 }
 let backArmed=0;
