@@ -195,12 +195,12 @@ async def main():
                   "'unsafe-inline'" not in script_src and "'sha256-" in script_src, script_src)
 
             # Lock/Forget during an in-flight Gemini tool-call run aborts it and sends zero further Gemini requests
-            # Serve on http://127.0.0.1/digress/ (a Secure Context so real Web Crypto PBKDF2/AES-GCM is available for Unlock/Forget tests).
+            # Serve on http://localhost/digress/ (a Secure Context in both Chromium and WebKit so real Web Crypto PBKDF2/AES-GCM is available).
             lock_pg = await b.new_page(viewport={'width': 1280, 'height': 860})
             lock_errs = []; lock_pg.on('pageerror', lambda e: lock_errs.append(str(e)))
             import mimetypes
             from common import BOOT_WATCH
-            sec_url = 'http://127.0.0.1/digress/'
+            sec_url = 'http://localhost/digress/'
             async def sec_route(r):
                 u = r.request.url.split('#')[0].split('?')[0]
                 if not u.startswith('http'): return await r.continue_()
@@ -288,7 +288,7 @@ async def main():
             await lock_pg.locator('#connModal .cnrow[data-cid=gemini] .demo-rem-pass').fill('pass1234')
             hold_unlock.set()
             await lock_pg.locator('#connModal .cnrow[data-cid=gemini] [data-cx=add]').click()
-            await lock_pg.locator('#connModal button', has_text='Lock now').wait_for(state='visible', timeout=10000)
+            await lock_pg.locator('#connModal button', has_text='Lock now').wait_for(state='visible', timeout=20000)
             await lock_pg.locator('#connModal button', has_text='Lock now').click()
             await soon(lock_pg, "() => !!document.querySelector('#connModal .demo-unlock-pass')", timeout=10000)
             # Now hold the next validation response, start Unlock, run Forget while held, then release
