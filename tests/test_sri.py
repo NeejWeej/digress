@@ -30,7 +30,7 @@ for u in urls:
     check(f'{u.split("/")[-1]}: in LIBS, with a copy here and the file’s hash', bool(f) and os.path.isfile(f) and h == sha(f), {'url': u, 'lib': l, 'page': h, 'node_modules': f and os.path.isfile(f) and sha(f)})
 check('libs.json lists exactly those copies', sorted(l[4:] for l, _ in libs.values()) == sorted(LIBS), [sorted(l[4:] for l, _ in libs.values()), LIBS])
 tags = re.findall(r'<script[^>]*?src="(lib/[^"]+)"[^>]*?integrity="([^"]+)"', page)
-check('the <script> tags load this server’s copies', len(tags) >= 4, tags)
+check('the <script> tags load this server’s copies', len(tags) >= 3, tags)
 byl = {l: h for l, h in libs.values()}
 for src, h in tags:
     check(f'<script src="{src}"> has LIBS’s hash for it', byl.get(src) == h, [h, byl.get(src)])

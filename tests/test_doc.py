@@ -1,6 +1,6 @@
 import asyncio, json
 from playwright.async_api import async_playwright
-from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app, booted, answered, frames, calm, PDF_DRAWN_JS, pdf_fitted
+from common import ROOT, PAGE, OUT, FIX, CHROME, launch_args, goto_app, booted, answered, drawn, frames, calm, PDF_DRAWN_JS, pdf_fitted
 from common import CORS
 MAP = {
     'marked.min.js': ROOT + 'marked/marked.min.js',
@@ -51,8 +51,10 @@ async def main():
         last = await pg.evaluate("window.__calls[0].slice(-1)[0].content")
         print('main ctx has <document>:', '<document>' in first, '| has [p. 2] text:', '[p. 2]' in first, '| page note:', 'currently looking at p. 1' in last)
         print('page links:', await pg.locator('.pane[data-tid=main] a.pref').count())
-        await pg.locator('.pane[data-tid=main] a.pref').nth(1).click(); await pg.locator('.dpage.flash').wait_for(); await calm(pg)
-        print('after link: page flash', await pg.locator('.dpage.flash').get_attribute('data-page'), 'header', await pg.locator('.docpane .ph-origin').text_content())
+        await pg.locator('.pane[data-tid=main] a.pref').nth(1).click(); await pg.locator('.dpage.flash').wait_for()
+        flashed = await pg.locator('.dpage.flash').get_attribute('data-page')
+        await calm(pg)
+        print('after link: page flash', flashed, 'header', await pg.locator('.docpane .ph-origin').text_content())
         # 3. highlight in page 2 and branch
         ok = await pg.evaluate("""() => { const tl=document.querySelector('.dpage[data-page="2"] .textLayer'); if(!tl) return 'no text layer';
             const w=document.createTreeWalker(tl,NodeFilter.SHOW_TEXT); let n; while((n=w.nextNode())){ const i=n.nodeValue.indexOf('square root'); if(i>=0){
@@ -98,7 +100,7 @@ async def main():
         # 7. pasted text document
         await pg.locator('#newDoc').click()
         await pg.locator('#docPaste').fill('# Notes on Raft\n\nRaft elects a **leader** that replicates the log to followers.\n\nA term is a logical clock: $t+1$ follows $t$.')
-        await pg.locator('#docGo').click(); await pg.wait_for_function("__digress.conv.doc&&__digress.conv.doc.kind==='text'&&(document.querySelector('.docbody')||{}).textContent?.includes('Raft')")
+        await pg.locator('#docGo').click(); await pg.wait_for_function("__digress.conv.doc&&__digress.conv.doc.kind==='text'&&(document.querySelector('.docbody')||{}).textContent?.includes('Raft')"); await drawn(pg)
         print('text doc body:', (await pg.locator('.docbody').inner_text())[:40].replace('\n',' / '))
         await pg.evaluate("""() => { const b=document.querySelector('.docbody'); const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT); let n;
           while((n=w.nextNode())){const i=n.nodeValue.indexOf('replicates the log'); if(i>=0){const r=document.createRange(); r.setStart(n,i); r.setEnd(n,i+18); const s=getSelection(); s.removeAllRanges(); s.addRange(r); break}}

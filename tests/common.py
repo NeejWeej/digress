@@ -42,8 +42,12 @@ def launch_args():
 def cached_math_page():
     """A copy of the app that loads MathJax synchronously, the way a warm browser cache behaves."""
     html = open(PAGE, encoding='utf-8').read()
-    fast = html.replace('<script async src="lib/mathjax', '<script src="lib/mathjax')
-    assert fast != html, 'MathJax script tag not found'
+    marker = 'window.MathJax='
+    i = html.index(marker)
+    end = html.index('</script>', i) + len('</script>')
+    tag = '\n<script src="lib/mathjax@3.2.2/es5/tex-svg-full.js" integrity="sha384-4kE/rQ11E8xT9QgrCBTyvenkuPfQo8rXYQvJZuMgxyPOoUfpatjQPlgdv6V5yhUK" crossorigin="anonymous"></script>'
+    fast = html[:end] + tag + html[end:]
+    assert fast != html, 'MathJax config block not found'
     path = os.path.join(OUT, f'cached_math.{os.getpid()}.html')   # per process: tests run in parallel
     open(path, 'w', encoding='utf-8').write(fast)
     return path
@@ -102,8 +106,9 @@ async def goto_app(pg, page=PAGE):
     await pg.add_init_script(BOOT_WATCH)   # after the fake server, so it sees the page's own requests
     await pg.route(APP_URL, lambda r: r.fulfill(path=page, content_type='text/html; charset=utf-8'))
     def serve(f):   # one handler per file (Playwright passes a second argument to two-parameter handlers)
-        return lambda r: r.fulfill(path=os.path.join(REPO, 'web', f), content_type='text/javascript; charset=utf-8')
-    for f in ('prompts.js', 'threads.js'):
+        ct = 'text/css; charset=utf-8' if f.endswith('.css') else 'text/javascript; charset=utf-8'
+        return lambda r: r.fulfill(path=os.path.join(REPO, 'web', f), content_type=ct)
+    for f in ('prompts.js', 'threads.js', 'styles.css'):
         await pg.route(APP_URL + f, serve(f))
     await pg.route(APP_URL + 'lib/**', serve_lib)   # the libraries, as the server serves them from node_modules
     await pg.goto(APP_URL)
@@ -256,8 +261,8 @@ async def changed(pg, expr, action, timeout=10000):
     await pg.wait_for_function(f"b => JSON.stringify({expr}) !== b", arg=before, timeout=timeout)
 
 
-# MathJax has started (window.__mathReady added its stylesheet and redrew the panes) and every diagram is drawn
-DRAWN_JS = ("!!document.getElementById('MJX-SVG-styles') && "
+# MathJax has started (when math is present, window.__mathReady added its stylesheet and redrew) and every diagram is drawn
+DRAWN_JS = ("(!document.querySelector('span.math') || !!document.getElementById('MJX-SVG-styles')) && "
             "[...document.querySelectorAll('.mermaid-box')].every(b => b.dataset.done && b.querySelector('svg, pre'))")
 
 

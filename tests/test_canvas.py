@@ -74,62 +74,66 @@ async def main():
         await pg.locator('#popIn').fill('Why lookup?'); await answered(pg, pg.locator('#popIn').press('Enter')); await drawn(pg); await calm(pg)
         # --- status toggle
         await pg.locator('.pane').nth(1).locator('.ph .sdot').click(); await frames(pg)
-        print('resolved: header', await pg.locator('.pane.res .ph .sdot.res').count(), 'marker', await pg.locator('.pane[data-tid=main] sup.fn.res').count(), 'anchor', await pg.locator('.pane[data-tid=main] .anchor.res').count(), 'tree', await pg.locator('#tree .mnode.res').count())
+        assert await pg.locator('.pane.res .ph .sdot.res').count() == 1
+        assert await pg.locator('.pane[data-tid=main] sup.fn.res').count() == 1
+        assert await pg.locator('.pane[data-tid=main] .anchor.res').count() >= 1
+        assert await pg.locator('#tree .mnode.res').count() == 1
         # --- jump buttons
         pb = pg.locator('.pane[data-tid=main] .pb')
         await pb.evaluate('e=>e.scrollTop=0'); await calm(pg)
-        print('dbg', await pg.evaluate("(()=>{const p=document.querySelector('.pane[data-tid=main]');const pb=p.querySelector('.pb');return [pb.scrollHeight,pb.clientHeight,pb.scrollTop,p.className, getComputedStyle(p.querySelector('.jump')).opacity]})()"))
-        print('jump visible when scrolled up:', await pg.locator('.pane[data-tid=main].away').count())
+        assert await pg.locator('.pane[data-tid=main].away').count() == 1
         await pg.locator('.pane[data-tid=main] [data-act=jend]').click(); await calm(pg)
-        print('at bottom after jend:', await pb.evaluate('e=>e.scrollHeight-e.scrollTop-e.clientHeight<5'))
+        assert await pb.evaluate('e=>e.scrollHeight-e.scrollTop-e.clientHeight<5')
         await pg.locator('.pane[data-tid=main] .pb').hover(); await pg.mouse.wheel(0,-2000); await calm(pg)
         await pg.locator('.pane[data-tid=main] [data-act=jlast]').click(); await calm(pg)
-        print('latest msg top offset:', await pg.evaluate("(()=>{const pb=document.querySelector('.pane[data-tid=main] .pb');const m=[...pb.querySelectorAll('.msgs>.msg')].slice(-2)[0];return Math.round(m.getBoundingClientRect().top-pb.getBoundingClientRect().top)})()"))
         await pb.evaluate('e=>e.scrollTop=e.scrollHeight'); await calm(pg)
         before = await pb.evaluate('e=>e.scrollTop')
         await pg.locator('.pane').nth(1).locator('.origin button[data-back]').click(); await calm(pg)
-        print('return button shown:', await pg.locator('.pane[data-tid=main].hasprev').count())
+        assert await pg.locator('.pane[data-tid=main].hasprev').count() == 1
         await pg.locator('.pane[data-tid=main] [data-act=jprev]').click(); await calm(pg)
-        print('returned to spot:', abs(await pb.evaluate('e=>e.scrollTop')-before)<5)
+        assert abs(await pb.evaluate('e=>e.scrollTop')-before) < 5
         await pg.screenshot(path=OUT + '/x1.png')
         # --- canvas
         await pg.locator('[data-v=canvas]').click(); await pg.locator('.cnode.main').wait_for(); await calm(pg)
-        print('cards', await pg.locator('.cnode').count(), 'edges', await pg.locator('#edges path').count())
+        assert await pg.locator('.cnode').count() == 2
+        assert await pg.locator('#edges path').count() == 1
         card = pg.locator('.cnode').nth(1); h = card.locator('.ch')
         bb = await h.bounding_box(); x0 = await card.evaluate('e=>e.offsetLeft')
         await pg.mouse.move(bb['x']+60, bb['y']+10); await pg.mouse.down(); await pg.mouse.move(bb['x']+260, bb['y']+160, steps=6); await pg.mouse.up()
         await frames(pg)
-        print('dragged moved x by', await card.evaluate('e=>e.offsetLeft')-x0, 'saved pos', await pg.evaluate("Object.keys(window.__dbg||{}).length"))
+        assert await card.evaluate('e=>e.offsetLeft') != x0
         # expand main card, branch from inside it, ask from inside a card
         await pg.locator('.cnode.main [data-cact=exp]').click(); await calm(pg)
-        print('expanded full msgs:', await pg.locator('.cnode.main .cfull .msg').count())
+        assert await pg.locator('.cnode.main .cfull .msg').count() == 4
         await pg.evaluate(SEL, ['.cnode.main .cfull .msg.assistant .body','query']); await pg.locator('#pop.show').wait_for()
-        print('popup in canvas:', await pg.locator('#pop.show').count())
+        assert await pg.locator('#pop.show').count() == 1
         await answered(pg, pg.locator('#popChips .chip').first.click()); await drawn(pg); await calm(pg)
-        print('cards after canvas branch', await pg.locator('.cnode').count(), 'expanded new card', await pg.locator('.cnode.exp').count())
+        assert await pg.locator('.cnode').count() == 3
+        assert await pg.locator('.cnode.exp').count() == 2
         newc = pg.locator('.cnode.exp').last
         ta3 = newc.locator('.cask textarea')
         h0 = await ta3.evaluate('e=>e.offsetHeight')
         await ta3.fill('a long question that keeps going ' * 12); await ta3.dispatch_event('input'); await frames(pg)
         h1 = await ta3.evaluate('e=>e.offsetHeight')
         await ta3.press('Shift+Enter'); await ta3.type('second line'); await frames(pg)
-        print('canvas box grows:', h0, '->', h1, '| shift+enter newline:', '\n' in await ta3.input_value())
+        assert h1 > h0 and '\n' in await ta3.input_value()
         await ta3.fill('')
         await newc.locator('.cask textarea').fill('follow-up from canvas'); await answered(pg, newc.locator('.cask textarea').press('Enter')); await drawn(pg); await calm(pg)
-        print('msgs in new card', await newc.locator('.cfull .msg').count())
+        assert await newc.locator('.cfull .msg').count() == 4
         # fold main
         await pg.locator('#zFit').click(); await calm(pg)
         await pg.locator('.cnode.main [data-cact=fold]').click(); await calm(pg)
-        print('cards when main folded', await pg.locator('.cnode').count())
+        assert await pg.locator('.cnode').count() == 1
         await pg.locator('.cnode.main [data-cact=fold]').click(); await calm(pg)
         await pg.locator('#zFit').click(); await calm(pg)
         await pg.screenshot(path=OUT + '/x2.png')
         await pg.locator('#zTidy').click(); await calm(pg)
-        print('cards after tidy', await pg.locator('.cnode').count())
+        assert await pg.locator('.cnode').count() == 3
         # back to columns, make sure panes render
         await pg.locator('[data-v=cols]').click(); await calm(pg)
-        print('panes after return', await pg.locator('.pane').count(), 'main msgs', await pg.locator('.pane[data-tid=main] .msg').count())
-        print('\n'.join(errs[:20]) or 'no errors')
+        assert await pg.locator('.pane').count() >= 2 and await pg.locator('.pane[data-tid=main] .msg').count() == 4
+        assert not [e for e in errs if e.startswith('PAGEERR')], errs[:10]
+        print('all passed')
         await b.close()
 
 asyncio.run(main())

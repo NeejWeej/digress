@@ -102,7 +102,13 @@
       if (window.fakeOffline && method !== 'GET') throw new TypeError('Failed to fetch');   // a test can drop the connection for saves (window.fakeOffline)
       if (method !== 'GET') window.__saves = (window.__saves || 0) + 1;
       const coll = p[2], id = p[3], k = KEY + coll + '/';
-      if (!id && method === 'GET') return json(keys(k).map((key) => ({ id: key.slice(k.length), data: JSON.parse(localStorage.getItem(key)) })));
+      if (!id && method === 'GET') {
+        const rows = keys(k).map((key) => ({ id: key.slice(k.length), data: JSON.parse(localStorage.getItem(key)) }));
+        if (coll === 'convs' && url.searchParams.has('meta')) {
+          return json(rows.map(({ id: i, data: c }) => ({ id: i, data: { _meta: true, dropCards: !!c.dropCards, id: c.id || i, title: c.title, updated: c.updated, created: c.created, pinned: !!c.pinned, archived: !!c.archived, trashed: c.trashed || 0, folder: c.folder || '', system: typeof c.system === 'string' ? c.system : '', doc: !!c.doc, docName: c.doc ? c.doc.name || '' : '', asset: (c.doc && c.doc.assetId) || '', pins: Object.values(c.threads || {}).filter((t) => t && t.pinned).map((t) => ({ tid: t.id, title: t.title, ci: t.colorIdx })) } })));
+        }
+        return json(rows);
+      }
       if (method === 'GET' && url.searchParams.has('rev')) { const v = localStorage.getItem(k + id); return v ? json({ rev: JSON.parse(v).rev || 0 }) : json({ error: 'Not found' }, 404); }
       if (method === 'GET') { const v = localStorage.getItem(k + id); return v ? json(JSON.parse(v)) : json({ error: 'Not found' }, 404); }
       if (method === 'PUT') {   // conversations: versions, as the real server (x-base-rev -> 409 / 410)

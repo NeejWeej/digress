@@ -20,7 +20,7 @@ def check(name, ok, detail=''):
     if not ok: fails.append(name)
 
 CDNS = ('cdn.jsdelivr.net', 'cdnjs.cloudflare.com')
-LOADED = "!!(window.marked&&window.DOMPurify&&window.hljs&&window.MathJax&&window.MathJax.tex2svg)"
+LOADED = "!!(window.marked&&window.DOMPurify&&window.hljs)"
 
 def server_part(base):
     for l in LIBS:
@@ -92,6 +92,21 @@ async def search_loads(pg):
     try: await pg.wait_for_function('!!window.MiniSearch', timeout=15000); return True
     except Exception: return False
 
+async def math_loads(pg):
+    # MathJax loads lazily on first math content, not eagerly on an empty page
+    eager = await pg.evaluate('!!(window.MathJax && window.MathJax.tex2svg)')
+    await pg.evaluate("""(() => {
+      const c = __digress.conv;
+      c.msgs.m_math = { id: 'm_math', thread: 'main', role: 'assistant', content: 'Euler: $e^{i\\\\pi}+1=0$', ts: Date.now(), ver: 1 };
+      c.order.main = ['m_math'];
+      window.dispatchEvent(new Event('resize'));
+    })()""")
+    # trigger render via opening/switching view or reloading a pane with math
+    await pg.locator('[data-v=canvas]').click()
+    await pg.locator('.cnode.main [data-cact=exp]').click()
+    try: await pg.wait_for_function('!!(window.MathJax && window.MathJax.tex2svg)', timeout=20000); return (not eager, True)
+    except Exception: return (not eager, False)
+
 async def main():
     with tempfile.TemporaryDirectory() as data:
         proc, base = start({'DATA_DIR': data, 'CLAUDE_BIN': '/nonexistent/claude'})
@@ -103,7 +118,9 @@ async def main():
 
                 pg, errs, asked = await open_page(b, base, cdn=False)
                 await pg.wait_for_function(LOADED, timeout=20000)
-                check('CDNs unreachable: the page still gets marked, DOMPurify, highlight.js and MathJax', True)
+                check('CDNs unreachable: the page still gets marked, DOMPurify and highlight.js', True)
+                lazy_ok, mj_ok = await math_loads(pg)
+                check('…MathJax is lazy-loaded (not loaded on empty page) and loads from lib/ when math appears', lazy_ok and mj_ok, (lazy_ok, mj_ok))
                 check('…and search’s library when it’s first needed', await search_loads(pg))
                 await pg.screenshot(path=OUT + '/local_libs_search.png')
                 check('…and its fonts, and a font picked later (Lexend)', not await fonts_missing(pg, ['Lexend Variable']), await fonts_missing(pg, ['Lexend Variable']))

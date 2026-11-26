@@ -9,7 +9,7 @@ only the article's own image links. Asserts and exits non-zero.
 """
 import asyncio, http.server, json, os, re, shutil, sys, tempfile, threading, time
 from playwright.async_api import async_playwright
-from common import OUT, launch_args, BOOT_WATCH, booted, replies, settled, answered, saved, soon
+from common import OUT, launch_args, BOOT_WATCH, booted, replies, settled, answered, saved, soon, drawn
 from common import CORS
 from test_server import FAKES, CDN, start
 
@@ -88,6 +88,7 @@ async def main():
             check('the link needs an OK first, like a PDF link', await pg.locator('#docGo').text_content() == 'Open anyway')
             await pg.locator('#docGo').click()
             await pg.wait_for_function("__digress.conv.doc&&__digress.conv.doc.article&&!!document.querySelector('.docwrap .abar')&&(document.querySelector('.docbody')||{}).textContent?.includes('ZEBRA-ART')")
+            await drawn(pg)
             body = pg.locator('.docbody')
             text = await body.inner_text()
             check('the article opens in reader view: its heading and text', 'Why attention scales' in text and 'ZEBRA-ART' in text and 'Scaling by the square root' in text, text[:300])
