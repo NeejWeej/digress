@@ -84,6 +84,7 @@ async def main():
         # bring the page break into view, so page 2 is drawn too
         await pg.evaluate("(()=>{const pb=document.querySelector('.pane[data-tid=doc] .pb'),p2=pb.querySelector('.dpage[data-page=\"2\"]');pb.scrollTop+=p2.getBoundingClientRect().top-pb.getBoundingClientRect().top-pb.clientHeight/2})()")
         await pg.wait_for_function("!!document.querySelector('.dpage[data-page=\"2\"] .textLayer span')")
+        await settle(pg)
         last1, first2 = await pg.evaluate(SELECT)
         await pg.locator('#pop.show').wait_for(timeout=5000)
         check('the branch popup opens for a selection across pages', True)
@@ -117,6 +118,7 @@ async def main():
         await pg2.set_input_files('#docFile', pdf); await pg2.locator('#docGo').click(); await pdf_drawn(pg2)
         await pg2.evaluate("(()=>{const pb=document.querySelector('.pane[data-tid=doc] .pb'),p2=pb.querySelector('.dpage[data-page=\"2\"]');pb.scrollTop+=p2.getBoundingClientRect().top-pb.getBoundingClientRect().top-pb.clientHeight/2})()")
         await pg2.wait_for_function("!!document.querySelector('.dpage[data-page=\"2\"] .textLayer span')")
+        await settle(pg2)
         texts = await pg2.evaluate(SELECT2)
         check('the generated PDF has the callout and footer after the body in its text layer, and a header on page 2',
               texts and texts[0].index('CALLOUTBOX stands alone') > texts[0].index('nu xi omicron pi') and 'Report 1' in texts[0] and texts[1][0] == 'Report header', texts)

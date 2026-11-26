@@ -78,8 +78,8 @@ async def main():
         await pg.keyboard.press('Escape'); await pg.locator('#pal').wait_for(state='hidden')
         await pg.locator('#newDoc').click()
         await pg.set_input_files('#docFile', FIX + '/paper.pdf'); await pg.locator('#docGo').click()
-        # the document's text is read (its header says "Page 1 of 3"), and it's saved
-        await pg.wait_for_function(r"(()=>{const o=document.querySelector('.pane[data-tid=doc] .ph-origin');return __digress.conv.doc&&o&&/Page \d+ of \d+/.test(o.textContent)})()"); await saved(pg)
+        # the document's text is read and indexed, and the conversation is saved
+        await pg.wait_for_function(r"(()=>{const id=__digress.conv.id,o=document.querySelector('.pane[data-tid=doc] .ph-origin'),ix=JSON.parse(localStorage.getItem('fakesrv:index/'+id)||'null');return __digress.conv.doc&&o&&/Page \d+ of \d+/.test(o.textContent)&&ix&&ix.e&&ix.e.some(x=>x.k==='d')})()"); await saved(pg)
         await new_conv(pg)
         await pg.keyboard.press('Control+k'); await pg.locator('#pal.show').wait_for(); await pg.wait_for_function("!document.getElementById('palFoot').textContent")
         await search(pg, 'saturating')
