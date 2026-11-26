@@ -26,7 +26,7 @@ fs.writeFileSync(path.join(OUT, 'index.html'), html);
 
 // the rest of web/, except the service worker: the demo has its own (demo/sw.js), which keeps nothing offline and
 // only makes a visit after a deploy get the new page
-for (const f of fs.readdirSync(from('web'))) if (f !== 'index.html' && f !== 'sw.js') fs.copyFileSync(from('web', f), path.join(OUT, f));
+for (const f of fs.readdirSync(from('web'))) if (f !== 'index.html' && f !== 'sw.js') fs.cpSync(from('web', f), path.join(OUT, f), { recursive: true });
 fs.copyFileSync(from('demo', 'sw.js'), path.join(OUT, 'sw.js'));
 for (const f of ['demo.js', 'replies.js', 'sample.pdf', 'seed.json']) fs.copyFileSync(from('demo', f), path.join(OUT, 'demo', f));
 

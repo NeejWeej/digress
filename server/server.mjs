@@ -724,10 +724,12 @@ function devEvents(req, res) {
 }
 if (DEV) {
   let t = null;
-  watch(path.dirname(WEB), () => {
+  const onWebChange = () => {
     clearTimeout(t);
     t = setTimeout(() => { for (const c of devClients) c.write('event: reload\ndata: web\n\n'); console.log('[dev] web changed, reloading', devClients.size, 'page(s)'); }, 120);
-  });
+  };
+  try { watch(path.dirname(WEB), { recursive: true }, onWebChange); }
+  catch { watch(path.dirname(WEB), onWebChange); }
 }
 const DEV_CLIENT = `<script>(()=>{
   let boot=null,want=false;
@@ -819,10 +821,15 @@ async function route(req, res) {
     return sendStatic(req, res, WEB, 'text/html; charset=utf-8', { 'cache-control': 'no-cache' }, inject);
   }
   // sw.js: the service worker that lets you review flashcards offline; prompts.js: what the page tells the
-  // model; threads.js: how a conversation's threads fit together
+  // model; threads.js: how a conversation's threads fit together; js/*.js: client ES modules
   if (req.method === 'GET' && ['/sw.js', '/prompts.js', '/threads.js', '/styles.css'].includes(url.pathname)) {
     const type = url.pathname.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8';
     return sendStatic(req, res, path.join(ROOT, 'web', url.pathname.slice(1)), type, { 'cache-control': 'no-cache' });
+  }
+  if (req.method === 'GET' && /^\/js\/[a-z0-9_-]+\.js$/i.test(url.pathname)) {
+    const f = path.join(ROOT, 'web', url.pathname.slice(1));
+    if (!existsSync(f)) return fail(res, 404, 'Not found');
+    return sendStatic(req, res, f, 'text/javascript; charset=utf-8', { 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' });
   }
   // the logo: the browser tab icon (follows light/dark), the phone home-screen icons, and the manifest that makes
   // the page installable as an app (Install app on Android)

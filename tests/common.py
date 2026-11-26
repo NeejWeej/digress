@@ -110,6 +110,12 @@ async def goto_app(pg, page=PAGE):
         return lambda r: r.fulfill(path=os.path.join(REPO, 'web', f), content_type=ct)
     for f in ('prompts.js', 'threads.js', 'styles.css'):
         await pg.route(APP_URL + f, serve(f))
+    async def serve_js(r):
+        rel = r.request.url.split(APP_URL, 1)[1].split('?')[0]
+        f = os.path.join(REPO, 'web', rel)
+        if not os.path.isfile(f): return await r.fulfill(status=404, body='not found')
+        await r.fulfill(path=f, content_type='text/javascript; charset=utf-8')
+    await pg.route(APP_URL + 'js/**', serve_js)
     await pg.route(APP_URL + 'lib/**', serve_lib)   # the libraries, as the server serves them from node_modules
     await pg.goto(APP_URL)
 
@@ -337,7 +343,8 @@ async def goto_site(pg, site, path=''):
             if f.endswith('index.html'):   # BOOT_WATCH after demo.js, so it sees the requests demo.js answers
                 html = open(f, encoding='utf-8').read().replace('<script src="demo/demo.js"></script>', '<script src="demo/demo.js"></script><script>' + BOOT_WATCH + '</script>', 1)
                 return await r.fulfill(body=html, content_type='text/html; charset=utf-8')
-            return await r.fulfill(path=f, content_type=(mimetypes.guess_type(f)[0] or 'application/octet-stream'))
+            ct = 'text/javascript; charset=utf-8' if f.endswith('.js') else (mimetypes.guess_type(f)[0] or 'application/octet-stream')
+            return await r.fulfill(path=f, content_type=ct)
         for k, v in CDN.items():
             if u.endswith(k): return await r.fulfill(path=ROOT + v, content_type='application/javascript', headers=CORS)
         f = cdn_font(u)
