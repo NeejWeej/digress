@@ -54,6 +54,7 @@ What you see: this path and nothing else. You don't see the learner's other side
     docImage: (alt, whole) => `[Side question about ${whole ? 'an image' : 'this part of an image'} in the document${alt ? ` ("${alt}")` : ''}, shown in this image:]\n`,
     docShot: (text) => `[Side question about this part of the document, shown in this image${text ? `. Text found inside it: "${text}"` : ''}:]\n`,
     docSnip: (page, text) => `[Side question about this area of the document (p. ${page}), shown in this image${text ? `. Text found inside it: "${text}"` : ''}:]\n`,
+    clip: (quote, title, url, hasImages) => `[Side question about this clipped ${title ? `item (“${title}”)` : 'passage'}${url ? ` from ${url}` : ''}${hasImages ? ', with the attached image(s)' : ''}:]\n${quote}\n\n`,
     // a long document's branch also carries the text of its page and the pages on either side
     around: (range, text) => `[The text of ${range}, around it:]\n${text}\n\n`,
   },

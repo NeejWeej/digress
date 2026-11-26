@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Digress Clipper — Settings</title>
+<style>
+  body{font:14px/1.5 system-ui,-apple-system,sans-serif;max-width:740px;margin:28px auto;padding:0 20px;color:#1f2328;background:#fff}
+  @media (prefers-color-scheme:dark){body{color:#e6edf3;background:#0d1117}input,select{background:#161b22;color:#e6edf3;border-color:#30363d}button.sec{background:#21262d;color:#e6edf3;border-color:#30363d}table{border-color:#30363d}}
+  h1{font-size:20px;margin:0 0 6px}
+  h2{font-size:15px;margin:24px 0 8px}
+  p.hint{font-size:12.5px;color:#6e7781;margin:4px 0 12px}
+  input[type=text],input[type=url],select{padding:6px 8px;border:1px solid #d0d7de;border-radius:6px;font:inherit}
+  .urlrow{display:flex;gap:8px}
+  .urlrow input{flex:1}
+  table{width:100%;border-collapse:collapse;margin-top:8px}
+  th,td{text-align:left;padding:6px 6px;border-bottom:1px solid #e5e7eb;font-size:13px}
+  td input[type=text]{width:100%;box-sizing:border-box}
+  button{padding:6px 12px;border-radius:6px;font:inherit;cursor:pointer;border:1px solid #d0d7de;background:#f6f8fa}
+  button.pri{background:#d97706;border-color:#d97706;color:#fff;font-weight:500}
+  .bar{display:flex;align-items:center;gap:10px;margin-top:16px}
+  .status{font-size:13px;color:#16a34a}
+</style>
+</head>
+<body>
+  <h1>Digress Clipper Settings</h1>
+  <p class="hint">Point the clipper at your own Digress server (local or Tailscale) and choose where each site lands.</p>
+
+  <h2>Digress URL</h2>
+  <div class="urlrow">
+    <input id="digressUrl" type="url" placeholder="https://your-box.tailnet.ts.net or http://127.0.0.1:8788">
+  </div>
+  <p class="hint">Requests go straight to your Digress tab—no API keys or server CORS changes needed.</p>
+
+  <h2>Per-site rules</h2>
+  <p class="hint">First matching rule wins. Patterns match a hostname (<code>x.com</code>), wildcard subdomain (<code>*.substack.com</code>), or URL prefix (<code>x.com/i/lists/123</code>).</p>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:28%">Site / URL pattern</th>
+        <th style="width:24%">Action</th>
+        <th style="width:30%">Conversation name (if branch)</th>
+        <th style="width:10%">Focus</th>
+        <th style="width:8%"></th>
+      </tr>
+    </thead>
+    <tbody id="rulesBody"></tbody>
+  </table>
+  <div class="bar">
+    <button type="button" class="sec" id="addRule">+ Add rule</button>
+  </div>
+
+  <h2>Default (everything else)</h2>
+  <div class="bar">
+    <select id="fbMode">
+      <option value="doc">New document conversation</option>
+      <option value="branch">Branch in conversation</option>
+    </select>
+    <input id="fbConv" type="text" placeholder="Conversation name (if branch)">
+    <label><input id="fbFocus" type="checkbox"> Focus Digress tab</label>
+  </div>
+
+  <div class="bar" style="margin-top:24px">
+    <button type="button" class="pri" id="save">Save settings</button>
+    <button type="button" class="sec" id="reset">Reset defaults</button>
+    <span class="status" id="status"></span>
+  </div>
+
+  <script src="rules.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

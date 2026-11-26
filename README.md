@@ -105,6 +105,7 @@ Digress is a zero-build client (`web/index.html` + `web/styles.css`) and a zero-
 ## Documentation
 
 - [Feature guide](docs/guide.md) — detailed reference for every feature, theme, view, prompt/skill, and setting.
+- [Browser Clipper extension](docs/clipper.md) — clip tweets, selections, and paywalled articles straight into Digress with per-site rules.
 - [Setup and configuration](docs/setup.md) — model connections, `.env` options, link fetching, and data layout.
 - [Flashcards](docs/flashcards.md) — drafting, inbox, FSRS review, fixing cards, and offline sync.
 - [Using it from other devices](docs/remote-access.md) — Tailscale, running as a service, and phone/iPad use.
