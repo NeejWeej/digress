@@ -197,7 +197,7 @@ async def main():
             # Lock/Forget during an in-flight Gemini tool-call run aborts it and sends zero further Gemini requests;
             # Unlock vs Forget race keeps tab disconnected, deletes record, and falls back to demo replies.
             # Served on https://digress.test/digress/ (Secure Context for Web Crypto) with in-page fetch stub for Gemini.
-            lock_ctx = await b.new_context(viewport={'width': 1280, 'height': 860}, ignore_https_errors=True)
+            lock_ctx = await b.new_context(viewport={'width': 1280, 'height': 860}, ignore_https_errors=True, service_workers='block')
             lock_pg = await lock_ctx.new_page()
             lock_errs = []; lock_pg.on('pageerror', lambda e: lock_errs.append(str(e)))
             import mimetypes
@@ -281,7 +281,9 @@ async def main():
             # Unlock vs Forget race: if Forget completes while Unlock is awaiting Google's key check,
             # the tab stays disconnected, the saved record stays absent, and chat falls back to demo replies.
             await lock_pg.evaluate("document.querySelector('#demoSide [data-demo=conn]').click()")
-            await lock_pg.wait_for_selector('#connModal.show .cnrow[data-cid=gemini] .cnkey')
+            if not await soon(lock_pg, "() => !!document.querySelector('#connModal.show .cnrow[data-cid=gemini] .cnkey')", timeout=10000):
+                diag = await lock_pg.evaluate("({ secure: window.isSecureContext, subtle: !!(window.crypto && crypto.subtle), modal: (document.getElementById('connModal')||{}).className, html: (document.getElementById('connModal')||{}).innerText })")
+                raise RuntimeError(f'Connections modal did not show key input: {diag}')
             await lock_pg.locator('#connModal .cnrow[data-cid=gemini] .cnkey').fill('race-key-9999')
             await lock_pg.locator('#connModal .cnrow[data-cid=gemini] .demo-rem-cb').check()
             await lock_pg.locator('#connModal .cnrow[data-cid=gemini] .demo-rem-pass').fill('pass1234')
