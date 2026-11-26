@@ -45,16 +45,17 @@ async def main():
         await pg.evaluate("""() => { const b=document.querySelector('.pane[data-tid=main] .msg.assistant .body'); const w=document.createTreeWalker(b,NodeFilter.SHOW_TEXT); let n;
           while((n=w.nextNode())){const i=n.nodeValue.indexOf('soft dictionary'); if(i>=0){const r=document.createRange(); r.setStart(n,i); r.setEnd(n,i+15); const s=getSelection(); s.removeAllRanges(); s.addRange(r); break}} }""")
         await soon(pg, "() => !!document.querySelector('#pop.show')")
-        print('popup after touch selection:', await pg.locator('#pop.show').count())
+        assert await pg.locator('#pop.show').count() == 1
         await pg.screenshot(path=OUT + '/m2.png')
-        if await pg.locator('#pop.show').count():
-            await pg.locator('#popIn').fill('Why?'); await answered(pg, pg.locator('#popIn').press('Enter'))
-            await pg.screenshot(path=OUT + '/m3.png')
+        await pg.locator('#popIn').fill('Why?'); await answered(pg, pg.locator('#popIn').press('Enter'))
+        assert await pg.locator('.pane').count() == 2
+        await pg.screenshot(path=OUT + '/m3.png')
         await pg.locator('[data-v=rows]').click(); await calm(pg)
         await pg.screenshot(path=OUT + '/m4.png')
         await pg.locator('#tSide').click(); await calm(pg)
         await pg.screenshot(path=OUT + '/m5.png')
-        print('top bar overflows:', await pg.evaluate("(()=>{const t=document.querySelector('.top');return t.scrollWidth>t.clientWidth+2})()"))
-        print('\n'.join(errs[:15]) or 'no errors')
+        assert not await pg.evaluate("(()=>{const t=document.querySelector('.top');return t.scrollWidth>t.clientWidth+2})()")
+        assert not [e for e in errs if e.startswith('PAGEERR')], errs[:10]
+        print('all passed')
         await b.close()
 asyncio.run(main())

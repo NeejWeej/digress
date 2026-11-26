@@ -51,51 +51,55 @@ async def main():
         hb = await card.locator('.ch .ct').bounding_box()
         await pg.mouse.move(hb['x']+10, hb['y']+8); await pg.mouse.down()
         await pg.mouse.move(cvb['x']+cvb['width']-8, cvb['y']+cvb['height']/2, steps=12)
-        print('snap preview shown:', await pg.locator('#snapPrev').evaluate("e=>getComputedStyle(e).display"))
+        assert await pg.locator('#snapPrev').evaluate("e=>getComputedStyle(e).display") != 'none'
         await pg.mouse.up(); await calm(pg)
         d = pg.locator(f'#dock .cnode[data-ctid="{tid}"]')
         r = await rect(f'#dock .cnode[data-ctid="{tid}"]')
-        print('stuck to right half:', await d.count()==1, '| rect', r, '| canvas', [round(cvb['x']),round(cvb['y']),round(cvb['width']),round(cvb['height'])])
-        print('stuck card shows full thread:', await d.locator('.cfull .msg').count(), '| line to it:', await pg.locator('#edges path').count())
+        assert await d.count() == 1 and r[0] > cvb['x'] + cvb['width'] * 0.4, (r, cvb)
+        assert await d.locator('.cfull .msg').count() == 2 and await pg.locator('#edges path').count() == 1
         # 2) pan + zoom the canvas: stuck card stays put
         await pg.mouse.move(cvb['x']+200, cvb['y']+cvb['height']-60); await pg.mouse.down(); await pg.mouse.move(cvb['x']+260, cvb['y']+cvb['height']-120, steps=5); await pg.mouse.up()
         await pg.locator('#zOut').click(); await calm(pg)
-        print('unmoved after pan/zoom:', await rect(f'#dock .cnode[data-ctid="{tid}"]')==r)
+        assert await rect(f'#dock .cnode[data-ctid="{tid}"]') == r
         # 3) per-card zoom on the main card with Alt+scroll, and via the header buttons
         main = pg.locator('#world .cnode.main'); mb = await main.bounding_box()
         w0 = await main.evaluate('e=>e.offsetWidth')
         await pg.mouse.move(mb['x']+40, mb['y']+60); await pg.keyboard.down('Alt'); await pg.mouse.wheel(0,-300); await pg.keyboard.up('Alt'); await calm(pg)
-        print('alt+scroll card zoom:', await main.locator('.zl').text_content(), '| width', w0, '->', await main.evaluate('e=>e.offsetWidth'))
+        assert await main.locator('.zl').text_content() != '100%'
         await main.locator('.zl').evaluate('e=>e.click()'); await main.locator('.zin').evaluate("e=>{e.value='100';e.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))}"); await calm(pg)
-        print('reset:', await main.locator('.zl').text_content(), await main.evaluate('e=>e.offsetWidth')==w0)
+        assert await main.locator('.zl').text_content() == '100%' and await main.evaluate('e=>e.offsetWidth') == w0
         await main.locator('[data-cact=zin]').evaluate('e=>e.click()'); await calm(pg)
-        print('header +:', await main.locator('.zl').text_content())
+        z_after = await main.locator('.zl').text_content()
+        assert z_after != '100%'
         # 4) Space reads the selected card full screen, Esc puts it back
         await main.locator('.ch .ct').dispatch_event('pointerdown'); await pg.keyboard.press('Space'); await calm(pg)
-        print('space -> main stuck full screen:', await pg.locator('#dock .cnode.main').count(), await rect('#dock .cnode.main'))
+        assert await pg.locator('#dock .cnode.main').count() == 1
         await pg.screenshot(path=OUT + '/k1.png')
         await pg.keyboard.press('Escape'); await calm(pg)
-        print('esc -> back on canvas:', await pg.locator('#world .cnode.main').count(), '| still main zoom', await pg.locator('#world .cnode.main .zl').text_content())
+        assert await pg.locator('#world .cnode.main').count() == 1 and await pg.locator('#world .cnode.main .zl').text_content() == z_after
         # 5) sticky toggle off: drop the right-half card onto the canvas where it is
         before = await rect(f'#dock .cnode[data-ctid="{tid}"]')
         await d.locator('[data-cact=stick]').click(); await calm(pg)
         after = await rect(f'#world .cnode[data-ctid="{tid}"]')
-        print('unstick keeps it in place:', before, '->', after)
+        assert abs(before[0] - after[0]) < 20 and abs(before[1] - after[1]) < 20, (before, after)
         # 6) sticky toggle on: lift it back onto the screen
         await pg.locator(f'#world .cnode[data-ctid="{tid}"] [data-cact=stick]').click(); await calm(pg)
-        print('stick again ->', await pg.locator(f'#dock .cnode[data-ctid="{tid}"]').count(), await rect(f'#dock .cnode[data-ctid="{tid}"]'))
+        assert await pg.locator(f'#dock .cnode[data-ctid="{tid}"]').count() == 1
         # 7) drag the stuck card away from the edge -> back onto the canvas, follows the pointer
         hb = await pg.locator(f'#dock .cnode[data-ctid="{tid}"] .ch .ct').bounding_box()
         await pg.mouse.move(hb['x']+10, hb['y']+8); await pg.mouse.down(); await pg.mouse.move(cvb['x']+400, cvb['y']+300, steps=10); await pg.mouse.up(); await calm(pg)
-        print('dragged off -> on canvas:', await pg.locator(f'#world .cnode[data-ctid="{tid}"]').count(), '| near pointer:', await rect(f'#world .cnode[data-ctid="{tid}"]'))
+        assert await pg.locator(f'#world .cnode[data-ctid="{tid}"]').count() == 1
         # 8) keyboard snapping + persistence
         await pg.locator(f'#world .cnode[data-ctid="{tid}"] .ch .ct').click(); await pg.keyboard.press('Control+Alt+ArrowLeft'); await calm(pg)
-        print('ctrl+alt+left -> left half:', await rect(f'#dock .cnode[data-ctid="{tid}"]'))
+        r_left = await rect(f'#dock .cnode[data-ctid="{tid}"]')
+        assert r_left[0] < cvb['x'] + 40, r_left
         await pg.locator('[data-v=cols]').click(); await calm(pg); await pg.locator('[data-v=canvas]').click(); await calm(pg)
-        print('still stuck after switching views:', await pg.locator(f'#dock .cnode[data-ctid="{tid}"]').count())
+        assert await pg.locator(f'#dock .cnode[data-ctid="{tid}"]').count() == 1
         await pg.set_viewport_size({'width':1200,'height':800}); await calm(pg)
-        print('follows window resize:', await rect(f'#dock .cnode[data-ctid="{tid}"]'))
+        r_resized = await rect(f'#dock .cnode[data-ctid="{tid}"]')
+        assert r_resized[2] < r_left[2], (r_left, r_resized)
         await pg.screenshot(path=OUT + '/k2.png')
-        print('\n'.join(errs[:15]) or 'no errors')
+        assert not [e for e in errs if e.startswith('PAGEERR')], errs[:10]
+        print('all passed')
         await b.close()
 asyncio.run(main())

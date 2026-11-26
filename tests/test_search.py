@@ -56,25 +56,27 @@ async def main():
         await pg.locator('#popIn').fill('Why a lookup?'); await answered(pg, pg.locator('#popIn').press('Enter')); await saved(pg); await pg.wait_for_function(INDEXED)
         await new_conv(pg)
         ta = pg.locator('.pane[data-tid=main] textarea'); await ta.fill('Second topic: Raft'); await answered(pg, ta.press('Enter')); await saved(pg); await pg.wait_for_function(INDEXED)
-        print('index entries written:', await pg.evaluate("Object.keys(localStorage).filter(k=>k.startsWith('fakesrv:index/')).length"))
+        assert await pg.evaluate("Object.keys(localStorage).filter(k=>k.startsWith('fakesrv:index/')).length") >= 2
         await pg.keyboard.press('Control+k'); await pg.locator('#pal.show #palRes .pr').first.wait_for()
-        print('palette open:', await pg.locator('#pal.show').count(), '| recent:', await pg.evaluate("[...document.querySelectorAll('#palRes .pr .ps')].map(e=>e.textContent)"))
+        assert await pg.locator('#pal.show').count() == 1
         await pg.wait_for_function("!!localStorage.getItem('fakesrv:index/cOLD')&&!document.getElementById('palFoot').textContent")   # the older conversation got indexed
-        print('index after backfill:', await pg.evaluate("Object.keys(localStorage).filter(k=>k.startsWith('fakesrv:index/')).length"))
+        assert await pg.evaluate("Object.keys(localStorage).filter(k=>k.startsWith('fakesrv:index/')).length") >= 3
         await search(pg, 'dictonary')
         res = await pg.evaluate("[...document.querySelectorAll('#palRes .pgrp, #palRes .pr')].map(e=>e.classList.contains('pgrp')?'## '+e.textContent:(e.querySelector('.pk').textContent+': '+e.querySelector('.ps').innerHTML.slice(0,80)))")
-        print('results for typo "dictonary":'); [print('   ',r) for r in res]
+        assert len(res) >= 2, res
         await pg.screenshot(path=OUT + '/s1.png')
         idx = await pg.evaluate("[...document.querySelectorAll('#palRes .pr')].findIndex(e=>e.querySelector('.pk').textContent==='Highlight')")
+        assert idx >= 0, res
         for _ in range(max(0,idx)): await pg.keyboard.press('ArrowDown')
         await pg.keyboard.press('Enter'); await pg.wait_for_function("!document.querySelector('#pal.show')&&__digress.conv.title==='Explain attention'&&document.querySelectorAll('.pane').length===2"); await calm(pg)
-        print('after Enter: palette closed', await pg.locator('#pal.show').count()==0, '| conversation', await pg.locator('#cTitle').text_content(), '| flashing highlight', await pg.locator('.anchor.flash').count(), '| panes', await pg.evaluate("[...document.querySelectorAll('.pane .ph-title')].map(t=>t.textContent)"))
+        assert await pg.locator('#pal.show').count() == 0 and await pg.locator('#cTitle').text_content() == 'Explain attention'
         await pg.locator('#sboxIn').click(); await pg.locator('#pal.show').wait_for()
-        print('sidebar search bar opens palette:', await pg.locator('#pal.show').count())
+        assert await pg.locator('#pal.show').count() == 1
         await search(pg, 'fourier')
-        print('"fourier" groups:', await pg.evaluate("[...document.querySelectorAll('#palRes .pgrp')].map(e=>e.textContent)"))
+        groups = await pg.evaluate("[...document.querySelectorAll('#palRes .pgrp')].map(e=>e.textContent)")
+        assert any('Fourier' in g for g in groups), groups
         await pg.keyboard.press('Control+Enter'); await pg.wait_for_function("__digress.conv.id==='cOLD'"); await calm(pg)
-        print('ctrl+enter: palette still open', await pg.locator('#pal.show').count(), '| conversation now', await pg.locator('#cTitle').text_content())
+        assert await pg.locator('#pal.show').count() == 1 and await pg.locator('#cTitle').text_content() == 'Fourier notes'
         await pg.keyboard.press('Escape'); await pg.locator('#pal').wait_for(state='hidden')
         await pg.locator('#newDoc').click()
         await pg.set_input_files('#docFile', FIX + '/paper.pdf'); await pg.locator('#docGo').click()
@@ -83,12 +85,13 @@ async def main():
         await new_conv(pg)
         await pg.keyboard.press('Control+k'); await pg.locator('#pal.show').wait_for(); await pg.wait_for_function("!document.getElementById('palFoot').textContent")
         await search(pg, 'saturating')
-        print('"saturating":', await pg.evaluate("[...document.querySelectorAll('#palRes .pr')].map(e=>e.querySelector('.pk').textContent+' | '+e.querySelector('.ps').textContent.slice(0,50))"))
+        assert await pg.locator('#palRes .pr').count() >= 1
         await pg.keyboard.press('Enter'); await pg.locator('.dpage.flash').wait_for()
         flashed = await pg.locator('.dpage.flash').get_attribute('data-page')
         await calm(pg)
-        print('opened doc at page:', await pg.locator('.docpane .ph-origin').text_content(), '| page flash', flashed)
+        assert flashed == '2', flashed
         await pg.screenshot(path=OUT + '/s2.png')
-        print('\n'.join(errs[:15]) or 'no errors')
+        assert not [e for e in errs if e.startswith('PAGEERR')], errs[:10]
+        print('all passed')
         await b.close()
 asyncio.run(main())

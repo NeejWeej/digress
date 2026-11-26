@@ -118,36 +118,21 @@ map of everything you've worked out about it, in one place.
 - **UI:** code views with line anchors (branch from a line range like from a highlight), file and symbol
   navigation, and a canvas that can lay branches out alongside the structure of the code.
 
-## Sharing a conversation
+## Sharing a conversation as a standalone `.html` file
 
-Send one whole conversation to someone as a single `.html` file. They can look around in it without
-installing anything, and, if they run Digress themselves, import it and carry on with their own Claude Code
-or ChatGPT login.
+Exporting and importing `.digress` archives (with optional document and flashcards), Markdown (`.md`), and Anki (`.csv`) is already built, and anyone without Digress can open a `.digress` file directly on the demo site (see [done.md](done.md)). What isn't built yet is a **self-contained single `.html` viewer** that works completely offline from `file://` without visiting the demo site:
 
-- **A live viewer, read-only:** built the way the demo is (`demo/build.mjs`): the real page with an
-  in-browser stand-in for the server, the conversation as its seed instead of `demo/seed.json`. Columns,
-  Rows, the canvas, branch chips and search all work; asking a question says to import it into Digress to
-  continue. Made in the browser from the page's own files (fetched from the server) plus the conversation
-  and its images. The libraries still come from CDNs, so it needs internet to open (bundling them adds
-  about 5–7 MB). To check: IndexedDB from a `file://` page, and HTML attachments on Android (some viewers
-  don't run scripts).
-- **Choosing what goes in:** a dialog lists the branches (hidden ones and other versions optional),
-  takeaways, images, the document and the file's size before saving. Never in it: flashcards (their own
-  collection), `run` ids, layouts, device and window ids. Model names and token counts optional.
-- **The document is included by default, with an option to leave it out** (it may be someone else's
-  paper). Left out, a document opened from a link (`doc.source`) is fetched again on import and checked
-  to be the same file, so branches still land on their passages; otherwise the reader can attach their
-  own copy.
-- **Import is the safety line.** The data sits in the file as inert JSON (`<script
-  type="application/json">`); importing reads the file as text and takes only that block, never running
-  its scripts, so an edited viewer can't reach the importer's Digress. Then: `ThreadOps.check`, size
-  limits and image types checked, a new conversation id, no `run`; nothing is sent to a model and no link
-  fetched until the reader acts. It's always a new conversation, so no merging. A file picker in the
-  sidebar, or drop the file on the page; not a button in the shared file that posts to a local Digress,
-  which would mean loosening `requestAllowed()`.
-- **Carrying on:** every request is rebuilt from saved messages (`buildContext`), so it works with
-  whichever provider the importer has; a model they don't have falls back to their default.
-- **Tests:** export → import round trip, a tampered file refused, the viewer opening from a local file.
+- **A live viewer, read-only:** built the way the demo is (`demo/build.mjs`), with the conversation as its seed instead of `demo/seed.json`. Columns, Rows, the canvas, branch chips and search all work; asking a question says to import it into Digress to continue. To check: IndexedDB from a `file://` page, bundling CDN libraries (~5–7 MB) for true offline viewing, and HTML attachments on Android (some viewers don't run scripts).
+- **Per-branch selection:** optionally picking specific branches (or leaving out model names / token counts) in the export dialog.
+
+## Client structure and runtime performance
+
+Startup, PDF memory, streaming highlighting, canvas caching, and incremental search have already been optimized (see [done.md](done.md)). Further cleanups if the app or conversation libraries grow much larger:
+
+- **Split client JS into native ES modules:** `web/styles.css` is already separate, while the ~7,300 lines of client JS still live in one `<script>` block inside `web/index.html`. Splitting pure/stateless modules first (`text.js` for `plain()`/`passages()`/`pdfTitleOk()`, `fsrs.js` for spaced repetition, `anchors.js` for `textWalker`/`anchorRange`), then UI subsystems (`canvas.js`, `pdf.js`, `cards.js`, `search.js`), keeps zero build step and unlocks fast Node unit tests alongside `threads.js`.
+- **Block-level streaming diffing:** `hljs` is cached during streaming, so code-heavy replies stay fast, but `marked.parse()` and `DOMPurify.sanitize()` still re-run on the whole reply every 70 ms. Splitting settled top-level blocks from the trailing active block would flatten CPU on very long (5,000+ word) streaming replies.
+- **Lighter connector wires:** updating existing SVG `<path>` `d` attributes in place instead of rebuilding `svg.innerHTML`, and bounding crossing `<mask>` rects to the viewport rather than a `30000×30000` user-space box.
+- **Search in a Web Worker:** incremental `MiniSearch` updates keep `Cmd+K` fast for dozens of conversations; if a library grows to hundreds of conversations and long textbooks, moving `MiniSearch` into a Web Worker would keep typing off the main thread completely.
 
 ## Videos, YouTube first
 

@@ -64,12 +64,15 @@ async def main():
         await pg.wait_for_timeout(300)   # deliberate: click before the slow model (2 s + 1.5 s) is ready
         await pg.locator('[data-ask]').first.click()
         await settled(pg, 1, timeout=20000)
-        print('errors shown:', await pg.locator('.err').count(), '| assistant msgs:', await pg.locator('.msg.assistant').count())
+        assert await pg.locator('.err').count() == 0 and await pg.locator('.msg.assistant').count() == 1
+        w0 = await pg.evaluate("document.getElementById('stage').getBoundingClientRect().width")
         await pg.locator('#tSide').click()
         await steady(pg, "document.getElementById('stage').getBoundingClientRect().width")
-        print('stage width after collapse:', await pg.evaluate("document.getElementById('stage').getBoundingClientRect().width"))
+        w1 = await pg.evaluate("document.getElementById('stage').getBoundingClientRect().width")
+        assert w1 > w0, (w0, w1)
         await pg.screenshot(path=OUT + '/s5.png')
-        print('\n'.join(errs[:20]) or 'no errors')
+        assert not [e for e in errs if e.startswith('PAGEERR')], errs[:10]
+        print('all passed')
         await b.close()
 
 asyncio.run(main())

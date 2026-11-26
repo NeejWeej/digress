@@ -79,29 +79,30 @@ async def main():
           const sup=b.querySelector('sup.fn'); return {anchored:[...b.querySelectorAll('.anchor')].map(a=>a.textContent).join('|'),
           supParent: sup && sup.closest('li') ? sup.closest('li').textContent.slice(0,40) : (sup? 'NOT IN LI: '+sup.parentElement.tagName : 'none'),
           lastIsSup: b.lastElementChild.lastElementChild && b.lastElementChild.lastElementChild.matches('sup.fn')} }""")
-        print('anchor', info)
+        assert 'ery' in info['anchored'] and 'each' in info['anchored'] and 'NOT IN LI' not in info['supParent'] and not info['lastIsSup'], info
         # nested branch so delete has a child
         await pg.evaluate("""() => { const body=document.querySelectorAll('.pane')[1].querySelector('.msg.assistant .body');
           const w=document.createTreeWalker(body,NodeFilter.SHOW_TEXT); let n; while((n=w.nextNode())){const i=n.nodeValue.indexOf('lookup'); if(i>=0){const r=document.createRange(); r.setStart(n,i); r.setEnd(n,i+6); const s=getSelection(); s.removeAllRanges(); s.addRange(r); break;}}
           document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true})); }""")
         await answered(pg, pg.locator('#popChips .chip').first.click()); await drawn(pg)
-        print('panes before', await pg.locator('.pane').count())
+        assert await pg.locator('.pane').count() == 3
         # tooltip on the pane delete button
         btn = pg.locator('.pane').nth(1).locator('.ph [data-delb]')
         await btn.hover(); await pg.locator('#tipbox.show').wait_for()   # after the 380 ms delay
-        print('tooltip:', await pg.locator('#tipbox.show').text_content())
+        assert 'Delete' in (await pg.locator('#tipbox.show').text_content() or '')
         await btn.click(); await pg.locator('#modal.show').wait_for()
-        print('modal:', (await pg.locator('#modal .mbox').inner_text()).replace('\n',' / '))
+        assert 'Delete' in await pg.locator('#modal .mbox').inner_text()
         await pg.screenshot(path=OUT + '/w1.png')
         await pg.locator('#mOk').click(); await pg.wait_for_function("!document.querySelector('#modal.show')"); await frames(pg)
-        print('panes after', await pg.locator('.pane').count(), 'threads', await pg.evaluate("document.querySelectorAll('#tree .mnode').length"))
+        assert await pg.locator('.pane').count() == 1 and await pg.evaluate("document.querySelectorAll('#tree .mnode').length") == 1
         # sidebar delete: make a new branch then delete from tree
         await changed(pg, "document.querySelectorAll('#tree .mnode').length", pg.locator('.pane[data-tid=main] [data-act=wbranch]').click())
         node = pg.locator('#tree .mnode').nth(1); await node.hover(); await node.locator('[data-delb]').click(); await pg.wait_for_function("!!document.querySelector('#modal.show')&&document.activeElement.id==='mOk'")   # open, and focused (20 ms later)
-        print('sidebar modal title:', await pg.locator('#mTitle').text_content())
+        assert 'Delete' in (await pg.locator('#mTitle').text_content() or '')
         await pg.keyboard.press('Escape'); await pg.wait_for_function("!document.querySelector('#modal.show')")
-        print('modal closed by esc:', await pg.locator('#modal.show').count()==0, 'tree nodes', await pg.locator('#tree .mnode').count())
-        print('\n'.join(errs[:20]) or 'no errors')
+        assert await pg.locator('#modal.show').count() == 0 and await pg.locator('#tree .mnode').count() == 2
+        assert not [e for e in errs if e.startswith('PAGEERR')], errs[:10]
+        print('all passed')
         await b.close()
 
 asyncio.run(main())
