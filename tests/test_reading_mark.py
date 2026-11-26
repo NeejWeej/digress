@@ -63,8 +63,7 @@ async def main():
 
         # coming back to the conversation: offered, and it goes there
         await pg.evaluate("document.querySelector('.docpane .pb').scrollTop=0"); await frames(pg)
-        await soon(pg, "()=>__digress.sync.sent&&!document.querySelector('#status').textContent.includes('Saving')")
-        await pg.wait_for_timeout(700)   # (deliberate: let the save land in the fake server's storage)
+        await soon(pg, "()=>__digress.sync.base&&__digress.sync.base.doc&&Array.isArray(__digress.sync.base.doc.mark)&&__digress.sync.base.doc.mark[1]===2")
         await pg.reload(); await booted(pg); await pg.wait_for_function(PDF_DRAWN_JS)
         check('the mark is kept with the conversation', (await pg.evaluate(MARK) or [None, None])[1] == 2)
         t = pg.locator('#toast.show')
