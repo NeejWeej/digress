@@ -6,7 +6,7 @@ browser process alive and giving every test fresh isolated BrowserContexts (cook
 IndexedDB, service workers, cache). Pass `--isolated` to spawn a separate Python + browser process per
 test file. The slowest run first, by the times recorded last run, so the long ones don't end up last.
 
-    python3 tests/run_all.py [-j N] [--isolated] [name ...]"""
+    python3 tests/run_all.py [-j N] [--isolated] [--shard K/N] [name ...]"""
 import json, os, queue, subprocess, sys, threading, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -15,11 +15,16 @@ args = sys.argv[1:]
 cpus = os.cpu_count() or 2
 jobs = max(1, min(10, cpus - 2 if cpus > 4 else cpus // 2))
 isolated = False
+shard = None
 while args:
     if args[0] == '-j':
         jobs = int(args[1]); args = args[2:]
     elif args[0] == '--isolated':
         isolated = True; args = args[1:]
+    elif args[0] == '--shard':
+        k, n = (int(x) for x in args[1].split('/'))
+        assert 1 <= k <= n, f'bad --shard {args[1]}'
+        shard = (k, n); args = args[2:]
     else:
         break
 only = args
@@ -30,6 +35,9 @@ except Exception: last = {}
 
 names = sorted(n for n in os.listdir(here) if n.startswith('test_') and n.endswith('.py') and (not only or any(o in n for o in only)))
 names.sort(key=lambda n: -last.get(n, 60))   # unknown ones count as slow-ish
+if shard:
+    k, n = shard
+    names = [name for i, name in enumerate(names) if i % n == k - 1]
 
 def run_isolated(name):
     t = time.time()
