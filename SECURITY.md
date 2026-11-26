@@ -20,4 +20,4 @@ Anything that gets around one of these is worth reporting. So is a way for a web
 ## Not a problem in Digress
 
 - Exposing the server to the public internet yourself. It has no login and the docs say not to.
-- The [demo site](https://digress.nijat-khanbabayev.workers.dev/): static files on Cloudflare Workers, with no server and no model behind it. Everything a visitor does stays in their own browser.
+- The [demo site](https://digress.neejweej.workers.dev/): static files on Cloudflare Workers, with no server and no model behind it. Everything a visitor does stays in their own browser.
