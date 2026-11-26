@@ -187,6 +187,68 @@ async def main():
             check('…checking Remember reveals the encryption password input', await crow.locator('.demo-rem-pass').is_visible())
             await pg.locator('#connModal [data-cx=close]').click(); await frames(pg)
 
+            # CSP header built into _headers drops 'unsafe-inline' from script-src and uses sha256 hashes
+            headers_txt = open(os.path.join(site, '_headers')).read()
+            csp_line = next((ln.split('Content-Security-Policy:', 1)[1].strip() for ln in headers_txt.splitlines() if 'Content-Security-Policy:' in ln), '')
+            script_src = next((part.strip() for part in csp_line.split(';') if part.strip().startswith('script-src')), '')
+            check('_headers CSP removes unsafe-inline from script-src and uses sha256 hashes',
+                  "'unsafe-inline'" not in script_src and "'sha256-" in script_src, script_src)
+
+            # Lock/Forget during an in-flight Gemini tool-call run aborts it and sends zero further Gemini requests
+            lock_pg = await b.new_page(viewport={'width': 1280, 'height': 860})
+            lock_errs = []; lock_pg.on('pageerror', lambda e: lock_errs.append(str(e)))
+            gen_calls = {'count': 0}
+            async def fake_gemini(route):
+                u = route.request.url
+                if '/models?' in u:
+                    await route.fulfill(status=200, content_type='application/json',
+                        body=json.dumps({'models': [{'name': 'models/gemini-2.5-flash', 'displayName': 'Gemini 2.5 Flash', 'supportedGenerationMethods': ['generateContent'], 'inputTokenLimit': 1000000}]}))
+                    return
+                if ':streamGenerateContent' in u:
+                    gen_calls['count'] += 1
+                    # First call requests a document tool call so the run pauses waiting for /api/chat/tool
+                    sse = 'data: ' + json.dumps({'candidates': [{'content': {'parts': [{'functionCall': {'id': 'tc1', 'name': 'search', 'args': {'query': 'bayes'}}}]}, 'finishReason': 'STOP'}]}) + '\n\n'
+                    await route.fulfill(status=200, content_type='text/event-stream', body=sse)
+                    return
+                await route.abort()
+            await goto_site(lock_pg, site); await booted(lock_pg)
+            await lock_pg.route('https://generativelanguage.googleapis.com/**', fake_gemini)
+            # Connect a fake Gemini key, start a chat with tools, hold the tool call, Lock/Disconnect, then release tool result
+            res_lock = await lock_pg.evaluate("""async () => {
+                const put = await fetch('api/connections/gemini', { method: 'PUT', headers: {'content-type': 'application/json'}, body: JSON.stringify({ key: 'fake-key-1234' }) });
+                if (!put.ok) return { ok: false, step: 'put', status: put.status };
+                const chatResp = await fetch('api/chat', {
+                  method: 'POST', headers: {'content-type': 'application/json'},
+                  body: JSON.stringify({ chat: 'chat-lock-1', model: 'gemini-2.5-flash', tools: ['search'], messages: [{ role: 'user', content: 'hi' }] })
+                });
+                const rd = chatResp.body.getReader(), dec = new TextDecoder();
+                let buf = '', toolId = null;
+                while (!toolId) {
+                  const { value, done } = await rd.read();
+                  if (done) break;
+                  buf += dec.decode(value, { stream: true });
+                  for (const ln of buf.split('\\n')) {
+                    if (!ln.trim()) continue;
+                    try { const o = JSON.parse(ln); if (o.tool && o.tool.id) toolId = o.tool.id; } catch {}
+                  }
+                }
+                if (!toolId) return { ok: false, step: 'no-tool' };
+                // Now disconnect/lock the key while the tool call is pending
+                await fetch('api/connections/gemini', { method: 'DELETE' });
+                // Attempt to deliver the tool result after locking
+                const tr = await fetch('api/chat/tool', {
+                  method: 'POST', headers: {'content-type': 'application/json'},
+                  body: JSON.stringify({ chat: 'chat-lock-1', id: toolId, parts: [{ type: 'text', text: 'result' }] })
+                });
+                // Drain stream to completion
+                while (!(await rd.read()).done) {}
+                return { ok: true, toolStatus: tr.status };
+            }""")
+            check('Lock/Forget aborts in-flight Gemini tool run and sends zero follow-up requests',
+                  res_lock.get('ok') and res_lock.get('toolStatus') == 404 and gen_calls['count'] == 1 and not lock_errs,
+                  [res_lock, gen_calls, lock_errs[:2]])
+            await lock_pg.close()
+
             # a phone: the note can be made small
             ph = await b.new_page(viewport={'width': 390, 'height': 800})
             ph.on('pageerror', lambda e: errs.append(str(e)))

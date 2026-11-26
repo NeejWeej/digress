@@ -41,9 +41,10 @@
 
   // ---- BYOK key state (private to this closure; never exposed on window or returned by /api/connections) ----
   let activeKey = null;          // decrypted Gemini API key, kept in memory only
+  let keyGen = 0;                // incremented on Lock / Forget / key change to invalidate in-flight runs & caches
   let savedMeta = null;          // { last4 } if an encrypted key exists in IndexedDB ('byok/gemini')
   let pendingAction = null;      // { type: 'unlock'|'lock'|'forget', pass? } coordinated with #connModal
-  let modelsCache = null;        // { key, at, list }
+  let modelsCache = null;        // { gen, at, list }
   const windows = new Map();     // model id -> inputTokenLimit
   const enc = new TextEncoder(), dec = new TextDecoder();
   const b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]); return btoa(s); };
@@ -107,19 +108,20 @@
       return { error: geminiError(await r.text(), r.status) };
     } catch (e) { return { error: 'Could not reach Google: ' + ((e && e.message) || e) }; }
   }
-  async function listGeminiModels(key) {
-    if (!key) return [];
-    if (modelsCache && modelsCache.key === key && Date.now() - modelsCache.at < 10 * 60e3) return modelsCache.list;
+  async function listGeminiModels(key, gen = keyGen) {
+    if (!key || gen !== keyGen) return [];
+    if (modelsCache && modelsCache.gen === gen && Date.now() - modelsCache.at < 10 * 60e3) return modelsCache.list;
     let list = [];
     try {
       const r = await realFetch(GEMINI_API + '/models?pageSize=1000', { headers: { 'x-goog-api-key': key } });
+      if (gen !== keyGen) return [];
       if (r.ok) {
         const ms = ((await r.json()).models || []).filter((m) => /^models\/gemini/.test(m.name || '') && (m.supportedGenerationMethods || []).includes('generateContent') && !SPECIAL.test(m.name));
         list = ms.map((m) => [m.name.slice(7), m.displayName || m.name.slice(7)]);
         for (const m of ms) if (Number.isFinite(m.inputTokenLimit)) windows.set(m.name.slice(7), m.inputTokenLimit);
       }
     } catch (e) { console.warn('demo: Gemini model list failed', e); }
-    modelsCache = { key, at: Date.now(), list };
+    if (gen === keyGen && activeKey === key) modelsCache = { gen, at: Date.now(), list };
     return list;
   }
   function pickDefaultModel(list, chosen) {
@@ -251,6 +253,12 @@
   // ---- replies: Gemini (when a key is connected) or demo/replies.js ----
   const runs = new Map();
   let resetting = false;   // "Start over" was pressed
+  function setActiveKey(nextKey) {
+    keyGen++;
+    activeKey = nextKey || null;
+    modelsCache = null;
+    for (const r of [...runs.values()]) { try { r.abort(); } catch { /* ignore */ } }
+  }
   function chatDemo(body) {
     const ctrl = new AbortController();
     if (body.chat) runs.set(body.chat, ctrl);
@@ -275,10 +283,12 @@
   }
 
   async function chatGemini(body) {
-    const key = activeKey;
+    const key = activeKey, gen = keyGen;
     if (!key) return chatDemo(body);
-    const list = await listGeminiModels(key);
+    const list = await listGeminiModels(key, gen);
+    if (gen !== keyGen) return json({ error: 'Gemini key was locked or changed.' }, 401);
     const prefs = (await kv.get('prefs')) || {};
+    if (gen !== keyGen) return json({ error: 'Gemini key was locked or changed.' }, 401);
     const [defId] = pickDefaultModel(list, prefs.defaultModel);
     const model = body.model && body.model !== 'auto' && body.model !== 'demo' ? body.model : defId;
     if (!model || model === 'demo') return json({ error: 'No Gemini models were returned for this key.' }, 502);
@@ -286,7 +296,8 @@
     const ctrl = new AbortController();
     let stopped = false, session = null;
     const stopAll = () => { stopped = true; ctrl.abort(); if (session) session.close(); };
-    if (body.chat) runs.set(body.chat, { abort: stopAll });
+    const runKey = body.chat || Symbol('run');
+    runs.set(runKey, { abort: stopAll });
 
     return new Response(new ReadableStream({
       cancel() { stopAll(); },
@@ -295,9 +306,11 @@
         const hb = setInterval(() => { if (!stopped) line({ hb: 1 }); }, 15000);
         try {
           session = await openToolSession(body.chat, body.tools, line);
+          if (stopped || gen !== keyGen) { line({ stopped: 'stop' }); return; }
           let contents = toGemini(body.messages), final = false, withEffort = true, withSearch = true;
           const NO_ANSWER = `Gemini hasn’t answered in ${Math.round(WAIT_MS / 1000)} seconds (Google may be overloaded). Try again in a little while, or pick another model.`;
           const once = async () => {
+            if (stopped || gen !== keyGen) throw new DOMException('Aborted', 'AbortError');
             const reqCtrl = new AbortController();
             const onStop = () => reqCtrl.abort();
             ctrl.signal.addEventListener('abort', onStop, { once: true });
@@ -313,10 +326,10 @@
           const send = async () => {
             for (let i = 0; ; i++) {
               const t0 = Date.now(), r = await once();
-              if (r.status !== 503 || i >= 2 || Date.now() - t0 > 15000 || stopped) return r;
+              if (r.status !== 503 || i >= 2 || Date.now() - t0 > 15000 || stopped || gen !== keyGen) return r;
               await r.text().catch(() => {});
               await new Promise((ok) => setTimeout(ok, RETRY_MS * (i + 1)));
-              if (stopped) return r;
+              if (stopped || gen !== keyGen) return r;
             }
           };
 
@@ -392,10 +405,10 @@
               if (round + 1 >= session.maxRounds) final = true;
               const resp = [];
               for (const fc of calls) resp.push(...resultParts(await session.call(fc.name, fc.args || {}), fc.name, fc.id));
-              if (stopped) { line({ stopped: 'stop' }); return; }
+              if (stopped || gen !== keyGen) { line({ stopped: 'stop' }); return; }
               contents = [...contents, { role: 'model', parts: modelParts }, { role: 'user', parts: resp }];
               try { up = await send(); } catch (e) {
-                if (stopped) { line({ stopped: 'stop' }); return; }
+                if (stopped || gen !== keyGen) { line({ stopped: 'stop' }); return; }
                 st.end = { error: e && e.name === 'AbortError' ? NO_ANSWER : 'Could not reach Google: ' + ((e && e.message) || e) };
                 break;
               }
@@ -418,7 +431,7 @@
         } finally {
           clearInterval(hb);
           if (session) session.close();
-          runs.delete(body.chat);
+          runs.delete(runKey);
           try { c.close(); } catch { /* already closed */ }
         }
       },
@@ -483,7 +496,7 @@
           try { key = await decryptKey(rec, act.pass); } catch (e) { return json({ error: e.message }, 400); }
           const chk = await checkGeminiKey(key);
           if (!chk.ok) return json({ error: chk.error }, 400);
-          activeKey = key; modelsCache = null;
+          setActiveKey(key);
           dismissDemoNote(); syncDemoUi();
           return json(connectionPayload());
         }
@@ -506,13 +519,13 @@
         } else {
           await kv.del('byok/gemini'); savedMeta = null;
         }
-        activeKey = key; modelsCache = null;
+        setActiveKey(key);
         dismissDemoNote(); syncDemoUi();
         return json(connectionPayload());
       }
       if (method === 'DELETE') {
         const act = pendingAction; pendingAction = null;
-        activeKey = null; modelsCache = null;
+        setActiveKey(null);
         if (!act || act.type !== 'lock') {
           await kv.del('byok/gemini'); savedMeta = null;
         }

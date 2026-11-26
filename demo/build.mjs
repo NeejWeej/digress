@@ -4,6 +4,7 @@
 // The page's own code isn't changed, only two <script> tags added at the top of <head>, so the demo is
 // whatever web/ is now. .github/workflows/demo.yml runs this on every push to main and publishes it to GitHub
 // Pages; tests/test_demo.py builds it into a temp folder and drives it.
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,11 +43,17 @@ fs.writeFileSync(path.join(OUT, 'demo', 'guide.json'), JSON.stringify({ docs }))
 // the tools the model can be given, for the Prompts page (GET /api/tools on the real server)
 fs.writeFileSync(path.join(OUT, 'demo', 'tools.json'), JSON.stringify({ tools: ALL_TOOLS.map((t) => ({ name: t.name, description: t.description, schema: t.schema })), maxCalls: MAX_TOOL_CALLS, maxCards: MAX_CARD_CALLS }));
 fs.writeFileSync(path.join(OUT, '.nojekyll'), '');
-// Cloudflare Workers static-asset headers: strict CSP (connect-src allows only self + Gemini for browser BYOK),
-// no-cache revalidation on app files, and immutable caching on versioned /lib/* files.
+// Cloudflare Workers static-asset headers: strict CSP without 'unsafe-inline' for scripts
+// (exact SHA-256 hashes of the fixed inline boot scripts in web/index.html are computed at build time),
+// connect-src allows only self + Gemini for browser BYOK, no-cache on app files, immutable on /lib/*.
+const scriptHashes = [];
+for (const m of html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)) {
+  const h = crypto.createHash('sha256').update(m[1], 'utf8').digest('base64');
+  scriptHashes.push(`'sha256-${h}'`);
+}
 fs.writeFileSync(path.join(OUT, '_headers'), [
   '/*',
-  "  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://generativelanguage.googleapis.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+  `  Content-Security-Policy: default-src 'self'; script-src 'self' ${scriptHashes.join(' ')}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://generativelanguage.googleapis.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'`,
   '  X-Content-Type-Options: nosniff',
   '  Referrer-Policy: no-referrer',
   '  X-Frame-Options: DENY',

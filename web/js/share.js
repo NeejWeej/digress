@@ -6,7 +6,8 @@ export const PUBLIC_DEMO_URL = 'https://digress.neejweej.workers.dev/';
 export const SHARE_PREFIX = '#share=';
 export const SHARE_GOOD_LEN = 8000;          // comfortable in almost every chat/email app
 export const SHARE_MAX_LEN = 65536;          // 64 KB URL cap; larger conversations use .digress files
-export const SHARE_MAX_DECODED = 2 * 1024 * 1024;   // 2 MiB uncompressed cap (gzip-bomb protection)
+export const SHARE_MAX_DECODED = 2 * 1024 * 1024;   // 2 MiB uncompressed cap for links (gzip-bomb protection)
+export const FILE_MAX_DECODED = 100 * 1024 * 1024;  // 100 MiB uncompressed cap for .digress files (allows PDFs/images)
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -119,9 +120,14 @@ export function shareSizeStatus(urlLen) {
 // (each ancestor truncated at the fork message; empty for CLIP/DOC/START branches). Always preserves a valid tree.
 export function sliceBranch(c, tid) {
   if (!c || !tid || tid === 'main' || !c.threads || !c.threads[tid]) return c;
-  const anc = [];
+  const anc = [], seen = new Set();
   let cur = c.threads[tid];
-  while (cur) { anc.unshift(cur.id); cur = cur.parent ? c.threads[cur.parent] : null; }
+  while (cur) {
+    if (seen.has(cur.id)) return c;
+    seen.add(cur.id);
+    anc.unshift(cur.id);
+    cur = cur.parent ? c.threads[cur.parent] : null;
+  }
   if (anc[0] !== 'main') return c;
   const subtree = new Set([tid]);
   let grew = true;
@@ -157,4 +163,49 @@ export function sliceBranch(c, tid) {
   const out = { ...JSON.parse(JSON.stringify(c)), threads, order, msgs };
   out.title = c.threads[tid].title || c.title || 'Shared branch';
   return out;
+}
+
+// Replace all non-'main' thread IDs and all message IDs in an imported conversation with fresh safe IDs,
+// updating every internal reference so sender-supplied IDs never enter local storage or the DOM.
+export function remapConvIds(c, makeId) {
+  let seq = 0;
+  const gen = typeof makeId === 'function' ? makeId : (p) => p + (++seq).toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  const tMap = new Map([['main', 'main']]);
+  const mMap = new Map();
+  for (const tid of Object.keys(c.threads || {})) {
+    if (tid !== 'main') tMap.set(tid, gen('t'));
+  }
+  for (const mid of Object.keys(c.msgs || {})) {
+    mMap.set(mid, gen('m'));
+  }
+  const threads = {}, order = {}, msgs = {};
+  for (const [oldTid, t] of Object.entries(c.threads || {})) {
+    const newTid = tMap.get(oldTid);
+    const nt = { ...t, id: newTid };
+    if (nt.parent != null) nt.parent = tMap.get(nt.parent) || null;
+    if (nt.anchorMsg && mMap.has(nt.anchorMsg)) nt.anchorMsg = mMap.get(nt.anchorMsg);
+    threads[newTid] = nt;
+  }
+  for (const [oldTid, ids] of Object.entries(c.order || {})) {
+    const newTid = tMap.get(oldTid);
+    if (!newTid) continue;
+    order[newTid] = (ids || []).map((id) => mMap.get(id)).filter(Boolean);
+  }
+  for (const [oldMid, m] of Object.entries(c.msgs || {})) {
+    const newMid = mMap.get(oldMid);
+    const nm = { ...m, id: newMid, thread: tMap.get(m.thread) || 'main' };
+    if (nm.fromThread != null) {
+      if (tMap.has(nm.fromThread)) nm.fromThread = tMap.get(nm.fromThread);
+      else delete nm.fromThread;
+    }
+    if (nm.upTo != null) {
+      if (mMap.has(nm.upTo)) nm.upTo = mMap.get(nm.upTo);
+      else delete nm.upTo;
+    }
+    msgs[newMid] = nm;
+  }
+  c.threads = threads;
+  c.order = order;
+  c.msgs = msgs;
+  return { tMap, mMap };
 }

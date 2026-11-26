@@ -15,8 +15,8 @@
 const ThreadOps = (() => {
   const T = (c, id) => c.threads[id];
 
-  // the thread ids from main down to tid
-  function ancestors(c, tid) { const p = []; let t = T(c, tid); while (t) { p.unshift(t.id); t = t.parent ? T(c, t.parent) : null; } return p; }
+  // the thread ids from main down to tid (returns [] if a parent cycle is encountered)
+  function ancestors(c, tid) { const p = [], seen = new Set(); let t = T(c, tid); while (t) { if (seen.has(t.id)) return []; seen.add(t.id); p.unshift(t.id); t = t.parent ? T(c, t.parent) : null; } return p; }
 
   // A side question's first message gets a prefix saying what it's about (index.html: branchParts). Another
   // version of a reply ('alt') doesn't: it's the same conversation going another way.
@@ -66,8 +66,12 @@ const ThreadOps = (() => {
         const m = c.msgs[id]; if (!m) bad.push(`order of ${tid} lists a missing message ${id}`); else if (m.thread !== tid) bad.push(`message ${id} says ${m.thread} but is in ${tid}`);
       }
     }
-    for (const id of Object.keys(c.msgs)) if (!seen.has(id)) bad.push(`message ${id} is in no thread`);
-    for (const t of Object.values(c.threads)) {
+    for (const [id, m] of Object.entries(c.msgs)) {
+      if (!m || m.id !== id) bad.push(`message ${id} has mismatched id`);
+      if (!seen.has(id)) bad.push(`message ${id} is in no thread`);
+    }
+    for (const [tid, t] of Object.entries(c.threads)) {
+      if (!t || t.id !== tid) { bad.push(`thread ${tid} has mismatched id`); continue; }
       if (!c.order[t.id]) bad.push(`thread ${t.id} has no order`);
       if (t.id === 'main') continue;
       const p = T(c, t.parent);

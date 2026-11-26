@@ -5,8 +5,12 @@ import { DAY, MIN, fsrsNext, ivlText } from '../web/js/fsrs.js';
 import { esc, trunc, texText, stripCiteQuotes, plain, pdfTitleOk, passages, indexEntries, idxPages, sigOf } from '../web/js/text.js';
 import {
   PUBLIC_DEMO_URL, SHARE_GOOD_LEN, SHARE_MAX_LEN,
-  encodeSharePayload, decodeSharePayload, buildShareUrl, parseShareHash, shareSizeStatus, sliceBranch,
+  encodeSharePayload, decodeSharePayload, buildShareUrl, parseShareHash, shareSizeStatus, sliceBranch, remapConvIds,
 } from '../web/js/share.js';
+import fs from 'node:fs';
+import vm from 'node:vm';
+
+const ThreadOps = vm.runInNewContext(fs.readFileSync(new URL('../web/threads.js', import.meta.url), 'utf8') + '\nThreadOps;');
 
 let passed = 0;
 async function test(name, fn) {
@@ -188,6 +192,59 @@ await test('share.js: sliceBranch prunes sibling branches and truncates ancestor
   assert.deepEqual(sc.order.main, []);
   assert.deepEqual(sc.order.clip1, ['uc1']);
   assert.deepEqual(Object.keys(sc.msgs), ['uc1']);
+});
+
+await test('share.js: remapConvIds replaces untrusted thread/message IDs and keeps tree valid', () => {
+  const evilTid = '"><img src=x onerror=alert(1)>';
+  const evilMid = '" onmouseover="alert(2)';
+  const c = {
+    id: 'c1', title: 'Test',
+    threads: {
+      main: { id: 'main', parent: null, title: 'Main thread', colorIdx: -1 },
+      [evilTid]: { id: evilTid, parent: 'main', anchorMsg: evilMid, anchorText: 'hi', title: 'Evil branch', colorIdx: 0 },
+      clip1: { id: 'clip1', parent: 'main', anchorMsg: 'CLIP', anchorText: 'clip', title: 'Clip', colorIdx: 1 },
+    },
+    msgs: {
+      [evilMid]: { id: evilMid, thread: 'main', role: 'assistant', content: 'hi there' },
+      u2: { id: 'u2', thread: evilTid, role: 'user', content: 'q' },
+      a2: { id: 'a2', thread: evilTid, role: 'assistant', content: 'a' },
+      n1: { id: 'n1', thread: 'main', role: 'note', fromThread: evilTid, upTo: 'a2', content: 'takeaway' },
+      uc: { id: 'uc', thread: 'clip1', role: 'user', content: 'clip q' },
+    },
+    order: { main: [evilMid, 'n1'], [evilTid]: ['u2', 'a2'], clip1: ['uc'] },
+  };
+  const { tMap, mMap } = remapConvIds(c);
+  assert.equal(tMap.get('main'), 'main');
+  assert.ok(!c.threads[evilTid], 'evil thread id removed');
+  assert.ok(!c.msgs[evilMid], 'evil msg id removed');
+  for (const tid of Object.keys(c.threads)) assert.match(tid, /^[A-Za-z0-9_-]+$/);
+  for (const mid of Object.keys(c.msgs)) assert.match(mid, /^[A-Za-z0-9_-]+$/);
+  const newEvilTid = tMap.get(evilTid);
+  const newEvilMid = mMap.get(evilMid);
+  assert.equal(c.threads[newEvilTid].anchorMsg, newEvilMid);
+  assert.equal(c.threads[tMap.get('clip1')].anchorMsg, 'CLIP');
+  assert.equal(c.msgs[mMap.get('n1')].fromThread, newEvilTid);
+  assert.equal(c.msgs[mMap.get('n1')].upTo, mMap.get('a2'));
+  assert.deepEqual([...ThreadOps.check(c)], []);
+});
+
+await test('threads.js & share.js: cyclic parent graphs terminate cleanly without hanging', () => {
+  const cyc = {
+    id: 'c1',
+    threads: {
+      main: { id: 'main', parent: null, title: 'Main' },
+      a: { id: 'a', parent: 'b', anchorMsg: 'm1', title: 'A' },
+      b: { id: 'b', parent: 'a', anchorMsg: 'm2', title: 'B' },
+    },
+    msgs: {
+      m1: { id: 'm1', thread: 'b', role: 'assistant', content: 'x' },
+      m2: { id: 'm2', thread: 'a', role: 'assistant', content: 'y' },
+    },
+    order: { main: [], a: ['m2'], b: ['m1'] },
+  };
+  const problems = ThreadOps.check(cyc);
+  assert.ok(problems.some((p) => /cycle|not under main/.test(p)), `expected cycle error, got ${problems}`);
+  assert.equal(sliceBranch(cyc, 'a'), cyc);
 });
 
 console.log(`\nall passed (${passed} tests)`);

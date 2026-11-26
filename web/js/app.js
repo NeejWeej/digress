@@ -9,12 +9,13 @@ import {
   partsText, joinParts, appendText, buildContext as buildContextPure,
 } from './context.js';
 import {
-  PUBLIC_DEMO_URL, encodeSharePayload, decodeSharePayload,
-  buildShareUrl, parseShareHash, shareSizeStatus, sliceBranch,
+  PUBLIC_DEMO_URL, FILE_MAX_DECODED, gunzipBytesCapped, encodeSharePayload, decodeSharePayload,
+  buildShareUrl, parseShareHash, shareSizeStatus, sliceBranch, remapConvIds,
 } from './share.js';
 
 /* ---------- constants ---------- */
 const PALETTE=['#d9774b','#3f8fd2','#3fa077','#9d6ad6','#cc9a2e','#d65a8a','#2a9ea3','#7f8f36'];
+const qid=(v)=>CSS.escape(String(v));
 // every instruction to the model is in web/prompts.js; the reader can replace the system prompt and the quick questions
 // (Prompts & skills: CUSTOM.prompts, the store's prompts/custom) and add skills (CUSTOM.skills, the store's skills)
 const CUSTOM={prompts:{},skills:new Map()};
@@ -486,7 +487,7 @@ function renderPending(tid){
     let st=host.querySelector(':scope > .cimgs');
     if(!list.length){if(st)st.remove();continue}
     if(!st){st=document.createElement('div');st.className='cimgs';host.insertBefore(st,before)}
-    st.innerHTML=list.map((im,i)=>`<span class="cimg"><img src="${im.url}" alt="Pasted image ${i+1}"><button type="button" class="cix" data-unpaste="${i}" data-utid="${tid}" title="Remove this image">${ic('x')}</button></span>`).join('');
+    st.innerHTML=list.map((im,i)=>`<span class="cimg"><img src="${im.url}" alt="Pasted image ${i+1}"><button type="button" class="cix" data-unpaste="${i}" data-utid="${esc(tid)}" title="Remove this image">${ic('x')}</button></span>`).join('');
   }
   updateComposer(tid);
 }
@@ -1441,7 +1442,12 @@ const DIGRESS_V=1;
 const isDigressFile=(f)=>!!f&&/\.digress$/i.test(f.name||'');
 const b64Blob=(b64,type)=>{const s=atob(b64),u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return new Blob([u],{type})};
 async function gzip(text){if(typeof CompressionStream==='undefined')return new Blob([text],{type:'application/json'});return new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).blob()}
-async function gunzipText(buf){const u=new Uint8Array(buf);if(u[0]===0x1f&&u[1]===0x8b)return new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).text();return new TextDecoder().decode(u)}
+async function gunzipText(buf){
+  const u=new Uint8Array(buf);
+  if(u.length>=2&&u[0]===0x1f&&u[1]===0x8b)return new TextDecoder().decode(await gunzipBytesCapped(u,FILE_MAX_DECODED));
+  if(u.byteLength>FILE_MAX_DECODED)throw new Error('That file is too large to open safely.');
+  return new TextDecoder().decode(u);
+}
 function saveFile(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),20000)}
 const fileSafe=(t)=>String(t||'').replace(/[\\/:*?"<>|\x00-\x1f]+/g,' ').replace(/\s+/g,' ').trim().slice(0,80)||'conversation';
 async function convFull(id){
@@ -1591,6 +1597,7 @@ async function importDigressData(d,kind='file'){
     if(problems.length){console.warn('import: skipped a conversation',problems);toast(`Part of that ${kind} is damaged, so it was left out.`);continue}
     const old=c.id,id='c'+Date.now().toString(36)+rid().slice(0,4);
     for(const k of ['rev','ui','trashed','archived','pinned','folder','dropCards','cards'])delete c[k];
+    const {tMap,mMap}=remapConvIds(c,(p)=>p+rid());
     c.id=id;c.title=typeof c.title==='string'&&c.title?c.title:'Shared conversation';c.created=+c.created||Date.now();c.updated=Date.now();c.nextColor=+c.nextColor||0;
     for(const m of Object.values(c.msgs)){for(const f of [...LOCAL_MSG,'run','runFrom'])delete m[f];for(const im of m.images||[])await restore(im)}
     if(c.doc){
@@ -1609,8 +1616,10 @@ async function importDigressData(d,kind='file'){
     n++;first=first||{id,title:c.title};
     for(const k of Array.isArray(d.cards)?d.cards:[]){
       if(!k||typeof k.front!=='string'||typeof k.back!=='string'||!k.front.trim()||(k.conv&&k.conv!==old))continue;
-      const card={id:'k'+rid()+rid(),conv:id,convTitle:c.title,thread:c.threads[k.thread]?k.thread:'main',at:k.at&&c.msgs[k.at.msg]?k.at:null,where:typeof k.where==='string'?k.where:'',src:typeof k.src==='string'?k.src:'',front:k.front,back:k.back,status:'inbox',created:Date.now(),due:null,fsrs:null,reviews:[]};
-      if(k.quote&&typeof k.quote.text==='string')card.quote=k.quote;
+      const newThread=(k.thread&&tMap.get(k.thread))||'main';
+      const newAt=k.at&&typeof k.at==='object'&&mMap.has(k.at.msg)?{...k.at,msg:mMap.get(k.at.msg),thread:tMap.get(k.at.thread)||c.msgs[mMap.get(k.at.msg)].thread}:null;
+      const card={id:'k'+rid()+rid(),conv:id,convTitle:c.title,thread:c.threads[newThread]?newThread:'main',at:newAt,where:typeof k.where==='string'?k.where:'',src:typeof k.src==='string'?k.src:'',front:k.front,back:k.back,status:'inbox',created:Date.now(),due:null,fsrs:null,reviews:[]};
+      if(k.quote&&typeof k.quote.text==='string')card.quote=k.quote.msg&&mMap.has(k.quote.msg)?{...k.quote,msg:mMap.get(k.quote.msg)}:{...k.quote};
       if(k.image&&typeof k.image==='object'){card.image={...k.image};await restore(card.image);if(!card.image.asset&&!card.image.data)delete card.image}
       await putCard(card);nc++;
     }
@@ -2279,21 +2288,21 @@ function revealAnchor(tid,quiet){
   const pe=paneEls.get(t.parent);if(!pe)return;
   requestAnimationFrame(()=>{
     const po=conv.order[t.parent],alt=t.alt?po[t.anchorMsg==='START'?0:po.indexOf(t.anchorMsg)+1]:null;
-    const a=alt?pe.querySelector(`.msg[data-mid="${alt}"]`):pe.querySelector(`.anchor[data-tid="${tid}"]`)||pe.querySelector(`.msg[data-mid="${t.anchorMsg}"]`);
+    const a=alt?pe.querySelector(`.msg[data-mid="${qid(alt)}"]`):pe.querySelector(`.anchor[data-tid="${qid(tid)}"]`)||pe.querySelector(`.msg[data-mid="${qid(t.anchorMsg)}"]`);
     if(!a)return;
     const pb=pe.querySelector('.pb');const ar=a.getBoundingClientRect(),br=pb.getBoundingClientRect();
     if(!quiet)rememberSpot(pe);
     pb.scrollBy({top:ar.top-br.top-br.height/3,behavior:'smooth'});
     revealPane(t.parent);
-    const spans=pe.querySelectorAll(`.anchor[data-tid="${tid}"]`);
+    const spans=pe.querySelectorAll(`.anchor[data-tid="${qid(tid)}"]`);
     if(spans.length)spans.forEach(s=>{s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash')});
-    else{const m=pe.querySelector(`.msg[data-mid="${alt||t.anchorMsg}"]`);if(m){m.style.setProperty('--c',color(t));m.classList.remove('flash');void m.offsetWidth;m.classList.add('flash')}}
+    else{const m=pe.querySelector(`.msg[data-mid="${qid(alt||t.anchorMsg)}"]`);if(m){m.style.setProperty('--c',color(t));m.classList.remove('flash');void m.offsetWidth;m.classList.add('flash')}}
     setTimeout(wires,450);
   });
 }
 function revealMsg(tid,mid){
   const pe=paneEls.get(tid);if(!pe)return;
-  requestAnimationFrame(()=>{const m=pe.querySelector(`.msg[data-mid="${mid}"]`);if(!m)return;const pb=pe.querySelector('.pb');rememberSpot(pe);
+  requestAnimationFrame(()=>{const m=pe.querySelector(`.msg[data-mid="${qid(mid)}"]`);if(!m)return;const pb=pe.querySelector('.pb');rememberSpot(pe);
     pb.scrollBy({top:m.getBoundingClientRect().top-pb.getBoundingClientRect().top-20,behavior:'smooth'});
     m.style.setProperty('--c',color(T(tid)));m.classList.remove('flash');void m.offsetWidth;m.classList.add('flash')});
 }
@@ -2606,10 +2615,10 @@ function msgEl(m){
   const c=msgCache.get(m.id);if(c&&c.key===key)return c.el;
   const el=document.createElement('div');el.className='msg '+m.role;el.dataset.mid=m.id;
   if(m.role==='user'){userMsgBody(el,m);const eb=editKeep(m.id),vs=versionsOf(m.id);
-    if(eb!=='busy'||vs.length>1)el.insertAdjacentHTML('beforeend',`<div class="uact${vs.length>1?' has-v':''}">${vs.length>1?`<button class="vchip" data-vers="${m.id}" title="This question was asked more than once from here. Open the other versions side by side.">${ic('versions')}${vs.length} versions</button>`:''}${eb!=='busy'?`<button class="ib" data-act="edit" title="${eb?'Edit and ask again in a new branch beside this one (this stays as it is)':'Edit this question and ask again'}">${ic('edit')}</button>`:''}</div>`)}
+    if(eb!=='busy'||vs.length>1)el.insertAdjacentHTML('beforeend',`<div class="uact${vs.length>1?' has-v':''}">${vs.length>1?`<button class="vchip" data-vers="${esc(m.id)}" title="This question was asked more than once from here. Open the other versions side by side.">${ic('versions')}${vs.length} versions</button>`:''}${eb!=='busy'?`<button class="ib" data-act="edit" title="${eb?'Edit and ask again in a new branch beside this one (this stays as it is)':'Edit this question and ask again'}">${ic('edit')}</button>`:''}</div>`)}
   else if(m.role==='note'){
     const src=T(m.fromThread);el.style.setProperty('--c',src?color(src):'var(--faint)');
-    el.innerHTML=`<div class="nh"><span class="d"></span>Takeaway from ${src?`<button class="nl" data-tkfrom="${m.id}" title="Open the branch at the last reply this takeaway saw"></button>`:'<i>deleted branch</i>'}<span style="flex:1"></span>${m.error?`<button class="ib" data-act="retry" title="Retry">${ic('retry')}</button>`:''}<button class="ib" data-act="delnote" title="Remove takeaway">${ic('x')}</button></div><div class="body"></div>`;
+    el.innerHTML=`<div class="nh"><span class="d"></span>Takeaway from ${src?`<button class="nl" data-tkfrom="${esc(m.id)}" title="Open the branch at the last reply this takeaway saw"></button>`:'<i>deleted branch</i>'}<span style="flex:1"></span>${m.error?`<button class="ib" data-act="retry" title="Retry">${ic('retry')}</button>`:''}<button class="ib" data-act="delnote" title="Remove takeaway">${ic('x')}</button></div><div class="body"></div>`;
     if(src)el.querySelector('.nl').textContent=src.title;
     const body=el.querySelector('.body');
     if(m.pending)streamInto(body,m);else{renderRich(body,m.content,true);if(m.error){const e=document.createElement('div');e.className='err';e.textContent=m.error;body.appendChild(e)}}
@@ -2688,7 +2697,7 @@ function branchChips(mid){
   const wrap=document.createElement('div');wrap.className='bchips';
   for(const t of bs){
     const b=document.createElement('span');b.className='bchip'+(t.resolved?' res':'');b.dataset.tid=t.id;b.style.setProperty('--c',color(t));
-    b.innerHTML=`<span class="n">${branchNum(t)}</span><span class="bt"></span><button class="bx" data-delb="${t.id}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`;
+    b.innerHTML=`<span class="n">${branchNum(t)}</span><span class="bt"></span><button class="bx" data-delb="${esc(t.id)}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`;
     b.querySelector('.bt').textContent=t.title;b.title=`Open branch ${branchNum(t)}`+(t.alt?', what followed this reply until it was moved out':t.anchorText?`, from “${trunc(t.anchorText,120)}”`:', about the whole reply');
     wrap.appendChild(b);
   }
@@ -2751,9 +2760,9 @@ function paneEl(tid){
   if(tid==='doc')return docPaneEl();
   const isMain=tid==='main';
   el=document.createElement('section');el.className='pane'+(isMain?' main':'');el.dataset.tid=tid;
-  el.innerHTML=`<div class="ph"><span class="pgrip" title="Drag to reorder panes"></span>${isMain?'<span class="dot"></span>':`<span class="sdot" data-resolve="${tid}"></span>`}<div class="ph-main"><div class="ph-title" spellcheck="false"></div><div class="ph-orow"><div class="ph-origin"></div><button class="pox" data-act="oexp" title="Show the whole line"></button></div></div>
+  el.innerHTML=`<div class="ph"><span class="pgrip" title="Drag to reorder panes"></span>${isMain?'<span class="dot"></span>':`<span class="sdot" data-resolve="${esc(tid)}"></span>`}<div class="ph-main"><div class="ph-title" spellcheck="false"></div><div class="ph-orow"><div class="ph-origin"></div><button class="pox" data-act="oexp" title="Show the whole line"></button></div></div>
     <div class="ph-act"><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button></div>${isMain?'':`<button class="tb" data-act="take" title="Add a short takeaway from this branch to its parent">${ic('take')}<span class="tl">Takeaway</span></button><button class="tb kmk" data-act="mkcards" title="Have the model draft flashcards from this branch into your inbox">${ic('cards')}<span class="tl">Cards</span></button>`}${isMain?`<button class="ib kicon" data-act="cards" title="Flashcards for this conversation">${ic('cards')}</button><button class="ib" data-act="restart" title="Start the main thread over: an empty main thread, from just the document. What was in it is kept as another version (Branches in the sidebar), with its branches and flashcards; “Use this version” there brings it back.">${ic('restart')}</button>`:`<button class="ib" data-act="export" title="Export or share this branch">${ic('dl')}</button>`}
-    <button class="ib" data-act="pin"></button><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it. (⌘\\ / Ctrl+\\ for the pane you’re in)">${ic('collapse')}</button><button class="ib" data-act="focus"></button>${isMain?`<button class="ib" data-act="close" title="Close the main thread’s pane. Main thread, under Branches in the sidebar, brings it back. (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`:`<button class="ib dz" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button><button class="ib" data-act="close" title="Close this pane. Branches open under it stay open; the branch stays saved. (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`}</div></div>
+    <button class="ib" data-act="pin"></button><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it. (⌘\\ / Ctrl+\\ for the pane you’re in)">${ic('collapse')}</button><button class="ib" data-act="focus"></button>${isMain?`<button class="ib" data-act="close" title="Close the main thread’s pane. Main thread, under Branches in the sidebar, brings it back. (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`:`<button class="ib dz" data-delb="${esc(tid)}" title="Delete this branch and everything branched from it">${ic('trash')}</button><button class="ib" data-act="close" title="Close this pane. Branches open under it stay open; the branch stays saved. (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`}</div></div>
     <div class="pb"><div class="msgs"></div></div>
     <div class="jumpw"><div class="jump"><button class="ib js" data-act="jsearch" title="Search this thread">${ic('search')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button><button class="ib jl" data-act="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib je" data-act="jend" title="Jump to the very bottom">${ic('jend')}</button></div></div>
     ${isMain?'':`<div class="tk"><div class="tkb"><span class="tkl">Takeaway to parent</span><input placeholder="Optional: what to focus on" autocomplete="off"><button class="go" title="Generate 2–4 takeaway bullets and add them to the end of the parent thread">Add</button><button class="ib" data-act="take" title="Cancel">${ic('x')}</button></div></div>`}
@@ -2874,8 +2883,8 @@ function updateHeader(tid){
     const crumbs=path.slice(0,-1).map((id,i)=>{const via=path[i+1],name=id==='main'?(isDocBranch(T(via))?'the document':'the main thread'):`“${T(id).title}”`;
       const label=esc(trunc(id==='main'?(isDocBranch(T(via))?'Document':'Main'):T(id).title,22));
       // real buttons, not styled spans: a phone's tap goes to the nearest thing that is clickable, which a span isn't (the tap landed on the line around it and did nothing)
-      if(via===tid)return `<button type="button" class="crumb" data-crumb="${id}" data-via="${via}" title="${esc(`Show where this branch starts in ${name}`)}">${label}</button>`;
-      return `<button type="button" class="crumb" data-crumb="${id}" data-via="${via}" title="${esc(`Show where “${T(via).title}” branches off ${name}`)}">${label}</button>`}).join(' › ');
+      if(via===tid)return `<button type="button" class="crumb" data-crumb="${esc(id)}" data-via="${esc(via)}" title="${esc(`Show where this branch starts in ${name}`)}">${label}</button>`;
+      return `<button type="button" class="crumb" data-crumb="${esc(id)}" data-via="${esc(via)}" title="${esc(`Show where “${T(via).title}” branches off ${name}`)}">${label}</button>`}).join(' › ');
     o.innerHTML=`↳ ${crumbs} <sup style="font-size:10px;color:${color(t)}">${branchNum(t)}</sup>${t.anchorText?` · <button type="button" class="oqt" data-back="1" title="Show this passage in its source">${esc(trunc(t.anchorText,70))}</button>`:t.alt?` · <button type="button" class="oqt" data-back="1" title="${t.anchorMsg==='START'?'':'Show the message it starts after'}">${joinable(t)?'moved out':'another version'}, ${esc(versionWhere(t,50))}</button>`:' · whole reply'}${nb?` · ${brCount(tid,nb)}`:''}`;
   }else o.innerHTML=brCount(tid,nb);
   const pb_=el.querySelector('[data-act="pin"]');if(pb_){const pinned=tid==='main'?!!conv.pinned:!!t.pinned;pb_.innerHTML=ic('pin');pb_.classList.toggle('pinned',pinned);pb_.title=tid==='main'?(pinned?'Unpin this conversation':'Pin this conversation to the top of the sidebar'):(pinned?'Unpin this branch':'Pin this branch to the top of the sidebar, so you can jump straight back to it')}
@@ -2890,8 +2899,8 @@ function altLine(t,n,show){
   const p=T(t.parent),pn=esc(p.parent?'“'+trunc(p.title,30)+'”':'the main thread'),full=esc(p.parent?'“'+p.title+'”':'the main thread'),a=versionAfter(t,n),back=joinable(t),empty=!(conv.order[t.id]||[]).length;
   const what=back?(a?`Moved out of ${pn}: what came after ${esc(a)}`:`Moved out of ${pn}: what was in it, from the start`):`Another version of a question in ${pn}, ${a?'after '+esc(a):'at the start'}`;
   const showB=show&&a?`<button data-back="1" title="${back?'Show the message this came after':'Show the version it\'s an alternative to'}">${back?'Show where':'Show other'}</button>`:'';
-  const useB=back?`<button class="usev" data-usev="${t.id}" title="${empty?'Nothing is in this branch: remove it':`Put these messages back at the end of ${full}, where they came from. This branch goes away; nothing is lost.`}">${empty?'Remove':'Move back'}</button>`
-    :empty?'':`<button class="usev" data-usev="${t.id}" title="Make this the version ${full} goes on with. The other one moves here; nothing is lost.">Use this version</button>`;
+  const useB=back?`<button class="usev" data-usev="${esc(t.id)}" title="${empty?'Nothing is in this branch: remove it':`Put these messages back at the end of ${full}, where they came from. This branch goes away; nothing is lost.`}">${empty?'Remove':'Move back'}</button>`
+    :empty?'':`<button class="usev" data-usev="${esc(t.id)}" title="Make this the version ${full} goes on with. The other one moves here; nothing is lost.">Use this version</button>`;
   return `${show?'<div class="ol">':''}<span>${what}</span>${showB}${useB}${show?'</div>':''}`;
 }
 function originCard(t){
@@ -3210,7 +3219,7 @@ function wires(){
     const pe=paneEls.get(tid),ppe=paneEls.get(pid);
     if(!pe||!ppe||isCollapsed(tid)||isCollapsed(pid))continue;
     const c=color(t),hdr=pe.querySelector('.ph').getBoundingClientRect(),body=ppe.querySelector('.pb').getBoundingClientRect();
-    let a=ppe.querySelector(`sup.fn[data-tid="${tid}"]`)||ppe.querySelector(`.bchip[data-tid="${tid}"]`)||ppe.querySelector(`.msg[data-mid="${t.anchorMsg}"]`);
+    let a=ppe.querySelector(`sup.fn[data-tid="${qid(tid)}"]`)||ppe.querySelector(`.bchip[data-tid="${qid(tid)}"]`)||ppe.querySelector(`.msg[data-mid="${qid(t.anchorMsg)}"]`);
     if(!a)continue;
     const ar=a.getClientRects()[0]||a.getBoundingClientRect();
     let ay=ar.top+ar.height/2,off=false;
@@ -3236,7 +3245,7 @@ function wires(){
       if(over.length){const mid='wm'+tid.replace(/\W/g,'');
         defs+=`<mask id="${mid}" maskUnits="userSpaceOnUse" x="-10000" y="-10000" width="30000" height="30000"><rect x="-10000" y="-10000" width="30000" height="30000" fill="#fff"/>${over.map(r=>`<rect x="${r.left-st.left}" y="${r.top-st.top}" width="${r.width}" height="${r.height}" fill="#262626"/>`).join('')}</mask>`;
         mask=` mask="url(#${mid})" data-crossing="${over.length}"`}}
-    out+=`<path d="${d}" fill="none" stroke="${c}" stroke-width="1.7" opacity="${op}"${off?' stroke-dasharray="4 4"':''}${mask} data-wire="${tid}"/>`;
+    out+=`<path d="${d}" fill="none" stroke="${c}" stroke-width="1.7" opacity="${op}"${off?' stroke-dasharray="4 4"':''}${mask} data-wire="${esc(tid)}"/>`;
     out+=`<circle cx="${ax-st.left}" cy="${ay-st.top}" r="3.2" fill="${c}" opacity="${op}"/><circle cx="${bx-st.left}" cy="${by-st.top}" r="3.2" fill="${c}"/>`;
   }
   svg.innerHTML=(defs?`<defs>${defs}</defs>`:'')+out;
@@ -3261,7 +3270,7 @@ function canvasMsgEl(m){
   if(m.role==='user'){userMsgBody(el,m);if(!m.pending)cvMsgCache.set(m.id,{key,el});return el}
   if(m.role==='note'){
     const src=T(m.fromThread);el.style.setProperty('--c',src?color(src):'var(--faint)');
-    el.innerHTML=`<div class="nh"><span class="d"></span>Takeaway from ${src?`<button class="nl" data-tkfrom="${m.id}" title="Go to the last reply this takeaway saw, in its branch"></button>`:'<i>deleted branch</i>'}<span style="flex:1"></span>${m.error&&!m.pending?`<button class="ib" data-act="retry" title="Retry">${ic('retry')}</button>`:''}</div><div class="body"></div>`;
+    el.innerHTML=`<div class="nh"><span class="d"></span>Takeaway from ${src?`<button class="nl" data-tkfrom="${esc(m.id)}" title="Go to the last reply this takeaway saw, in its branch"></button>`:'<i>deleted branch</i>'}<span style="flex:1"></span>${m.error&&!m.pending?`<button class="ib" data-act="retry" title="Retry">${ic('retry')}</button>`:''}</div><div class="body"></div>`;
     if(src)el.querySelector('.nl').textContent=src.title;
   }else el.innerHTML='<div class="body"></div>';
   const body=el.querySelector('.body');
@@ -3291,7 +3300,7 @@ function replyAct(a,mid,btn){
 }
 function statusDot(t){
   if(!t.parent)return '<span class="mdot"></span>';
-  return `<span class="sdot${t.resolved?' res':''}" data-resolve="${t.id}" style="--c:${color(t)}" title="${t.resolved?'Resolved. Click to mark as still open.':'Open. Click to mark as resolved once you\'ve got it.'}"></span>`;
+  return `<span class="sdot${t.resolved?' res':''}" data-resolve="${esc(t.id)}" style="--c:${color(t)}" title="${t.resolved?'Resolved. Click to mark as still open.':'Open. Click to mark as resolved once you\'ve got it.'}"></span>`;
 }
 const CARD_ROWS_ALL=8;   // a card's summary lists every message up to this many (renderCanvas)
 function renderCanvas(){
@@ -3312,7 +3321,7 @@ function renderCanvas(){
       `<button class="ib${docked?' stuck':''}" data-cact="stick" title="${docked?'Stuck to the screen: it stays put while you pan and zoom. Click to drop it onto the canvas where it is.':'Stick to the screen: keep this card in view at reading size while you pan and zoom around it.'}">${ic('pin')}</button>`+
       (docked?`<button class="ib" data-cact="restore" title="Put it back where it was on the canvas (↓ or Esc)">${ic('unfocus')}</button>`:`<button class="ib" data-cact="exp" title="${exp?'Shrink back to a summary':'Expand to read the full thread here'} (⌘\\ / Ctrl+\\ for the selected card)">${ic(exp?'unfocus':'expand')}</button>`)+
       `<button class="ib" data-cact="panes" title="Open this thread in the pane view">${ic('cols')}</button>`+
-      (t.parent?`<button class="ib dz" data-delb="${t.id}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`:'')+`</div>`+
+      (t.parent?`<button class="ib dz" data-delb="${esc(t.id)}" title="Delete this branch and everything branched from it">${ic('trash')}</button>`:'')+`</div>`+
       (t.anchorText||(t.parent&&t.anchorMsg&&!isDocBranch(t))?'<div class="cq"></div>':'');   // a whole-reply branch has a line too, to jump to its reply
     n.querySelector('.ct').textContent=t.parent?t.title:(conv.title||'Main thread');
     const cq=n.querySelector('.cq');
@@ -3440,9 +3449,9 @@ function drawEdges(){
   const wr=world.getBoundingClientRect();let paths='';
   for(const t of Object.values(conv.threads)){
     const pid=visParentId(t.id);if(!pid)continue;
-    const cEl=$('#cv').querySelector(`.cnode[data-ctid="${t.id}"]`),pEl=$('#cv').querySelector(`.cnode[data-ctid="${pid}"]`);if(!cEl||!pEl)continue;
+    const cEl=$('#cv').querySelector(`.cnode[data-ctid="${qid(t.id)}"]`),pEl=$('#cv').querySelector(`.cnode[data-ctid="${qid(pid)}"]`);if(!cEl||!pEl)continue;
     const p=boxW(pEl,wr),c=boxW(cEl,wr);
-    const a=pid==='doc'?(t.id==='main'?null:pEl.querySelector(`[data-cdocrow="${t.id}"]`)):(pEl.querySelector(`.cfull sup.fn[data-tid="${t.id}"]`)||pEl.querySelector(`.cfull .bchip[data-tid="${t.id}"]`)||pEl.querySelector(`[data-cmid="${t.anchorMsg}"]`)||pEl.querySelector(`.cfull .msg[data-mid="${t.anchorMsg}"]`));
+    const a=pid==='doc'?(t.id==='main'?null:pEl.querySelector(`[data-cdocrow="${qid(t.id)}"]`)):(pEl.querySelector(`.cfull sup.fn[data-tid="${qid(t.id)}"]`)||pEl.querySelector(`.cfull .bchip[data-tid="${qid(t.id)}"]`)||pEl.querySelector(`[data-cmid="${qid(t.anchorMsg)}"]`)||pEl.querySelector(`.cfull .msg[data-mid="${qid(t.anchorMsg)}"]`));
     let ay;
     if(a){const r=(a.getClientRects()[0]||a.getBoundingClientRect());ay=(r.top+r.height/2-wr.top)/cam.k}else ay=p.offsetTop+p.offsetHeight/2;
     const top=p.offsetTop+30,bot=p.offsetTop+p.offsetHeight-12;const off=ay<top||ay>bot;ay=Math.min(Math.max(ay,top),bot);
@@ -5623,7 +5632,7 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-keys]')){e.prev
 /* ---------- sidebar ---------- */
 function renderTitle(){const el=$('#cTitle');if(document.activeElement!==el)el.textContent=conv.title||'New conversation';updateHeader('main');tabName()}
 // the branch count in a pane's header opens a list of those branches (the sidebar's tree from that pane down)
-function brCount(tid,nb,always){const l=`${nb} branch${nb===1?'':'es'}`;return nb||always?`<button type="button" class="bcount" data-brlist="${tid}" title="${tid==='doc'?'See the branches off the document, and the main thread':'See the branches off this'}">${l}</button>`:l}
+function brCount(tid,nb,always){const l=`${nb} branch${nb===1?'':'es'}`;return nb||always?`<button type="button" class="bcount" data-brlist="${esc(tid)}" title="${tid==='doc'?'See the branches off the document, and the main thread':'See the branches off this'}">${l}</button>`:l}
 let brPop=null;   // {tid, el, btn}
 function closeBrList(){if(!brPop)return;brPop.el.remove();brPop.btn&&brPop.btn.classList.remove('on');brPop=null}
 function fillBrList(){
@@ -5643,7 +5652,7 @@ function fillBrList(){
 function placeBrList(){
   if(!brPop)return;const {el}=brPop;
   if(!brPop.btn.isConnected){   // the header was redrawn (a save, a reply): follow its new button
-    const pe=paneEls.get(brPop.tid),nb=pe&&pe.querySelector(`.ph-origin [data-brlist="${brPop.tid}"]`);if(!nb){closeBrList();return}
+    const pe=paneEls.get(brPop.tid),nb=pe&&pe.querySelector(`.ph-origin [data-brlist="${CSS.escape(brPop.tid)}"]`);if(!nb){closeBrList();return}
     brPop.btn=nb;nb.classList.add('on')}
   const btn=brPop.btn;
   const r=btn.getBoundingClientRect(),w=Math.min(360,innerWidth-16);el.style.width=w+'px';
@@ -5667,7 +5676,7 @@ function mapNode(tid,o){
   const n=document.createElement('div');n.className='mnode'+(conv.ui.open.includes(tid)&&!isCollapsed(tid)?' open':'')+(t.resolved?' res':'');n.dataset.map=tid;n.style.setProperty('--c',tid==='main'?'var(--faint)':color(t));
   const cnt=(conv.order[tid]||[]).filter(id=>conv.msgs[id]&&conv.msgs[id].role==='user').length;
   const kids=kidsOf(tid);
-  n.innerHTML=`${chev(tid,kids)}${tid==='main'?'<span class="dot"></span>':statusDot(t)}<div style="min-width:0;flex:1"><div class="mt"></div>${t.anchorText?'<div class="ma"></div>':''}</div>${hiddenBadge(tid)}<span class="mc" title="Questions asked in this thread">${cnt||''}</span>${t.pinned?`<span class="mpin" title="Pinned">${ic('pin')}</span>`:''}${tid==='main'||o.lite?'':`<span class="macts"><button class="ib mp${t.pinned?' pinned':''}" data-pinthread="${tid}" title="${t.pinned?'Unpin this branch':'Pin this branch to the top of the sidebar'}">${ic('pin')}</button><button class="ib mh" data-hideb="${tid}" title="${t.hidden?'Show this branch in the tree again':'Hide this branch (and what’s under it) from the tree and canvas; nothing is deleted'}">${ic(t.hidden?'eye':'eyeoff')}</button><button class="ib dz mx" data-delb="${tid}" title="Delete this branch and everything branched from it">${ic('trash')}</button></span>`}`;
+  n.innerHTML=`${chev(tid,kids)}${tid==='main'?'<span class="dot"></span>':statusDot(t)}<div style="min-width:0;flex:1"><div class="mt"></div>${t.anchorText?'<div class="ma"></div>':''}</div>${hiddenBadge(tid)}<span class="mc" title="Questions asked in this thread">${cnt||''}</span>${t.pinned?`<span class="mpin" title="Pinned">${ic('pin')}</span>`:''}${tid==='main'||o.lite?'':`<span class="macts"><button class="ib mp${t.pinned?' pinned':''}" data-pinthread="${esc(tid)}" title="${t.pinned?'Unpin this branch':'Pin this branch to the top of the sidebar'}">${ic('pin')}</button><button class="ib mh" data-hideb="${esc(tid)}" title="${t.hidden?'Show this branch in the tree again':'Hide this branch (and what’s under it) from the tree and canvas; nothing is deleted'}">${ic(t.hidden?'eye':'eyeoff')}</button><button class="ib dz mx" data-delb="${esc(tid)}" title="Delete this branch and everything branched from it">${ic('trash')}</button></span>`}`;
   if(t.hidden)n.classList.add('hiddenb');
   n.title=tid==='main'?'Show the main thread':`Open “${t.title}”`+(t.anchorText?`, from “${trunc(t.anchorText,240)}”`:'');
   n.querySelector('.mt').textContent=tid==='main'?'Main thread':t.title;
@@ -5682,7 +5691,7 @@ function renderMap(){
   const chev=(id,kids)=>{
     if(!kids.length)return '<span class="tchev none"></span>';
     const f=fold.includes(id),n=descendants(id).length;
-    return `<button class="tchev${f?'':' open'}" data-tfold="${id}" title="${f?'Show':'Hide'} the ${n} branch${n===1?'':'es'} under this">${ic('back').replace('class="i"','class="i" style="transform:rotate(180deg)"')}</button>`;
+    return `<button class="tchev${f?'':' open'}" data-tfold="${esc(id)}" title="${f?'Show':'Hide'} the ${n} branch${n===1?'':'es'} under this">${ic('back').replace('class="i"','class="i" style="transform:rotate(180deg)"')}</button>`;
   };
   const hiddenBadge=(id)=>{const n=descendants(id).length;return fold.includes(id)&&n?`<span class="hid" title="${n} hidden branch${n===1?'':'es'}">+${n}</span>`:''};
   const build=tid=>mapNode(tid,{fold,chev,hiddenBadge});
@@ -6545,7 +6554,7 @@ document.addEventListener('mouseover',e=>{
   const a=e.target.closest('.anchor,.bchip,sup.fn');
   if(a&&!a.closest('.cnode')){const p=paneEls.get(a.dataset.tid);p&&p.classList.add('hl');return}
   const o=e.target.closest('[data-back],.origin,[data-act="back"]');
-  if(o&&o.closest('.pane')){const tid=o.closest('.pane').dataset.tid;document.querySelectorAll(`.anchor[data-tid="${tid}"],sup.fn[data-tid="${tid}"]`).forEach(s=>s.classList.add('hot'))}
+  if(o&&o.closest('.pane')){const tid=o.closest('.pane').dataset.tid;document.querySelectorAll(`.anchor[data-tid="${qid(tid)}"],sup.fn[data-tid="${qid(tid)}"]`).forEach(s=>s.classList.add('hot'))}
 });
 
 /* ---------- confirm dialog ---------- */
