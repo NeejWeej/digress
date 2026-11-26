@@ -2383,7 +2383,7 @@ function renderRich(el,md,final,o={}){
   codes.forEach(code=>{
     const lang=((code.className||'').match(/language-(\S+)/)||[])[1];
     if(lang==='mermaid'){
-      const box=document.createElement('div');box.className='mermaid-box';box.dataset.src=code.textContent;
+      const box=document.createElement('div');box.className='mermaid-box';mermaidSrc.set(box,code.textContent);
       box.textContent=final?'Rendering diagram…':'Drawing diagram…';code.parentElement.replaceWith(box);
     }else{
       highlightCode(code,lang);
@@ -2443,6 +2443,7 @@ function mermaidTheme(){
     themeVariables:{darkMode:dark,background:v('--panel'),primaryColor:v('--panel-2'),primaryTextColor:v('--ink'),primaryBorderColor:v('--line2'),
       secondaryColor:v('--user-bg'),tertiaryColor:v('--code-bg'),lineColor:v('--muted'),textColor:v('--ink'),noteBkgColor:v('--user-bg'),noteTextColor:v('--ink'),noteBorderColor:v('--line2'),fontSize:'14px'}});
 }
+const mermaidSrc=new WeakMap();
 async function renderMermaid(root){
   const boxes=[...root.querySelectorAll('.mermaid-box:not([data-done])')];if(!boxes.length)return;
   await loadMermaid();
@@ -2450,7 +2451,7 @@ async function renderMermaid(root){
     if(box.dataset.done)continue;box.dataset.done='1';   // another call may have taken it while mermaid loaded
     if(!mermaidOk){showMermaidSrc(box,'The diagram library couldn’t load, so this is its source.');continue}
     const id='mm'+rid();
-    try{const {svg}=await mermaid.render(id,box.dataset.src);box.classList.remove('mm-bad','mmz-on');delete box.dataset.k;
+    try{const {svg}=await mermaid.render(id,mermaidSrc.get(box)||'');box.classList.remove('mm-bad','mmz-on');delete box.dataset.k;
       // the drawing comes from the reply's text: mermaid's strict mode cleans it, and DOMPurify again before it goes in
       // (labels are HTML inside <foreignObject>, and the colors a <style> inside the svg)
       const v=document.createElement('div');v.className='mm-view';
@@ -2524,7 +2525,7 @@ function showMermaidSrc(box,why,err){
   const reply=box.closest('.msg.assistant')&&box.closest('.pane[data-tid]');
   box.classList.add('mm-bad');
   box.innerHTML=`<div class="mm-why"><span></span>${reply&&err?`<button class="tb" data-mmfix="1" title="Put a request for a corrected diagram in this thread's question box">${ic('retry')}Ask for a fix</button>`:''}</div>${err?'<pre class="mm-msg"></pre>':''}<pre class="mm-err"><code></code></pre>`;
-  box.querySelector('.mm-why span').textContent=why;box.querySelector('code').textContent=box.dataset.src;
+  box.querySelector('.mm-why span').textContent=why;box.querySelector('code').textContent=mermaidSrc.get(box)||'';
   if(err){box.querySelector('.mm-msg').textContent=err;box.dataset.err=err}
 }
 
@@ -6554,7 +6555,7 @@ document.addEventListener('click',e=>{
   const uv=e.target.closest('[data-usev]');if(uv){e.stopPropagation();useVersion(uv.dataset.usev);return}
   const vc=e.target.closest('[data-vers]');if(vc){e.stopPropagation();openVersions(vc.dataset.vers);return}
   const mf=e.target.closest('[data-mmfix]');if(mf){const box=mf.closest('.mermaid-box'),pane=mf.closest('.pane[data-tid]'),ta=pane&&pane.querySelector('.composer textarea');
-    if(ta){ta.value=`The diagram that starts “${trunc((box.dataset.src||'').trim().split('\n')[0],40)}” has a syntax error and can’t be drawn:\n${box.dataset.err||''}\nPlease send a corrected version of just that diagram.`;autosize(ta);updateComposer(pane.dataset.tid);ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}return}
+    if(ta){ta.value=`The diagram that starts “${trunc((mermaidSrc.get(box)||'').trim().split('\n')[0],40)}” has a syntax error and can’t be drawn:\n${box.dataset.err||''}\nPlease send a corrected version of just that diagram.`;autosize(ta);updateComposer(pane.dataset.tid);ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}return}
   // the PDF's "Page N": click to type a page and jump there (Enter), Esc or clicking away to leave it
   const gp=e.target.closest('[data-gopage]');if(gp){e.stopPropagation();
     const inp=document.createElement('input');inp.className='pgin';inp.type='number';inp.min=1;inp.max=docState.n;inp.value=docView.current;inp.setAttribute('aria-label','Page number');

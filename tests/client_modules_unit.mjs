@@ -72,14 +72,7 @@ test('stripCiteQuotes and plain clean markdown, math, and exact citations', () =
   assert.equal(stripCiteQuotes('[part 2 “smart quotes”] and [doc "intro"]'), '[part 2] and [doc]');
   const md = '# Heading\n\n- item one\n- item two.\n\nSee [p. 3 "variance"] with $\\sqrt{d}$ and [link](https://example.com).\n\n```js\nconst x = 1;\n```\n';
   const out = plain(md);
-  assert.ok(out.includes('Heading.'));
-  assert.ok(out.includes('item one; item two.'));
-  assert.ok(out.includes('[p. 3]'));
-  assert.ok(!out.includes('"variance"'));
-  assert.ok(out.includes('√d'));
-  assert.ok(out.includes('link'));
-  assert.ok(!out.includes('https://example.com'));
-  assert.ok(out.includes('[code]'));
+  assert.equal(out, 'Heading. item one; item two. See [p. 3] with √d and link. [code]');
 });
 
 test('pdfTitleOk rejects junk metadata and keeps real titles', () => {
