@@ -1618,11 +1618,27 @@ async function importDigress(file){
 }
 async function importShareHash(hash){
   const token=parseShareHash(hash);if(!token)return false;
-  // Clear #share= from the address bar immediately so reloading never imports it a second time.
+  // Clear #share= from the address bar immediately so reloading never prompts a second time.
   try{history.replaceState(history.state,'',location.pathname+location.search)}catch(e){}
   let d;
   try{d=await decodeSharePayload(token)}catch(e){toast((e&&e.message)||'That share link couldn’t be read.');return false}
-  return importDigressData(d,'link');
+  if(!d||d.digress!==DIGRESS_V||!Array.isArray(d.conversations)||!d.conversations.length){toast(d&&d.digress>DIGRESS_V?'That link is from a newer Digress. Update this one to open it.':'That isn’t a Digress link.');return false}
+  const c0=d.conversations[0];
+  if(!c0||fresh(c0).length){toast('That share link is damaged and couldn’t be opened.');return false}
+  const title=typeof c0.title==='string'&&c0.title?c0.title:'Shared conversation';
+  const nMsgs=Object.keys(c0.msgs||{}).length;
+  const nBranches=Object.values(c0.threads||{}).filter(t=>t&&t.parent&&!t.alt).length;
+  const nCards=Array.isArray(d.cards)?d.cards.length:0;
+  const parts=[`${nMsgs} message${nMsgs===1?'':'s'}`];
+  if(nBranches)parts.push(`${nBranches} branch${nBranches===1?'':'es'}`);
+  if(c0.doc&&!c0.doc.left)parts.push('with document');
+  if(nCards)parts.push(`${nCards} flashcard${nCards===1?'':'s'}`);
+  return new Promise((resolve)=>{
+    askConfirm('Open shared conversation?',
+      `<p><b>${esc(trunc(title,80))}</b></p><p style="color:var(--muted);font-size:13px;margin-top:4px">${esc(parts.join(' · '))}. Nothing was uploaded; opening adds a local copy to your Digress.</p>`,
+      async()=>{resolve(await importDigressData(d,'link'))},
+      {ok:'Open',kind:'primary',onCancel:()=>resolve(false)});
+  });
 }
 window.addEventListener('hashchange',()=>{if(parseShareHash(location.hash))importShareHash(location.hash)});
 // a .digress file dropped anywhere (outside a question box) opens as its conversation
@@ -7113,13 +7129,18 @@ if('serviceWorker' in navigator&&window.isSecureContext&&/^https?:$/.test(locati
 io.ready=initConnectors().catch(e=>{console.warn('connector setup failed',e);noServer()});
 io.ready.then(async()=>{fillModelPicker();await loadList();await maybeOpenLatest();loadCards();guardBack()});
 async function maybeOpenLatest(){
+  const shareHash=parseShareHash(location.hash)?location.hash:'';
+  if(shareHash)try{history.replaceState(history.state,'',location.pathname+location.search)}catch(e){}
   try{
-    if(parseShareHash(location.hash)){if(await importShareHash(location.hash))return}
-    if(conv.order.main.length||!convList.length)return;
-    const want=urlConv();
-    if(want&&convList.some(x=>x.id===want))return await openConv(want);
-    if(want)toast('That conversation isn’t here (it may have been deleted), so here’s the latest.');
-    const latest=convList.find(c=>!c.trashed);if(latest)await openConv(latest.id);
+    if(!conv.order.main.length&&convList.length){
+      const want=urlConv();
+      if(want&&convList.some(x=>x.id===want))await openConv(want);
+      else{
+        if(want)toast('That conversation isn’t here (it may have been deleted), so here’s the latest.');
+        const latest=convList.find(c=>!c.trashed);if(latest)await openConv(latest.id);
+      }
+    }
   }finally{urlOn=true;showInUrl()}
+  if(shareHash)await importShareHash(shareHash);
 }
 function showBanner(on,msg){const b=$('#banner');b.textContent=msg||NO_SERVER;b.style.display=on?'block':'none'}

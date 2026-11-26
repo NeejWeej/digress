@@ -159,15 +159,26 @@ async def main():
         pub_link = await pg.evaluate("window.__copied")
         check('toggling public link uses digress.neejweej.workers.dev', pub_link.startswith('https://digress.neejweej.workers.dev/#share='), pub_link[:80])
 
-        # opening the #share= link imports a fresh copy (without the excluded image) and clears #share= from the address bar
+        # opening the #share= link asks to confirm first; Cancel leaves sidebar untouched, Open imports a fresh copy
         before_share = await pg.evaluate("__digress.convList.length")
         share_hash = '#' + local_link.split('#', 1)[1]
         await pg.evaluate("h => { location.hash = h; }", share_hash)
+        await pg.wait_for_selector('#modal.show')
+        check('opening a #share= link asks to confirm first (with title and counts)',
+              'Open shared conversation?' in await pg.locator('#mTitle').inner_text()
+              and 'Backprop, explained' in await pg.locator('#mBody').inner_text()
+              and await pg.evaluate("__digress.convList.length") == before_share)
+        check('…and clears #share= from the address bar', await pg.evaluate("!location.hash.startsWith('#share=')"), await pg.evaluate("location.hash"))
+        await pg.locator('#mCancel').click(); await frames(pg)
+        check('cancelling the share prompt leaves the sidebar untouched', await pg.evaluate("__digress.convList.length") == before_share)
+
+        await pg.evaluate("h => { location.hash = h; }", share_hash)
+        await pg.wait_for_selector('#modal.show')
+        await pg.locator('#mOk').click()
         ok_share = await soon(pg, "n => __digress.convList.length > n && __digress.conv.title === 'Backprop, explained'", before_share, timeout=10000)
         sc = await pg.evaluate("JSON.parse(JSON.stringify(__digress.conv))")
-        check('opening a #share= link imports the conversation without the excluded image',
+        check('confirming Open imports the conversation without the excluded image',
               ok_share and set(sc['msgs']) == {'u1', 'a1', 'u2', 'a2', 'n1'} and not sc['msgs']['u1'].get('images') and sc['doc'].get('left') is True)
-        check('…and clears #share= from the address bar', await pg.evaluate("!location.hash.startsWith('#share=')"), await pg.evaluate("location.hash"))
 
         # bogus #share= hash is refused cleanly and cleared
         n_bad = await pg.evaluate("__digress.convList.length")
