@@ -22,7 +22,7 @@ const now = Date.now(), day = 864e5;
 localStorage.setItem('fakesrv:file/img1', JSON.stringify({type: 'image/png', data: '%s'}));
 localStorage.setItem('fakesrv:file/docf', JSON.stringify({type: 'text/markdown', data: btoa('# Notes\n\nThe gradient tells each weight which way to move.')}));
 localStorage.setItem('fakesrv:convs/cx1', JSON.stringify({id: 'cx1', title: 'Backprop, explained', created: now - day, updated: now, rev: 3, pinned: true,
-  doc: {kind: 'text', name: 'notes.md', assetId: 'docf', mark: ['o', 12]},
+  doc: {kind: 'text', name: 'notes.md', assetId: 'docf', source: 'https://example.com/notes.md', mark: ['o', 12]},
   threads: {main: {id: 'main', parent: null, title: 'Main thread', colorIdx: -1},
     b1: {id: 'b1', parent: 'main', anchorMsg: 'a1', anchorText: 'the gradient', anchorRange: {s: 20, e: 32}, title: 'Why the gradient', colorIdx: 0, created: now - 1000, llm: ['claude-gone-9', 'high'], pinned: true}},
   msgs: {u1: {id: 'u1', role: 'user', thread: 'main', content: 'What is backprop?', ts: now - 5000, images: [{asset: 'img1', type: 'image/png', w: 1, h: 1}]},
@@ -179,6 +179,26 @@ async def main():
         sc = await pg.evaluate("JSON.parse(JSON.stringify(__digress.conv))")
         check('confirming Open imports the conversation without the excluded image',
               ok_share and set(sc['msgs']) == {'u1', 'a1', 'u2', 'a2', 'n1'} and not sc['msgs']['u1'].get('images') and sc['doc'].get('left') is True)
+        await pg.wait_for_selector('.docerr a[href="https://example.com/notes.md"]', timeout=10000)
+        check('…and shows the document’s original source link when left out',
+              await pg.locator('.docerr a[href="https://example.com/notes.md"]').count() == 1)
+
+        # shareable link with text/Markdown document included (inlined as plain UTF-8 before gzip, readable on import)
+        await pg.evaluate("window.__copied = null; document.querySelector('[data-expconv=cx1]').click()"); await pg.wait_for_selector('#modal.show')
+        await pg.locator('[name=xfmt][value=link]').check()
+        await pg.locator('#xLDoc').check()
+        await soon(pg, "() => /link/.test((document.querySelector('#xLSize')||{}).textContent||'') && !document.querySelector('#mOk').disabled")
+        await pg.locator('#mOk').click()
+        await soon(pg, "() => !!window.__copied")
+        doc_link = await pg.evaluate("window.__copied")
+        before_doc_share = await pg.evaluate("__digress.convList.length")
+        await pg.evaluate("h => { location.hash = h; }", '#' + doc_link.split('#', 1)[1])
+        await pg.wait_for_selector('#modal.show')
+        await pg.locator('#mOk').click()
+        await soon(pg, "n => __digress.convList.length > n && __digress.conv.doc && !__digress.conv.doc.left", before_doc_share, timeout=10000)
+        await pg.wait_for_selector('.docbody', timeout=10000)
+        check('shareable link with a Markdown doc inlines it cleanly and opens readable',
+              'which way to move' in await pg.locator('.docbody').inner_text())
 
         # bogus #share= hash is refused cleanly and cleared
         n_bad = await pg.evaluate("__digress.convList.length")

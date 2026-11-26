@@ -1460,8 +1460,13 @@ async function digressFile(id,o={}){
   if(!withImgs){for(const t of Object.values(c.threads))delete t.anchorShot}
   if(c.doc){
     delete c.doc.mark;delete c.doc.unsaved;
-    if(o.doc){if(c.doc.assetId)await grab(c.doc.assetId,c.doc.kind==='pdf'?'application/pdf':'text/markdown');if(!withImgs)delete c.doc.images}
-    else{delete c.doc.assetId;delete c.doc.text;delete c.doc.images;c.doc.left=true}
+    if(o.doc){
+      if(o.inlineText&&c.doc.kind!=='pdf'&&c.doc.assetId){
+        c.doc.text=await io.files.fetch(c.doc.assetId,'text');
+        delete c.doc.assetId;
+      }else if(c.doc.assetId)await grab(c.doc.assetId,c.doc.kind==='pdf'?'application/pdf':'text/markdown');
+      if(!withImgs)delete c.doc.images;
+    }else{delete c.doc.assetId;delete c.doc.text;delete c.doc.images;c.doc.left=true}
   }
   if(withImgs)for(const im of imageRecs(c))if(im.asset)await grab(im.asset,im.type).catch(e=>{console.warn('image left out',e);delete im.asset});
   let cards=[];
@@ -1542,7 +1547,7 @@ async function openExport(id){
     try{
       const doc=!!($('#xLDoc')||{}).checked,images=!!($('#xLImg')||{}).checked,cards=!!($('#xLCards')||{}).checked;
       const pub=!!($('#xLPub')||{}).checked;
-      const {file}=await digressFile(id,{doc,images,cards});
+      const {file}=await digressFile(id,{doc,images,cards,inlineText:true});
       const {token}=await encodeSharePayload(file);
       if(seq!==linkSeq)return;
       const url=buildShareUrl(token,pub?PUBLIC_DEMO_URL:curBase);
@@ -1591,6 +1596,7 @@ async function importDigressData(d,kind='file'){
       else{
         const a=c.doc.assetId&&files[c.doc.assetId];delete c.doc.assetId;
         if(a){const blob=b64Blob(a.data,a.type),pdf=c.doc.kind==='pdf';if(!await storeDocFile(c,c.doc.kind,blob,pdf?null:await blob.text()))c.doc.left=true}
+        else if(typeof c.doc.text==='string'){const txt=c.doc.text;delete c.doc.text;if(!await storeDocFile(c,c.doc.kind,null,txt))c.doc.text=txt}
         else if(c.doc.text==null)c.doc.left=true;
         for(const im of Object.values(c.doc.images||{}))await restore(im);
         for(const t of Object.values(c.threads||{}))if(t&&t.anchorShot)await restore(t.anchorShot);
@@ -4137,7 +4143,15 @@ function renderDocPane(force){
   wrap.dataset.key=docState.key+(ready?'L':'')+(docState.error?'E':'');
   if(docState.error){
     wrap.innerHTML=`<div class="docerr"></div>`;const box=wrap.firstChild;box.textContent=docState.error.message||String(docState.error);
-    if(docState.error.missing){const i=document.createElement('input');i.type='file';i.accept='.pdf,.md,.markdown,.txt';box.append(document.createElement('br'),i);i.onchange=()=>i.files[0]&&reattachDoc(i.files[0])}
+    if(docState.error.missing){
+      const src=conv.doc&&typeof conv.doc.source==='string'&&/^https?:\/\//i.test(conv.doc.source)?conv.doc.source:'';
+      if(src){
+        const p=document.createElement('div');p.style.marginTop='8px';
+        const a=document.createElement('a');a.href=src;a.target='_blank';a.rel='noopener noreferrer';a.textContent=src;
+        p.append('Original link: ',a);box.appendChild(p);
+      }
+      const i=document.createElement('input');i.type='file';i.accept='.pdf,.md,.markdown,.txt';box.append(document.createElement('br'),i);i.onchange=()=>i.files[0]&&reattachDoc(i.files[0]);
+    }
   }else if(!ready){wrap.innerHTML='<div class="docload">Loading the document…</div>'}
   else if(docState.kind==='pdf'){buildPdfPages(el,wrap)}
   else{
