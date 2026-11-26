@@ -10,6 +10,42 @@ const KIND_BOOST = { ct: 3, bt: 2.4, h: 2.2, n: 2, q: 1.6, a: 1, d: 0.9 };
 const RE_ESC = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const WB = '(?<![\\p{L}\\p{N}])';
 
+// Bounded Damerau-Levenshtein distance (returns > maxD early when strings can't match).
+function editDistBounded(a, b, maxD) {
+  const la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > maxD) return maxD + 1;
+  if (a === b) return 0;
+  let prev2 = null;
+  let prev = new Uint8Array(lb + 1);
+  let cur = new Uint8Array(lb + 1);
+  for (let j = 0; j <= lb; j++) prev[j] = j;
+  for (let i = 1; i <= la; i++) {
+    cur[0] = i;
+    let rowMin = i;
+    const ca = a.charCodeAt(i - 1);
+    for (let j = 1; j <= lb; j++) {
+      const cost = ca === b.charCodeAt(j - 1) ? 0 : 1;
+      let v = prev[j] + 1;
+      const ins = cur[j - 1] + 1;
+      const sub = prev[j - 1] + cost;
+      if (ins < v) v = ins;
+      if (sub < v) v = sub;
+      if (prev2 && i > 1 && j > 1 && ca === b.charCodeAt(j - 2) && a.charCodeAt(i - 2) === b.charCodeAt(j - 1)) {
+        const tr = prev2[j - 2] + 1;
+        if (tr < v) v = tr;
+      }
+      cur[j] = v;
+      if (v < rowMin) rowMin = v;
+    }
+    if (rowMin > maxD) return maxD + 1;
+    const tmp = prev2 || new Uint8Array(lb + 1);
+    prev2 = prev;
+    prev = cur;
+    cur = tmp;
+  }
+  return prev[lb];
+}
+
 function extractConvMeta(id, c) {
   return {
     title: String(c.title || ''),
@@ -121,6 +157,8 @@ export function openDb(dataDir) {
       tokenize='unicode61 remove_diacritics 2'
     );
 
+    CREATE VIRTUAL TABLE IF NOT EXISTS passages_vocab USING fts5vocab(passages_fts, row);
+
     CREATE TRIGGER IF NOT EXISTS passages_ai AFTER INSERT ON passages BEGIN
       INSERT INTO passages_fts(rowid, x) VALUES (new.rowid, new.x);
     END;
@@ -174,6 +212,7 @@ export function openDb(dataDir) {
     INSERT INTO passages (cid, idx, k, tid, mid, p, n, o, x) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const stGetBranchTitle = db.prepare("SELECT x FROM passages WHERE cid = ? AND k = 'bt' AND tid = ? LIMIT 1");
+  const stVocabRange = db.prepare('SELECT term, doc FROM passages_vocab WHERE length(term) BETWEEN ? AND ?');
 
   const stAllAssetsConvs = db.prepare('SELECT data FROM convs');
   const stAllAssetsCards = db.prepare("SELECT data FROM docs WHERE coll = 'cards'");
@@ -428,10 +467,11 @@ export function openDb(dataDir) {
     const tid = String(opts.tid || '');
     const limit = Math.min(Math.max(Number(opts.limit) || 120, 1), 300);
 
-    const ftsTokens = words.map((w, i) => {
+    const qTok = (w, prefix) => {
       const safe = w.replace(/"/g, '""');
-      return i === words.length - 1 && w.length > 1 ? `"${safe}"*` : `"${safe}"`;
-    });
+      return prefix ? `"${safe}"*` : `"${safe}"`;
+    };
+    const ftsTokens = words.map((w, i) => qTok(w, i === words.length - 1 && w.length > 1));
 
     const where = ['passages_fts MATCH ?', 'c.trashed = 0'];
     const baseParams = [];
@@ -458,15 +498,50 @@ export function openDb(dataDir) {
       LIMIT 400
     `;
     const stmt = db.prepare(sql);
+    const runMatch = (expr) => {
+      try { return stmt.all(expr, ...baseParams); } catch { return []; }
+    };
 
-    let rows = [];
-    try {
-      rows = stmt.all(ftsTokens.join(' '), ...baseParams);
-    } catch { rows = []; }
+    let matchedTerms = [...words];
+    let rows = runMatch(ftsTokens.join(' '));
+
+    // Typo-tolerant fallback via fts5vocab (matches MiniSearch's fuzzy: 0.2 for words >= 5 chars)
+    if (!rows.length) {
+      const fuzzyParts = [];
+      const extraTerms = new Set(words);
+      let expanded = false;
+      for (let i = 0; i < words.length; i++) {
+        const w = words[i];
+        const base = qTok(w, i === words.length - 1 && w.length > 1);
+        if (w.length < 5) {
+          fuzzyParts.push(base);
+          continue;
+        }
+        const maxD = Math.min(2, Math.floor(w.length * 0.2));
+        const cands = [];
+        for (const r of stVocabRange.all(w.length - maxD, w.length + maxD)) {
+          const d = editDistBounded(w, r.term, maxD);
+          if (d <= maxD) cands.push({ term: r.term, d, doc: r.doc });
+        }
+        if (cands.length) {
+          cands.sort((a, b) => (a.d - b.d) || (b.doc - a.doc));
+          const top = cands.slice(0, 6).map((c) => c.term);
+          for (const t of top) extraTerms.add(t);
+          fuzzyParts.push('(' + [base, ...top.map((t) => qTok(t, false))].join(' OR ') + ')');
+          expanded = true;
+        } else {
+          fuzzyParts.push(base);
+        }
+      }
+      if (expanded) {
+        rows = runMatch(fuzzyParts.join(' '));
+        if (!rows.length && fuzzyParts.length > 1) rows = runMatch(fuzzyParts.join(' OR '));
+        if (rows.length) matchedTerms = [...extraTerms];
+      }
+    }
+
     if (!rows.length && ftsTokens.length > 1) {
-      try {
-        rows = stmt.all(ftsTokens.join(' OR '), ...baseParams);
-      } catch { rows = []; }
+      rows = runMatch(ftsTokens.join(' OR '));
     }
     if (!rows.length) return [];
 
@@ -493,7 +568,7 @@ export function openDb(dataDir) {
         phrase,
         exact,
         score,
-        terms: words,
+        terms: matchedTerms,
       };
     });
 
