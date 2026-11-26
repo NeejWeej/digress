@@ -202,7 +202,7 @@ async def main():
             import mimetypes
             from common import BOOT_WATCH
             sec_url = 'https://digress.test/digress/'
-            cors_hdrs = {'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS'}
+            cors_hdrs = {'access-control-allow-origin': '*', 'access-control-allow-headers': 'x-goog-api-key, content-type', 'access-control-allow-methods': 'GET, POST, OPTIONS'}
             async def sec_route(r):
                 u = r.request.url.split('#')[0].split('?')[0]
                 if not u.startswith('http'): return await r.continue_()
@@ -296,7 +296,10 @@ async def main():
             await lock_pg.locator('#connModal .cnrow[data-cid=gemini] .demo-rem-pass').fill('pass1234')
             hold_unlock.set()
             await lock_pg.locator('#connModal .cnrow[data-cid=gemini] [data-cx=add]').click()
-            await lock_pg.locator('#connModal button', has_text='Lock now').wait_for(state='visible', timeout=20000)
+            await soon(lock_pg, "() => !![...document.querySelectorAll('#connModal button')].find(b => b.textContent === 'Lock now') || !!document.querySelector('#connModal .cnerr')", timeout=25000)
+            conn_err = await lock_pg.evaluate("(document.querySelector('#connModal .cnerr') || {}).textContent || ''")
+            check('remembered Gemini key connects and shows Lock now', not conn_err and await lock_pg.locator('#connModal button', has_text='Lock now').is_visible(),
+                  [conn_err, await lock_pg.evaluate("({ secure: window.isSecureContext, subtle: !!crypto.subtle, text: (document.querySelector('#connModal .cnrow[data-cid=gemini]')||{}).innerText })")])
             await lock_pg.locator('#connModal button', has_text='Lock now').click()
             await soon(lock_pg, "() => !!document.querySelector('#connModal .demo-unlock-pass')", timeout=10000)
             # Now hold the next validation response, start Unlock, run Forget while held, then release
