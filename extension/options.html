@@ -4,68 +4,197 @@
 <meta charset="utf-8">
 <title>Digress Clipper — Settings</title>
 <style>
-  body{font:14px/1.5 system-ui,-apple-system,sans-serif;max-width:740px;margin:28px auto;padding:0 20px;color:#1f2328;background:#fff}
-  @media (prefers-color-scheme:dark){body{color:#e6edf3;background:#0d1117}input,select{background:#161b22;color:#e6edf3;border-color:#30363d}button.sec{background:#21262d;color:#e6edf3;border-color:#30363d}table{border-color:#30363d}}
-  h1{font-size:20px;margin:0 0 6px}
-  h2{font-size:15px;margin:24px 0 8px}
-  p.hint{font-size:12.5px;color:#6e7781;margin:4px 0 12px}
-  input[type=text],input[type=url],select{padding:6px 8px;border:1px solid #d0d7de;border-radius:6px;font:inherit}
-  .urlrow{display:flex;gap:8px}
-  .urlrow input{flex:1}
-  table{width:100%;border-collapse:collapse;margin-top:8px}
-  th,td{text-align:left;padding:6px 6px;border-bottom:1px solid #e5e7eb;font-size:13px}
-  td input[type=text]{width:100%;box-sizing:border-box}
-  button{padding:6px 12px;border-radius:6px;font:inherit;cursor:pointer;border:1px solid #d0d7de;background:#f6f8fa}
-  button.pri{background:#d97706;border-color:#d97706;color:#fff;font-weight:500}
-  .bar{display:flex;align-items:center;gap:10px;margin-top:16px}
-  .status{font-size:13px;color:#16a34a}
+  :root {
+    --bg: #f6f8fa;
+    --card: #ffffff;
+    --surface: #f6f8fa;
+    --border: #d8dee4;
+    --text: #1f2328;
+    --muted: #656d76;
+    --accent: #d97706;
+    --accent-hover: #b45309;
+    --ok: #16a34a;
+    --err: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --surface: #0d1117;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font: 14px/1.5 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    margin: 0;
+    padding: 28px 20px 48px;
+    color: var(--text);
+    background: var(--bg);
+  }
+  .wrap { max-width: 780px; margin: 0 auto; }
+  h1 { font-size: 21px; margin: 0 0 4px; }
+  p.lead { font-size: 13.5px; color: var(--muted); margin: 0 0 20px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 4px; }
+  p.hint { font-size: 12.5px; color: var(--muted); margin: 0 0 12px; }
+
+  input[type=text], input[type=url], select {
+    padding: 6px 9px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    outline: none;
+  }
+  input[type=text]:focus, input[type=url]:focus, select:focus { border-color: var(--accent); }
+  .urlrow { display: flex; gap: 8px; flex-wrap: wrap; }
+  .urlrow input { flex: 1; min-width: 240px; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  th, td { text-align: left; padding: 6px 5px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; }
+  td input[type=text], td select { width: 100%; }
+  .act-cell { display: flex; gap: 4px; justify-content: flex-end; }
+  .icon-btn {
+    padding: 4px 7px;
+    font-size: 12px;
+    line-height: 1;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .icon-btn:hover { border-color: var(--accent); }
+
+  button {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font: inherit;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+  }
+  button:hover { border-color: var(--muted); }
+  button.pri {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+  button.pri:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+  .bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .opt-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .opt-row:last-child { border-bottom: 0; padding-bottom: 0; }
+  .opt-label { font-size: 13.5px; font-weight: 500; }
+  .opt-sub { font-size: 12px; color: var(--muted); }
+
+  .status { font-size: 13px; color: var(--ok); }
+  .status.err { color: var(--err); }
+  code { background: var(--surface); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
 </style>
 </head>
 <body>
+<div class="wrap">
   <h1>Digress Clipper Settings</h1>
-  <p class="hint">Point the clipper at your own Digress server (local or Tailscale) and choose where each site lands.</p>
+  <p class="lead">Connect to your Digress tab, customize site-specific options, and choose where clips land.</p>
 
-  <h2>Digress URL</h2>
-  <div class="urlrow">
-    <input id="digressUrl" type="url" placeholder="https://your-box.tailnet.ts.net or http://127.0.0.1:8788">
-  </div>
-  <p class="hint">Requests go straight to your Digress tab—no API keys or server CORS changes needed.</p>
-
-  <h2>Per-site rules</h2>
-  <p class="hint">First matching rule wins. Patterns match a hostname (<code>x.com</code>), wildcard subdomain (<code>*.substack.com</code>), or URL prefix (<code>x.com/i/lists/123</code>).</p>
-  <table>
-    <thead>
-      <tr>
-        <th style="width:28%">Site / URL pattern</th>
-        <th style="width:24%">Action</th>
-        <th style="width:30%">Conversation name (if branch)</th>
-        <th style="width:10%">Focus</th>
-        <th style="width:8%"></th>
-      </tr>
-    </thead>
-    <tbody id="rulesBody"></tbody>
-  </table>
-  <div class="bar">
-    <button type="button" class="sec" id="addRule">+ Add rule</button>
+  <div class="card">
+    <h2>Digress server</h2>
+    <p class="hint">Clips go straight to your Digress tab—no API keys or server CORS changes needed.</p>
+    <div class="urlrow">
+      <input id="digressUrl" type="url" placeholder="https://your-box.tailnet.ts.net or http://127.0.0.1:8788">
+      <button type="button" id="detect">Detect open tab</button>
+      <button type="button" id="testConn">Test</button>
+    </div>
+    <div class="bar" style="margin-top:8px">
+      <span class="status" id="connStatus"></span>
+    </div>
   </div>
 
-  <h2>Default (everything else)</h2>
-  <div class="bar">
-    <select id="fbMode">
-      <option value="doc">New document conversation</option>
-      <option value="branch">Branch in conversation</option>
-    </select>
-    <input id="fbConv" type="text" placeholder="Conversation name (if branch)">
-    <label><input id="fbFocus" type="checkbox"> Focus Digress tab</label>
+  <div class="card">
+    <h2>X / Twitter &amp; feedback</h2>
+    <div class="opt-row">
+      <div>
+        <div class="opt-label">Default clip scope on X</div>
+        <div class="opt-sub">You can always override this from the right-click submenu or popup.</div>
+      </div>
+      <select id="xThreadMode">
+        <option value="single">Single tweet</option>
+        <option value="thread">Thread up to clicked tweet</option>
+      </select>
+    </div>
+    <div class="opt-row">
+      <div>
+        <div class="opt-label">In-page confirmation toast</div>
+        <div class="opt-sub">Show a fading toast with an “Open” button when clipping in the background.</div>
+      </div>
+      <input id="showToast" type="checkbox">
+    </div>
   </div>
 
-  <div class="bar" style="margin-top:24px">
+  <div class="card">
+    <h2>Per-site rules</h2>
+    <p class="hint">First matching rule wins. Patterns match a hostname (<code>x.com</code>), wildcard subdomain (<code>*.substack.com</code>), or URL prefix (<code>x.com/i/lists/123</code>).</p>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:26%">Site / URL pattern</th>
+          <th style="width:21%">Action</th>
+          <th style="width:29%">Conversation (if branch)</th>
+          <th style="width:8%;text-align:center">Focus</th>
+          <th style="width:16%"></th>
+        </tr>
+      </thead>
+      <tbody id="rulesBody"></tbody>
+    </table>
+    <div class="bar">
+      <button type="button" id="addRule">+ Add rule</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Default (everything else)</h2>
+    <div class="bar" style="margin-top:6px">
+      <select id="fbMode">
+        <option value="doc">New document conversation</option>
+        <option value="branch">Branch in conversation</option>
+      </select>
+      <input id="fbConv" type="text" list="convSuggestions" placeholder="Conversation name (if branch)">
+      <label><input id="fbFocus" type="checkbox"> Focus Digress tab</label>
+    </div>
+  </div>
+
+  <div class="bar" style="margin-top:20px">
     <button type="button" class="pri" id="save">Save settings</button>
-    <button type="button" class="sec" id="reset">Reset defaults</button>
+    <button type="button" id="reset">Reset defaults</button>
     <span class="status" id="status"></span>
   </div>
 
-  <script src="rules.js"></script>
-  <script src="options.js"></script>
+  <datalist id="convSuggestions"></datalist>
+</div>
+
+<script src="rules.js"></script>
+<script src="options.js"></script>
 </body>
 </html>

@@ -5107,13 +5107,20 @@ async function startFromDoc(){
   $('#docModal').addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();closeDocModal()}});
 })();
 // Browser clipper handoff (extension/bridge.js -> window.postMessage on this origin).
-// mode: 'doc' (new document conversation from html/text) | 'branch' (new CLIP branch in an existing or newly created conversation)
+// mode: 'doc' (new document conversation from html/text) | 'branch' (new CLIP branch or into an existing branch)
+function clipBranchesOf(c){
+  if(!c||!c.threads)return [];
+  const list=[{id:'main',title:'Main',isClip:false}];
+  const kids=Object.values(c.threads).filter(t=>t&&t.id!=='main'&&!t.hidden).sort((a,b)=>(b.created||0)-(a.created||0));
+  for(const t of kids)list.push({id:t.id,title:t.title||'Untitled branch',isClip:t.anchorMsg==='CLIP'});
+  return list;
+}
 async function ingestClip(p){
   await io.ready;
   if(!p||typeof p!=='object')throw new Error('Invalid clip payload');
   const safeUrl=typeof p.url==='string'&&/^https?:\/\//i.test(p.url.trim())?p.url.trim():'';
   const mode=p.mode==='branch'?'branch':'doc';
-  const title=String(p.title||'').trim();
+  let title=String(p.title||'').trim();
   const rawText=String(p.text||'').trim();
   const rawHtml=String(p.html||'');
   if(mode==='doc'){
@@ -5132,14 +5139,52 @@ async function ingestClip(p){
     cacheDocBlob(c.id,text);
     setConv(c);dirty=true;await flushNow();
     toast(`Clipped “${trunc(name,40)}”`);
-    return {convId:c.id,threadId:'main'};
+    return {convId:c.id,convTitle:c.title,threadId:'main',branchTitle:''};
   }
+  let text=rawText;
+  if(!text&&rawHtml){
+    try{
+      const a=await articleToMarkdown(rawHtml,safeUrl||'https://example.invalid/');
+      text=String(a.md||'').trim();
+      if(!title&&a.title)title=a.title;
+    }catch(_){}
+  }
+  const convId=typeof p.convId==='string'?p.convId.trim():'';
   const convTitle=String(p.convTitle||'Clippings').trim()||'Clippings';
-  const want=convTitle.toLowerCase();
-  const hit=convList.find(c=>!c.trashed&&String(c.title||'').trim().toLowerCase()===want);
-  if(hit){if(!conv||conv.id!==hit.id)await openConv(hit.id)}
-  else{
-    const c=newConv();c.title=convTitle;c.titleKept=true;setConv(c);dirty=true;await flushNow();
+  if(p.useCurrentConv&&conv){
+    // stay on the currently open conversation
+  }else if(convId){
+    const byId=convList.find(c=>!c.trashed&&c.id===convId);
+    if(byId){if(!conv||conv.id!==byId.id)await openConv(byId.id)}
+    else if(!conv||conv.id!==convId){
+      const c=newConv();c.title=convTitle;c.titleKept=true;setConv(c);dirty=true;await flushNow();
+    }
+  }else{
+    const want=convTitle.toLowerCase();
+    const hit=convList.find(c=>!c.trashed&&String(c.title||'').trim().toLowerCase()===want);
+    if(hit){if(!conv||conv.id!==hit.id)await openConv(hit.id)}
+    else{
+      const c=newConv();c.title=convTitle;c.titleKept=true;setConv(c);dirty=true;await flushNow();
+    }
+  }
+  const targetTid=typeof p.targetThreadId==='string'?p.targetThreadId.trim():'';
+  if(targetTid&&conv.threads[targetTid]){
+    if(!conv.ui.open.includes(targetTid))conv.ui.open.push(targetTid);
+    conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==targetTid);
+    if(conv.ui.view==='canvas'){renderCanvas();focusCard(targetTid)}else{layout();revealPane(targetTid)}
+    const pe=paneEls.get(targetTid),ta=pe&&pe.querySelector('textarea');
+    if(ta){
+      const parts=[];
+      if(title||safeUrl)parts.push(`From ${title?`**${title}**`:'clip'}${safeUrl?` (${safeUrl})`:''}:`);
+      if(text)parts.push('> '+text.replace(/\n/g,'\n> '));
+      if(p.question)parts.push(String(p.question).trim());
+      const block=parts.filter(Boolean).join('\n\n');
+      if(block)ta.value=ta.value.trim()?ta.value.trimEnd()+'\n\n'+block:block;
+      ta.focus();
+    }
+    const bt=targetTid==='main'?'Main':(conv.threads[targetTid].title||targetTid);
+    toast(`Added to “${trunc(bt,32)}”`);
+    return {convId:conv.id,convTitle:conv.title,threadId:targetTid,branchTitle:bt};
   }
   const rawImgs=Array.isArray(p.images)?p.images.slice(0,4):[];
   const readyImgs=[];
@@ -5149,8 +5194,10 @@ async function ingestClip(p){
   }
   const anchorImages=readyImgs.length?await storeImages(readyImgs):[];
   const tid='t'+rid();
-  const bTitle=trunc(title||rawText.split('\n').find(l=>l.trim())||'Clipping',52);
-  const t={id:tid,parent:'main',anchorMsg:'CLIP',anchorText:rawText,anchorTitle:title,anchorUrl:safeUrl,title:bTitle,colorIdx:(conv.nextColor++)%6,created:Date.now()};
+  const customBranch=String(p.branchTitle||'').trim();
+  const bTitle=trunc(customBranch||title||text.split('\n').find(l=>l.trim())||'Clipping',52);
+  const t={id:tid,parent:'main',anchorMsg:'CLIP',anchorText:text,anchorTitle:title,anchorUrl:safeUrl,title:bTitle,colorIdx:(conv.nextColor++)%6,created:Date.now()};
+  if(customBranch)t.titleKept=true;
   if(anchorImages.length)t.anchorImages=anchorImages;
   conv.threads[tid]=t;conv.order[tid]=[];
   if(!conv.ui.open.includes(tid))conv.ui.open.push(tid);
@@ -5160,13 +5207,55 @@ async function ingestClip(p){
   const pe=paneEls.get(tid),ta=pe&&pe.querySelector('textarea');
   if(ta){if(p.question)ta.value=String(p.question);ta.focus()}
   toast(`Clipped to “${trunc(conv.title,32)}”`);
-  return {convId:conv.id,threadId:tid};
+  return {convId:conv.id,convTitle:conv.title,threadId:tid,branchTitle:bTitle};
 }
 window.addEventListener('message',async e=>{
-  if(e.source!==window||!e.data||e.data.digressClip!==1)return;
-  const id=e.data.id;
-  try{const r=await ingestClip(e.data.payload);window.postMessage({digressClipAck:1,id,ok:true,...r},location.origin)}
-  catch(err){window.postMessage({digressClipAck:1,id,ok:false,error:(err&&err.message)||'Could not clip'},location.origin)}
+  if(e.source!==window||!e.data)return;
+  if(e.data.digressClip===1){
+    const id=e.data.id;
+    try{const r=await ingestClip(e.data.payload);window.postMessage({digressClipAck:1,id,ok:true,...r},location.origin)}
+    catch(err){window.postMessage({digressClipAck:1,id,ok:false,error:(err&&err.message)||'Could not clip'},location.origin)}
+    return;
+  }
+  if(e.data.digressClipQuery===1){
+    const id=e.data.id;
+    try{
+      await io.ready;
+      const reqConvId=typeof e.data.convId==='string'?e.data.convId.trim():'';
+      const conversations=convList.filter(c=>!c.trashed).slice().sort((a,b)=>(b.updated||0)-(a.updated||0)).slice(0,100)
+        .map(c=>({id:c.id,title:c.title||'Untitled',updated:c.updated||0,hasDoc:!!c.doc}));
+      let branches=[];
+      if(reqConvId){
+        if(conv&&conv.id===reqConvId)branches=clipBranchesOf(conv);
+        else{const d=await io.store.get(reqConvId).catch(()=>null);branches=clipBranchesOf(d)}
+      }else if(conv){
+        branches=clipBranchesOf(conv);
+      }
+      window.postMessage({
+        digressClipQueryAck:1,id,ok:true,
+        currentConvId:conv?conv.id:'',
+        currentConvTitle:conv?(conv.title||'Untitled'):'',
+        currentThreadId:conv?(curPane()||'main'):'main',
+        conversations,branches,
+      },location.origin);
+    }catch(err){window.postMessage({digressClipQueryAck:1,id,ok:false,error:(err&&err.message)||'Query failed'},location.origin)}
+    return;
+  }
+  if(e.data.digressClipFocus===1){
+    const id=e.data.id;
+    try{
+      await io.ready;
+      const cid=typeof e.data.convId==='string'?e.data.convId.trim():'';
+      const tid=typeof e.data.threadId==='string'?e.data.threadId.trim():'';
+      if(cid&&(!conv||conv.id!==cid))await openConv(cid);
+      if(tid&&conv&&conv.threads[tid]){
+        if(!conv.ui.open.includes(tid))conv.ui.open.push(tid);
+        conv.ui.collapsed=conv.ui.collapsed.filter(x=>x!==tid);
+        if(conv.ui.view==='canvas'){renderCanvas();focusCard(tid)}else{layout();revealPane(tid)}
+      }
+      window.postMessage({digressClipFocusAck:1,id,ok:true},location.origin);
+    }catch(err){window.postMessage({digressClipFocusAck:1,id,ok:false,error:(err&&err.message)||'Focus failed'},location.origin)}
+  }
 });
 
 /* ---------- search: a per-conversation text index (kept separately, updated on save) + BM25 ranking ---------- */

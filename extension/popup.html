@@ -4,39 +4,259 @@
 <meta charset="utf-8">
 <title>Send to Digress</title>
 <style>
-  body{font:13px/1.4 system-ui,-apple-system,sans-serif;margin:0;padding:12px 14px;width:290px;color:#1f2328;background:#fff}
-  @media (prefers-color-scheme:dark){body{color:#e6edf3;background:#161b22}input,select{background:#0d1117;color:#e6edf3;border-color:#30363d}button.sec{background:#21262d;color:#e6edf3;border-color:#30363d}}
-  h1{font-size:14px;margin:0 0 8px;display:flex;align-items:center;justify-content:space-between}
-  h1 a{font-size:12px;font-weight:400;color:#d97706;text-decoration:none}
-  .meta{font-size:11.5px;color:#6e7781;margin-bottom:10px;word-break:break-all}
-  label{display:block;font-size:12px;font-weight:500;margin:8px 0 3px}
-  input[type=text],select{width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #d0d7de;border-radius:6px;font:inherit}
-  .row{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px}
-  .acts{display:flex;gap:8px;margin-top:12px}
-  button{flex:1;padding:7px 10px;border-radius:6px;font:inherit;font-weight:500;cursor:pointer;border:1px solid transparent}
-  button.pri{background:#d97706;color:#fff}
-  button.pri:disabled{opacity:.6;cursor:default}
-  .msg{margin-top:8px;font-size:12px;min-height:16px}
-  .msg.ok{color:#16a34a}.msg.err{color:#dc2626}
+  :root {
+    --bg: #ffffff;
+    --surface: #f6f8fa;
+    --border: #d8dee4;
+    --text: #1f2328;
+    --muted: #656d76;
+    --accent: #d97706;
+    --accent-hover: #b45309;
+    --ok: #16a34a;
+    --err: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161b22;
+      --surface: #0d1117;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font: 13px/1.4 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    margin: 0;
+    padding: 12px 14px 14px;
+    width: 332px;
+    color: var(--text);
+    background: var(--bg);
+  }
+  .top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 8px;
+  }
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--muted);
+  }
+  .pill.on .dot { background: var(--ok); }
+  .pill.on { color: var(--text); }
+  .gear {
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .gear:hover { text-decoration: underline; }
+
+  .preview {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+  }
+  .preview-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+  .preview-txt {
+    font-size: 12px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .seg {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+    margin-bottom: 10px;
+  }
+  .seg button {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    padding: 5px 8px;
+    border-radius: 6px;
+    font: 500 12px/1.2 inherit;
+    cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .seg button.active {
+    background: var(--bg);
+    color: var(--text);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  }
+
+  .field { margin-bottom: 8px; }
+  label.lbl {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--muted);
+    margin: 0 0 3px;
+  }
+  input[type=text], select, textarea {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    outline: none;
+  }
+  input[type=text]:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+  }
+  textarea {
+    resize: vertical;
+    min-height: 44px;
+    max-height: 110px;
+  }
+
+  .checks {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin: 8px 0 10px;
+  }
+  .chk {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text);
+    cursor: pointer;
+    user-select: none;
+  }
+  .chk input { margin: 0; accent-color: var(--accent); }
+
+  .acts { display: flex; gap: 8px; }
+  button.pri {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 7px;
+    border: 0;
+    background: var(--accent);
+    color: #fff;
+    font: 600 13px/1.2 inherit;
+    cursor: pointer;
+  }
+  button.pri:hover { background: var(--accent-hover); }
+  button.pri:disabled { opacity: .6; cursor: default; }
+
+  .msg {
+    margin-top: 7px;
+    font-size: 12px;
+    min-height: 16px;
+  }
+  .msg.ok { color: var(--ok); }
+  .msg.err { color: var(--err); }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
-  <h1><span>Send to Digress</span><a href="options.html" target="_blank">Settings</a></h1>
-  <div class="meta" id="meta"></div>
-  <label for="mode">Destination</label>
-  <select id="mode">
-    <option value="doc">New document conversation</option>
-    <option value="branch">Branch in an existing conversation</option>
-  </select>
-  <div id="convWrap">
-    <label for="convTitle">Conversation name</label>
-    <input id="convTitle" type="text" placeholder="e.g. Twitter clippings">
+  <div class="top">
+    <div class="brand">
+      <span>Digress</span>
+      <span class="pill" id="connPill"><span class="dot"></span><span id="connTxt">Checking…</span></span>
+    </div>
+    <a class="gear" href="options.html" target="_blank">Settings</a>
   </div>
-  <label class="row"><input id="focus" type="checkbox"> Switch to Digress tab</label>
+
+  <div class="preview">
+    <div class="preview-top">
+      <span id="previewKind">Page</span>
+      <span id="ruleBadge">rule: *</span>
+    </div>
+    <div class="preview-txt" id="previewTxt">Loading tab…</div>
+  </div>
+
+  <div class="seg hidden" id="xSeg" role="group" aria-label="X clip scope">
+    <button type="button" data-xmode="single">Single tweet</button>
+    <button type="button" data-xmode="thread">Thread up to here</button>
+  </div>
+
+  <div class="seg" id="modeSeg" role="group" aria-label="Destination">
+    <button type="button" data-mode="branch">Branch</button>
+    <button type="button" data-mode="doc">New document</button>
+  </div>
+
+  <div id="branchFields">
+    <div class="field" id="convSelectWrap">
+      <label class="lbl" for="convSelect">Conversation</label>
+      <select id="convSelect"></select>
+    </div>
+
+    <div class="field hidden" id="newConvWrap">
+      <label class="lbl" for="newConvTitle">New conversation name</label>
+      <input id="newConvTitle" type="text" placeholder="e.g. Twitter clippings">
+    </div>
+
+    <div class="field hidden" id="branchSelectWrap">
+      <label class="lbl" for="branchSelect">Branch</label>
+      <select id="branchSelect"></select>
+    </div>
+
+    <div class="field" id="branchTitleWrap">
+      <label class="lbl" for="branchTitle">Branch title (optional)</label>
+      <input id="branchTitle" type="text" placeholder="Auto from page or tweet">
+    </div>
+
+    <div class="field">
+      <label class="lbl" for="question">Question or note (optional)</label>
+      <textarea id="question" rows="2" placeholder="Pre-fill composer… (⌘/Ctrl+Enter to send)"></textarea>
+    </div>
+  </div>
+
+  <div class="checks">
+    <label class="chk"><input id="focus" type="checkbox"> Switch to Digress tab</label>
+    <label class="chk hidden" id="rememberWrap"><input id="remember" type="checkbox"> <span id="rememberLbl">Remember for this site</span></label>
+  </div>
+
   <div class="acts">
     <button class="pri" id="send">Send to Digress</button>
   </div>
   <div class="msg" id="msg"></div>
+
   <script src="rules.js"></script>
   <script src="popup.js"></script>
 </body>

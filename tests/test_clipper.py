@@ -51,6 +51,8 @@ const out = {
   tweet: R.matchRule('https://www.x.com/alice/status/123', cfg),
   sub: R.matchRule('https://example.substack.com/p/hello', cfg),
   other: R.matchRule('https://arxiv.org/abs/1706.03762', cfg),
+  mergedDef: R.mergeSettings({}),
+  mergedCust: R.mergeSettings({ xThreadMode: 'thread', showToast: false }),
 };
 console.log(JSON.stringify(out));
 """
@@ -62,6 +64,9 @@ console.log(JSON.stringify(out));
     check('hostname rule matches www.x.com', d['tweet']['mode'] == 'branch' and d['tweet']['convTitle'] == 'Twitter clippings', d['tweet'])
     check('wildcard subdomain rule matches *.substack.com', d['sub']['mode'] == 'doc' and d['sub']['pattern'] == '*.substack.com', d['sub'])
     check('unmatched URL uses fallback rule', d['other']['mode'] == 'doc' and d['other']['pattern'] == '*', d['other'])
+    check('mergeSettings provides xThreadMode and showToast defaults and overrides',
+          d['mergedDef']['xThreadMode'] == 'single' and d['mergedDef']['showToast'] is True
+          and d['mergedCust']['xThreadMode'] == 'thread' and d['mergedCust']['showToast'] is False, d['mergedCust'])
 
 async def post_clip(pg, payload):
     return await pg.evaluate("""(payload) => new Promise((resolve) => {
@@ -75,6 +80,32 @@ async def post_clip(pg, payload):
       window.addEventListener('message', onMsg);
       window.postMessage({ digressClip: 1, id, payload }, location.origin);
     })""", payload)
+
+async def post_query(pg, conv_id=''):
+    return await pg.evaluate("""(convId) => new Promise((resolve) => {
+      const id = 'q-' + Math.random().toString(36).slice(2);
+      const onMsg = (e) => {
+        if (e.source === window && e.data && e.data.digressClipQueryAck === 1 && e.data.id === id) {
+          window.removeEventListener('message', onMsg);
+          resolve(e.data);
+        }
+      };
+      window.addEventListener('message', onMsg);
+      window.postMessage({ digressClipQuery: 1, id, convId }, location.origin);
+    })""", conv_id)
+
+async def post_focus(pg, conv_id, thread_id=''):
+    return await pg.evaluate("""({ convId, threadId }) => new Promise((resolve) => {
+      const id = 'f-' + Math.random().toString(36).slice(2);
+      const onMsg = (e) => {
+        if (e.source === window && e.data && e.data.digressClipFocusAck === 1 && e.data.id === id) {
+          window.removeEventListener('message', onMsg);
+          resolve(e.data);
+        }
+      };
+      window.addEventListener('message', onMsg);
+      window.postMessage({ digressClipFocus: 1, id, convId, threadId }, location.origin);
+    })""", {'convId': conv_id, 'threadId': thread_id})
 
 async def main():
     test_rules_node()
@@ -148,6 +179,42 @@ async def main():
         doc_info = await pg.evaluate("() => ({ source: (__digress.conv.doc||{}).source, text: document.querySelector('.docpane .docbody').textContent })")
         check('doc clip runs Readability and preserves source URL',
               doc_info['source'] == 'https://example.com/post' and 'paywalled article' in doc_info['text'].lower(), doc_info)
+
+        # 4. Query conversations and branches from another conversation without switching away
+        q1 = await post_query(pg, cid)
+        check('digressClipQuery returns conversations and branches for requested convId',
+              q1.get('ok') and len(q1.get('conversations') or []) >= 2
+              and any(b['id'] == tid1 for b in (q1.get('branches') or [])), q1)
+
+        # 5. Clip with custom branchTitle + convId + HTML-only body in branch mode
+        ack4 = await post_clip(pg, {
+            'mode': 'branch', 'convId': cid, 'branchTitle': 'Custom Reading Note',
+            'title': 'Ignored Auto Title', 'url': 'https://example.com/branch-html',
+            'html': f'<!doctype html><html><body><article><h1>HTML Branch</h1><p>{body_p}</p></article></body></html>',
+        })
+        tid4 = ack4.get('threadId')
+        t4 = await pg.evaluate("id => __digress.conv.threads[id]", tid4)
+        check('branch clip honors custom branchTitle, convId, and HTML fallback',
+              ack4.get('ok') and ack4.get('convId') == cid and t4
+              and t4.get('title') == 'Custom Reading Note' and t4.get('titleKept') is True
+              and 'branching conversations' in (t4.get('anchorText') or '').lower(), t4)
+
+        # 6. Clip into an existing branch (targetThreadId) -> populates composer with quote + question
+        ack5 = await post_clip(pg, {
+            'mode': 'branch', 'convId': cid, 'targetThreadId': tid1,
+            'title': '@carol on X', 'url': 'https://x.com/carol/status/9',
+            'text': 'Follow-up counterargument.', 'question': 'How does this compare?',
+        })
+        ta_val = await pg.evaluate("(tid) => (document.querySelector(`.pane[data-tid=\"${tid}\"] textarea`) || {}).value || ''", tid1)
+        check('targetThreadId pre-fills existing branch composer with clip and question',
+              ack5.get('ok') and ack5.get('threadId') == tid1
+              and 'Follow-up counterargument.' in ta_val and 'How does this compare?' in ta_val, ta_val)
+
+        # 7. digressClipFocus switches conversation and reveals target branch
+        f1 = await post_focus(pg, ack3['convId'], 'main')
+        cur_cid = await pg.evaluate("__digress.conv.id")
+        check('digressClipFocus switches to requested conversation', f1.get('ok') and cur_cid == ack3['convId'], cur_cid)
+        check('conversation still passes ThreadOps.check', len(await pg.evaluate("ThreadOps.check(__digress.conv)")) == 0)
 
         check('no page errors', not errs, '; '.join(errs[:3]))
         await b.close()
