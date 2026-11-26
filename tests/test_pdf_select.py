@@ -32,7 +32,7 @@ async def main():
         l1, l2 = lines[1], lines[2]
         sx, sy = l1[0] + 40, (l1[1] + l1[3]) / 2
         async def drag(ex, ey):
-            await pg.mouse.move(sx, sy); await pg.mouse.down()
+            await pg.mouse.move(sx, sy); await pg.mouse.down(); await frames(pg, 1)
             for i in range(1, 13): await pg.mouse.move(sx + (ex - sx) * i / 12, sy + (ey - sy) * i / 12); await frames(pg, 1); await pg.wait_for_timeout(25)
             s = await pg.evaluate('getSelection().toString()'); await pg.mouse.up()
             await pg.mouse.click(1150, 880); await frames(pg)
