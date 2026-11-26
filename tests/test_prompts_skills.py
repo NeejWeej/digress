@@ -130,7 +130,7 @@ async def main():
         await soon(pg, "() => __digress.conv.system === 'You are a patient guide. Use short paragraphs.'")
         await edit_prompt(); await pg.locator('#cSysDef').click()
         check('Put my default back fills in the default', await pg.locator('#cSysEd').input_value() == 'You are a terse tutor.')
-        await pg.locator('#mOk').click(); await soon(pg, "() => !__digress.conv.system")
+        await pg.locator('#mOk').click(); await soon(pg, "() => !__digress.conv.system && !(__digress.sync.base && __digress.sync.base.system)")
         check('…and saving it follows the default again', await pg.locator('#skillT').inner_text() == 'Prompt')
         await edit_prompt(); await pg.locator('#cSysEd').fill('You are a patient guide.'); await pg.locator('#mOk').click()
         await soon(pg, "() => __digress.sync.base && __digress.sync.base.system === 'You are a patient guide.'")
