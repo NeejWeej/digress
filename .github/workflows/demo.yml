@@ -1,5 +1,6 @@
-# The demo site on GitHub Pages: the real page (web/) with demo/demo.js answering /api/* in the browser, built by
-# demo/build.mjs. It's published only after Tests has passed on main, from that same commit, so the demo is
+# The demo site on Cloudflare Workers Static Assets (with GitHub Pages redirecting old links):
+# the real page (web/) with demo/demo.js answering /api/* in the browser, built by demo/build.mjs.
+# It's published only after Tests has passed on main, from that same commit, so the demo is
 # always the current page and never a broken one.
 #
 # So that one bad run can't leave the demo behind main until the next push (a package mirror once hung main's
@@ -61,9 +62,19 @@ jobs:
           node-version: 22
       - run: npm ci --ignore-scripts   # the libraries, so the demo serves its own copies (lib/); no install scripts in a job that can publish
       - run: node demo/build.mjs _site
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config demo/wrangler.jsonc
+      - run: |
+          mkdir -p _redirect
+          cp demo/redirect.html _redirect/index.html
+          cp demo/redirect.html _redirect/404.html
+          touch _redirect/.nojekyll
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: _site
+          path: _redirect
   deploy:
     needs: build
     runs-on: ubuntu-latest
