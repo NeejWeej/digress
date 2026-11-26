@@ -281,7 +281,7 @@ async def main():
             await lock_pg.unroute('https://generativelanguage.googleapis.com/**')
             await lock_pg.route('https://generativelanguage.googleapis.com/**', race_gemini)
             # Save a remembered key first via the Connections modal, then Lock it
-            await lock_pg.locator('#demoSide [data-demo=conn]').click()
+            await lock_pg.evaluate("document.querySelector('#demoSide [data-demo=conn]').click()")
             await lock_pg.wait_for_selector('#connModal.show .cnrow[data-cid=gemini] .cnkey')
             await lock_pg.locator('#connModal .cnrow[data-cid=gemini] .cnkey').fill('race-key-9999')
             await lock_pg.locator('#connModal .cnrow[data-cid=gemini] .demo-rem-cb').check()
