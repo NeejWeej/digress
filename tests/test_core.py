@@ -74,36 +74,39 @@ async def main():
         await pg.locator('#popIn').fill('Why lookup?'); await answered(pg, pg.locator('#popIn').press('Enter')); await drawn(pg)
         await pg.evaluate(SEL, [0,'query'])
         await answered(pg, pg.locator('#popChips .chip').nth(1).click()); await drawn(pg)
-        print('opts', await pg.evaluate('JSON.stringify({m:window.__opts.model,e:window.__opts.effort})'))
-        print('panes', await pg.evaluate("[...document.querySelectorAll('.pane')].map(p=>p.querySelector('.ph-title').textContent)"))
-        print('markers', await pg.evaluate("[...document.querySelectorAll('.pane[data-tid=main] sup.fn')].map(s=>s.textContent)"), 'chips', await pg.locator('.pane[data-tid=main] .bchip').count())
-        print('model label', await pg.locator('.pane[data-tid=main] .model').first.text_content())
+        opts = await pg.evaluate('({m:window.__opts.model,e:window.__opts.effort})')
+        assert opts['m'] == 'claude-opus-5-5', opts
+        panes = await pg.evaluate("[...document.querySelectorAll('.pane')].map(p=>p.querySelector('.ph-title').textContent)")
+        assert len(panes) == 3, panes
+        markers = await pg.evaluate("[...document.querySelectorAll('.pane[data-tid=main] sup.fn')].map(s=>s.textContent)")
+        assert len(markers) == 2 and await pg.locator('.pane[data-tid=main] .bchip').count() == 2, markers
+        assert 'Opus' in (await pg.locator('.pane[data-tid=main] .model').first.text_content() or '')
         # collapse middle pane
         await pg.locator('.pane').nth(1).locator('[data-act=collapse]').click(); await calm(pg)
-        print('rails', await pg.locator('.pane.rail').count())
+        assert await pg.locator('.pane.rail').count() == 1
         await pg.screenshot(path=OUT + '/v1.png')
         # takeaway from last branch
         last = pg.locator('.pane').nth(2)
         await last.locator('[data-act=take]').first.click(); await last.locator('.tk input').fill('the key idea'); await answered(pg, last.locator('.tk .go').click())
-        print('notes in main', await pg.locator('.pane[data-tid=main] .msg.note').count())
+        assert await pg.locator('.pane[data-tid=main] .msg.note').count() == 1
         ctx = await pg.evaluate("JSON.stringify(window.__calls[window.__calls.length-1].slice(-1))")
-        print('takeaway prompt tail', ctx[-260:])
+        assert 'the key idea' in ctx, ctx[-260:]
         # back from last branch
         await last.locator('[data-act=back]').click(); await calm(pg)
-        print('flashing anchors', await pg.locator('.anchor.flash').count())
         await pg.screenshot(path=OUT + '/v2.png')
         # canvas
         await pg.locator('[data-v=canvas]').click(); await pg.locator('.cnode.main').wait_for(); await calm(pg)
-        print('canvas nodes', await pg.locator('.cnode').count(), 'edges', await pg.locator('#edges path').count())
+        assert await pg.locator('.cnode').count() == 3 and await pg.locator('#edges path').count() == 2
         await pg.screenshot(path=OUT + '/v3.png')
         await pg.locator('.cnode').nth(2).locator('[data-cact=panes]').click(); await calm(pg)
-        print('after canvas click view', await pg.evaluate("document.getElementById('stage').className"))
+        assert 'canvas' not in await pg.evaluate("document.getElementById('stage').className")
         # delete branch via chip
         d = pg.locator('.pane[data-tid=main] [data-delb]').first
         await pg.locator('.pane[data-tid=main] .bchip').first.hover()
         await d.click(); await pg.locator('#mOk').click(); await pg.wait_for_function("!document.querySelector('#modal.show')"); await calm(pg)
-        print('after delete markers', await pg.evaluate("[...document.querySelectorAll('.pane[data-tid=main] sup.fn')].map(s=>s.textContent)"), 'panes', await pg.locator('.pane').count())
-        print('\n'.join(errs[:20]) or 'no errors')
+        assert await pg.locator('.pane[data-tid=main] sup.fn').count() == 1 and await pg.locator('.pane').count() == 2
+        assert not [e for e in errs if e.startswith('PAGEERR')], errs[:10]
+        print('all passed')
         await b.close()
 
 asyncio.run(main())

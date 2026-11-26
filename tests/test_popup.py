@@ -48,10 +48,12 @@ async def main():
         h1 = await pi.evaluate('e=>e.offsetHeight')
         await pi.press('Shift+Enter'); await pi.type('and a second line')
         r = await pg.evaluate("(()=>{const r=document.getElementById('pop').getBoundingClientRect();return [Math.round(r.top),Math.round(r.bottom),innerHeight]})()")
-        print('popup box grows:', h0, '->', h1, '| has newline:', '\n' in await pi.input_value(), '| popup top/bottom/viewport:', r)
+        assert h1 > h0 and '\n' in await pi.input_value() and r[0] >= 0 and r[1] <= r[2], (h0, h1, r)
         await pg.screenshot(path=OUT + '/pop.png')
         await answered(pg, pi.press('Enter'))
-        print('Enter created branch:', await pg.locator('.pane').count()==2, '| question kept both lines:', await pg.evaluate("document.querySelectorAll('.pane')[1].querySelector('.msg.user .body').textContent.includes('second line')"))
-        print('\n'.join(errs[:15]) or 'no errors')
+        assert await pg.locator('.pane').count() == 2
+        assert await pg.evaluate("document.querySelectorAll('.pane')[1].querySelector('.msg.user .body').textContent.includes('second line')")
+        assert not [e for e in errs if e.startswith('PAGEERR')], errs[:10]
+        print('all passed')
         await b.close()
 asyncio.run(main())

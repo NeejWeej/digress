@@ -19,10 +19,11 @@ Markdown document, images as placeholders you can load.
 ## Redo, edit and other versions
 
 The conversation is a tree of messages, and threads are just a way of cutting it into runs. Redo and Edit
-replace a reply in place when nothing depends on it; otherwise they ask again as another version (an `alt`
-thread starting where the question did), and "Use this version" swaps which one the conversation goes on
-with. The swap is built from two general operations, split and join (`web/threads.js`), checked by a
-randomized test that no message's context ever changes. Branches can be hidden from the tree.
+never replace an answer in place: they always ask again as another version (an `alt` thread starting where
+the question did, open beside the original so you can compare), and "Use this version" swaps which one the
+conversation goes on with. The swap is built from two general operations, split and join (`web/threads.js`),
+checked by a randomized test that no message's context ever changes. Branches can be hidden from the tree,
+and "Move what follows into a branch" / "Start over" build on the same operations.
 
 ## Prompts in one place, and themes
 
@@ -42,3 +43,28 @@ views are how you share one on purpose. Tabs catch up when they come back to the
 Replies are runs on the server (`server/runs.mjs`): a dropped connection only detaches the page, which
 reconnects and replays from the line it had; a reply that finishes with nobody watching is written into its
 conversation; one nobody comes back to within 10 minutes is stopped and saved as cut off, with Continue.
+
+## Export, share and import
+
+Conversations export in the browser as compressed `.digress` archives (with checkboxes to include the
+attached document and the conversation's flashcards, which arrive in the inbox without review history),
+as readable Markdown (`.md`), or as Anki-ready flashcards (`.csv`). Importing validates structure with
+`ThreadOps.check` and assigns fresh ids; `.digress` files can also be opened directly on the demo site
+by someone without Digress installed.
+
+## Flashcards, folders, Activity and Google Gemini
+
+Optional per-conversation flashcards draft from highlights, snips, takeaways and `suggest_card` into an
+inbox, schedule reviews with FSRS (including offline review queued in `localStorage`), quote their source
+with jump-back, and support AI-assisted `Fix…`. Conversations can be organized into folders (each with an
+optional starting system prompt), tracked in the Activity stats page, and run against Google Gemini
+alongside Claude and ChatGPT.
+
+## Startup, PDF memory and runtime performance
+
+Static assets and large JSON responses are gzip-compressed with weak `ETag`/`304`; the sidebar fetches
+cached metadata via `GET /api/store/convs?meta=1` instead of full conversation JSON. MathJax loads lazily
+only when math is rendered; `pdf.js` runs in a real Web Worker from `/lib/`, renders visible pages
+immediately while extracting text in the background, evicts off-screen page canvases/text layers, and
+destroys previous PDF instances on switch. Streaming caches `highlight.js` output, canvas reuses cached
+message DOM, `MiniSearch` updates incrementally per conversation, and CSS lives in `web/styles.css`.

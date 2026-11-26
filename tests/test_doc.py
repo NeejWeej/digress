@@ -111,8 +111,9 @@ async def main():
         print('text doc ctx has document:', 'Notes on Raft' in tctx)
         # 8. switching back to the PDF conversation reloads it (from memory in this test)
         await pg.locator('.citem').nth(1).click(); await pg.wait_for_function("__digress.conv.doc&&__digress.conv.doc.kind==='pdf'"); await pg.wait_for_function(PDF_DRAWN_JS)
-        print('back to pdf conv: pages', await pg.locator('.dpage').count(), '| doc error shown:', await pg.locator('.docerr').count())
+        assert await pg.locator('.dpage').count() == 3 and await pg.locator('.docerr').count() == 0
         await pg.screenshot(path=OUT + '/d3.png')
-        print('\n'.join(errs[:15]) or 'no errors')
+        assert not [e for e in errs if e.startswith('PAGEERR')], errs[:10]
+        print('all passed')
         await b.close()
 asyncio.run(main())

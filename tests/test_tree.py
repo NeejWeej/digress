@@ -49,21 +49,28 @@ async def main():
         await pg.evaluate(SEL, ['.pane[data-tid=main] .msg.assistant .body','training'])
         await pg.locator('#popIn').fill('Branch two'); await answered(pg, pg.locator('#popIn').press('Enter'))
         tree = "[...document.querySelectorAll('#tree .mnode')].map(n=>n.querySelector('.mt').textContent+(n.querySelector('.hid')?' '+n.querySelector('.hid').textContent:''))"
-        print('full tree:', await pg.evaluate(tree))
+        t_full = await pg.evaluate(tree)
+        assert len(t_full) == 4, t_full
         await pg.locator('#tree .mnode', has_text='Branch one').locator('[data-tfold]').click(); await frames(pg)
-        print('fold Branch one:', await pg.evaluate(tree))
+        t_fold1 = await pg.evaluate(tree)
+        assert len(t_fold1) == 3 and any('+1' in x for x in t_fold1), t_fold1
         await pg.locator('#treeAll').click(); await frames(pg)
-        print('button now:', await pg.locator('#treeAll').text_content(), '| after Expand all:', await pg.evaluate(tree))
+        t_exp = await pg.evaluate(tree)
+        assert len(t_exp) == 4, t_exp
         await pg.locator('#treeAll').click(); await frames(pg)
-        print('after Collapse all:', await pg.evaluate(tree))
+        t_col = await pg.evaluate(tree)
+        assert len(t_col) < 4, t_col
         await pg.locator('#tree .mnode', has_text='Main thread').locator('[data-tfold]').click(); await frames(pg)
         await pg.screenshot(path=OUT + '/t0.png')
-        print('fold main too:', await pg.evaluate(tree))
+        t_main = await pg.evaluate(tree)
+        assert len(t_main) == 1 and '+3' in t_main[0], t_main
         await saved(pg, layout=True)
         await new_conv(pg)
         await pg.locator('#clist .citem', has_text='Explain attention').click(); await pg.wait_for_function("__digress.conv.title==='Explain attention'")
-        print('remembered after switching back:', await pg.evaluate(tree))
+        t_back = await pg.evaluate(tree)
+        assert t_back == t_main, (t_back, t_main)
         await pg.screenshot(path=OUT + '/t1.png')
-        print('\n'.join(errs[:15]) or 'no errors')
+        assert not [e for e in errs if e.startswith('PAGEERR')], errs[:10]
+        print('all passed')
         await b.close()
 asyncio.run(main())
