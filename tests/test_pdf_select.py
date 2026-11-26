@@ -3,7 +3,7 @@ between words: dragging into a gap (between lines, say) keeps the selection near
 grabbing the rest of the line or page. Asserts and exits non-zero."""
 import asyncio, sys
 from playwright.async_api import async_playwright
-from common import PAGE, OUT, FIX, launch_args, goto_app, booted, frames, pdf_drawn
+from common import PAGE, OUT, FIX, launch_args, goto_app, booted, frames, settle, pdf_drawn
 from common import CORS
 from test_pane_zoom import MAP, FAKE
 
@@ -27,7 +27,7 @@ async def main():
         await pg.route('**/*', route); await pg.add_init_script(FAKE)
         await goto_app(pg); await booted(pg)
         await pg.locator('#newDoc').click()
-        await pg.set_input_files('#docFile', FIX + '/paper.pdf'); await pg.locator('#docGo').click(); await pdf_drawn(pg)
+        await pg.set_input_files('#docFile', FIX + '/paper.pdf'); await pg.locator('#docGo').click(); await pdf_drawn(pg); await settle(pg)
         lines = await pg.evaluate("[...document.querySelectorAll('.dpage[data-page=\"1\"] .textLayer span')].map(s=>{const r=s.getBoundingClientRect();return [r.left,r.top,r.right,r.bottom]})")
         l1, l2 = lines[1], lines[2]
         sx, sy = l1[0] + 40, (l1[1] + l1[3]) / 2
