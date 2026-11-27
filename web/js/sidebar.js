@@ -86,13 +86,54 @@ function toggleBrList(tid,btn){
 addEventListener('resize',()=>placeBrList());
 document.addEventListener('scroll',e=>{if(brPop&&!brPop.el.contains(e.target))placeBrList()},true);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&brPop){closeBrList();e.stopPropagation();e.preventDefault()}},true);
+let branchSort='place',branchDir='asc';
+try{const s=localStorage.getItem('digress:bsort');if(s==='place'||s==='time')branchSort=s}catch(_){}
+try{const d=localStorage.getItem('digress:bdir');if(d==='asc'||d==='desc')branchDir=d}catch(_){}
+function branchPlaceKey(b,parentTid){
+  if(isDocBranch(b)){
+    const p=typeof b.anchorPage==='number'?b.anchorPage:Infinity;
+    const s=b.anchorRange&&typeof b.anchorRange.s==='number'?b.anchorRange.s:(b.anchorRegion&&typeof b.anchorRegion.y==='number'?b.anchorRegion.y*1e6:Infinity);
+    return [p,s];
+  }
+  const ord=state.conv&&state.conv.order&&state.conv.order[parentTid]||[];
+  const idx=b.anchorMsg==='START'?-1:ord.indexOf(b.anchorMsg);
+  const s=b.anchorRange&&typeof b.anchorRange.s==='number'?b.anchorRange.s:Infinity;
+  return [idx>=0?idx:Infinity,s];
+}
+function sortBranches(list,parentTid){
+  if(!list||list.length<2)return list||[];
+  const head=parentTid==='doc'?list.filter(x=>x.id==='main'):[];
+  const rest=parentTid==='doc'?list.filter(x=>x.id!=='main'):[...list];
+  const mul=branchDir==='desc'?-1:1;
+  rest.sort((a,b)=>{
+    if(branchSort==='place'){
+      const ka=branchPlaceKey(a,parentTid),kb=branchPlaceKey(b,parentTid);
+      if(ka[0]!==kb[0])return (ka[0]-kb[0])*mul;
+      if(ka[1]!==kb[1])return (ka[1]-kb[1])*mul;
+    }
+    const ta=a.created||0,tb=b.created||0;
+    if(ta!==tb)return (ta-tb)*mul;
+    return String(a.id).localeCompare(String(b.id))*mul;
+  });
+  return [...head,...rest];
+}
+function toggleBranchSort(){
+  branchSort=branchSort==='place'?'time':'place';
+  try{localStorage.setItem('digress:bsort',branchSort)}catch(_){}
+  renderMap();
+}
+function toggleBranchDir(){
+  branchDir=branchDir==='asc'?'desc':'asc';
+  try{localStorage.setItem('digress:bdir',branchDir)}catch(_){}
+  renderMap();
+}
 // one row of the branch tree (and its subtree): the sidebar's, or with o.lite the header's branch list (no fold, no row buttons)
 function mapNode(tid,o){
   const fold=o.lite?[]:o.fold,chev=o.lite?()=>'':o.chev,hiddenBadge=o.lite?()=>'':o.hiddenBadge,build=id=>mapNode(id,o);
   const t=T(tid),li=document.createElement('li');
   const n=document.createElement('div');n.className='mnode'+(state.conv.ui.open.includes(tid)&&!isCollapsed(tid)?' open':'')+(t.resolved?' res':'');n.dataset.map=tid;n.style.setProperty('--c',tid==='main'?'var(--faint)':color(t));
   const cnt=(state.conv.order[tid]||[]).filter(id=>state.conv.msgs[id]&&state.conv.msgs[id].role==='user').length;
-  const kids=kidsOf(tid);
+  const kids=sortBranches(kidsOf(tid),tid);
   n.innerHTML=`${chev(tid,kids)}${tid==='main'?'<span class="dot"></span>':statusDot(t)}<div style="min-width:0;flex:1"><div class="mt"></div>${t.anchorText?'<div class="ma"></div>':''}</div>${hiddenBadge(tid)}<span class="mc" title="Questions asked in this thread">${cnt||''}</span>${t.pinned?`<span class="mpin" title="Pinned">${ic('pin')}</span>`:''}${tid==='main'||o.lite?'':`<span class="macts"><button class="ib mp${t.pinned?' pinned':''}" data-pinthread="${esc(tid)}" title="${t.pinned?'Unpin this branch':'Pin this branch to the top of the sidebar'}">${ic('pin')}</button><button class="ib mh" data-hideb="${esc(tid)}" title="${t.hidden?'Show this branch in the tree again':'Hide this branch (and what’s under it) from the tree and canvas; nothing is deleted'}">${ic(t.hidden?'eye':'eyeoff')}</button><button class="ib dz mx" data-delb="${esc(tid)}" title="Delete this branch and everything branched from it">${ic('trash')}</button></span>`}`;
   if(t.hidden)n.classList.add('hiddenb');
   n.title=tid==='main'?'Show the main thread':`Open “${t.title}”`+(t.anchorText?`, from “${trunc(t.anchorText,240)}”`:'');
@@ -116,14 +157,19 @@ function renderMap(){
   if(state.conv.doc){
     const li=document.createElement('li'),n=document.createElement('div');
     n.className='mnode'+(state.conv.ui.open.includes('doc')&&!isCollapsed('doc')?' open':'');n.dataset.mapdoc='1';n.title='Show the document';
-    const kids=kidsOf('doc');
+    const kids=sortBranches(kidsOf('doc'),'doc');
     n.innerHTML=`${chev('doc',kids)}<span class="docico">${ic('doc')}</span><div style="min-width:0;flex:1"><div class="mt"></div></div>${hiddenBadge('doc')}`;n.querySelector('.mt').textContent=state.conv.doc.name;
     li.appendChild(n);if(!fold.includes('doc')){const sub=document.createElement('ul');kids.forEach(c=>sub.appendChild(build(c.id)));li.appendChild(sub)}ul.appendChild(li);
   }else ul.appendChild(build('main'));
   tree.replaceChildren(ul);fillBrList();markReplies();
   const nh=Object.values(state.conv.threads).filter(t=>t.hidden).length;
   if(nh){const b=document.createElement('button');b.className='showhid';b.dataset.showhid='1';b.textContent=state.conv.ui.showHidden?'Hide the hidden branches again':`Show ${nh} hidden branch${nh>1?'es':''}`;tree.appendChild(b)}
-  const any=fold.length>0,ta=$('#treeAll'),has=Object.keys(state.conv.threads).length>1;
+  const nThreads=Object.keys(state.conv.threads).length;
+  const any=fold.length>0,ta=$('#treeAll'),ts=$('#treeSort'),td=$('#treeDir'),has=nThreads>1,canSort=nThreads>2;
+  if(ts){ts.style.display=canSort?'':'none';ts.textContent=branchSort==='place'?'By place':'By time';
+    ts.title=branchSort==='place'?'Sorted by position in the document or thread. Click to sort by time created.':'Sorted by time created. Click to sort by position in the document or thread.'}
+  if(td){td.style.display=canSort?'':'none';td.textContent=branchDir==='asc'?'↑':'↓';
+    td.title=branchSort==='time'?(branchDir==='asc'?'Oldest first. Click for newest first.':'Newest first. Click for oldest first.'):(branchDir==='asc'?'Start to end. Click for end to start.':'End to start. Click for start to end.')}
   ta.style.visibility=has?'':'hidden';ta.textContent=any?'Expand all':'Collapse all';
   ta.title=any?'Show every branch':'Collapse every thread to its top level, so the tree is easier to scan';
 }
@@ -447,6 +493,6 @@ async function openPinnedBranch(cid,tid){
 
 
   return {
-    renderTitle, brCount, get brPop() { return brPop; }, closeBrList, toggleBrList, renderMap, toggleTreeFold, treeAll, metaOf, get convFilt() { return convFilt; }, set convFilt(v) { convFilt = v; }, get archOpen() { return archOpen; }, set archOpen(v) { archOpen = v; }, get convListSig() { return convListSig; }, set convListSig(v) { convListSig = v; }, renderConvList, toggleFolder, editFolderPrompt, newChatIn, renameFolder, dropFolder, openFolderMenu, archiveConv, newFolderDialog, closeFolderMenu, trashLeft, get convListLoaded() { return convListLoaded; }, set convListLoaded(v) { convListLoaded = v; }, get trashOpen() { return trashOpen; }, set trashOpen(v) { trashOpen = v; }, isBlank, openNextAfter, discardBlank, trashConv, docFate, restoreConv, setConvFlag, toggleHidden, refreshAll, toggleBranchPin, unpinRemoteBranch, openPinnedBranch,
+    renderTitle, brCount, get brPop() { return brPop; }, closeBrList, toggleBrList, renderMap, toggleTreeFold, treeAll, toggleBranchSort, toggleBranchDir, metaOf, get convFilt() { return convFilt; }, set convFilt(v) { convFilt = v; }, get archOpen() { return archOpen; }, set archOpen(v) { archOpen = v; }, get convListSig() { return convListSig; }, set convListSig(v) { convListSig = v; }, renderConvList, toggleFolder, editFolderPrompt, newChatIn, renameFolder, dropFolder, openFolderMenu, archiveConv, newFolderDialog, closeFolderMenu, trashLeft, get convListLoaded() { return convListLoaded; }, set convListLoaded(v) { convListLoaded = v; }, get trashOpen() { return trashOpen; }, set trashOpen(v) { trashOpen = v; }, isBlank, openNextAfter, discardBlank, trashConv, docFate, restoreConv, setConvFlag, toggleHidden, refreshAll, toggleBranchPin, unpinRemoteBranch, openPinnedBranch,
   };
 }

@@ -653,6 +653,13 @@ function markReplies(){
     if(wrap)wrap.classList.toggle('rready',st==='ready')};
   const st=(tid)=>seenNow(tid)?'':replyState(tid);
   for(const [tid,el] of paneEls){if(tid==='doc')continue;const lb=el.querySelector('.rail-label');put(lb,lb&&lb.querySelector('.rl'),el.classList.contains('rail')?st(tid):'',el)}
+  document.querySelectorAll('#panes .rail-stack[data-stack]').forEach(el=>{
+    const ids=(el.dataset.stack||'').split(',').filter(Boolean);
+    const sts=ids.map(st);
+    const agg=sts.includes('ready')?'ready':sts.includes('writing')?'writing':'';
+    const host=el.querySelector('.rs-inner');
+    put(host,host&&host.querySelector('.rs-count'),agg,el);
+  });
   document.querySelectorAll('#cv .cnode[data-ctid]').forEach(n=>{const ch=n.querySelector('.ch');put(ch,ch&&ch.querySelector('.ct')&&ch.querySelector('.ct').nextSibling,st(n.dataset.ctid),n)});
   document.querySelectorAll('#tree .mnode[data-map]').forEach(n=>put(n,n.querySelector('.mc'),st(n.dataset.map)));
 }

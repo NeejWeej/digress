@@ -172,7 +172,7 @@ const {
   updateComposer, fitOrigin, originRO, updateHeader, altLine, sysScope,
   paneZoom, applyPaneZoom, editZoom, setPaneZoom, stepPaneZoom,
   renderPane, refreshAnchorsFor, docInDock, placeDocPane, layout,
-  wiresSoon, wires,
+  wiresSoon, wires, closeRailStack,
 } = PANES_MOD;
 
 /* ---------- canvas view (web/js/canvas.js) ---------- */
@@ -296,7 +296,7 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-keys]')){e.prev
 const SIDEBAR_MOD = createSidebar();
 const {
   renderTitle, brCount, closeBrList, toggleBrList, renderMap,
-  toggleTreeFold, treeAll, metaOf, renderConvList, toggleFolder,
+  toggleTreeFold, treeAll, toggleBranchSort, toggleBranchDir, metaOf, renderConvList, toggleFolder,
   editFolderPrompt, newChatIn, renameFolder, dropFolder, openFolderMenu,
   archiveConv, newFolderDialog, closeFolderMenu, trashLeft, isBlank,
   openNextAfter, discardBlank, trashConv, docFate, restoreConv, setConvFlag,
@@ -1014,6 +1014,8 @@ $('#backGo').addEventListener('click',goBack);$('#backX').addEventListener('clic
   h.addEventListener('toggle',()=>{try{localStorage.setItem('digress:help',h.open?'1':'0')}catch(e){}})}
 $('#archToggle').querySelector('.chev').innerHTML=ic('back').replace('class="i"','class="i" style="width:12px;height:12px;transform:rotate(180deg)"');
 $('#treeAll').onclick=treeAll;
+$('#treeSort').onclick=toggleBranchSort;
+$('#treeDir').onclick=toggleBranchDir;
 $('#newFolder').innerHTML=ic('plus')+'<span>New folder</span>';$('#newFolder').onclick=(e)=>{e.stopPropagation();newFolderDialog(conv&&!isBlank(conv)&&!conv.folder?[conv.id]:[])};
 // Pinned / Conversations fold (this device remembers which)
 let sideFold={};try{sideFold=JSON.parse(localStorage.getItem('sq:fold')||'{}')||{}}catch(e){}
@@ -1067,6 +1069,7 @@ function closeTopmost(){
   if(moreMenu.classList.contains('open')){closeMore();return true}
   const vw=$('#cvViews');if(vw&&vw.classList.contains('open')){closeViews();return true}
   if(SIDEBAR_MOD.brPop){closeBrList();return true}
+  if(closeRailStack())return true;
   if(closeReplyMenu())return true;
   if(closeUsage())return true;
   if(closeFolderMenu())return true;
