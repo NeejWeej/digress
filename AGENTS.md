@@ -9,7 +9,7 @@ If `agents.local/` exists, read `agents.local/README.md` before any work: notes 
 - `web/index.html` + `web/styles.css` + `web/js/`: the entire client (HTML shell + theme/font/lib boot in `index.html`, stylesheet in `styles.css`, native ES modules in `web/js/`, starting at `web/js/app.js`). No build step. Libraries come from this server's `lib/` first and a CDN second, with the same SRI hashes (`window.LIBS`, `server/libs.json`).
 - `web/prompts.js`: every instruction the page sends the model (`PROMPTS`). New model-facing text goes there, never inline.
 - `web/threads.js`: `ThreadOps`, pure functions on a conversation's message tree (`walk`, `split`, `join`, `swap`, `merge`), property-tested.
-- `server/server.mjs`: Node ≥18, **no dependencies**; keep it that way. `server/runs.mjs`: replies as runs that outlive their connection.
+- `server/server.mjs`: Node ≥22.5 (uses built-in `node:sqlite`), **no dependencies**; keep it that way. `server/db.mjs`: SQLite + FTS5 storage and search. `server/runs.mjs`: replies as runs that outlive their connection.
 - `demo/`: the demo on GitHub Pages: the same page with an in-browser stand-in for the server.
 - `tests/`: Python Playwright; `python3 tests/run_all.py`. `evals/`: prompt comparisons against a real model, run by hand only.
 - `docs/`: user docs. "Ask about Digress" answers from README.md, `docs/` and these notes, so keep them current when a feature changes.

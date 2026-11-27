@@ -1,6 +1,6 @@
 # Setup and configuration
 
-Digress needs Node 18 or newer and nothing else: the server has no dependencies, so there is no `npm install` step to run it.
+Digress needs Node 22.5 or newer (for built-in `node:sqlite`) and nothing else: the server has no dependencies, so there is no `npm install` step to run it.
 
 Running `npm install --ignore-scripts` once is still worth it if you'll use Digress from a phone or another network: the server then hands the page its libraries (Markdown, math, diagrams, PDFs, search) itself. Without it, the page fetches them from public CDNs (cdn.jsdelivr.net, cdnjs.cloudflare.com), and some networks can't reach those even when they reach your server; search, for one, then won't load. Either way each file is checked against its fingerprint before it runs.
 
