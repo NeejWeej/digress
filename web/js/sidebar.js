@@ -414,12 +414,26 @@ function toggleBranchPin(tid){
 }
 async function unpinRemoteBranch(cid,tid){
   if(state.conv&&state.conv.id===cid){toggleBranchPin(tid);return}
-  let data=null;
   try{
-    data=await io.store.get(cid);
-    if(!data||!data.threads[tid])return;
-    delete data.threads[tid].pinned;
-    await io.store.update(cid,{threads:data.threads});
+    let data=await io.store.get(cid);
+    for(let tries=0;tries<3;tries++){
+      if(!data||!data.threads||!data.threads[tid])return;
+      if(!data.threads[tid].pinned)break;
+      const baseRev=data.rev||0;
+      const next={...data,threads:{...data.threads,[tid]:{...data.threads[tid]}}};
+      delete next.threads[tid].pinned;
+      delete next.ui;
+      delete next.rev;
+      if(io.store.save){
+        const r=await io.store.save(cid,next,baseRev||null);
+        if(r&&r.rev)break;
+        if(r&&r.deleted)return;
+        if(r&&r.current&&tries<2){data=r.current;continue}
+        throw new Error('conflict');
+      }
+      await io.store.update(cid,{threads:next.threads});
+      break;
+    }
   }catch(e){toast('Couldn\'t unpin it.');return}
   const m=state.convList.find(c=>c.id===cid);if(m)m.pins=(m.pins||[]).filter(p=>p.tid!==tid);renderConvList();
 }

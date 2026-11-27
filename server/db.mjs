@@ -215,7 +215,9 @@ export function openDb(dataDir) {
     INSERT INTO passages (cid, idx, k, tid, mid, p, n, o, x) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const stGetBranchTitle = db.prepare("SELECT x FROM passages WHERE cid = ? AND k = 'bt' AND tid = ? LIMIT 1");
-  const stVocabRange = db.prepare('SELECT term, doc FROM passages_vocab WHERE length(term) BETWEEN ? AND ?');
+  const stVocabPrefix = db.prepare(
+    'SELECT term, doc FROM passages_vocab WHERE term >= ? AND term < ? AND length(term) BETWEEN ? AND ?'
+  );
   const searchSql = (extraWhere) => db.prepare(`
     SELECT p.cid, p.k, p.tid, p.mid, p.p, p.n, p.o, p.x, bm25(passages_fts) AS rank
     FROM passages_fts
@@ -541,9 +543,14 @@ export function openDb(dataDir) {
         }
         const maxD = Math.min(2, Math.floor(w.length * 0.2));
         const cands = [];
-        for (const r of stVocabRange.all(w.length - maxD, w.length + maxD)) {
-          const d = editDistBounded(w, r.term, maxD);
-          if (d <= maxD) cands.push({ term: r.term, d, doc: r.doc });
+        const chars = [...w];
+        const prefixes = chars.length > 1 && chars[1] !== chars[0] ? [chars[0], chars[1]] : [chars[0]];
+        for (const ch of prefixes) {
+          const nextCh = String.fromCodePoint(ch.codePointAt(0) + 1);
+          for (const r of stVocabPrefix.all(ch, nextCh, w.length - maxD, w.length + maxD)) {
+            const d = editDistBounded(w, r.term, maxD);
+            if (d <= maxD) cands.push({ term: r.term, d, doc: r.doc });
+          }
         }
         if (cands.length) {
           cands.sort((a, b) => (a.d - b.d) || (b.doc - a.doc));

@@ -873,9 +873,12 @@ function nearPassages(st,fold,q,N){
     out.push({page:w.page,text:st.pages[w.page-1].slice(w.i,w.e),has:[...new Set(w.has.flatMap(h=>[...h]))].slice(0,8)})}
   return out;
 }
-async function runDocTool(name,input,trail){
+async function runDocTool(name,input,trail,expectedConvId){
   if(name==='suggest_card')return {error:'Not in this request: it is a task with its own instructions (drafting flashcards or writing a takeaway). Do what it asks instead.'};
   const st=docState;
+  if(expectedConvId&&(!state.conv||state.conv.id!==expectedConvId||!st||st.key!==expectedConvId)){
+    return {error:'The reader switched to another conversation, so this document is no longer open.'};
+  }
   if(!st||!st.loaded)return {error:'The document isn’t loaded in the reader’s browser right now, so it can’t be read. Tell the reader.'};
   const P=st.pages,N=P.length,pdf=st.kind==='pdf',one=pdf?'p.':'part',many=pdf?'pages':'parts';
   const num=(v)=>typeof v==='number'?v:typeof v==='string'&&/^\s*\d+\s*$/.test(v)?+v:NaN;
@@ -1092,7 +1095,7 @@ function articleFigures(root){
    with the same checks as a document from a link (loadArticleImage), never from the page. */
 const strHash=(s)=>{let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)}return (h>>>0).toString(16)};
 const docImgKey=(src)=>/^data:/i.test(src)?`data:${src.length}.${strHash(src)}`:src;
-const docImgRef=(t)=>docImgRefOf(state.conv,t);
+const docImgRef=(t,c=state.conv)=>docImgRefOf(c,t);
 function docImgAlt(w){const f=w.closest('.aimg'),im=w.querySelector('img');return ((f&&f.querySelector('.acap')&&f.querySelector('.acap').textContent)||(im&&im.getAttribute('alt'))||'').replace(/\s+/g,' ').trim()}
 function docImages(root){
   const seen={};

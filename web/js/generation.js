@@ -138,7 +138,7 @@ async function generate(m,ctx,lockTid,o={}){
     let nCards=0;
     const trail=[...(o.resume&&m.reads||[])],tools=ctx.tools?{names:ctx.tools,run:async(name,input)=>{   // the model reading the document or suggesting a card: run the call here, show what it's doing
       if(name==='suggest_card'){try{const r=await suggestCard(st.conv,m,input);if(!r.error)nCards++;return r}finally{const l=m.live[m.live.length-1];if(l)l.done=true;queueStream(m.id)}}
-      try{await docReady();return await runDocTool(name,input,trail)}finally{m.reads=[...trail];const l=m.live[m.live.length-1];if(l)l.done=true;queueStream(m.id)}}}:undefined;
+      try{await docReady();return await runDocTool(name,input,trail,targetConvId)}finally{m.reads=[...trail];const l=m.live[m.live.length-1];if(l)l.done=true;queueStream(m.id)}}}:undefined;
     let nq=0;
     const keepSearch=(x)=>{if(x.searches&&x.searches.length){m.searches=[...x.searches];for(;nq<x.searches.length;nq++)step('globe',`searched the web for “${x.searches[nq]}”`,false)}if(x.sources&&x.sources.length)m.sources=x.sources.slice(0,30)};
     const onTool=(call,done)=>step(call.name==='suggest_card'?'cards':'doc',toolText(call.name,call.input||{}),done);
