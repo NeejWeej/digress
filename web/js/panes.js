@@ -572,7 +572,7 @@ function placeRailStack(){
   if(!railStackPop)return;
   const {el,btn}=railStackPop;
   if(!btn||!btn.isConnected){closeRailStack();return}
-  const r=btn.getBoundingClientRect(),w=Math.min(280,innerWidth-16),rows=state.conv&&state.conv.ui.layout==='rows';
+  const r=btn.getBoundingClientRect(),w=Math.min(340,innerWidth-16),rows=state.conv&&state.conv.ui.layout==='rows';
   el.style.width=w+'px';
   if(rows){
     el.style.left=Math.max(8,Math.min(r.left,innerWidth-w-8))+'px';
@@ -582,10 +582,32 @@ function placeRailStack(){
   }else{
     const right=innerWidth-r.right-12,left=r.left-12,goLeft=right<w&&left>right;
     el.style.left=Math.max(8,Math.min(goLeft?r.left-w-6:r.right+6,innerWidth-w-8))+'px';
-    el.style.top=Math.max(8,Math.min(r.top,innerHeight-220))+'px';
+    el.style.top=Math.max(8,Math.min(r.top,innerHeight-240))+'px';
     el.style.bottom='';
-    el.style.maxHeight=Math.max(120,Math.min(innerHeight*.65,innerHeight-parseFloat(el.style.top)-12))+'px';
+    el.style.maxHeight=Math.max(120,Math.min(innerHeight*.7,innerHeight-parseFloat(el.style.top)-12))+'px';
   }
+}
+function railRowInfo(tid){
+  if(tid==='doc'){
+    const n=state.docState&&state.docState.kind==='pdf'&&state.docState.n?`${state.docState.n} pages`:'Document';
+    return {title:(state.conv.doc&&state.conv.doc.name)||'Document',sub:n,where:'',quote:'',firstQ:'',qCount:0,hasMore:false};
+  }
+  const t=T(tid);if(!t)return null;
+  const ord=state.conv.order[tid]||[];
+  const qs=ord.map(id=>state.conv.msgs[id]).filter(m=>m&&m.role==='user');
+  const firstQ=qs[0]?String(qs[0].content||qs[0].text||'').replace(/\s+/g,' ').trim():'';
+  const qCount=qs.length;
+  if(tid==='main'){
+    return {title:'Main thread',sub:qCount?`${qCount} question${qCount===1?'':'s'}`:'',where:'',quote:'',firstQ,qCount,hasMore:!!firstQ};
+  }
+  const where=isDocBranch(t)
+    ?(state.conv.doc&&state.conv.doc.kind==='pdf'&&typeof t.anchorPage==='number'?docPagesLabel(t):'Document')
+    :t.anchorMsg==='CLIP'
+      ?(t.anchorTitle?`Clipped · ${trunc(t.anchorTitle,36)}`:'Clipping')
+      :(t.parent==='main'?'Main thread':((T(t.parent)&&T(t.parent).title)||'Branch'));
+  const quote=t.anchorText?String(t.anchorText).replace(/\s+/g,' ').trim():'';
+  const sub=[where,quote?`“${trunc(quote,56)}”`:''].filter(Boolean).join(' · ');
+  return {title:t.title||'Branch',sub,where,quote,firstQ,qCount,hasMore:!!(firstQ||qCount||quote.length>56)};
 }
 function openRailStack(btn,tids){
   const same=railStackPop&&railStackPop.btn===btn;
@@ -596,20 +618,48 @@ function openRailStack(btn,tids){
   el.innerHTML=`<div class="rsph"><span>${tids.length} collapsed</span><button type="button" class="shbtn" data-unstack-all="1">Expand all</button></div><div class="rslist"></div>`;
   const list=el.querySelector('.rslist');
   for(const tid of tids){
+    const info=railRowInfo(tid);if(!info)continue;
     const isDoc=tid==='doc',t=isDoc?null:T(tid);
-    if(!isDoc&&!t)continue;
-    const title=isDoc?(state.conv.doc&&state.conv.doc.name)||'Document':(tid==='main'?'Main thread':t.title);
-    const row=document.createElement('div');
-    row.className='rsrow';row.dataset.rstid=tid;
-    row.style.setProperty('--c',isDoc||tid==='main'?'var(--faint)':color(t));
-    row.innerHTML=`<button type="button" class="rsgo" data-rsexpand="${esc(tid)}">${isDoc?`<span class="docico">${ic('doc')}</span>`:'<span class="dot"></span>'}<span class="rst"></span></button><button type="button" class="ib rsx" data-rsclose="${esc(tid)}" title="Close pane (nothing is deleted)">${ic('x')}</button>`;
-    row.querySelector('.rst').textContent=title;
-    list.appendChild(row);
+    const item=document.createElement('div');
+    item.className='rsitem';item.dataset.rstid=tid;
+    item.style.setProperty('--c',isDoc||tid==='main'?'var(--faint)':color(t));
+    item.innerHTML=`<div class="rsrow"><button type="button" class="rsgo" data-rsexpand="${esc(tid)}">${isDoc?`<span class="docico">${ic('doc')}</span>`:'<span class="dot"></span>'}<span class="rsbody"><span class="rst"></span>${info.sub?'<span class="rssub"></span>':''}</span></button>${info.hasMore?`<button type="button" class="ib rsmore" data-rsmore="${esc(tid)}" aria-expanded="false" title="Show branch details">${ic('back').replace('class="i"','class="i" style="transform:rotate(180deg)"')}</button>`:''}<button type="button" class="ib rsx" data-rsclose="${esc(tid)}" title="Close pane (nothing is deleted)">${ic('x')}</button></div>${info.hasMore?'<div class="rsdet"></div>':''}`;
+    item.querySelector('.rst').textContent=info.title;
+    if(info.sub)item.querySelector('.rssub').textContent=info.sub;
+    if(info.hasMore){
+      const det=item.querySelector('.rsdet');
+      if(info.where||info.quote){
+        const o=document.createElement('div');o.className='rsd-orig';
+        o.textContent=(info.where?`From ${info.where}`:'')+(info.quote?(info.where?' · ':'')+`“${trunc(info.quote,180)}”`:'');
+        det.appendChild(o);
+      }
+      if(info.firstQ){
+        const q=document.createElement('div');q.className='rsd-q';
+        const lbl=document.createElement('b');lbl.textContent='Asked: ';
+        q.append(lbl,trunc(info.firstQ,220));
+        det.appendChild(q);
+      }
+      if(info.qCount){
+        const m=document.createElement('div');m.className='rsd-meta';
+        m.textContent=`${info.qCount} question${info.qCount===1?'':'s'}`;
+        det.appendChild(m);
+      }
+    }
+    list.appendChild(item);
   }
   el.addEventListener('click',e=>{
     if(e.target.closest('[data-unstack-all]')){
       state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>!tids.includes(x));
       closeRailStack();layout();save();return;
+    }
+    const more=e.target.closest('[data-rsmore]');
+    if(more){
+      const item=more.closest('.rsitem');
+      const open=item.classList.toggle('det-open');
+      more.setAttribute('aria-expanded',open?'true':'false');
+      more.title=open?'Hide branch details':'Show branch details';
+      placeRailStack();
+      return;
     }
     const cls=e.target.closest('[data-rsclose]');
     if(cls){

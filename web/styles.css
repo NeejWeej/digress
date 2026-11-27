@@ -622,13 +622,24 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .rspop{position:fixed;z-index:62;background:var(--panel);border:1px solid var(--line2);border-radius:10px;box-shadow:var(--shadow);padding:6px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
 .rsph{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 4px;border-bottom:1px solid var(--line);font-size:11.5px;color:var(--faint);font-weight:600}
 .rslist{display:flex;flex-direction:column;gap:2px}
-.rsrow{display:flex;align-items:center;gap:4px;border-radius:7px}
+.rsitem{border-radius:7px}
+.rsrow{display:flex;align-items:center;gap:2px;border-radius:7px}
 .rsrow:hover{background:var(--user-bg)}
 .rsgo{flex:1;min-width:0;display:flex;align-items:center;gap:7px;padding:6px 8px;text-align:left;color:var(--ink);font-size:12.5px}
 .rsgo .dot{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
 .rsgo .docico{display:inline-flex;color:var(--faint);flex:none}.rsgo .docico svg.i{width:13px;height:13px}
-.rsgo .rst{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--you)}
+.rsbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.rsgo .rst{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--you)}
+.rsgo .rssub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--faint)}
+.rsrow .rsmore{opacity:.65}.rsrow:hover .rsmore,.rsitem.det-open .rsmore{opacity:1}
+.rsrow .rsmore svg.i{width:11px;height:11px;transition:transform .15s}
+.rsitem.det-open .rsmore svg.i{transform:rotate(90deg) !important}
 .rsrow .rsx{opacity:.6;margin-right:3px}.rsrow:hover .rsx{opacity:1}
+.rsdet{display:none;margin:0 8px 6px 23px;padding:6px 8px;border-left:2px solid var(--c);background:var(--user-bg);border-radius:0 6px 6px 0;font-size:11.5px;line-height:1.4;color:var(--muted);flex-direction:column;gap:4px}
+.rsitem.det-open .rsdet{display:flex}
+.rsd-orig{color:var(--faint)}
+.rsd-q{color:var(--ink)}.rsd-q b{color:var(--muted);font-weight:600}
+.rsd-meta{font-size:10.5px;color:var(--faint)}
 /* a reply in a thread you can't see (a strip, a folded canvas card, a sidebar row): writing, then ready until you open it */
 .rbadge{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:3px;line-height:1}
 .rbadge.writing i{width:4px;height:4px;border-radius:50%;background:var(--muted);animation:bl 1.2s infinite}

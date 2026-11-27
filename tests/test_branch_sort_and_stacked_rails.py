@@ -102,11 +102,21 @@ async def main():
               and '2 collapsed' in await stack.inner_text(),
               await stack.inner_text() if await stack.count() else 'no stack')
 
-        # Click stack -> opens popover; Esc closes it
+        # Click stack -> opens popover with origin subtitles and expandable detail preview; Esc closes it
         await stack.click(); await frames(pg)
-        check('clicking stacked rail opens popover listing its panes',
+        sub_txt = await pg.locator('.rspop .rsitem[data-rstid="b_p5"] .rssub').inner_text()
+        check('clicking stacked rail opens popover with origin subtitle per row',
               await pg.locator('.rspop').is_visible()
-              and await pg.locator('.rspop .rsrow').count() == 2)
+              and await pg.locator('.rspop .rsrow').count() == 2
+              and 'Document' in sub_txt and 'Fifth' in sub_txt,
+              sub_txt)
+        await pg.locator('.rspop [data-rsmore="b_p5"]').click(); await frames(pg)
+        det_txt = await pg.locator('.rspop .rsitem[data-rstid="b_p5"] .rsdet').inner_text()
+        check('row chevron expands origin and initial question preview without opening pane',
+              await pg.locator('.rspop .rsitem[data-rstid="b_p5"] .rsdet').is_visible()
+              and 'Q5' in det_txt and '1 question' in det_txt
+              and await pg.locator('#panes > .rail-stack').count() == 1,
+              det_txt)
         await pg.keyboard.press('Escape'); await frames(pg)
         check('Escape closes the stacked rail popover', await pg.locator('.rspop').count() == 0)
 
