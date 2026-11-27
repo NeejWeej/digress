@@ -14,6 +14,14 @@ const imgMemo = new Map();
 const urlMemo = new Map();
 const IMG_MEMO_MAX = 80;
 
+export function clearImgMemo() {
+  for (const u of urlMemo.values()) {
+    try { URL.revokeObjectURL(u); } catch (_) {}
+  }
+  urlMemo.clear();
+  imgMemo.clear();
+}
+
 export const canvasBlob = (cv, type, q) => new Promise((r) => cv.toBlob(r, type, q));
 
 export async function encodeCanvas(cv) {

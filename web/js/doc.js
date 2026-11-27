@@ -73,11 +73,12 @@ const MAX_PDF_PAGES=16;
 const MAX_PDF_PIXELS=24_000_000;   // ~96 MiB raw RGBA canvas backing store across cached offscreen pages
 const PDF_CACHE_DB='digress-pdf-cache',PDF_CACHE_VER=1,PDF_CACHE_MAX=40;
 const docBlobCache=new Map();
-function cacheDocBlob(id,data){memoSet(docBlobCache,id,data,3)}
+function cacheDocBlob(id,data){memoSet(docBlobCache,id,data,1)}
 function cancelPdfEntry(entry,pg){
   if(entry){
     if(entry.task){try{entry.task.cancel()}catch(_){}entry.task=null}
     if(entry.canvas){entry.canvas.width=0;entry.canvas.height=0;entry.canvas=null}
+    if(entry.page){try{entry.page.cleanup()}catch(_){}entry.page=null}
   }
   if(pg){pg.querySelectorAll('canvas').forEach(cv=>{cv.width=0;cv.height=0});pg.querySelectorAll('canvas,.textLayer,sup.fn,.dregion').forEach(n=>n.remove())}
 }
@@ -216,8 +217,10 @@ function startDoc(){
           const pages=[];
           for(let i=1;i<=pdf.numPages;i++){
             if(docState!==st)return;
-            const tc=await (await pdf.getPage(i)).getTextContent();
+            const pg=await pdf.getPage(i);
+            const tc=await pg.getTextContent();
             pages.push(tc.items.map(it=>(it.str||'')+(it.hasEOL?'\n':' ')).join('').replace(/[ \t]+/g,' ').trim());
+            if(!docView.visible.has(i)&&!docView.rendered.has(i)){try{pg.cleanup()}catch(_){}}
             st.progress=i;
           }
           st.pages=pages;
@@ -430,11 +433,12 @@ function renderPdfPage(i,force){
   if(prev&&!force)return prev.job;
   if(prev){docView.rendered.delete(i);cancelPdfEntry(prev,null)}
   const st=docState,scale=docView.scale;
-  const entry={job:null,task:null,pixels:0,canvas:null};
+  const entry={job:null,task:null,pixels:0,canvas:null,page:null};
   const isCurrent=()=>docState===st&&docView.scale===scale&&docView.rendered.get(i)===entry;
   entry.job=(async()=>{
     const page=await st.pdf.getPage(i);
-    if(!isCurrent())return;
+    if(!isCurrent()){try{page.cleanup()}catch(_){}return}
+    entry.page=page;
     const vp=page.getViewport({scale});
     const dpr=Math.min(2,window.devicePixelRatio||1);
     const cw=Math.floor(vp.width*dpr),ch=Math.floor(vp.height*dpr);
