@@ -51,7 +51,7 @@ export const DOC_TOOLS = [
   },
 ];
 // the budget is said up front, in every tool's description, so it never comes as a surprise
-const BUDGET = ` You can make up to ${MAX_TOOL_CALLS} document tool calls per answer, all three tools together, so plan what to read; when only a few are left, each result says how many.`;
+const BUDGET = ` You can make up to ${MAX_TOOL_CALLS} reading tool calls per answer, shared by document reads, searches, page views and saved source lookups, so plan what to read; when only a few are left, each result says how many.`;
 for (const t of DOC_TOOLS) t.description += BUDGET;
 
 // Suggesting flashcards: offered only in a conversation with flashcards on (the page asks for it then), and the
@@ -67,7 +67,12 @@ export const CARD_TOOL = {
     required: ['front', 'back'], additionalProperties: false,
   },
 };
-export const ALL_TOOLS = [...DOC_TOOLS, CARD_TOOL];
+const SOURCE_TOOL = {
+  name: 'list_sources',
+  description: 'Get saved web references and their originating question. Defaults to the latest list on this path. Pass a marker such as S1 for an earlier reply. No new web search. Shares the reading-tool budget.',
+  schema: { type: 'object', properties: { reply: { type: 'string' } }, additionalProperties: false },
+};
+export const ALL_TOOLS = [...DOC_TOOLS, CARD_TOOL, SOURCE_TOOL];
 // what the page asked for: true (older pages) is the document tools; a list names them; anything else, none
 export function pickTools(want) {
   if (want === true) return DOC_TOOLS;
@@ -90,15 +95,15 @@ export function openSession(chatId, tools = DOC_TOOLS) {
     if (s.closed) return failed('The reader stopped this reply.');
     if (!NAMES.has(name)) return failed(`There is no tool called "${name}". The tools are: ${[...NAMES].join(', ')}.`);
     if (isCard(name)) { if (++s.cards > MAX_CARD_CALLS) return failed(`That is the limit of ${MAX_CARD_CALLS} suggested cards for one answer.`); }
-    else if (++s.calls > MAX_TOOL_CALLS) return failed(`That is the limit of ${MAX_TOOL_CALLS} document tool calls for one answer. Answer now with what you have, and say plainly which parts of the document you did not get to read.`);
-    if (!s.out) return failed('The document tools are not connected for this reply.');
+    else if (++s.calls > MAX_TOOL_CALLS) return failed(`That is the limit of ${MAX_TOOL_CALLS} reading tool calls for one answer. Answer now with what you have, and say plainly which evidence you could not retrieve.`);
+    if (!s.out) return failed('The tools are not connected for this reply.');
     const id = crypto.randomBytes(8).toString('hex');
     s.out({ tool: { id, name, input: input && typeof input === 'object' && !Array.isArray(input) ? input : {} } });
     return new Promise((resolve) => {
       const done = (r) => {
         clearTimeout(done.timer); s.pending.delete(id);
         const left = isCard(name) ? 99 : MAX_TOOL_CALLS - s.calls;   // running low: say so in the result, so the model can plan its last reads
-        if (left <= 3) r = { ...r, parts: [...r.parts, { type: 'text', text: left ? `(${left} document tool call${left > 1 ? 's' : ''} left for this answer.)` : '(That was the last document tool call for this answer: answer now with what you have, and say what you didn’t get to read.)' }] };
+        if (left <= 3) r = { ...r, parts: [...r.parts, { type: 'text', text: left ? `(${left} reading tool call${left > 1 ? 's' : ''} left for this answer.)` : '(That was the last reading tool call for this answer: answer now with what you have, and say what you didn’t get to read.)' }] };
         resolve(r);
       };
       s.pending.set(id, done); arm(done);

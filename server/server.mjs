@@ -393,7 +393,7 @@ async function saveOrphan({ conv, msg }, runId, r) {
     else if (r.cut) { m.cut = true; m.error = 'Cut off before it finished: no page came back to it within ' + Math.round(DETACH_MS / 60000) + ' minutes.'; }
     else if (r.truncated) m.error = 'Reply was cut off (length limit).';
     delete m.run;
-    delete m.runFrom;
+    delete m.runFrom; delete m.runSourceIds;
     return true;
   });
 }

@@ -64,7 +64,7 @@ What you see: this path and nothing else. You don't see the learner's other side
     note: (actions) => '\n\n[Digress activity for this reply: ' + actions.join('; ') + ']',
     read: (pdf, a, b) => 'read ' + (pdf ? (a === b ? 'p. ' : 'pp. ') : (a === b ? 'part ' : 'parts ')) + (a === b ? a : a + '–' + b),
     view: (p, part) => part ? 'requested pictures from part ' + p : 'viewed an image of p. ' + p,
-    sources: (refs, extra) => 'web search reported ' + refs.join('; ') + (extra ? ' (+' + extra + ' more)' : ''),
+    sources: (n, handle) => `web search returned ${n} reference${n === 1 ? '' : 's'}${handle ? ' (' + handle + ')' : ''}`,
   },
   takeawayNote: (branchTitle, text) => `[Takeaway carried back from the side branch "${branchTitle}":]\n${text}`,
 

@@ -2,7 +2,7 @@
 // FSRS-4.5 review panel (Review / Inbox / All), Fix…, quote verification/highlighting, and source jumping.
 import { fsrsNext, ivlText } from './fsrs.js';
 import { esc, trunc, plain } from './text.js';
-import { isWholePage, shotRef, appendText } from './context.js';
+import { listSources, isWholePage, shotRef, appendText } from './context.js';
 import { state, app, $, ic, io, paneEls, settings, T, color, isCollapsed, fullSys, rid } from './state.js';
 
 const reEsc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -281,7 +281,7 @@ export function createCards() {
       model,
       effort: 'low',
       web: false,
-      tools: ctxObj.tools ? { names: ctxObj.tools, run: (n, i) => runDocTool(n, i, [], c0.id) } : undefined,
+      tools: ctxObj.tools ? { names: ctxObj.tools, run: (n, i) => n === 'list_sources' ? listSources(ctxObj.sourceLists, i) : runDocTool(n, i, [], c0.id) } : undefined,
     });
     let list = [];
     try {
@@ -626,7 +626,7 @@ export function createCards() {
         if (getConv() !== conv || !conv.threads[c.thread]) {
           mine = false;
         } else {
-          req = { system: rc.system, messages: rc.messages, tools: ctxObj.tools ? { names: ctxObj.tools, run: (n, i) => runDocTool(n, i, [], conv.id) } : undefined };
+          req = { system: rc.system, messages: rc.messages, tools: ctxObj.tools ? { names: ctxObj.tools, run: (n, i) => n === 'list_sources' ? listSources(ctxObj.sourceLists, i) : runDocTool(n, i, [], conv.id) } : undefined };
         }
       }
     }

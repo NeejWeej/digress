@@ -16,8 +16,9 @@ import asyncio, os, sys
 from playwright.async_api import async_playwright
 from common import launch_args, goto_app, booted, answered, frames, soon, quiet, OUT
 
-FAKE = r"""window.__calls=[];window.fakeLLM={use:async(n)=>n!=='sample'?null:async(msgs,opts)=>{
+FAKE = r"""window.fakeTools=true;window.__calls=[];window.fakeLLM={use:async(n)=>n!=='sample'?null:async(msgs,opts)=>{
   window.__calls.push(JSON.parse(JSON.stringify(msgs)));
+  if(msgs.at(-1).content==='Check saved references.')window.lookupResult=await opts.callTool('list_sources',{});
   const out='Reply '+window.__calls.length+'.';opts.onText&&opts.onText({text:out});return {text:out,truncated:false}}};"""
 SKILL = """---
 name: "test-tutor"
@@ -193,6 +194,7 @@ async def main():
         await ask('Branch question.', bta)
         await pg.evaluate("""tid => {
           const c = __digress.conv;
+          c.msgs[c.order[tid].at(-1)].sources = [{url:'https://example.org/source'}];
           c.msgs[c.order[tid].at(-1)].reads = [{t: 'view', p: 47}];
         }""", mt)
         async def view():
@@ -209,6 +211,7 @@ async def main():
               len(msgs) == 4 and msgs[0]['t'].startswith('1. User') and 'Main question.' in msgs[0]['x'] and msgs[1]['t'].startswith('2. Assistant') and msgs[1]['x'].startswith('Reply')
               and msgs[2]['t'].startswith('3. User') and msgs[2]['x'].startswith('[Side question') and 'Branch question.' in msgs[2]['x'] and msgs[3]['t'].startswith('4. Assistant'), [(p['t'], p['x'][:60]) for p in msgs])
         check('branch preview includes its reply activity', 'viewed an image of p. 47' in msgs[-1]['x'])
+        check('preview includes the count and handle', '1 reference (S1)' in msgs[-1]['x'] and 'example.org/source' not in msgs[-1]['x'])
         check('the note names the branch, not main', 'main thread' not in v['note'], v['note'])
         await pg.locator('#modal #mCancel').click(); await frames(pg)
         check('Close closes it', not await pg.locator('#modal .mview').is_visible())
@@ -217,6 +220,13 @@ async def main():
         msgs = [p for p in v['parts'] if p['t'][:1].isdigit()]
         check('from main: only main messages, no branch question', len(msgs) == 2 and not any('Branch question' in p['x'] for p in msgs) and 'main thread' in v['note'], [(p['t'], p['x'][:40]) for p in msgs])
         await pg.locator('#modal #mCancel').click(); await frames(pg)
+
+        await ask('Check saved references.', bta)
+        check('saved links only cross the connector in the requested result',
+              await pg.evaluate("!JSON.stringify(window.__chatBodies.at(-1)).includes('https://example.org/source')"))
+        lookup = await pg.evaluate('JSON.parse(window.lookupResult.parts[0].text)')
+        check('branch follow-up runs the advertised lookup with web off', lookup == {
+            'reply':'S1', 'question':'Branch question.', 'references':['https://example.org/source']}, lookup)
 
         # --- a document conversation: main's prompt is the one its document branches use, even with main empty ---
         await pg.locator('#newDoc').click()
