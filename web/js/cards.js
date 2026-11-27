@@ -3,21 +3,52 @@
 import { fsrsNext, ivlText } from './fsrs.js';
 import { esc, trunc, plain } from './text.js';
 import { isWholePage, shotRef, appendText } from './context.js';
+import { state, app, $, ic, io, paneEls, settings, T, color, isCollapsed, fullSys, rid } from './state.js';
 
 const reEsc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export const quoteWords = (q) => String(q || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
 export const quoteRe = (ws) => new RegExp('(?<![\\p{L}\\p{N}])' + ws.map(reEsc).join('[^\\p{L}\\p{N}]+') + '(?![\\p{L}\\p{N}])', 'u');
 
-export function createCards(ctx) {
-  const {
-    $, ic, toast, renderRich, imageBlob, imageURL, storeImages, renderConvList, openActivity,
-    getConv, getConvList, getConvListLoaded, getDocState, getSettings, paneEls, io,
-    T, color, isCollapsed, cvState, getRegions, contentScale, rid,
-    save, catchUp, docReady, buildContext, resolveContext, modelFor, runDocTool, fullSys,
-    trashLeft, openConv, restoreConv, dockCard, openDocPane, goToPage, focusCard,
-    revealAnchor, openThread, layout, revealPane, revealMsg,
-    clearHit, setHitSticky, setHitTimer, docImgRef, regionRef,
-  } = ctx;
+export function createCards() {
+  const getConv = () => state.conv;
+  const getConvList = () => state.convList;
+  const getConvListLoaded = () => state.convListLoaded;
+  const getDocState = () => state.docState;
+  const getSettings = () => settings;
+  const getRegions = () => app.REGIONS;
+  const setHitSticky = (v) => { state.hitSticky = v; };
+  const setHitTimer = (t) => { state.hitTimer = t; };
+  const toast = (...a) => app.toast(...a);
+  const renderRich = (...a) => app.renderRich(...a);
+  const imageBlob = (...a) => app.imageBlob(...a);
+  const imageURL = (...a) => app.imageURL(...a);
+  const storeImages = (...a) => app.storeImages(...a);
+  const renderConvList = (...a) => app.renderConvList(...a);
+  const openActivity = (...a) => app.openActivity(...a);
+  const cvState = (...a) => app.cvState(...a);
+  const contentScale = (...a) => app.contentScale(...a);
+  const save = (...a) => app.save(...a);
+  const catchUp = (...a) => app.catchUp(...a);
+  const docReady = (...a) => app.docReady(...a);
+  const buildContext = (...a) => app.buildContext(...a);
+  const resolveContext = (...a) => app.resolveContext(...a);
+  const modelFor = (...a) => app.modelFor(...a);
+  const runDocTool = (...a) => app.runDocTool(...a);
+  const trashLeft = (...a) => app.trashLeft(...a);
+  const openConv = (...a) => app.openConv(...a);
+  const restoreConv = (...a) => app.restoreConv(...a);
+  const dockCard = (...a) => app.dockCard(...a);
+  const openDocPane = (...a) => app.openDocPane(...a);
+  const goToPage = (...a) => app.goToPage(...a);
+  const focusCard = (...a) => app.focusCard(...a);
+  const revealAnchor = (...a) => app.revealAnchor(...a);
+  const openThread = (...a) => app.openThread(...a);
+  const layout = (...a) => app.layout(...a);
+  const revealPane = (...a) => app.revealPane(...a);
+  const revealMsg = (...a) => app.revealMsg(...a);
+  const clearHit = (...a) => app.clearHit(...a);
+  const docImgRef = (...a) => app.docImgRef(...a);
+  const regionRef = (...a) => app.regionRef(...a);
 
   const CARDS = new Map();
   let cardsLoaded = null;

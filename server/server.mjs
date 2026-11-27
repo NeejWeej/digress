@@ -743,7 +743,8 @@ async function route(req, res) {
   // checked before anything else, so a refused request can't read or change data or start a model call
   if (!requestAllowed(req)) return fail(res, 403, 'This server only answers its own page (see ALLOWED_HOSTS in .env.example).');
   const url = new URL(req.url, 'http://x');
-  const parts = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+  let parts;
+  try { parts = url.pathname.split('/').filter(Boolean).map(decodeURIComponent); } catch { return fail(res, 400, 'Bad URL'); }
 
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
     const inject = DEV ? (html) => { const i = html.lastIndexOf('</body>'); return i < 0 ? html + DEV_CLIENT : html.slice(0, i) + DEV_CLIENT + html.slice(i); } : null;
@@ -873,6 +874,7 @@ async function route(req, res) {
     }
     if (req.method === 'PATCH') {
       const p = await readJson(req);
+      if (!p || typeof p !== 'object' || Array.isArray(p)) return fail(res, 400, 'Body must be an object');
       if (!db.patchDoc(coll, id, p)) return fail(res, 404, 'Not found');
       return send(res, 200, { ok: true });
     }

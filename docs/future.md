@@ -18,8 +18,6 @@ Ideas that aren't built yet, written down so they aren't lost. What's already bu
   `mid-conversation-tool-changes-2026-07-01` or `inline-tools-2026-09-15`; Opus 4.8 and later, Sonnet 5.5,
   Haiku 5.5, not Sonnet 5; [mid-conversation system messages](https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages)).
   Needs an API key to check, and whether it applies to the server-side `web_search` tool.
-- **Web articles:** a bookmarklet or small browser extension that sends the article from the tab you're
-  reading, for pages the server can't fetch (logins, paywalls you pay for).
 - **Images in Markdown documents:** pasted or uploaded Markdown with image links still loads those images straight
   from their sites (replies don't: their images wait for a click); it could get the same placeholders as web articles.
 - **Joining a side question into its parent:** `ThreadOps.join` exists (Undo of "Move what follows into a branch"
@@ -127,13 +125,11 @@ Exporting and importing `.digress` archives (with optional document and flashcar
 
 ## Client structure and runtime performance
 
-Startup, PDF memory, streaming highlighting, canvas caching, and incremental search have already been optimized (see [done.md](done.md)). Further cleanups if the app or conversation libraries grow much larger:
+Startup, PDF memory, streaming highlighting, canvas caching, incremental search, and SQLite + FTS5 storage have already been built (see [done.md](done.md)). Further cleanups if the app or conversation libraries grow much larger:
 
-- **Split the remaining client UI subsystems into ES modules:** `web/index.html` is now an HTML shell and `web/js/` holds the ES module entry point (`app.js`) plus pure modules (`fsrs.js`, `text.js`, `anchors.js`, `context.js`, with direct Node unit tests). Next incremental splits from `web/js/app.js`: stateful UI subsystems (`connectors.js`, `cards.js`, `pdf.js`, `canvas.js`, `search.js`, `render.js`) behind a small shared state module, still with zero build step.
 - **Block-level streaming diffing:** `hljs` is cached during streaming, so code-heavy replies stay fast, but `marked.parse()` and `DOMPurify.sanitize()` still re-run on the whole reply every 70 ms. Splitting settled top-level blocks from the trailing active block would flatten CPU on very long (5,000+ word) streaming replies.
 - **Lighter connector wires:** updating existing SVG `<path>` `d` attributes in place instead of rebuilding `svg.innerHTML`, and bounding crossing `<mask>` rects to the viewport rather than a `30000×30000` user-space box.
-- **Search in a Web Worker:** incremental `MiniSearch` updates keep `Cmd+K` fast for dozens of conversations; if a library grows to hundreds of conversations and long textbooks, moving `MiniSearch` into a Web Worker would keep typing off the main thread completely.
-- **SQLite (or indexed storage) for scaling:** today every conversation, card, and search index entry is its own JSON file on disk, saved by full-file `PUT`, and housekeeping (`sweepFiles`, `purgeTrash`, `listDocs`) scans and parses every file in the directory. Fine for dozens of conversations; if a library grows to hundreds of long conversations and thousands of flashcards, moving metadata, cards, and conversations into SQLite (Node 22+ includes `node:sqlite`, keeping zero runtime dependencies) would give indexed queries, atomic partial updates, and fast asset reference tracking without scanning the whole `data/` folder. Uploaded PDFs and images can stay as files on disk.
+- **Search in a Web Worker (demo/offline):** the local server now runs FTS5 search in SQLite; for the browser-only demo or offline mode with huge libraries, moving `MiniSearch` into a Web Worker would keep typing off the main thread completely.
 
 ## Videos, YouTube first
 

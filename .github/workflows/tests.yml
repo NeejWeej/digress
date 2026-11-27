@@ -36,6 +36,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci   # the libraries the page loads from CDNs; the tests serve them from node_modules
+      - run: npm run lint
       - run: pip install --no-cache-dir --break-system-packages playwright==1.65.0
       - run: python3 tests/run_all.py -j 2 --shard ${{ matrix.shard }}/4
       - name: Keep the logs and screenshots of a failed run
