@@ -1,5 +1,6 @@
 // Markdown, MathJax, Mermaid, remote-content sanitization, diagram/image zoom, and code-copy rendering for Digress.
 import { esc } from './text.js';
+import { S, app, ic, rid, memoSet } from './state.js';
 
 const MATHJAX_CDN = 'https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg-full.js';
 const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js';
@@ -37,18 +38,18 @@ export function copyText(text) {
   });
 }
 
-export function createRenderer({ ic, toast, lightbox, loadScript, linkPages, getConvDoc, wiresSoon, rid, memoSet, isMathReady }) {
+export function createRenderer() {
   marked.setOptions({ gfm: true, breaks: false });
 
   let mathLoadP = null;
   function loadMath() {
-    if (isMathReady()) return Promise.resolve();
+    if (S.mathReady) return Promise.resolve();
     if (window.MathJax && MathJax.tex2svg) {
       window.__mathReady && window.__mathReady();
       return Promise.resolve();
     }
     if (!mathLoadP) {
-      mathLoadP = loadScript(MATHJAX_CDN)
+      mathLoadP = app.loadScript(MATHJAX_CDN)
         .then(() => { if (window.MathJax && MathJax.tex2svg && window.__mathReady) window.__mathReady(); })
         .catch(() => { mathLoadP = null; });
     }
@@ -175,7 +176,7 @@ export function createRenderer({ ic, toast, lightbox, loadScript, linkPages, get
     if (!im) return;
     e.stopPropagation();
     e.preventDefault();
-    lightbox({ url: im.currentSrc || im.src });
+    app.lightbox({ url: im.currentSrc || im.src });
   }, true);
 
   const HLJS_CACHE = new Map(), HLJS_MAX = 120;
@@ -200,7 +201,7 @@ export function createRenderer({ ic, toast, lightbox, loadScript, linkPages, get
       b.title = 'Copied';
       clearTimeout(b.__t);
       b.__t = setTimeout(() => { b.classList.remove('done'); b.innerHTML = ic('copy'); b.title = 'Copy'; }, 1500);
-    }, () => toast("Copy isn't allowed here"));
+    }, () => app.toast("Copy isn't allowed here"));
   }
   document.addEventListener('pointerdown', (e) => {
     const b = e.target.closest && e.target.closest('.cbx .cpy');
@@ -238,7 +239,7 @@ export function createRenderer({ ic, toast, lightbox, loadScript, linkPages, get
     html = html.replace(/@@M(\d+)@@/g, (_, i) => `<span class="math${maths[+i] && maths[+i].d ? ' display' : ''}" data-i="${i}"></span>`);
     el.innerHTML = html;
     if (!o.doc) el.querySelectorAll('img[data-rsrc]').forEach(remoteImg);
-    const mReady = isMathReady();
+    const mReady = S.mathReady;
     if (maths.length && !mReady) loadMath();
     el.querySelectorAll('span.math').forEach((s) => {
       const m = maths[+s.dataset.i];
@@ -275,7 +276,7 @@ export function createRenderer({ ic, toast, lightbox, loadScript, linkPages, get
       }
     });
     el.querySelectorAll('a').forEach((a) => { a.target = '_blank'; a.rel = 'noopener'; });
-    if (!o.doc && !el.classList.contains('docbody')) linkPages(el, { doc: getConvDoc() });
+    if (!o.doc && !el.classList.contains('docbody')) app.linkPages(el, { doc: S.conv && S.conv.doc });
   }
 
   function mermaidTheme() {
@@ -308,7 +309,7 @@ export function createRenderer({ ic, toast, lightbox, loadScript, linkPages, get
   function loadMermaid() {
     if (mermaidReady) return mermaidReady;
     mermaidReady = new Promise((res) => {
-      loadScript(MERMAID_CDN).then(() => {
+      app.loadScript(MERMAID_CDN).then(() => {
         try { mermaidTheme(); mermaidOk = true; } catch (e) {}
         res();
       }, () => res());
@@ -356,7 +357,7 @@ export function createRenderer({ ic, toast, lightbox, loadScript, linkPages, get
         }
       }
     }
-    wiresSoon();
+    app.wiresSoon();
   }
 
   const MMZ_MAX = 6, MMZ_STEP = 1.5;

@@ -1,12 +1,11 @@
-import { DAY, MIN, fsrsNext, ivlText } from './fsrs.js';
-import { esc, trunc, texText, CITE_Q_RE, stripCiteQuotes, plain, pdfTitleOk, PASS, OVERLAP, passages, indexEntries, idxPages, sigOf } from './text.js';
+import { DAY, fsrsNext } from './fsrs.js';
+import { esc, trunc, stripCiteQuotes, plain, pdfTitleOk, indexEntries, idxPages, sigOf } from './text.js';
 import { textWalker, nonWs, flatLen, charPos } from './anchors.js';
 import {
-  DOC_BUDGET, DOC_FIRST, DOC_TOOL_NAMES,
-  isDocBranch, isClipBranch, isWholePage, cropRef, shotRef, docImgRefOf, docImgLabel,
-  defaultSysOf, sysPromptOf, convSkillsOf, skillsPromptOf, fullSysOf,
+  DOC_TOOL_NAMES,
+  isDocBranch, isClipBranch, isWholePage, cropRef, shotRef, docImgRefOf,
   pageText as pageTextOf, docTooLong as docTooLongOf, toolsWantedOf, cardToolOf,
-  partsText, joinParts, appendText, buildContext as buildContextPure,
+  joinParts, appendText, buildContext as buildContextPure,
 } from './context.js';
 import {
   PUBLIC_DEMO_URL, FILE_MAX_DECODED, gunzipBytesCapped, encodeSharePayload, decodeSharePayload,
@@ -15,146 +14,36 @@ import {
 } from './share.js';
 import {
   memoryStore, noLlm, noFiles, findServer, okOrThrow, offlineCards, serverStore,
-  otherScreen, DEVICE, WINDOW, layoutKey, serverLayout, WINDOWS, tellWindows, toldWindows,
+  otherScreen, DEVICE, layoutKey, serverLayout, WINDOWS, toldWindows,
   serverFiles, runId, serverLlm,
 } from './connectors.js';
+import {
+  S, app, io, settings, saveSettings, CUSTOM,
+  defaultSys, sysPrompt, fullSys, quickList, convSkills, skillsPrompt,
+  STARTERS, MODELS, EFFORTS, effortLabel, modelLabel,
+  PALETTE, ic, $, rid, qid, memoSet,
+  msgCache, cvMsgCache, paneEls, gutEls, streaming, unread,
+  newConv, T, color, ancestors, isDesc, resetThreadIdx, children, branchesOn, hiddenNow, shownOn, branchNum, isCollapsed,
+} from './state.js';
 import { copyText, createRenderer } from './render.js';
 import { createCards, quoteWords, quoteRe } from './cards.js';
 
-/* ---------- constants ---------- */
-const PALETTE=['#d9774b','#3f8fd2','#3fa077','#9d6ad6','#cc9a2e','#d65a8a','#2a9ea3','#7f8f36'];
-const qid=(v)=>CSS.escape(String(v));
-// every instruction to the model is in web/prompts.js; the reader can replace the system prompt and the quick questions
-// (Prompts & skills: CUSTOM.prompts, the store's prompts/custom) and add skills (CUSTOM.skills, the store's skills)
-const CUSTOM={prompts:{},skills:new Map()};
-// the system prompt: a conversation's own (conv.system, set from the Prompts page or its empty main pane), else yours, else Digress's
-const defaultSys=()=>defaultSysOf(CUSTOM,PROMPTS);
-const sysPrompt=(c)=>sysPromptOf(c,CUSTOM,PROMPTS);
-// what's sent: the reader's part (sysPrompt), then how Digress works (fixed, whatever they wrote), then the skills
-const fullSys=(c)=>fullSysOf(c,CUSTOM,PROMPTS);
-const quickList=()=>CUSTOM.prompts.quick&&CUSTOM.prompts.quick.length?CUSTOM.prompts.quick:PROMPTS.quick;
-// the skills a conversation has on (conv.skills: ids; one deleted since is left out), added to its system prompt
-const convSkills=(c)=>convSkillsOf(c,CUSTOM);
-const skillsPrompt=(c)=>skillsPromptOf(c,CUSTOM,PROMPTS);
-const STARTERS=['How does self-attention in transformers work?','Explain the Raft consensus algorithm','What is a Fourier transform, intuitively?','How does a B-tree index speed up queries?'];
-// shown until the server's own model list (/api/models) arrives
-const MODELS=[['auto','Auto'],['claude-opus-5-5','Opus 5.5'],['claude-sonnet-5-5','Sonnet 5.5'],['claude-haiku-5-5','Haiku 5.5'],['claude-fable-5-2','Fable 5.2']];
-const EFFORTS=[['auto','Auto'],['low','Low'],['medium','Medium'],['high','High']];
-const effortLabel=(e)=>e==='auto'?'auto effort':((EFFORTS.find(x=>x[0]===e)||[0,e])[1]+' effort').toLowerCase().replace(/^./,c=>c.toUpperCase());
-const I={
- check:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',
- tune:'<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
- chev:'<path d="M6 9.5l6 6 6-6"/>',
- search:'<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>',
- locate:'<circle cx="12" cy="12" r="3.2"/><circle cx="12" cy="12" r="7.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22"/>',
- star:'<path d="M12 3.8l2.5 5.2 5.7.8-4.1 4 1 5.6L12 16.7l-5.1 2.7 1-5.6-4.1-4 5.7-.8z"/>',
- sparkle:'<path d="M12 4l1.8 4.7L18.5 10.5 13.8 12.3 12 17l-1.8-4.7L5.5 10.5l4.7-1.8z"/><path d="M18.5 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/>',
- dots:'<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>',
- edit:'<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
- eye:'<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
- eyeoff:'<path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.3 4.2M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7c1.8 0 3.4-.5 4.8-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
- restart:'<path d="M5 4h14v12H9l-4 4z"/><path d="M12 7v6M9 10h6"/>',
- docnew:'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M13 11v7M9.5 14.5h7"/>',
- versions:'<path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>',
- palette:'<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.8 1.7-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7h2a5 5 0 0 0 5-5C21.4 6.4 17.2 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7" r="1.2"/><circle cx="15.5" cy="7.5" r="1.2"/>',
- globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
- side:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
- cols:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
- rows:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.5h18M3 14.5h18"/>',
- canvas:'<rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="14" width="7" height="6" rx="1.5"/><rect x="14" y="4" width="7" height="6" rx="1.5"/><path d="M10 7h4M17.5 10v4"/>',
- focus:'<rect x="8" y="4" width="8" height="16" rx="1.5"/><path d="M4 6v12M20 6v12"/>',
- unfocus:'<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',   // the canvas's shrink / put it back (corners in)
- expand:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',   // the canvas's expand / fill (corners out); not Collapse others' icon
- fitw:'<path d="M4 5v14M20 5v14M7.5 12h9M10 9.5 7.5 12l2.5 2.5M14 9.5l2.5 2.5-2.5 2.5"/>',
- collapse:'<path d="M6 12h12"/>',
- x:'<path d="M6 6l12 12M18 6L6 18"/>',
- swap:'<path d="M7 7h12l-3-3M17 17H5l3 3"/>',
- download:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
- plug:'<path d="M9 3v5M15 3v5M7 8h10v3a5 5 0 0 1-10 0zM12 16v5"/>',
- back:'<path d="M15 6l-6 6 6 6"/>',
- up:'<path d="M12 19V5M6 11l6-6 6 6"/>',
- send:'<path d="M12 19V5M6 11l6-6 6 6"/>',
- stop:'<rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor"/>',
- branch:'<circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7v10M18 10c0 5-6 4-11 7.5"/>',
- copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
- plus:'<path d="M12 5v14M5 12h14"/>',
- minus:'<path d="M5 12h14"/>',
- snip:'<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>',
- activity:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',
- cards:'<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>',
- fit:'<path d="M4 9V5a1 1 0 0 1 1-1h4M15 4h4a1 1 0 0 1 1 1v4M20 15v4a1 1 0 0 1-1 1h-4M9 20H5a1 1 0 0 1-1-1v-4"/>',
- doc:'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>',
- pin:'<path d="M9 3h6l-1 7 3.5 3.5h-11L10 10zM12 13.5V21"/>',
- folder:'<path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4l2 2.2h8A1.5 1.5 0 0 1 20.5 9.2V17A1.5 1.5 0 0 1 19 18.5H5A1.5 1.5 0 0 1 3.5 17z"/>',
- archive:'<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
- retry:'<path d="M4 12a8 8 0 1 0 2.5-5.8M4 4v4h4"/>',
- take:'<path d="M20 12H8M12 7l-5 5 5 5M4 5v14"/>',
- jend:'<path d="M12 4v13M6 11l6 6 6-6M5 20h14"/>',
- jlast:'<path d="M12 6v12M6 12l6 6 6-6M5 4h14"/>',
- jprev:'<path d="M9 14l-5-5 5-5M4 9h10a6 6 0 0 1 0 12h-3"/>',
- trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
- dl:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
- ext:'<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
- views:'<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
- img:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
-};
-I.zoom='<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5M11 8.5v5M8.5 11h5"/>';
-I.al='<path d="M15 6l-6 6 6 6"/>';I.ar='<path d="M9 6l6 6-6 6"/>';I.au='<path d="M6 15l6-6 6 6"/>';I.ad='<path d="M6 9l6 6 6-6"/>';
-I.zen='<path d="M18.4 8.2A7 7 0 1 0 19 12"/>';
-I.mark='<path d="M7 4h10v16l-5-3.6L7 20z"/>';
-const ic=(n)=>`<svg class="i" viewBox="0 0 24 24">${I[n]}</svg>`;
-const $=(s,r=document)=>r.querySelector(s);
-const rid=()=>Math.random().toString(36).slice(2,10);
-
-/* ---------- settings ---------- */
-const settings={model:'auto',effort:'auto',web:false,theme:'system',pdf:'original',wires:true};
-try{Object.assign(settings,JSON.parse(localStorage.getItem('sq:settings')||'{}'))}catch(e){}
-function saveSettings(){try{localStorage.setItem('sq:settings',JSON.stringify(settings))}catch(e){}}
-const modelLabel=(v)=>{if(!v)return '';if(typeof v==='object')v=v.model||v.id||'';const list=(typeof io!=='undefined'&&io.llm&&io.llm.models())||MODELS;const m=list.find(x=>x[0]===v)||MODELS.find(x=>x[0]===v);return m?m[1]:String(v).replace(/^claude-/,'')};
-
-/* ---------- state ---------- */
-let conv=null,convList=[];
-const msgCache=new Map(),cvMsgCache=new Map(),paneEls=new Map(),gutEls=new Map(),streaming=new Map();
-// threads whose reply finished while you couldn't see them: per window, in memory only (a reload forgets them)
-const unread=new Set();
-window.__digressBusy=()=>streaming.size>0; // read by the server's dev live-reload, so it never reloads mid-reply
-window.__digress={get conv(){return conv},get sync(){return sync},deleteConv:(id)=>deleteConv(id),refresh:()=>refreshAll(),get convList(){return convList},get keys(){return KEYS},get custom(){return CUSTOM},skillLink:(u)=>skillLink(u),putSkill:(t,o)=>putSkill(t,o),get cards(){return CARDS},runDocTool:(n,i,t)=>runDocTool(n,i,t),set docState(v){docState=v},linkPages:(r,o)=>linkPages(r,o),renderRich:(el,md,f,o)=>renderRich(el,md,f,o),plain,convMarkdown:(c)=>convMarkdown(c),ingestClip:(p)=>ingestClip(p)};   // for tests and the console
-let mathReady=false;
-let popState=null;
-
-function newConv(){
-  return {id:'c'+Date.now().toString(36)+rid().slice(0,4),title:'New conversation',created:Date.now(),updated:Date.now(),
-    threads:{main:{id:'main',parent:null,title:'Main thread',colorIdx:-1}},msgs:{},order:{main:[]},
-    ui:{open:['main'],collapsed:[],layout:'cols',view:'panes',sizes:{}},nextColor:0};
-}
-const T=(id)=>conv.threads[id];
-const color=(t)=>t&&t.parent?PALETTE[t.colorIdx%PALETTE.length]:'var(--faint)';
-function ancestors(tid){const p=[];let t=T(tid);while(t){p.unshift(t.id);t=t.parent?T(t.parent):null}return p}
-function isDesc(a,b){let t=T(a);while(t&&t.parent){if(t.parent===b)return true;t=T(t.parent)}return false}
-const EMPTY_ARR=Object.freeze([]);
-let _tidx=null,_tidxQueued=false;
-function resetThreadIdx(){_tidx=null}
-function threadIdx(){
-  if(_tidx&&_tidx.conv===conv)return _tidx;
-  const byParent=new Map(),byAnchor=new Map(),numOf=new Map();
-  const all=Object.values(conv.threads).sort((a,b)=>(a.created||0)-(b.created||0));
-  for(const t of all){
-    if(t.parent!=null){let l=byParent.get(t.parent);if(!l){l=[];byParent.set(t.parent,l)}l.push(t)}
-    if(t.anchorMsg!=null){let l=byAnchor.get(t.anchorMsg);if(!l){l=[];byAnchor.set(t.anchorMsg,l)}l.push(t);numOf.set(t.id,l.length)}
-  }
-  _tidx={conv,byParent,byAnchor,numOf};
-  if(!_tidxQueued){_tidxQueued=true;queueMicrotask(()=>{_tidx=null;_tidxQueued=false})}
-  return _tidx;
-}
-const children=(tid)=>threadIdx().byParent.get(tid)||EMPTY_ARR;
-const branchesOn=(mid)=>threadIdx().byAnchor.get(mid)||EMPTY_ARR;
-// branches you hid (and everything under them) stay out of the tree, the canvas and the reply chips, unless
-// "show hidden" is on; the versions marker on a question still lists hidden versions
-function hiddenNow(tid){if(conv.ui.showHidden)return false;let t=T(tid);while(t){if(t.hidden)return true;t=t.parent?T(t.parent):null}return false}
-// the side branches shown on a reply (other versions show on their question instead)
-const shownOn=(mid)=>branchesOn(mid).filter(t=>!t.alt&&!hiddenNow(t.id));
-const branchNum=(t)=>threadIdx().numOf.get(t.id)||0;
-const isCollapsed=(tid)=>conv.ui.collapsed.includes(tid);
+/* ---------- state bindings (live bridge into state.js S while app.js is being split) ---------- */
+let conv = null, convList = [];
+let mathReady = false;
+let popState = null;
+Object.defineProperties(S, {
+  conv: { get: () => conv, set: (v) => { conv = v; }, enumerable: true, configurable: true },
+  convList: { get: () => convList, set: (v) => { convList = v; }, enumerable: true, configurable: true },
+  convListLoaded: { get: () => convListLoaded, set: (v) => { convListLoaded = v; }, enumerable: true, configurable: true },
+  docState: { get: () => docState, set: (v) => { docState = v; }, enumerable: true, configurable: true },
+  mathReady: { get: () => mathReady, set: (v) => { mathReady = v; }, enumerable: true, configurable: true },
+  popState: { get: () => popState, set: (v) => { popState = v; }, enumerable: true, configurable: true },
+  hitSticky: { get: () => hitSticky, set: (v) => { hitSticky = v; }, enumerable: true, configurable: true },
+  hitTimer: { get: () => hitTimer, set: (v) => { hitTimer = v; }, enumerable: true, configurable: true },
+});
+window.__digressBusy = () => streaming.size > 0; // read by the server's dev live-reload, so it never reloads mid-reply
+window.__digress = { get conv() { return conv; }, get sync() { return sync; }, deleteConv: (id) => deleteConv(id), refresh: () => refreshAll(), get convList() { return convList; }, get keys() { return KEYS; }, get custom() { return CUSTOM; }, skillLink: (u) => skillLink(u), putSkill: (t, o) => putSkill(t, o), get cards() { return CARDS; }, runDocTool: (n, i, t) => runDocTool(n, i, t), set docState(v) { docState = v; }, linkPages: (r, o) => linkPages(r, o), renderRich: (el, md, f, o) => renderRich(el, md, f, o), plain, convMarkdown: (c) => convMarkdown(c), ingestClip: (p) => ingestClip(p) };   // for tests and the console
 
 /* ---------- connectors: the only code that knows where the app is running ----------
    io.llm    complete({system, messages, model, effort, web, signal, onText, onSearch})
@@ -165,7 +54,6 @@ const isCollapsed=(tid)=>conv.ui.collapsed.includes(tid);
    io.index  search index entries, same shape as io.store
    io.files  upload(blob, type) -> {id}, fetch(id, 'text'|'arrayBuffer'), remove(id), canUpload
    They come from the Digress server (server/server.mjs); nothing else in the app should call the server directly. */
-const io={llm:null,store:null,layout:null,index:null,files:null,cards:null,ready:null};
 async function initConnectors(){
   const srv=await findServer();
   if(srv){
@@ -211,11 +99,6 @@ const connected=()=>!!(io.store&&io.index&&io.files&&io.llm);
 const IMG_MAX=1568;
 const regionRef=(t)=>({region:{page:t.anchorPage+1,x:t.anchorRegion.x,y:t.anchorRegion.y,w:t.anchorRegion.w,h:t.anchorRegion.h}});
 const imgMemo=new Map(),urlMemo=new Map(),IMG_MEMO_MAX=80;
-function memoSet(map,k,v,max,onEvict){
-  if(map.has(k))map.delete(k);
-  map.set(k,v);
-  while(map.size>max){const fk=map.keys().next().value,fv=map.get(fk);map.delete(fk);onEvict&&onEvict(fv,fk)}
-}
 const canvasBlob=(cv,type,q)=>new Promise(r=>cv.toBlob(r,type,q));
 async function encodeCanvas(cv){let b=await canvasBlob(cv,'image/png');if(b&&b.size>3.5e6)b=await canvasBlob(cv,'image/jpeg',0.9);if(!b)throw new Error('The image couldn’t be encoded.');return b}
 async function renderRegion(pageNo,r){   // that part of the page, drawn sharp from the PDF itself
@@ -382,25 +265,10 @@ document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest
 
 /* ---------- flashcards (web/js/cards.js) ---------- */
 const {
-  CARDS, KS, loadCards, putCard, dropCard, cardsSyncChanged, syncCardsUI, cardsOn, dueCards,
-  inInbox, cardHeld, convInfo, cardsChoice, cardsAfterReply, makeCardsFor, suggestCard,
-  openCards, closeCards, hideBackToReview, showQuote, findQuote, renderCards, markCardButtons,
-} = createCards({
-  $, ic, toast, renderRich: (...a) => renderRich(...a), imageBlob, imageURL, storeImages,
-  renderConvList: (...a) => renderConvList(...a), openActivity: (...a) => openActivity(...a),
-  getConv: () => conv, getConvList: () => convList, getConvListLoaded: () => convListLoaded,
-  getDocState: () => docState, getSettings: () => settings, paneEls, io,
-  T, color, isCollapsed, cvState, getRegions: () => REGIONS, contentScale: (...a) => contentScale(...a), rid,
-  save: (...a) => save(...a), catchUp: (...a) => catchUp(...a), docReady: (...a) => docReady(...a),
-  buildContext: (...a) => buildContext(...a), resolveContext: (...a) => resolveContext(...a),
-  modelFor: (...a) => modelFor(...a), runDocTool: (...a) => runDocTool(...a), fullSys: (...a) => fullSys(...a),
-  trashLeft: (...a) => trashLeft(...a), openConv: (...a) => openConv(...a), restoreConv: (...a) => restoreConv(...a),
-  dockCard: (...a) => dockCard(...a), openDocPane: (...a) => openDocPane(...a), goToPage: (...a) => goToPage(...a),
-  focusCard: (...a) => focusCard(...a), revealAnchor: (...a) => revealAnchor(...a), openThread: (...a) => openThread(...a),
-  layout: (...a) => layout(...a), revealPane: (...a) => revealPane(...a), revealMsg: (...a) => revealMsg(...a),
-  clearHit: () => clearHit(), setHitSticky: (v) => { hitSticky = v; }, setHitTimer: (t) => { hitTimer = t; },
-  docImgRef: (...a) => docImgRef(...a), regionRef: (...a) => regionRef(...a),
-});
+  CARDS, KS, loadCards, putCard, dropCard, cardsSyncChanged, syncCardsUI, cardsOn,
+  inInbox, convInfo, cardsChoice, cardsAfterReply, makeCardsFor, suggestCard,
+  openCards, closeCards, showQuote, renderCards, markCardButtons,
+} = createCards();
 
 /* ---------- Activity: what you did each day, what you remember, where you dug deepest ----------
    All of it is worked out from what's already saved (messages' ts, threads' created, cards' reviews); nothing
@@ -1684,14 +1552,8 @@ function revealMsg(tid,mid){
 
 /* ---------- markdown / math / mermaid (web/js/render.js) ---------- */
 const {
-  purifyNoRemote, renderRich, renderMermaid, loadMath, loadMermaid,
-  mermaidTheme, mermaidSrc, isMermaidOk, mmAct,
-} = createRenderer({
-  ic, toast, lightbox, loadScript, linkPages,
-  getConvDoc: () => conv && conv.doc,
-  wiresSoon, rid, memoSet,
-  isMathReady: () => mathReady,
-});
+  renderRich, renderMermaid, mermaidTheme, mermaidSrc, isMermaidOk, mmAct,
+} = createRenderer();
 
 /* anchors: wrap the highlighted text and add a numbered footnote marker after it */
 function applyAnchors(root,m){
@@ -6434,6 +6296,17 @@ ct.addEventListener('blur',()=>{const v=ct.textContent.trim();if(v&&v!==conv.tit
 addEventListener('resize',wiresSoon);
 $('#panes').addEventListener('scroll',wiresSoon,{passive:true});
 new ResizeObserver(()=>{wiresSoon();if(conv&&conv.ui.view==='canvas'){placeDocked();drawEdgesSoon()}}).observe($('#stage'));
+
+/* ---------- cross-module action registry ---------- */
+Object.assign(app, {
+  toast, lightbox, loadScript, linkPages, wiresSoon, renderRich,
+  imageBlob, imageURL, storeImages, renderConvList, openActivity,
+  cvState, REGIONS, contentScale, save, catchUp, docReady,
+  buildContext, resolveContext, modelFor, runDocTool,
+  trashLeft, openConv, restoreConv, dockCard, openDocPane, goToPage, focusCard,
+  revealAnchor, openThread, layout, revealPane, revealMsg,
+  clearHit, docImgRef, regionRef,
+});
 
 /* ---------- boot ---------- */
 window.__mathReady=()=>{
