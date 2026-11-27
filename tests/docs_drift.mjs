@@ -151,7 +151,8 @@ test('routes: every API route is in the header comment of server.mjs and in agen
   assert.ok(routes.size >= 10, `route extraction found only ${routes.size} routes`);
   const header = src.slice(0, src.indexOf('\nimport '));
   const agentsText = list('agents', '.md').map((f) => read(f)).join('\n');
-  const has = (text, r) => new RegExp(`${r.replace(/[/]/g, '\\/')}(?![\\w-])`).test(text);
+  const reEsc = (t) => t.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');   // every regex special character, backslash included
+  const has = (text, r) => new RegExp(`${reEsc(r)}(?![\\w-])`).test(text);
   for (const r of [...routes].sort()) {
     assert.ok(has(header, r), `${r} is handled by route() but is missing from the comment block at the top of server/server.mjs`);
     assert.ok(has(agentsText, r), `${r} is handled by route() but is not mentioned in any agents/*.md`);
