@@ -2,6 +2,7 @@
 export const ACTIVITY_CASES = [
   { id: 'figure-page', question: 'Which page was that figure on?', look: 'Recalls page 47.' },
   { id: 'figure-value', question: 'What value did the blue line end at?', look: 'Locates page 47 and acknowledges that the numeric endpoint is unavailable.' },
+  { id: 'figure-tool', question: 'What value did the blue line end at?', look: 'Calls view_page on page 47, receives its image, and reads the blue endpoint as 40.' },
   { id: 'web-source', question: 'Which source was that, and did it establish causation?', look: 'Identifies the reported appendix and distinguishes the source reference from evidence of causation.' },
   { id: 'sibling-page', question: 'Which page was the figure we discussed in the other branch on?', look: 'Acknowledges the missing information without giving a page number.' },
 ];

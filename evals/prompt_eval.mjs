@@ -11,7 +11,7 @@
 // howDigress where the version has it), a short document whole with [p. N] labels when the case has one, and the
 // messages with that version's branch markers. No tools, no web. Writes evals/out/<time>-<model>.md side by side
 // (and .json) for a person to read; nothing is scored.
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { dirname, join } from 'node:path';
@@ -77,8 +77,20 @@ let next = 0, done = 0;
 await Promise.all(Array.from({ length: JOBS }, async () => {
   while (next < jobs.length) {
     const { c, v, P } = jobs[next++];
-    const { system, messages } = requestFor(c, v, P);
-    const t0 = Date.now(), res = await ask(system, messages);
+    const t0 = Date.now();
+    let res;
+    if (c.id === 'figure-tool') {
+      const job = { ...activityFixture(c, v === 'after'), base: BASE, model: MODEL };
+      res = await new Promise((resolve, reject) => {
+        const child = execFile(process.env.PYTHON || 'python3', [join(ROOT, 'evals/figure_tool.py')], (err, stdout) => {
+          if (err) reject(err); else resolve(stdout);
+        });
+        child.stdin.end(JSON.stringify(job));
+      }).then(JSON.parse);
+    } else {
+      const { system, messages } = requestFor(c, v, P);
+      res = await ask(system, messages);
+    }
     (out[c.id] ||= {})[v] = { ...res, ms: Date.now() - t0 };
     console.log(`  ${++done}/${jobs.length} ${c.id} ${v}${res.error ? ' ERROR ' + res.error : ` ${res.text.length} chars`}`);
   }
@@ -95,6 +107,7 @@ for (const c of cases) {
   for (const v of ['before', 'after']) {
     const x = r[v] || {};
     md += `\n### ${v} (${x.error ? 'error' : `${(x.text || '').length} chars, ${((x.ms || 0) / 1000).toFixed(1)} s`})\n\n${x.error ? 'Error: ' + x.error : quote(x.text)}\n`;
+    if (x.calls) md += '\nTool trace: `' + JSON.stringify(x.calls) + '`\n';
   }
 }
 writeFileSync(base + '.md', md);

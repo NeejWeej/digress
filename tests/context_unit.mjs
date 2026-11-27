@@ -301,8 +301,11 @@ test('docPreamble strips query strings, fragments, and credentials from doc.sour
 for (const c of ACTIVITY_CASES) {
   test('reply activity: ' + c.id, () => {
     const { conv, tid } = activityFixture(c), original = structuredClone(conv);
-    const ctx = buildContext(makeEnv({ conv }), tid);
-    const baseline = buildContext(makeEnv({ conv: activityFixture(c, false).conv }), tid);
+    const docState = c.id === 'figure-tool' ? { loaded: true, kind: 'pdf', name: 'Pilot report', pages: Array(47).fill('Pilot study notes') } : null;
+    const env = makeEnv({ conv, docState });
+    const ctx = buildContext(env, tid);
+    const baseline = buildContext({ ...env, conv: activityFixture(c, false).conv }, tid);
+    if (docState) assert.ok(ctx.tools.includes('view_page'));
     if (c.id === 'sibling-page') {
       assert.deepEqual(ctx, baseline);
       assert.ok(!JSON.stringify(ctx.messages).includes('47'));
@@ -312,7 +315,7 @@ for (const c of ACTIVITY_CASES) {
       reply.content += '\n\n[Digress activity for this reply: ' + receipt + ']';
       assert.deepEqual(ctx, baseline);
     }
-    assert.deepEqual(buildContext(makeEnv({ conv }), tid), ctx);
+    assert.deepEqual(buildContext(env, tid), ctx);
     assert.deepEqual(conv, original);
   });
 }
