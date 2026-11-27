@@ -399,7 +399,19 @@ function serverLlm(info){
 async function initConnectors(){
   const srv=await findServer();
   if(srv){
-    io.llm=serverLlm(srv);io.store=toldWindows(serverStore('convs','Saved'));io.layout=serverLayout();io.index=serverStore('index');io.cards=offlineCards(serverStore('cards','',{timeout:8000}));io.cards.onchange=cardsSyncChanged;io.files=serverFiles();
+    io.llm=serverLlm(srv);io.store=toldWindows(serverStore('convs','Saved'));io.layout=serverLayout();
+    io.index=srv.search?Object.assign(serverStore('index'),{
+      search:async(q,o={})=>{
+        const p=new URLSearchParams({q});
+        if(o.scope&&o.scope!=='all')p.set('scope',o.scope);
+        if(o.cid)p.set('cid',o.cid);
+        if(o.tid)p.set('tid',o.tid);
+        if(o.limit)p.set('limit',String(o.limit));
+        const j=await (await okOrThrow(await fetch('api/search?'+p))).json();
+        return Array.isArray(j.results)?j.results:[];
+      },
+    }):serverStore('index');
+    io.cards=offlineCards(serverStore('cards','',{timeout:8000}));io.cards.onchange=cardsSyncChanged;io.files=serverFiles();
     io.skills=serverStore('skills');io.prompts=serverStore('prompts');
     await Promise.all([io.llm.loadModels(),loadCustom()]);
     if(!srv.llm)showBanner(true,io.llm.why);
@@ -5328,7 +5340,11 @@ function loadMini(){if(!miniP)miniP=loadScript('https://cdn.jsdelivr.net/npm/min
 const IDXV=2;   // passages, indexEntries, idxPages, sigOf live in ./text.js
 async function idxWrite(c,pages){
   if(!io.index)return;
-  if(!pages&&c.doc){const old=IDX.map.get(c.id);if(old)pages=idxPages(old)}
+  if(!pages&&c.doc){
+    let old=IDX.map.get(c.id);
+    if(!old&&io.index.search&&io.index.get){try{old=await io.index.get(c.id)}catch(_){}}
+    if(old)pages=idxPages(old);
+  }
   const E=indexEntries(c,pages),sig=sigOf(E);
   if(IDX.lastSig.get(c.id)===sig&&(IDX.map.get(c.id)||{}).v===IDXV)return;
   const d={id:c.id,v:IDXV,updated:c.updated||Date.now(),sig,e:E};
@@ -5412,6 +5428,11 @@ function openPalette(initial,scope,tid){
   $('#palFoot').textContent='';
   runSearch();
   (async()=>{
+    if(io.index&&io.index.search){
+      if(conv)await idxWrite(conv,docState&&docState.key===conv.id&&docState.loaded?docState.pages:null);
+      if($('#pal').classList.contains('show'))runSearch();
+      return;
+    }
     const wasLoaded=IDX.loaded;
     await idxLoadAll();if(!wasLoaded)IDX.dirty=true;
     await idxBackfill((i,n)=>{$('#palFoot').textContent=`Indexing older conversations: ${i} of ${n}…`});
@@ -5447,9 +5468,22 @@ function snippet(x,terms,q=PAL.q){
   return re?esc(s).replace(new RegExp('('+terms.map(t=>esc(t).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','gi'),'<mark>$1</mark>'):esc(s);
 }
 function convMeta(cid){return conv&&conv.id===cid?metaOf(conv):(convList.find(c=>c.id===cid)||{title:'Conversation'})}
-function threadTitle(cid,tid){
+function threadTitle(cid,tid,r){
   if(conv&&conv.id===cid){const t=T(tid);return t?(t.parent?t.title:'Main thread'):''}
+  if(r&&r.bt)return r.bt;
   const p=(IDX.map.get(cid)||{e:[]}).e.find(e=>e.k==='bt'&&e.tid===tid);return p?p.x:(tid==='main'?'Main thread':'')
+}
+async function queryIndex(q){
+  if(io.index&&io.index.search){
+    return await io.index.search(q,{scope:PAL.scope,cid:conv?conv.id:'',tid:PAL.stid||''});
+  }
+  const ms=await idxEngine();
+  let res=ms.search(q,{combineWith:'AND'});if(!res.length)res=ms.search(q);
+  // the exact phrase first, then more of the typed words as typed (not just typo matches), then BM25
+  const qw=qWords(q),ph=qw.length>1&&new RegExp(WB+qw.map(reEsc).join('[^\\p{L}\\p{N}]+'),'u'),wr=qw.map(w=>new RegExp(WB+reEsc(w),'u'));
+  for(const r of res){const low=(r.x||'').toLowerCase();r.phrase=ph&&ph.test(low)?1:0;r.exact=wr.filter(x=>x.test(low)).length}
+  res.sort((a,b)=>(b.phrase-a.phrase)||(b.exact-a.exact)||(b.score-a.score));
+  return res;
 }
 function runSearch(){AIQ.seq++;PAL.ai=null;PAL.running=searchNow();return PAL.running}
 function scopeFilter(res){if(PAL.scope==='all'||!conv)return res;const id=conv.id,st=PAL.stid;return res.filter(r=>r.cid===id&&(PAL.scope==='conv'||(st==='doc'?r.k==='d':r.k!=='d'&&r.tid===st)))}
@@ -5464,13 +5498,8 @@ async function searchNow(){
     box.innerHTML=list.length?'<div class="pgrp">Pinned and recent</div>':'<div class="pempty">No conversations yet.</div>';
     PAL.results.forEach((r,i)=>box.appendChild(resultRow(r,i,[])));markSel();return;
   }
-  let ms;try{ms=await idxEngine()}catch(e){box.innerHTML='<div class="pempty">Search couldn\'t load. Check your connection and try again.</div>';return}
+  let res;try{res=await queryIndex(q)}catch(e){box.innerHTML='<div class="pempty">Search couldn\'t load. Check your connection and try again.</div>';return}
   if(q!==PAL.q)return;
-  let res=ms.search(q,{combineWith:'AND'});if(!res.length)res=ms.search(q);
-  // the exact phrase first, then more of the typed words as typed (not just typo matches), then BM25
-  {const qw=qWords(q),ph=qw.length>1&&new RegExp(WB+qw.map(reEsc).join('[^\\p{L}\\p{N}]+'),'u'),wr=qw.map(w=>new RegExp(WB+reEsc(w),'u'));
-   for(const r of res){const low=(r.x||'').toLowerCase();r.phrase=ph&&ph.test(low)?1:0;r.exact=wr.filter(x=>x.test(low)).length}
-   res.sort((a,b)=>(b.phrase-a.phrase)||(b.exact-a.exact)||(b.score-a.score))}
   res=scopeFilter(res);
   {const gone=new Set(convList.filter(c=>c.trashed).map(c=>c.id));if(conv&&conv.trashed)gone.add(conv.id);if(gone.size)res=res.filter(r=>!gone.has(r.cid))}   // not what's in the trash
   {const seen=new Set();res=res.filter(r=>{const k=resultKey(r);if(seen.has(k))return false;seen.add(k);return true})}   // one row per message: its best passage
@@ -5495,7 +5524,7 @@ function resultRow(r,i,terms){
   d.style.setProperty('--c',c);
   if(r.ai){d.classList.add('pai');d.innerHTML=`<span class="pk">${ic('sparkle')}</span><div class="pm"><div class="ps"></div><div class="pt"></div></div>`;
     d.querySelector('.ps').textContent=r.label;d.querySelector('.pt').textContent=r.sub||'';d.title=r.tip||'';return d}
-  const where0=r.jump?(r.pinned?'Pinned':''):r.k==='d'?`Page ${r.p}`:r.k==='ct'?'':threadTitle(r.cid,r.tid);
+  const where0=r.jump?(r.pinned?'Pinned':''):r.k==='d'?`Page ${r.p}`:r.k==='ct'?'':threadTitle(r.cid,r.tid,r);
   const where=r.why?where0+(where0?' · ':'')+r.why:r.q&&r.q!==PAL.q?where0+(where0?' · ':'')+'found with “'+r.q+'”':where0;
   d.innerHTML=`<span class="pk">${r.jump?'Open':label+(r.k==='d'&&r.p?' p. '+r.p:'')}</span><div class="pm">${where?`<div class="pt"></div>`:''}<div class="ps">${r.jump?esc(r.x):snippet(r.x||'',terms,r.q||PAL.q)}</div></div>`;
   if(where)d.querySelector('.pt').textContent=where;
@@ -5551,10 +5580,9 @@ async function findExpand(){
   try{phrases=(await askFind(PROMPTS.find.expand({desc,titles:scopeTitles()}))).split('\n').map(x=>x.replace(/^[\s\-*•\d.)]+/,'').replace(/["“”]/g,'').trim()).filter(x=>x&&x.length<60).slice(0,8)}
   catch(e){if(seq===AIQ.seq&&row){row.classList.remove('busy');row.querySelector('.ps').textContent='Couldn’t ask the model: '+((e&&e.message)||'error')}return}
   if(seq!==AIQ.seq||desc!==PAL.q)return;
-  const ms=await idxEngine(),found=new Map();
+  const found=new Map();
   for(const ph of [...phrases,desc]){   // the model's phrases first: a passage they find lands on their words, not on yours
-    let rs=ms.search(ph,{combineWith:'AND'});if(!rs.length)rs=ms.search(ph);
-    rs=scopeFilter(rs);
+    let rs=scopeFilter(await queryIndex(ph));
     rs.slice(0,30).forEach((r,i)=>{const k=resultKey(r),f=found.get(k);if(f){f.score2+=1/(i+2)}else found.set(k,{...r,q:ph,score2:1/(i+2)})});
   }
   const list=[...found.values()].sort((a,b)=>b.score2-a.score2);

@@ -77,6 +77,10 @@ async def open_page(b, base, here=True, cdn=True, tamper=()):
             if f: return await r.fulfill(path=f, content_type=lib_type(f), headers=CORS)
             return await r.abort()
         if 'fonts.g' in u: asked.append(u); return await r.abort()
+        if '/api/health' in u:
+            resp = await r.fetch()
+            body = (await resp.body()).replace(b'"search":true', b'"search":false')
+            return await r.fulfill(response=resp, body=body)
         if '/lib/' in u:
             if not here: return await r.fulfill(status=404, body='not found')
             if any(u.endswith(t) for t in tamper):
