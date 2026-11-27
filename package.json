@@ -12,6 +12,7 @@
     "start": "node server/server.mjs",
     "dev": "DEV=1 node --watch-path=server server/server.mjs",
     "chatgpt": "node server/chatgpt.mjs",
+    "lint": "eslint web/js server demo/build.mjs",
     "test": "python3 tests/run_all.py"
   },
   "dependencies": {
@@ -41,5 +42,8 @@
     "pdfjs-dist": "3.11.174",
     "turndown": "7.2.0",
     "turndown-plugin-gfm": "1.0.2"
+  },
+  "devDependencies": {
+    "eslint": "^10.15.0"
   }
 }
