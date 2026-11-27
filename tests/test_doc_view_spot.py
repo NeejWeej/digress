@@ -15,8 +15,8 @@ MAP = {
     'purify.min.js': ROOT + 'dompurify/dist/purify.min.js',
     'highlight.min.js': ROOT + '@highlightjs/cdn-assets/highlight.min.js',
     'tex-svg-full.js': ROOT + 'mathjax/es5/tex-svg-full.js',
-    'pdf.js/3.11.174/pdf.min.js': ROOT + 'pdfjs-dist/build/pdf.min.js',
-    'pdf.js/3.11.174/pdf.worker.min.js': ROOT + 'pdfjs-dist/build/pdf.worker.min.js',
+    'pdfjs-dist@4.10.38/build/pdf.min.mjs': ROOT + 'pdfjs-dist/build/pdf.min.mjs',
+    'pdfjs-dist@4.10.38/build/pdf.worker.min.mjs': ROOT + 'pdfjs-dist/build/pdf.worker.min.mjs',
 }
 fails = []
 def check(name, ok, detail=''):

@@ -17,8 +17,8 @@ MAP = {
     'highlight.min.js': ROOT + '@highlightjs/cdn-assets/highlight.min.js',
     'tex-svg-full.js': ROOT + 'mathjax/es5/tex-svg-full.js',
     'mermaid.min.js': ROOT + 'mermaid/dist/mermaid.min.js',
-    'pdf.js/3.11.174/pdf.min.js': ROOT + 'pdfjs-dist/build/pdf.min.js',
-    'pdf.js/3.11.174/pdf.worker.min.js': ROOT + 'pdfjs-dist/build/pdf.worker.min.js',
+    'pdfjs-dist@4.10.38/build/pdf.min.mjs': ROOT + 'pdfjs-dist/build/pdf.min.mjs',
+    'pdfjs-dist@4.10.38/build/pdf.worker.min.mjs': ROOT + 'pdfjs-dist/build/pdf.worker.min.mjs',
 }
 UNFOLD = "document.querySelectorAll('.thmenu.open .thgrp[aria-expanded=false]').forEach(b=>b.click())"   # open every section of the theme menu
 fails = []
