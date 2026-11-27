@@ -31,13 +31,79 @@
     get: (k) => tx('readonly', (s) => s.get(k)),
     put: (k, v) => tx('readwrite', (s) => s.put(v, k)),
     del: (k) => tx('readwrite', (s) => s.delete(k)),
+    batch: (fn) => tx('readwrite', (s) => { fn(s); }),
     async list(prefix) {
       const range = IDBKeyRange.bound(prefix, prefix + '\ufffd');
-      const [ks, vs] = await Promise.all([tx('readonly', (s) => s.getAllKeys(range)), tx('readonly', (s) => s.getAll(range))]);
-      return ks.map((k, i) => [k.slice(prefix.length), vs[i]]);
+      const d = await db();
+      return new Promise((ok, no) => {
+        const t = d.transaction('kv', 'readonly'), s = t.objectStore('kv');
+        let ks, vs;
+        const rk = s.getAllKeys(range), rv = s.getAll(range);
+        rk.onsuccess = () => { ks = rk.result; };
+        rv.onsuccess = () => { vs = rv.result; };
+        t.oncomplete = () => ok((ks || []).map((k, i) => [k.slice(prefix.length), vs[i]]));
+        t.onerror = t.onabort = () => no(t.error || new Error('the demo’s storage refused it'));
+      });
     },
     clear: () => tx('readwrite', (s) => s.clear()),
   };
+
+  // ---- small metadata projections (updated in the same transaction as convs/ and file/) ----
+  // Keeps sidebar ?meta, startup trash expiry, and file cleanup from loading full conversations or file bytes.
+  const META_V = 1;
+  const ASSET_RE = /"asset(?:Id)?":"([a-f0-9]{32})"/g;
+  const assetRefs = (d) => [...new Set([...JSON.stringify(d).matchAll(ASSET_RE)].map((m) => m[1]))];
+  function convSummary(id, c) {
+    return {
+      _meta: true,
+      dropCards: !!c.dropCards,
+      id: c.id || id,
+      title: c.title,
+      updated: c.updated,
+      created: c.created,
+      pinned: !!c.pinned,
+      archived: !!c.archived,
+      trashed: c.trashed || 0,
+      folder: c.folder || '',
+      system: typeof c.system === 'string' ? c.system : '',
+      doc: !!c.doc,
+      docName: c.doc ? c.doc.name || '' : '',
+      asset: (c.doc && c.doc.assetId) || '',
+      pins: Object.values(c.threads || {}).filter((t) => t && t.pinned).map((t) => ({ tid: t.id, title: t.title, ci: t.colorIdx })),
+      _refs: assetRefs(c),
+    };
+  }
+  const publicMeta = ({ _refs, ...m }) => m;
+  const putConv = (id, c) => kv.batch((s) => { s.put(c, 'convs/' + id); s.put(convSummary(id, c), 'meta/convs/' + id); });
+  const delConv = (id) => kv.batch((s) => { s.delete('convs/' + id); s.delete('meta/convs/' + id); s.delete('layout/' + id); s.delete('index/' + id); });
+  const putFile = (id, rec) => kv.batch((s) => { s.put(rec, 'file/' + id); s.put({ type: rec.type, at: rec.at || 0 }, 'meta/file/' + id); });
+  const delFile = (id) => kv.batch((s) => { s.delete('file/' + id); s.delete('meta/file/' + id); });
+
+  let metaReadyP = null;
+  const ensureMeta = () => metaReadyP || (metaReadyP = (async () => {
+    if ((await kv.get('metaV')) === META_V) return;
+    const d = await db();
+    // Backfill meta/convs/ and meta/file/ via cursors so large file payloads are streamed one at a time.
+    await new Promise((ok, no) => {
+      const t = d.transaction('kv', 'readwrite'), s = t.objectStore('kv');
+      const walk = (prefix, onItem, done) => {
+        const cur = s.openCursor(IDBKeyRange.bound(prefix, prefix + '\ufffd'));
+        cur.onsuccess = () => {
+          const c = cur.result;
+          if (!c) { done(); return; }
+          onItem(String(c.key).slice(prefix.length), c.value);
+          c.continue();
+        };
+      };
+      walk('convs/', (id, c) => { if (c) s.put(convSummary(id, c), 'meta/convs/' + id); }, () => {
+        walk('file/', (id, f) => { if (f) s.put({ type: f.type, at: f.at || 0 }, 'meta/file/' + id); }, () => {
+          s.put(META_V, 'metaV');
+        });
+      });
+      t.oncomplete = () => ok();
+      t.onerror = t.onabort = () => no(t.error || new Error('the demo’s storage refused it'));
+    });
+  })());
 
   // ---- BYOK key state (private to this closure; never exposed on window or returned by /api/connections) ----
   let activeKey = null;          // decrypted Gemini API key, kept in memory only
@@ -223,12 +289,19 @@
     // a newer sample replaces the old one: its conversations, and every card made from them (not only the cards it
     // came with), since a card whose conversation is gone has nothing to open
     const old = (await kv.get('seededKeys')) || [], gone = new Set(old.filter((k) => k.startsWith('convs/')).map((k) => k.slice(6)));
-    for (const k of old) await kv.del(k);
+    for (const k of old) {
+      if (k.startsWith('convs/')) await delConv(k.slice(6));
+      else if (k.startsWith('file/')) await delFile(k.slice(5));
+      else await kv.del(k);
+    }
     for (const [id, c] of await kv.list('cards/')) if (c && gone.has(c.conv)) await kv.del('cards/' + id);
     for (const [id, f] of Object.entries(s.files || {})) {
-      await kv.put('file/' + id, { type: f.type, buf: await (await realFetch(f.src)).arrayBuffer() });
+      await putFile(id, { type: f.type, buf: await (await realFetch(f.src)).arrayBuffer(), at: 0 });
     }
-    for (const [k, v] of Object.entries(s.store || {})) await kv.put(k, v);
+    for (const [k, v] of Object.entries(s.store || {})) {
+      if (k.startsWith('convs/')) await putConv(k.slice(6), v);
+      else await kv.put(k, v);
+    }
     await kv.put('seededKeys', [...Object.keys(s.store || {}), ...Object.keys(s.files || {}).map((id) => 'file/' + id)]);
     await kv.put('seeded', s.v);
   })());
@@ -237,16 +310,17 @@
   // the trash empties after TRASH_DAYS ----
   async function sweepFiles() {
     const used = new Set();
-    for (const coll of ['convs/', 'cards/']) for (const [, d] of await kv.list(coll)) for (const m of JSON.stringify(d).matchAll(/"asset(?:Id)?":"([a-f0-9]{32})"/g)) used.add(m[1]);
-    for (const [id, f] of await kv.list('file/')) if (!used.has(id) && Date.now() - ((f && f.at) || 0) > 10 * 60e3) await kv.del('file/' + id);
+    for (const [, m] of await kv.list('meta/convs/')) if (m && Array.isArray(m._refs)) for (const id of m._refs) used.add(id);
+    for (const [, d] of await kv.list('cards/')) for (const id of assetRefs(d)) used.add(id);
+    for (const [id, f] of await kv.list('meta/file/')) if (!used.has(id) && Date.now() - ((f && f.at) || 0) > 10 * 60e3) await delFile(id);
   }
   const TRASH_DAYS = 7;
   let purged = null;
   const purgeTrash = () => purged || (purged = (async () => {
     let n = 0;
-    for (const [id, c] of await kv.list('convs/')) if (c && c.trashed && Date.now() - c.trashed > TRASH_DAYS * 864e5) {
-      await kv.del('convs/' + id); await kv.del('layout/' + id); await kv.del('index/' + id); n++;
-      if (c.dropCards) for (const [kid, k] of await kv.list('cards/')) if (k && k.conv === id) await kv.del('cards/' + kid);
+    for (const [id, m] of await kv.list('meta/convs/')) if (m && m.trashed && Date.now() - m.trashed > TRASH_DAYS * 864e5) {
+      await delConv(id); n++;
+      if (m.dropCards) for (const [kid, k] of await kv.list('cards/')) if (k && k.conv === id) await kv.del('cards/' + kid);
     }
     if (n) await sweepFiles();
   })());
@@ -478,6 +552,7 @@
     const url = new URL(typeof input === 'string' ? input : input.url, location.href);
     if (url.origin !== location.origin || !url.pathname.startsWith(API)) return realFetch(input, init);
     await seed().catch((e) => console.warn('demo: the sample couldn’t be loaded', e));
+    await ensureMeta().catch((e) => console.warn('demo: indexing metadata', e));
     await loadSavedMeta();
     await purgeTrash().catch((e) => console.warn('demo: emptying the trash', e));
     const method = (init.method || 'GET').toUpperCase();
@@ -589,10 +664,11 @@
     if (p[0] === 'store') {
       const coll = p[1], id = p[2], k = coll + '/' + id;
       if (!id) {
-        const rows = await kv.list(coll + '/');
         if (coll === 'convs' && url.searchParams.has('meta')) {
-          return json(rows.map(([i, c]) => ({ id: i, data: { _meta: true, dropCards: !!c.dropCards, id: c.id || i, title: c.title, updated: c.updated, created: c.created, pinned: !!c.pinned, archived: !!c.archived, trashed: c.trashed || 0, folder: c.folder || '', system: typeof c.system === 'string' ? c.system : '', doc: !!c.doc, docName: c.doc ? c.doc.name || '' : '', asset: (c.doc && c.doc.assetId) || '', pins: Object.values(c.threads || {}).filter((t) => t && t.pinned).map((t) => ({ tid: t.id, title: t.title, ci: t.colorIdx })) } })));
+          const rows = await kv.list('meta/convs/');
+          return json(rows.map(([i, m]) => ({ id: i, data: publicMeta(m) })));
         }
+        const rows = await kv.list(coll + '/');
         return json(rows.map(([i, data]) => ({ id: i, data })));
       }
       const cur = await kv.get(k);
@@ -602,18 +678,26 @@
         const base = new Headers(init.headers || {}).get('x-base-rev');   // versions, as the real server
         if (base !== null && !cur && Number(base) > 0) return json({ error: 'deleted' }, 410);
         if (base !== null && cur && (cur.rev || 0) !== Number(base)) return json({ error: 'Changed elsewhere', current: cur }, 409);
-        const d = await body(); d.rev = (cur ? cur.rev || 0 : 0) + 1; await kv.put(k, d); return json({ ok: true, rev: d.rev });
+        const d = await body(); d.rev = (cur ? cur.rev || 0 : 0) + 1; await putConv(id, d); return json({ ok: true, rev: d.rev });
       }
-      if (method === 'PATCH') { if (!cur) return json({ error: 'Not found' }, 404); await kv.put(k, { ...cur, ...(await body()) }); return json({ ok: true }); }
-      if (method === 'DELETE') { await kv.del(k); if (coll === 'convs') { await kv.del('layout/' + id); await kv.del('index/' + id); await sweepFiles(); } return json({ ok: true }); }
+      if (method === 'PATCH') {
+        if (!cur) return json({ error: 'Not found' }, 404);
+        const next = { ...cur, ...(await body()) };
+        if (coll === 'convs') await putConv(id, next); else await kv.put(k, next);
+        return json({ ok: true });
+      }
+      if (method === 'DELETE') {
+        if (coll === 'convs') { await delConv(id); await sweepFiles(); } else await kv.del(k);
+        return json({ ok: true });
+      }
     }
     if (p[0] === 'files') {
       if (method === 'POST') {
         const id = randHex(16);
-        await kv.put('file/' + id, { type: url.searchParams.get('type') || 'application/octet-stream', buf: await new Response(init.body).arrayBuffer(), at: Date.now() });
+        await putFile(id, { type: url.searchParams.get('type') || 'application/octet-stream', buf: await new Response(init.body).arrayBuffer(), at: Date.now() });
         return json({ id });
       }
-      if (method === 'DELETE') { await kv.del('file/' + p[1]); return json({ ok: true }); }
+      if (method === 'DELETE') { await delFile(p[1]); return json({ ok: true }); }
       const f = await kv.get('file/' + p[1]);
       return f ? new Response(f.buf || f.blob, { headers: { 'content-type': f.type } }) : json({ error: 'Not found' }, 404);
     }
