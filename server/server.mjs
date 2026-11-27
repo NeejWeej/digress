@@ -3,7 +3,7 @@
 // (through the Claude Code CLI on your subscription, or the Anthropic API with a key).
 // No dependencies; needs Node 22.5 or newer (uses built-in node:sqlite). Configuration comes from the environment or a .env file.
 //
-//   GET  /api/health                   {app:'digress', llm:bool, provider, web:bool, why}
+//   GET  /api/health                   {app:'digress', search:true, llm:bool, provider, providers, web:bool, why}
 //   GET  /api/models                   {models:[[id,label]], defaultLabel, default, chosen}
 //   GET|PUT /api/prefs                 {defaultModel}: preferences shared by every device
 //   GET /api/connections               the model providers and how each is connected (never a key, only its last 4)
@@ -15,6 +15,11 @@
 //   GET  /api/store/:coll              [{id, data}]          (coll: convs | index | cards | skills | prompts)
 //   GET|PUT|PATCH|DELETE /api/store/:coll/:id   (convs: PUT with x-base-rev -> 409 {current} / 410; GET ?rev -> {rev})
 //   GET /api/chat/run/:id?from=N       reattach to a reply (runs.mjs);  POST /api/chat/stop {chat}
+//   POST /api/chat/tool                {chat, id, parts|error}: the page's answer to a tool call it was sent ({tool})
+//   * /api/mcp/:token                  Claude Code calling those tools, for one reply (doctools.mjs)
+//   POST /api/fetch-doc                {url} -> a document from a link, fetched strictly (fetchdoc.mjs)
+//   GET  /api/search?q=&scope=&cid=&tid=&limit=   {results}: FTS5 search (db.mjs; the page's own copy of the
+//                                      ranking is web/js/searchrank.js, and tests/search_parity.mjs keeps them agreeing)
 //   GET|PUT /api/layout/:conv[?device=]  per-device layout
 //   POST /api/files?type=...           raw body -> {id}
 //   GET|DELETE /api/files/:id

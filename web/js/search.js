@@ -1,5 +1,6 @@
 // Search & navigation: per-conversation index, Cmd+K palette, Describe-it-instead, hit landing, and Back stack.
 import { esc, trunc, indexEntries, idxPages, sigOf } from './text.js';
+import { KIND, reEsc, WB, qWords, MS_OPTIONS, searchMini } from './searchrank.js';
 import { state, app, io, settings, saveSettings, paneEls, $, ic, T, color, ancestors } from './state.js';
 
 export function createSearch() {
@@ -40,7 +41,6 @@ export function createSearch() {
   const toggleCollapse = (...a) => app.toggleCollapse(...a);
   const wiresSoon = (...a) => app.wiresSoon(...a);
   /* ---------- search: a per-conversation text index (kept separately, updated on save) + BM25 ranking ---------- */
-const KIND={ct:['Conversation',3],bt:['Branch',2.4],h:['Highlight',2.2],n:['Takeaway',2],q:['Question',1.6],a:['Answer',1],d:['Document',0.9]};
 const IDX={map:new Map(),loaded:false,loading:null,ms:null,dirty:true,dirtyIds:new Set(),indexedIds:new Map(),lastSig:new Map(),docSig:new Map(),backfilling:false};
 function idxTouch(id){if(id)IDX.dirtyIds.add(id);else IDX.dirty=true}
 let miniP=null;
@@ -121,8 +121,7 @@ async function idxEngine(){
     }
     return IDX.ms;
   }
-  const ms=new MiniSearch({fields:['x'],storeFields:['cid','k','tid','mid','p','n','o','x'],
-    searchOptions:{fuzzy:(t)=>t.length>=5?0.2:false,prefix:(t,i,ts)=>i===ts.length-1&&t.length>1,boostDocument:(id,term,st)=>(KIND[st&&st.k]||[0,1])[1]}});
+  const ms=new MiniSearch(MS_OPTIONS);   // its rules (and the ranking below) are in ./searchrank.js
   const ids=new Set(IDX.map.keys());if(state.conv)ids.add(state.conv.id);
   IDX.indexedIds.clear();
   const docs=[];
@@ -165,8 +164,6 @@ function closePalette(){$('#pal').classList.remove('show')}
 /* Where a result matches. MiniSearch finds the entries (typo-tolerant, any order); these place the match:
    the typed phrase if it's there, else the spot with the most different search words close together.
    Typo matches ("machine" for "matching") count only when a typed word isn't there as such. */
-const reEsc=t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),WB='(?<![\\p{L}\\p{N}])';
-const qWords=q=>(q||'').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w=>w.length>1);
 // words too common to point anywhere: never highlighted or landed on (a phrase containing them still counts)
 const STOP=new Set('a an and are as at be but by can do does for from had has have how i if in into is it its me my no not of on or our so than that the their them then there these they this those to too two up us was we were what when where which while who why will with you your'.split(' '));
 function matchTerms(r,q){
@@ -199,13 +196,9 @@ async function queryIndex(q){
   if(io.index&&io.index.search){
     return await io.index.search(q,{scope:PAL.scope,cid:state.conv?state.conv.id:'',tid:PAL.stid||''});
   }
-  const ms=await idxEngine();
-  let res=ms.search(q,{combineWith:'AND'});if(!res.length)res=ms.search(q);
-  // the exact phrase first, then more of the typed words as typed (not just typo matches), then BM25
-  const qw=qWords(q),ph=qw.length>1&&new RegExp(WB+qw.map(reEsc).join('[^\\p{L}\\p{N}]+'),'u'),wr=qw.map(w=>new RegExp(WB+reEsc(w),'u'));
-  for(const r of res){const low=(r.x||'').toLowerCase();r.phrase=ph&&ph.test(low)?1:0;r.exact=wr.filter(x=>x.test(low)).length}
-  res.sort((a,b)=>(b.phrase-a.phrase)||(b.exact-a.exact)||(b.score-a.score));
-  return res;
+  // the exact phrase first, then more of the typed words as typed, then BM25 (./searchrank.js; the server's own
+  // search, above, follows the same rules in server/db.mjs)
+  return searchMini(await idxEngine(),q);
 }
 function runSearch(){AIQ.seq++;PAL.ai=null;PAL.running=searchNow();return PAL.running}
 function scopeFilter(res){if(PAL.scope==='all'||!state.conv)return res;const id=state.conv.id,st=PAL.stid;return res.filter(r=>r.cid===id&&(PAL.scope==='conv'||(st==='doc'?r.k==='d':r.k!=='d'&&r.tid===st)))}
