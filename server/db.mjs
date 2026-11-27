@@ -213,6 +213,19 @@ export function openDb(dataDir) {
   `);
   const stGetBranchTitle = db.prepare("SELECT x FROM passages WHERE cid = ? AND k = 'bt' AND tid = ? LIMIT 1");
   const stVocabRange = db.prepare('SELECT term, doc FROM passages_vocab WHERE length(term) BETWEEN ? AND ?');
+  const searchSql = (extraWhere) => db.prepare(`
+    SELECT p.cid, p.k, p.tid, p.mid, p.p, p.n, p.o, p.x, bm25(passages_fts) AS rank
+    FROM passages_fts
+    JOIN passages p ON p.rowid = passages_fts.rowid
+    JOIN convs c ON c.id = p.cid
+    WHERE passages_fts MATCH ? AND c.trashed = 0${extraWhere}
+    ORDER BY rank
+    LIMIT 400
+  `);
+  const stSearchAll = searchSql('');
+  const stSearchConv = searchSql(' AND p.cid = ?');
+  const stSearchThreadDoc = searchSql(" AND p.cid = ? AND p.k = 'd'");
+  const stSearchThreadMsg = searchSql(" AND p.cid = ? AND p.k != 'd' AND p.tid = ?");
 
   const stAllAssetsConvs = db.prepare('SELECT data FROM convs');
   const stAllAssetsCards = db.prepare("SELECT data FROM docs WHERE coll = 'cards'");
@@ -473,31 +486,20 @@ export function openDb(dataDir) {
     };
     const ftsTokens = words.map((w, i) => qTok(w, i === words.length - 1 && w.length > 1));
 
-    const where = ['passages_fts MATCH ?', 'c.trashed = 0'];
+    let stmt = stSearchAll;
     const baseParams = [];
-    if ((scope === 'conv' || scope === 'thread') && cid) {
-      where.push('p.cid = ?');
+    if (scope === 'conv' && cid) {
+      stmt = stSearchConv;
       baseParams.push(cid);
-    }
-    if (scope === 'thread' && cid) {
+    } else if (scope === 'thread' && cid) {
       if (tid === 'doc') {
-        where.push("p.k = 'd'");
+        stmt = stSearchThreadDoc;
+        baseParams.push(cid);
       } else {
-        where.push("p.k != 'd' AND p.tid = ?");
-        baseParams.push(tid);
+        stmt = stSearchThreadMsg;
+        baseParams.push(cid, tid);
       }
     }
-
-    const sql = `
-      SELECT p.cid, p.k, p.tid, p.mid, p.p, p.n, p.o, p.x, bm25(passages_fts) AS rank
-      FROM passages_fts
-      JOIN passages p ON p.rowid = passages_fts.rowid
-      JOIN convs c ON c.id = p.cid
-      WHERE ${where.join(' AND ')}
-      ORDER BY rank
-      LIMIT 400
-    `;
-    const stmt = db.prepare(sql);
     const runMatch = (expr) => {
       try { return stmt.all(expr, ...baseParams); } catch { return []; }
     };
