@@ -568,6 +568,15 @@ async function openConv(id){
     if(pending.saving&&pending.promise)await pending.promise;
     if(!pending.saving&&pending.dirty)await flushJob(pending);
   }
+  // If the pending write still failed or remains unsaved, reopen the in-memory copy instead of clobbering it with stale storage.
+  if(pending&&saveJobs.get(id)===pending&&(pending.dirty||pending.failed||pending.saving)){
+    if(conv&&conv.id===id)return;
+    clearHit();
+    setConv(pending.conv,{keepPending:true});
+    if(pending.failed)setStatus('Not saved yet: retrying');
+    if(conv.trashed)toast(`This conversation is in the trash: it’s deleted for good in ${trashLeft(conv)} day${trashLeft(conv)>1?'s':''}.`,{label:'Restore',fn:()=>restoreConv(id)});
+    return;
+  }
   let data=null;
   try{
     data=await io.store.get(id);
@@ -605,7 +614,7 @@ async function deleteConv(id){
   convList=convList.filter(c=>c.id!==id);
   if(conv&&conv.id===id)await openNextAfter(id);else renderConvList();
 }
-function setConv(c){
+function setConv(c,o={}){
   const prev=conv;
   clearHere();   // "You were here" belongs to this conversation's canvas visit
   for(const s of streaming.values()){s.detached=true;s.ctrl.abort()}streaming.clear();unread.clear();   // replies carry on on the server; back here, resumeRuns picks them up
@@ -631,7 +640,9 @@ function setConv(c){
   layout();renderTitle();renderMap();renderConvList();hidePop();syncCardsUI();
   $('#stage').classList.toggle('canvas',ui.view==='canvas');if(ui.view==='canvas')renderCanvas();
   syncViewSeg();
-  syncReset(conv);closeViews();syncViewsUI();
+  if(!o.keepPending)syncReset(conv);
+  else jobOf(conv,true);
+  closeViews();syncViewsUI();
   applyConvLlm();showInUrl();resumeRuns();syncSkillT();
 }
 // The address names the open conversation (#c=ID) once it's saved, so a window can be opened, reloaded or

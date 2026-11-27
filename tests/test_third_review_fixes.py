@@ -201,7 +201,53 @@ async def run_browser_tests():
                     await asyncio.sleep(0.1)
                 check('navigating away during a slow save persists the latest edit', stored_title == 'latest edit', stored_title)
 
-                # --- Test 2: runDocTool rejects calls after switching conversations ---
+                # --- Test 1b: Reopening after a failed background write preserves unsaved edit and retries ---
+                await pg.locator('.citem[data-conv="c_slow_a"]').click()
+                await pg.wait_for_function("__digress.conv && __digress.conv.id === 'c_slow_a'")
+                fail_puts = {'on': True}
+                put_failed_once = asyncio.Event()
+
+                async def fail_put_route(route):
+                    if route.request.method == 'PUT' and fail_puts['on']:
+                        put_failed_once.set()
+                        await route.fulfill(status=500, content_type='application/json', body='{"error":"write failed"}')
+                        return
+                    await route.continue_()
+
+                await pg.route('**/api/store/convs/c_slow_a', fail_put_route)
+                await pg.evaluate("""() => {
+                    __digress.conv.title = 'failed bg edit';
+                    document.querySelector('#cTitle').textContent = 'failed bg edit';
+                    __digress.refresh();
+                }""")
+                await asyncio.wait_for(put_failed_once.wait(), timeout=5)
+                # Leave anyway when prompted (since write failed)
+                nav_b = asyncio.create_task(pg.locator('.citem[data-conv="c_slow_b"]').click())
+                await pg.locator('#mOk').wait_for(state='visible', timeout=5000)
+                await pg.locator('#mOk').click()
+                await nav_b
+                await pg.wait_for_function("__digress.conv && __digress.conv.id === 'c_slow_b'")
+
+                # Reopen c_slow_a while PUTs still fail (GET still works!)
+                await pg.locator('.citem[data-conv="c_slow_a"]').click()
+                await pg.wait_for_function("__digress.conv && __digress.conv.id === 'c_slow_a'")
+                reopened_title = await pg.evaluate("() => __digress.conv.title")
+                # Restore writes and trigger online event so retry flushes immediately
+                fail_puts['on'] = False
+                await pg.evaluate("() => window.dispatchEvent(new Event('online'))")
+                recovered_title = None
+                for _ in range(40):
+                    _, raw = req(base, 'GET', '/api/store/convs/c_slow_a')
+                    recovered_title = json.loads(raw).get('title')
+                    if recovered_title == 'failed bg edit':
+                        break
+                    await asyncio.sleep(0.1)
+                await pg.unroute('**/api/store/convs/c_slow_a', fail_put_route)
+                check('reopening after a failed background write keeps unsaved edit and recovers when writes return',
+                      reopened_title == 'failed bg edit' and recovered_title == 'failed bg edit',
+                      {'reopened_title': reopened_title, 'recovered_title': recovered_title})
+
+                # --- Test 2: runDocTool and regionRef/imageBlob reject cross-conversation access after switching ---
                 await pg.locator('.citem[data-conv="c_doc_clean"]').click()
                 await pg.wait_for_function("__digress.conv && __digress.conv.id === 'c_doc_clean' && __digress.docState && __digress.docState.loaded")
                 await pg.locator('.citem[data-conv="c_doc_tok"]').click()
@@ -210,6 +256,13 @@ async def run_browser_tests():
                 check('runDocTool refuses to read another conversation’s document after switching',
                       isinstance(tool_res, dict) and 'error' in tool_res and 'Secret body' not in json.dumps(tool_res),
                       tool_res)
+                snip_err = await pg.evaluate("""async () => {
+                    const { regionRef, imageBlob } = await import('/js/media.js');
+                    const ref = regionRef({ anchorPage: 0, anchorRegion: { x: 0.1, y: 0.1, w: 0.3, h: 0.3 } }, 'c_doc_clean');
+                    try { await imageBlob(ref); return ''; } catch (e) { return String(e && e.message || e); }
+                }""")
+                check('regionRef/imageBlob refuses to render another conversation’s PDF after switching',
+                      'no longer open' in snip_err, snip_err)
 
                 # --- Test 3: Sidebar unpin retries on 409 and preserves concurrently created branch ---
                 # Ensure c_pin is NOT the open conversation
@@ -255,9 +308,11 @@ async def run_browser_tests():
                 await pg.locator('[data-expconv="c_doc_tok"]').click(force=True)
                 await pg.locator('#xDocSrc').wait_for(state='visible')
                 tok_checked = await pg.locator('#xDocSrc').is_checked()
-                # Switch to shareable link and verify token is absent from generated payload
+                # Switch to shareable link, check "Include the document", and verify "Include the original link" stays visible & unchecked and token is omitted
                 await pg.locator('input[name="xfmt"][value="link"]').check()
+                await pg.locator('#xLDoc').check()
                 await pg.wait_for_function("() => { const b = document.querySelector('#mOk'); return b && !b.disabled; }")
+                tok_link_row_visible = await pg.locator('#xLDocSrcRow').is_visible()
                 tok_link_checked = await pg.locator('#xLDocSrc').is_checked()
                 # Intercept clipboard copy to inspect share link payload
                 await pg.evaluate("""() => {
@@ -267,7 +322,7 @@ async def run_browser_tests():
                 await pg.locator('#mOk').click()
                 await soon(pg, "() => !!window.__copiedShare")
                 share_url = await pg.evaluate("() => window.__copiedShare")
-                has_secret = await pg.evaluate("""async (url) => {
+                share_info = await pg.evaluate("""async (url) => {
                     const hash = new URL(url).hash;
                     const token = hash.slice('#share='.length).replace(/-/g, '+').replace(/_/g, '/');
                     const pad = token + '='.repeat((4 - token.length % 4) % 4);
@@ -275,11 +330,11 @@ async def run_browser_tests():
                     const ds = new DecompressionStream('gzip');
                     const w = ds.writable.getWriter(); w.write(bytes); w.close();
                     const text = await new Response(ds.readable).text();
-                    return text.includes('secret123');
+                    return { hasSecret: text.includes('secret123'), hasBody: text.includes('Secret body.') };
                 }""", share_url)
-                check('export original-link checkbox is unchecked by default for tokenized URLs and omits token',
-                      (not tok_checked) and (not tok_link_checked) and (not has_secret),
-                      {'tok_checked': tok_checked, 'tok_link_checked': tok_link_checked, 'has_secret': has_secret})
+                check('exporting with Include the document checked still omits unchecked tokenized source URL',
+                      (not tok_checked) and tok_link_row_visible and (not tok_link_checked) and share_info['hasBody'] and (not share_info['hasSecret']),
+                      {'tok_checked': tok_checked, 'tok_link_row_visible': tok_link_row_visible, 'tok_link_checked': tok_link_checked, **share_info})
 
                 await browser.close()
         finally:

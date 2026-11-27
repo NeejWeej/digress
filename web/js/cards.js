@@ -296,7 +296,8 @@ export function createCards() {
     let image = null;
     if (list.length && ((t.anchorRegion && !isWholePage(t.anchorRegion)) || t.anchorImg || t.anchorShot) && o.src !== 'takeaway') {
       try {
-        const bl = await imageBlob(t.anchorShot ? shotRef(t) : t.anchorImg ? docImgRef(t) : regionRef(t));
+        const ref = t.anchorShot ? shotRef(t) : t.anchorImg ? docImgRef(t, c0) : regionRef(t, c0.id);
+        const bl = await imageBlob(ref);
         const [im] = await storeImages([{ blob: bl, type: bl.type }]);
         image = im;
       } catch (e) { console.warn('snip not kept with the card', e); }

@@ -1095,7 +1095,7 @@ function articleFigures(root){
    with the same checks as a document from a link (loadArticleImage), never from the page. */
 const strHash=(s)=>{let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)}return (h>>>0).toString(16)};
 const docImgKey=(src)=>/^data:/i.test(src)?`data:${src.length}.${strHash(src)}`:src;
-const docImgRef=(t)=>docImgRefOf(state.conv,t);
+const docImgRef=(t,c=state.conv)=>docImgRefOf(c,t);
 function docImgAlt(w){const f=w.closest('.aimg'),im=w.querySelector('img');return ((f&&f.querySelector('.acap')&&f.querySelector('.acap').textContent)||(im&&im.getAttribute('alt'))||'').replace(/\s+/g,' ').trim()}
 function docImages(root){
   const seen={};

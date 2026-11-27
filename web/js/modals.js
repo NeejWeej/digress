@@ -490,13 +490,14 @@ async function digressFile(id,o={}){
   if(!withImgs){for(const t of Object.values(c.threads)){delete t.anchorShot;delete t.anchorImages}}
   if(c.doc){
     delete c.doc.mark;delete c.doc.unsaved;
+    if(!o.docSource)delete c.doc.source;
     if(o.doc){
       if(o.inlineText&&c.doc.kind!=='pdf'&&c.doc.assetId){
         c.doc.text=await io.files.fetch(c.doc.assetId,'text');
         delete c.doc.assetId;
       }else if(c.doc.assetId)await grab(c.doc.assetId,c.doc.kind==='pdf'?'application/pdf':'text/markdown');
       if(!withImgs)delete c.doc.images;
-    }else{delete c.doc.assetId;delete c.doc.text;delete c.doc.images;c.doc.left=true;if(!o.docSource)delete c.doc.source}
+    }else{delete c.doc.assetId;delete c.doc.text;delete c.doc.images;c.doc.left=true}
   }
   if(withImgs)for(const im of imageRecs(c))if(im.asset)await grab(im.asset,im.type).catch(e=>{console.warn('image left out',e);delete im.asset});
   let cards=[];
@@ -580,10 +581,6 @@ async function openExport(id,branch){
       }
     }catch(e){console.warn(e);toast('Couldn’t export it: '+((e&&e.message)||'error'))}},{ok:'Export',kind:'primary',wide:true});
   const fileSub=$('#xFileSub'),linkSub=$('#xLinkSub'),sizeEl=$('#xLSize'),okBtn=$('#mOk');
-  const syncDocSrcRows=()=>{
-    const fd=$('#xDoc'),fs=$('#xDocSrcRow');if(fs)fs.style.display=fd&&fd.checked?'none':'';
-    const ld=$('#xLDoc'),ls=$('#xLDocSrcRow');if(ls)ls.style.display=ld&&ld.checked?'none':'';
-  };
   const estimateLink=async()=>{
     const seq=++linkSeq;linkUrl='';linkOk=false;
     if(sizeEl){sizeEl.className='xsize';sizeEl.textContent='Estimating link size…'}
@@ -608,14 +605,11 @@ async function openExport(id,branch){
     const v=(document.querySelector('[name=xfmt]:checked')||{}).value;
     if(fileSub)fileSub.classList.toggle('off',v!=='digress');
     if(linkSub)linkSub.classList.toggle('off',v!=='link');
-    syncDocSrcRows();
     if(okBtn){okBtn.textContent=v==='link'?'Copy link':'Export';okBtn.disabled=v==='link'&&!linkOk}
     if(v==='link')estimateLink();
   };
   document.querySelectorAll('#mBody [name=xfmt]').forEach(r=>r.addEventListener('change',syncFmt));
-  if(fileSub)fileSub.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.addEventListener('change',syncDocSrcRows));
-  if(linkSub)linkSub.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.addEventListener('change',()=>{syncDocSrcRows();if(document.querySelector('[name=xfmt]:checked')?.value==='link')estimateLink()}));
-  syncDocSrcRows();
+  if(linkSub)linkSub.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.addEventListener('change',()=>{if(document.querySelector('[name=xfmt]:checked')?.value==='link')estimateLink()}));
 }
 // --- import ---
 function fresh(c){

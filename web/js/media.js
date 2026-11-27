@@ -6,8 +6,11 @@ import { parseInlineImageDataUrl } from './share.js';
 import { state, app, io, ic, paneEls, memoSet } from './state.js';
 
 export const IMG_MAX = 1568;
-export const regionRef = (t) => ({
-  region: { page: t.anchorPage + 1, x: t.anchorRegion.x, y: t.anchorRegion.y, w: t.anchorRegion.w, h: t.anchorRegion.h },
+export const regionRef = (t, convId) => ({
+  region: {
+    page: t.anchorPage + 1, x: t.anchorRegion.x, y: t.anchorRegion.y, w: t.anchorRegion.w, h: t.anchorRegion.h,
+    ...(convId ? { conv: convId } : {}),
+  },
 });
 
 const imgMemo = new Map();
@@ -34,7 +37,9 @@ export async function encodeCanvas(cv) {
 export async function renderRegion(pageNo, r) {
   const docState = state.docState;
   if (!docState || !docState.pdf) throw new Error('The document isn’t loaded.');
+  if (r.conv && docState.key !== r.conv) throw new Error('The document for this excerpt is no longer open.');
   const page = await docState.pdf.getPage(pageNo);
+  if (r.conv && state.docState !== docState) throw new Error('The document for this excerpt is no longer open.');
   const v1 = page.getViewport({ scale: 1 });
   const rw = r.w * v1.width, rh = r.h * v1.height;
   const k = Math.min(4, IMG_MAX / Math.max(rw, rh));
@@ -70,6 +75,9 @@ export async function renderCrop(c) {
 export function imageBlob(ref) {
   if (!ref || typeof ref !== 'object') return Promise.reject(new Error('Invalid image reference.'));
   const docState = state.docState;
+  if (ref.region && ref.region.conv && (!docState || docState.key !== ref.region.conv)) {
+    return Promise.reject(new Error('The document for this excerpt is no longer open.'));
+  }
   const cs = (c) => (c && c.asset ? 'a' + c.asset : c && typeof c.data === 'string' ? 'd' + c.data.length + c.data.slice(-64) : '-');
   const k = ref.region
     ? ['r', docState && docState.key, ref.region.page, ref.region.x, ref.region.y, ref.region.w, ref.region.h].join('|')
