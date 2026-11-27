@@ -107,7 +107,8 @@ async def test_inflight_conflict_browser():
         try:
             async with async_playwright() as p:
                 b = await p.chromium.launch(**launch_args())
-                pg = await b.new_page(viewport={'width': 1200, 'height': 800})
+                ctx = await b.new_context(viewport={'width': 1200, 'height': 800}, service_workers='block')
+                pg = await ctx.new_page()
                 errs = []
                 pg.on('pageerror', lambda e: errs.append(str(e)))
                 await pg.add_init_script(BOOT_WATCH)
