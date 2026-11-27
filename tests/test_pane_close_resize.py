@@ -82,7 +82,9 @@ async def main():
         for i in range(8): await ask('main', f'And then what happens, part {i + 1}?')
         await pg.evaluate(f"__digress.conv.ui.open.push('{b1}')"); await relayout(); await soon(pg, f"!!document.querySelector('.pane[data-tid=\"{b1}\"]')")
         # (scrolled to the end: closing widens the parent and its text reflows, so compare what's in view, not pixels)
-        pb = pg.locator('.pane[data-tid="main"] .pb'); await pb.evaluate('e=>e.scrollTop=e.scrollHeight'); await calm(pg)
+        pb = pg.locator('.pane[data-tid="main"] .pb'); await pb.evaluate('e=>e.scrollTop=e.scrollHeight')
+        await soon(pg, "()=>{const el=document.querySelector('.pane[data-tid=\"main\"]');return !!(el&&el.__spot&&el.__spot.bottom)}")
+        await calm(pg)
         at_end = "e=>[Math.round(e.scrollTop), e.scrollHeight-e.clientHeight-e.scrollTop<4]"
         y0 = await pb.evaluate(at_end)
         await pg.locator(f'.pane[data-tid="{b1}"] [data-act=close]').click(); await calm(pg)
