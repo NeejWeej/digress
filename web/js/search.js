@@ -60,9 +60,11 @@ async function idxWrite(c,pages){
     if(old)pages=idxPages(old);
   }
   const E=indexEntries(c,pages),sig=sigOf(E);
-  if(IDX.lastSig.get(c.id)===sig&&(IDX.map.get(c.id)||{}).v===IDXV)return;
+  const serverSearch=!!(io.index&&io.index.search);
+  if(IDX.lastSig.get(c.id)===sig&&(serverSearch||(IDX.map.get(c.id)||{}).v===IDXV))return;
   const d={id:c.id,v:IDXV,updated:c.updated||Date.now(),sig,e:E};
-  IDX.lastSig.set(c.id,sig);IDX.map.set(c.id,d);idxTouch(c.id);
+  IDX.lastSig.set(c.id,sig);
+  if(!serverSearch){IDX.map.set(c.id,d);idxTouch(c.id)}
   try{await io.index.put(c.id,d)}
   catch(e){console.warn('index write failed',e);IDX.lastSig.delete(c.id)}
 }

@@ -62,7 +62,7 @@ export function createRenderer() {
     let n = TEXC.get(k);
     if (!n) {
       n = MathJax.tex2svg(t, { display: d });
-      if (TEXC.size > 800) TEXC.delete(TEXC.keys().next().value);
+      if (TEXC.size > 300) TEXC.delete(TEXC.keys().next().value);
       TEXC.set(k, n);
     }
     return n.cloneNode(true);

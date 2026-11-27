@@ -15,7 +15,7 @@ import {
 } from './state.js';
 import { createRenderer } from './render.js';
 import { createCards } from './cards.js';
-import { regionRef, imageBlob, imageURL, storeImages, lightbox, setSnip, regionText, initMediaListeners } from './media.js';
+import { regionRef, imageBlob, imageURL, clearImgMemo, storeImages, lightbox, setSnip, regionText, initMediaListeners } from './media.js';
 import { createDoc } from './doc.js';
 import { createPanes } from './panes.js';
 import { createCanvas } from './canvas.js';
@@ -544,7 +544,7 @@ function setConv(c){
   // after ui is complete: a document already loaded draws straight away, and its header reads ui.collapsed
   destroyDoc(state.docState);if(docView.obs)docView.obs.disconnect();state.docState=null;if(conv.doc)startDoc();
   for(const m of Object.values(conv.msgs)){m.ver=m.ver||0;if(m.pending){delete m.pending;if(!m.content)m.error='Interrupted.'}}
-  msgCache.clear();cvMsgCache.clear();CANVAS_MOD.cvNodes.clear();resetThreadIdx();for(const el of paneEls.values())el.remove();paneEls.clear();for(const g of gutEls.values())g.remove();gutEls.clear();
+  msgCache.clear();cvMsgCache.clear();clearImgMemo();CANVAS_MOD.cvNodes.clear();resetThreadIdx();for(const el of paneEls.values())el.remove();paneEls.clear();for(const g of gutEls.values())g.remove();gutEls.clear();
   CANVAS_MOD.camFitted=false;
   layout();renderTitle();renderMap();renderConvList();hidePop();syncCardsUI();
   $('#stage').classList.toggle('canvas',ui.view==='canvas');if(ui.view==='canvas')renderCanvas();
