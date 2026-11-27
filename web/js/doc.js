@@ -67,12 +67,77 @@ export function createDoc() {
 const PDFJS='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
 const DOC_STARTERS=['Give me an overview of this document','What\'s the main contribution or argument?','Outline the sections with page references','What background do I need to follow this?'];
 let docState=null;
-const docView={scale:1,width:0,current:1,rendered:new Map(),visible:new Set(),obs:null,ro:null,resizeT:0};
+const docView={scale:1,width:0,current:1,rendered:new Map(),visible:new Set(),obs:null,ro:null,resizeT:0,built:null};
 const docViewReady=()=>!!(docState&&(docState.loaded||docState.pdfReady));
 const MAX_PDF_PAGES=16;
+const MAX_PDF_PIXELS=24_000_000;   // ~96 MiB raw RGBA canvas backing store across cached offscreen pages
+const PDF_CACHE_DB='digress-pdf-cache',PDF_CACHE_VER=1,PDF_CACHE_MAX=40;
 const docBlobCache=new Map();
 function cacheDocBlob(id,data){memoSet(docBlobCache,id,data,3)}
-function destroyDoc(st){if(st&&st.pdf){try{st.pdf.destroy().catch(()=>{})}catch(_){}}}
+function cancelPdfEntry(entry,pg){
+  if(entry){
+    if(entry.task){try{entry.task.cancel()}catch(_){}entry.task=null}
+    if(entry.canvas){entry.canvas.width=0;entry.canvas.height=0;entry.canvas=null}
+  }
+  if(pg){pg.querySelectorAll('canvas').forEach(cv=>{cv.width=0;cv.height=0});pg.querySelectorAll('canvas,.textLayer,sup.fn,.dregion').forEach(n=>n.remove())}
+}
+function clearPdfRendered(){
+  for(const entry of docView.rendered.values())cancelPdfEntry(entry,null);
+  docView.rendered=new Map();
+}
+function destroyDoc(st){
+  if(st&&st===docState)clearPdfRendered();
+  if(st&&st.pdf){try{st.pdf.destroy().catch(()=>{})}catch(_){}}
+}
+// Disposable browser-local cache of extracted PDF text & outline, keyed by immutable assetId.
+// Silently no-ops when IndexedDB is unavailable (e.g. restricted private browsing).
+const pdfTextCache=(()=>{
+  let dbp=null;
+  const open=()=>{
+    if(typeof indexedDB==='undefined')return Promise.resolve(null);
+    return dbp||(dbp=new Promise(res=>{
+      try{
+        const r=indexedDB.open(PDF_CACHE_DB,1);
+        r.onupgradeneeded=()=>{const s=r.result.createObjectStore('text',{keyPath:'id'});s.createIndex('by_at','at')};
+        r.onsuccess=()=>res(r.result);
+        r.onerror=()=>{dbp=null;res(null)};
+      }catch(_){dbp=null;res(null)}
+    }));
+  };
+  return {
+    async get(id){
+      if(!id)return null;
+      const d=await open();if(!d)return null;
+      return new Promise(res=>{
+        try{
+          const t=d.transaction('text','readonly'),req=t.objectStore('text').get(id);
+          req.onsuccess=()=>{
+            const rec=req.result;
+            if(rec&&rec.v===PDF_CACHE_VER&&Array.isArray(rec.pages)){
+              try{const tw=d.transaction('text','readwrite');tw.objectStore('text').put({...rec,at:Date.now()})}catch(_){}
+              res(rec);
+            }else res(null);
+          };
+          req.onerror=()=>res(null);
+        }catch(_){res(null)}
+      });
+    },
+    async put(id,n,pages,outline){
+      if(!id||!Array.isArray(pages))return;
+      const d=await open();if(!d)return;
+      try{
+        const t=d.transaction('text','readwrite'),s=t.objectStore('text');
+        s.put({id,v:PDF_CACHE_VER,n,pages,outline:outline||null,at:Date.now()});
+        const cnt=s.count();
+        cnt.onsuccess=()=>{
+          let drop=cnt.result-PDF_CACHE_MAX;if(drop<=0)return;
+          const cur=s.index('by_at').openKeyCursor();
+          cur.onsuccess=()=>{const c=cur.result;if(!c||drop<=0)return;s.delete(c.primaryKey);drop--;c.continue()};
+        };
+      }catch(_){}
+    },
+  };
+})();
 const docPagesLabel=(t,long)=>{const p=normalizePageIndex(t&&t.anchorPage);if(p==null)return '';const pe=t&&t.anchorEnd?normalizePageIndex(t.anchorEnd.page):null;return pe!=null&&pe>p?`${long?'pages':'pp.'} ${p+1}–${pe+1}`:`${long?'page':'p.'} ${p+1}`};   // a passage can run on to the next page
 const docBranches=()=>state.conv&&state.conv.doc?Object.values(state.conv.threads).filter(isDocBranch).sort((a,b)=>(a.anchorPage-b.anchorPage)||(a.created-b.created)):[];
 // a library (by its CDN address, a key of LIBS): this server's copy, else the CDN's, both checked against its hash;
@@ -124,7 +189,7 @@ function startDoc(){
   if(docState&&docState.key===key)return docState.ready;
   destroyDoc(docState);
   if(docView.obs)docView.obs.disconnect();
-  docView.rendered=new Map();docView.visible=new Set();docView.current=1;docView.width=0;docView.stale=false;
+  clearPdfRendered();docView.visible=new Set();docView.current=1;docView.width=0;docView.stale=false;docView.built=null;
   const st=docState={key,kind:d.kind,name:d.name,pages:null,n:d.pages||0,error:null,loaded:false,pdfReady:false,progress:0};
   st.ready=(async()=>{
     try{
@@ -143,15 +208,22 @@ function startDoc(){
         // Render visible pages immediately instead of blocking on full-document text extraction
         renderDocPane(true);updateHeader('doc');
         if(state.conv&&state.conv.id===key&&state.conv.autoTitle!=null)applyPdfTitle(pdf);
-        const pages=[];
-        for(let i=1;i<=pdf.numPages;i++){
-          if(docState!==st)return;
-          const tc=await (await pdf.getPage(i)).getTextContent();
-          pages.push(tc.items.map(it=>(it.str||'')+(it.hasEOL?'\n':' ')).join('').replace(/[ \t]+/g,' ').trim());
-          st.progress=i;
+        const cached=d.assetId?await pdfTextCache.get(d.assetId):null;
+        if(docState!==st)return;
+        if(cached&&cached.n===pdf.numPages&&cached.pages.length===pdf.numPages){
+          st.pages=cached.pages;st.outline=cached.outline||null;st.progress=pdf.numPages;st.fromCache=true;
+        }else{
+          const pages=[];
+          for(let i=1;i<=pdf.numPages;i++){
+            if(docState!==st)return;
+            const tc=await (await pdf.getPage(i)).getTextContent();
+            pages.push(tc.items.map(it=>(it.str||'')+(it.hasEOL?'\n':' ')).join('').replace(/[ \t]+/g,' ').trim());
+            st.progress=i;
+          }
+          st.pages=pages;
+          try{st.outline=await pdfOutline(pdf)}catch(e){st.outline=null}
+          if(docState===st&&d.assetId)pdfTextCache.put(d.assetId,pdf.numPages,pages,st.outline);
         }
-        st.pages=pages;
-        try{st.outline=await pdfOutline(pdf)}catch(e){st.outline=null}
       }else{st.text=String(data);st.pages=chunkText(st.text);st.n=st.pages.length}
       st.loaded=true;
       if(!d.pages||d.pages!==st.n){d.pages=st.n}
@@ -263,28 +335,33 @@ function renderDocPane(force){
   }
   updateDocHeader();wiresSoon();
 }
-async function buildPdfPages(el,wrap){
-  const pdf=docState&&docState.pdf,pb=el.querySelector('.pb');if(!pdf)return;
-  // never at the width of a pane that's hidden or being moved (0: the pages came out at the 260px minimum and, with
-  // the width noted as 0, were never redrawn): put it off, and the resize watcher redraws once it has a real width
-  if(pb.clientWidth<100){docView.stale=true;return}
-  const v1=(await pdf.getPage(1)).getViewport({scale:1});
-  if(pb.clientWidth<100){docView.stale=true;return}   // (hidden while the page was fetched)
-  docView.stale=false;
-  const W=Math.max(260,pb.clientWidth-44-2);   // the padding, and nothing else: the scrollbar's space is already reserved (scrollbar-gutter)
-  docView.scale=W/v1.width*paneZoom('doc');docView.width=pb.clientWidth;
-  if(docView.obs)docView.obs.disconnect();
-  docView.rendered=new Map();docView.visible=new Set();wrap.innerHTML='';
-  docView.obs=new IntersectionObserver(ents=>{
-    for(const en of ents){const p=+en.target.dataset.page;if(en.isIntersecting){docView.visible.add(p);renderPdfPage(p)}else docView.visible.delete(p)}
-    evictPdfPages();
-  },{root:pb,rootMargin:'900px 0px'});
-  for(let i=1;i<=pdf.numPages;i++){
-    const pg=document.createElement('div');pg.className='dpage';pg.dataset.page=i;
-    pg.style.width=Math.round(v1.width*docView.scale)+'px';pg.style.height=Math.round(v1.height*docView.scale)+'px';
-    pg.innerHTML=`<div class="pnum">${i}</div><button class="pask" data-pask="${i}" title="Open a side branch about this whole page; the AI gets an image of it">Ask about p. ${i}</button>`;wrap.appendChild(pg);docView.obs.observe(pg);
-  }
-  placeMark();setTimeout(offerMark,300);
+function buildPdfPages(el,wrap){
+  const st=docState;
+  const p=(async()=>{
+    const pdf=st&&st.pdf,pb=el.querySelector('.pb');if(!pdf)return;
+    // never at the width of a pane that's hidden or being moved (0: the pages came out at the 260px minimum and, with
+    // the width noted as 0, were never redrawn): put it off, and the resize watcher redraws once it has a real width
+    if(pb.clientWidth<100){docView.stale=true;return}
+    const v1=(await pdf.getPage(1)).getViewport({scale:1});
+    if(docState!==st)return;
+    if(pb.clientWidth<100){docView.stale=true;return}   // (hidden while the page was fetched)
+    docView.stale=false;
+    const W=Math.max(260,pb.clientWidth-44-2);   // the padding, and nothing else: the scrollbar's space is already reserved (scrollbar-gutter)
+    docView.scale=W/v1.width*paneZoom('doc');docView.width=pb.clientWidth;
+    if(docView.obs)docView.obs.disconnect();
+    clearPdfRendered();docView.visible=new Set();wrap.innerHTML='';
+    docView.obs=new IntersectionObserver(ents=>{
+      for(const en of ents){const p=+en.target.dataset.page;if(en.isIntersecting){docView.visible.add(p);renderPdfPage(p)}else docView.visible.delete(p)}
+      evictPdfPages();
+    },{root:pb,rootMargin:'900px 0px'});
+    for(let i=1;i<=pdf.numPages;i++){
+      const pg=document.createElement('div');pg.className='dpage';pg.dataset.page=i;
+      pg.style.width=Math.round(v1.width*docView.scale)+'px';pg.style.height=Math.round(v1.height*docView.scale)+'px';
+      pg.innerHTML=`<div class="pnum">${i}</div><button class="pask" data-pask="${i}" title="Open a side branch about this whole page; the AI gets an image of it">Ask about p. ${i}</button>`;wrap.appendChild(pg);docView.obs.observe(pg);
+    }
+    placeMark();setTimeout(offerMark,300);
+  })();
+  docView.built=p;return p;
 }
 async function makeTextLayer(page,vp){
   const tl=document.createElement('div');tl.className='textLayer';tl.style.setProperty('--scale-factor',vp.scale);
@@ -331,35 +408,59 @@ async function makeTextLayer(page,vp){
   });
 })();
 function evictPdfPages(){
-  if(docView.rendered.size<=MAX_PDF_PAGES)return;
+  let totalPixels=0;
+  for(const e of docView.rendered.values())totalPixels+=e.pixels||0;
+  if(docView.rendered.size<=MAX_PDF_PAGES&&totalPixels<=MAX_PDF_PIXELS)return;
   const el=paneEls.get('doc');if(!el)return;
   const sel=getSelection(),rng=sel&&sel.rangeCount&&!sel.isCollapsed?sel.getRangeAt(0):null;
   const cands=[...docView.rendered.keys()].filter(p=>!docView.visible.has(p)).sort((a,b)=>Math.abs(b-docView.current)-Math.abs(a-docView.current));
   for(const p of cands){
-    if(docView.rendered.size<=MAX_PDF_PAGES)break;
+    if(docView.rendered.size<=MAX_PDF_PAGES&&totalPixels<=MAX_PDF_PIXELS)break;
     const pg=el.querySelector(`.dpage[data-page="${p}"]`);
     if(pg&&rng){try{if(rng.intersectsNode(pg))continue}catch(_){}}
-    if(pg){pg.querySelectorAll('canvas').forEach(cv=>{cv.width=0;cv.height=0});pg.querySelectorAll('canvas,.textLayer,sup.fn,.dregion').forEach(n=>n.remove())}
+    const entry=docView.rendered.get(p);
     docView.rendered.delete(p);
+    if(entry){totalPixels-=entry.pixels||0;cancelPdfEntry(entry,pg)}
   }
 }
 function renderPdfPage(i,force){
   const el=paneEls.get('doc');if(!el||!docState||!docState.pdf)return Promise.resolve();
   const pg=el.querySelector(`.dpage[data-page="${i}"]`);if(!pg)return Promise.resolve();
-  if(docView.rendered.has(i)&&!force)return docView.rendered.get(i);
+  const prev=docView.rendered.get(i);
+  if(prev&&!force)return prev.job;
+  if(prev){docView.rendered.delete(i);cancelPdfEntry(prev,null)}
   const st=docState,scale=docView.scale;
-  const job=(async()=>{
-    const page=await st.pdf.getPage(i);const vp=page.getViewport({scale});
+  const entry={job:null,task:null,pixels:0,canvas:null};
+  const isCurrent=()=>docState===st&&docView.scale===scale&&docView.rendered.get(i)===entry;
+  entry.job=(async()=>{
+    const page=await st.pdf.getPage(i);
+    if(!isCurrent())return;
+    const vp=page.getViewport({scale});
     const dpr=Math.min(2,window.devicePixelRatio||1);
-    const cv=document.createElement('canvas');cv.width=Math.floor(vp.width*dpr);cv.height=Math.floor(vp.height*dpr);cv.style.width=vp.width+'px';cv.style.height=vp.height+'px';
-    await page.render({canvasContext:cv.getContext('2d'),viewport:vp,transform:dpr!==1?[dpr,0,0,dpr,0,0]:null}).promise;
+    const cw=Math.floor(vp.width*dpr),ch=Math.floor(vp.height*dpr);
+    entry.pixels=cw*ch;
+    const cv=document.createElement('canvas');cv.width=cw;cv.height=ch;cv.style.width=vp.width+'px';cv.style.height=vp.height+'px';
+    entry.canvas=cv;
+    const task=page.render({canvasContext:cv.getContext('2d'),viewport:vp,transform:dpr!==1?[dpr,0,0,dpr,0,0]:null});
+    entry.task=task;
+    await task.promise;
+    entry.task=null;
+    if(!isCurrent()){cv.width=0;cv.height=0;entry.canvas=null;return}
     const tl=await makeTextLayer(page,vp);
-    if(docState!==st||docView.scale!==scale)return;
+    if(!isCurrent()){cv.width=0;cv.height=0;entry.canvas=null;return}
     pg.style.width=vp.width+'px';pg.style.height=vp.height+'px';
+    pg.querySelectorAll('canvas').forEach(c=>{c.width=0;c.height=0});
     pg.querySelectorAll('canvas,.textLayer,sup.fn,.dregion').forEach(n=>n.remove());
     pg.appendChild(cv);pg.appendChild(tl);applyDocAnchorsPdf(pg,tl,i-1);wiresSoon();
-  })().catch(e=>console.warn('page render failed',e));
-  docView.rendered.set(i,job);return job;
+    evictPdfPages();
+  })().catch(e=>{
+    entry.task=null;
+    if(entry.canvas&&!entry.canvas.isConnected){entry.canvas.width=0;entry.canvas.height=0;entry.canvas=null}
+    if(e&&(e.name==='RenderingCancelledException'||/cancel/i.test(e.message||'')))return;
+    if(docView.rendered.get(i)===entry)docView.rendered.delete(i);
+    console.warn('page render failed',e);
+  });
+  docView.rendered.set(i,entry);return entry.job;
 }
 function docMarker(t){const s=document.createElement('sup');s.className='fn'+(t.resolved?' res':'');s.dataset.tid=t.id;s.style.setProperty('--c',color(t));s.textContent=branchNum(t);s.title=`Open branch ${branchNum(t)}: ${t.title||''}`;return s}
 function applyDocAnchorsPdf(pg,tl,pageIdx){
@@ -407,6 +508,7 @@ function openDocPane(){
   layout();renderMap();save();
 }
 async function scrollDocToPage(n,flash=true){
+  if(docView.built)await docView.built;
   const el=paneEls.get('doc');if(!el)return;const pb=el.querySelector('.pb');
   const pg=el.querySelector(`.dpage[data-page="${n}"]`);if(!pg)return;
   pb.scrollTop+=pg.getBoundingClientRect().top-pb.getBoundingClientRect().top-10;

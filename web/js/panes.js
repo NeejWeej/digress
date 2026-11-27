@@ -152,6 +152,14 @@ function branchChips(mid){
 }
 // While a reply is being written: a shimmering line saying what it's doing now (with the time so far) and,
 // before any text arrives, the steps so far (searches, pages read), the 10 most recent.
+// Decoupled from body rendering so the 1s elapsed-time tick updates .lt in place without re-running renderRich.
+function updateLiveTime(headEl,secs){
+  if(!headEl||secs<2)return;
+  let lt=headEl.querySelector('.lt');
+  if(!lt){lt=document.createElement('span');lt.className='lt';headEl.appendChild(lt)}
+  const txt=secs+'s';
+  if(lt.textContent!==txt)lt.textContent=txt;
+}
 function streamInto(body,m){
   const st=m.live||[],cur=st.length&&!st[st.length-1].done?st[st.length-1]:null,secs=m.t0?Math.floor((Date.now()-m.t0)/1000):0;
   const cap=(x)=>x[0].toUpperCase()+x.slice(1),now=(x)=>x.replace(/^searched /,'searching ').replace(/^read /,'reading ').replace(/^looked at /,'looking at ');
@@ -159,11 +167,37 @@ function streamInto(body,m){
   const head=what?`<div class="lhead">${ic(cur?cur.icon:'dots')}<span class="shimmer">${esc(trunc(what,110))}…</span>${secs>=2?`<span class="lt">${secs}s</span>`:''}</div>`:'';
   if(!m.content){
     const done=st.filter(x=>x!==cur),shown=done.slice(-10),more=done.length-shown.length;
+    const stepKey=`${what}\0${cur?cur.icon:''}\0${more}\0${shown.map(x=>x.icon+':'+x.text).join('\0')}`;
+    if(body.__streamMd===''&&body.__liveKey===stepKey&&body.firstElementChild&&body.firstElementChild.classList.contains('live')){
+      updateLiveTime(body.firstElementChild.querySelector('.lhead'),secs);
+      return false;
+    }
     const list=shown.length?`<ol class="lsteps">${more?`<li class="more"><span>${more} earlier step${more>1?'s':''}</span></li>`:''}${shown.map(x=>`<li>${ic(x.icon)}<span>${esc(trunc(cap(x.text),120))}</span></li>`).join('')}</ol>`:'';
-    body.innerHTML=`<div class="live">${head}${list}</div>`;return;
+    body.innerHTML=`<div class="live">${head}${list}</div>`;
+    body.__streamMd='';body.__liveKey=stepKey;
+    return true;
   }
-  renderRich(body,m.content,false);
-  if(head)body.insertAdjacentHTML('beforeend',`<div class="live">${head}</div>`);   // still working after some text: say so (the final render drops it)
+  const mReady=!!state.mathReady;
+  let changed=false;
+  if(body.__streamMd!==m.content||body.__streamMath!==mReady){
+    renderRich(body,m.content,false);
+    body.__streamMd=m.content;body.__streamMath=mReady;body.__liveKey='';
+    changed=true;
+  }
+  const liveEl=body.lastElementChild&&body.lastElementChild.classList.contains('live')?body.lastElementChild:null;
+  if(!head){
+    if(liveEl){liveEl.remove();body.__liveKey='';changed=true}
+  }else{
+    const liveKey=`${what}\0${cur?cur.icon:''}`;
+    if(liveEl&&body.__liveKey===liveKey){
+      updateLiveTime(liveEl.querySelector('.lhead'),secs);
+    }else{
+      if(liveEl)liveEl.innerHTML=head;
+      else body.insertAdjacentHTML('beforeend',`<div class="live">${head}</div>`);
+      body.__liveKey=liveKey;changed=true;
+    }
+  }
+  return changed;
 }
 /* where a reply looked on the web: the searches it ran and the pages they returned (kept outside .body, so anchors never count it) */
 function webSources(m){
@@ -187,17 +221,17 @@ function queueStream(mid){
   streamTimer=setTimeout(()=>{
     streamTimer=0;
     const onCv=state.conv&&state.conv.ui.view==='canvas';
+    let anyChanged=false;
     if(!onCv){
       for(const id of streamQ){
         const m=state.conv.msgs[id];const c=msgCache.get(id);if(!m||!c||!m.pending)continue;
         const pb=c.el.closest('.pb');const stick=pb&&pb.scrollHeight-pb.scrollTop-pb.clientHeight<80;
-        streamInto(c.el.querySelector('.body'),m);
-        if(stick)pb.scrollTop=pb.scrollHeight;
+        if(streamInto(c.el.querySelector('.body'),m)){anyChanged=true;if(stick)pb.scrollTop=pb.scrollHeight}
       }
     }else{
-      for(const id of streamQ){const m=state.conv.msgs[id];const b=m&&m.pending&&document.querySelector(`#cv .msg[data-mid="${id}"] .body`);if(b){const f=b.closest('.cfull');const stick=f&&f.scrollHeight-f.scrollTop-f.clientHeight<80;streamInto(b,m);if(stick)f.scrollTop=f.scrollHeight}}
+      for(const id of streamQ){const m=state.conv.msgs[id];const b=m&&m.pending&&document.querySelector(`#cv .msg[data-mid="${id}"] .body`);if(b){const f=b.closest('.cfull');const stick=f&&f.scrollHeight-f.scrollTop-f.clientHeight<80;if(streamInto(b,m)){anyChanged=true;if(stick)f.scrollTop=f.scrollHeight}}}
     }
-    streamQ.clear();if(!onCv)wiresSoon();else drawEdgesSoon();
+    streamQ.clear();if(anyChanged){if(!onCv)wiresSoon();else drawEdgesSoon()}
   },70);
 }
 

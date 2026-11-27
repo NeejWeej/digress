@@ -230,6 +230,7 @@ export function createRenderer() {
   const mermaidSrc = new WeakMap();
 
   function renderRich(el, md, final, o = {}) {
+    if (final) { delete el.__streamMd; delete el.__liveKey; delete el.__streamMath; }
     const maths = [];
     const cpys = [...el.querySelectorAll('.cbx>.cpy')];
     let src = md || '';
