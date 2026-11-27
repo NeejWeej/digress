@@ -199,6 +199,15 @@ async def main():
               and t4.get('title') == 'Custom Reading Note' and t4.get('titleKept') is True
               and 'branching conversations' in (t4.get('anchorText') or '').lower(), t4)
 
+        # Long origin card gets a Show full / Show less expand toggle
+        oexp = pg.locator(f'.pane[data-tid="{tid4}"] .origin .oexp')
+        await oexp.wait_for(state='visible', timeout=5000)
+        h_before = await pg.evaluate("(tid) => document.querySelector(`.pane[data-tid=\"${tid}\"] .origin .oq`).clientHeight", tid4)
+        await oexp.click()
+        await soon(pg, f"() => document.querySelector('.pane[data-tid=\"{tid4}\"] .origin').classList.contains('exp')")
+        h_after = await pg.evaluate("(tid) => document.querySelector(`.pane[data-tid=\"${tid}\"] .origin .oq`).clientHeight", tid4)
+        check('long origin card expands on Show full and toggles to Show less', h_after > h_before and (await oexp.inner_text()) == 'Show less', (h_before, h_after))
+
         # 6. Clip into an existing branch (targetThreadId) -> populates composer with quote + question
         ack5 = await post_clip(pg, {
             'mode': 'branch', 'convId': cid, 'targetThreadId': tid1,
