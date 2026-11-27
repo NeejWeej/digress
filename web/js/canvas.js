@@ -6,7 +6,7 @@ import {
   T, color, children, branchesOn, hiddenNow, branchNum, isCollapsed,
   resetThreadIdx,
 } from './state.js';
-import { pendingImgs, takePending, renderPending, userMsgBody } from './media.js';
+import { getPending, takePending, renderPending, userMsgBody } from './media.js';
 import { copyText } from './render.js';
 
 export function createCanvas() {
@@ -127,7 +127,7 @@ function renderCanvas(){
     const mids=(state.conv.order[t.id]||[]).filter(id=>state.conv.msgs[id]);
     const cuts=exp?takeawayCuts(t.id):null;
     const sz=S.size[t.id],dk=S.dock[t.id];
-    let csig=`${state.conv.id}|${t.id}|${t.parent?t.title:state.conv.title}|${t.resolved?1:0}|${t.colorIdx}|${t.alt?1:0}|${t.alt&&joinable(t)?1:0}|${t.anchorMsg||''}|${t.anchorText||''}|${exp?1:0}|${docked?1:0}|${folded?1:0}|${kids.length}|${nd}|${S.cz[t.id]||''}|${sz?sz.w+'x'+sz.h:''}|${dk?dk.x+','+dk.y+','+dk.w+','+dk.h:''}|${(pendingImgs.get(t.id)||[]).length}|${cvPrev.has(cvPrevKey(t.id))?1:0}|`;
+    let csig=`${state.conv.id}|${t.id}|${t.parent?t.title:state.conv.title}|${t.resolved?1:0}|${t.colorIdx}|${t.alt?1:0}|${t.alt&&joinable(t)?1:0}|${t.anchorMsg||''}|${t.anchorText||''}|${exp?1:0}|${docked?1:0}|${folded?1:0}|${kids.length}|${nd}|${S.cz[t.id]||''}|${sz?sz.w+'x'+sz.h:''}|${dk?dk.x+','+dk.y+','+dk.w+','+dk.h:''}|${getPending(t.id).length}|${cvPrev.has(cvPrevKey(t.id))?1:0}|`;
     if(exp){
       for(const mid of mids){const m=state.conv.msgs[mid];csig+=(m.pending?'P'+Math.random():msgKey(m))+';';if(cuts&&cuts.has(mid))csig+='c'+cuts.get(mid).length+';'}
     }else{
@@ -165,7 +165,7 @@ function renderCanvas(){
       n.appendChild(cj);
       const ask=document.createElement('div');ask.className='cask';
       ask.innerHTML=`<textarea rows="1" placeholder="${t.parent?'Ask a follow-up in this branch…':'Ask anything…'}"></textarea><button class="sendb" data-cact="ask" title="Send (Enter). Shift+Enter adds a new line.">${ic('send')}</button>`;
-      n.appendChild(ask);if((pendingImgs.get(t.id)||[]).length)queueMicrotask(()=>renderPending(t.id));
+      n.appendChild(ask);if(getPending(t.id).length)queueMicrotask(()=>renderPending(t.id));
       const cta=ask.querySelector('textarea');cta.addEventListener('input',()=>{autosizeCask(cta)});
       const k=keep[t.id];if(k&&k.v){cta.value=k.v;requestAnimationFrame(()=>autosizeCask(cta))}
       const upd=()=>{n.classList.toggle('away',full.scrollHeight-full.scrollTop-full.clientHeight>100);
@@ -565,7 +565,7 @@ function canvasAction(act,tid,btn){
   else if(act==='zin'){setCardZoom(tid,cardZoom(tid)*1.15)}
   else if(act==='zout'){setCardZoom(tid,cardZoom(tid)/1.15)}
   else if(act==='zedit'){editZoom(btn,cardZoom(tid),z=>setCardZoom(tid,z))}
-  else if(act==='ask'){if(streaming.has(tid))return;const i=btn.closest('.cnode').querySelector('.cask textarea');const v=i.value.trim();if(!v&&!(pendingImgs.get(tid)||[]).length)return;const imgs=takePending(tid);i.value='';autosizeCask(i);send(tid,v,imgs)}
+  else if(act==='ask'){if(streaming.has(tid))return;const i=btn.closest('.cnode').querySelector('.cask textarea');const v=i.value.trim();if(!v&&!getPending(tid).length)return;const imgs=takePending(tid);i.value='';autosizeCask(i);send(tid,v,imgs)}
 }
 (()=>{
   const cv=$('#cv');let pan=null,cd=null;
@@ -655,7 +655,7 @@ function canvasAction(act,tid,btn){
       const dx=(e.clientX-cd.sx)/cam.k,dy=(e.clientY-cd.sy)/cam.k;
       if(!cd.moved&&Math.hypot(dx,dy)*cam.k<4)return;
       if(!cd.moved){cd.moved=true;cd.n.classList.add('lift')}
-      for(const [id,s] of Object.entries(cd.start)){s.el.style.left=(s.x+dx)+'px';s.el.style.top=(s.y+dy)+'px'}
+      for(const [_id,s] of Object.entries(cd.start)){s.el.style.left=(s.x+dx)+'px';s.el.style.top=(s.y+dy)+'px'}
       if(cd.snap){cd.zone=snapZone(e);showSnapPreview(cd.zone)}
       drawEdgesSoon();return;
     }

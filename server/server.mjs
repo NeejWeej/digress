@@ -291,7 +291,7 @@ async function builtinDefault() {
   if (process.env.DEFAULT_MODEL) return process.env.DEFAULT_MODEL;
   const k = enabled()[0];
   if (k === 'chatgpt') { const m = await chatgpt.listModels(); if (m.length) return m[0][0]; }
-  if (k === 'gemini') { const m = await gemini.listModels(); if (m.length) return m[0][0]; }
+  if (k === 'gemini') { const m = await gemini.listModels(apiKey('gemini')); if (m.length) return m[0][0]; }
   if (k === 'anthropic') { const m = await anthropicModels(); if (m.length) return m[0][0]; }
   return DEFAULT_MODEL;
 }
@@ -304,7 +304,7 @@ async function providerFor(model) {
   if (/^gemini/i.test(model)) return on.includes('gemini') ? 'gemini' : null;
   if (/^claude/i.test(model)) return on.includes(claudeSide()) ? claudeSide() : null;
   if (/^(?:gpt|o\d|chatgpt)/i.test(model)) return on.includes('chatgpt') ? 'chatgpt' : null;
-  return on[0] || null;
+  return null;
 }
 // ---- Connections ----
 const KEY_CHECKS = {

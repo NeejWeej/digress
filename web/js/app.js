@@ -168,7 +168,7 @@ function wrapText(root,needle,t,opts){
 const PANES_MOD = createPanes();
 const {
   msgKey, openUsage, closeUsage, buildFoot, branchChips, streamInto,
-  webSources, queueStream, updateJump, rememberSpot, autosize, submit,
+  webSources, queueStream, updateJump, rememberSpot, autosize,
   updateComposer, fitOrigin, originRO, updateHeader, altLine, sysScope,
   paneZoom, applyPaneZoom, editZoom, setPaneZoom, stepPaneZoom,
   renderPane, refreshAnchorsFor, docInDock, placeDocPane, layout,
@@ -200,7 +200,7 @@ const DOC_MOD = createDoc();
 const {
   DOC_STARTERS, docView, docViewReady, docBlobCache, cacheDocBlob, destroyDoc, docPagesLabel, docBranches,
   loadScript, docThumbUrl, startDoc, docReady, docPaneEl, updateDocHeader, renderDocPane,
-  buildPdfPages, refreshDocAnchors, openDocPane, scrollDocToPage, READ_LINE, noteDocSpot,
+  buildPdfPages, refreshDocAnchors, openDocPane, scrollDocToPage, READ_LINE,
   docSpotNow, putDocSpot, placeMark, markButton, goToPage, goToDocPart, goToEarlier,
   revealDocAnchor, linkPages, runDocTool, trailText,
   docReads, storeDocFile, openDocModal, closeDocModal, docImgRef, docImgAlt, shotDocRegion,
@@ -328,7 +328,7 @@ function save(){if(!conv)return;dirty=true;if(typeof IDX!=='undefined')idxTouch(
 const LOCAL_MSG=['pending','ver','live','t0','toolNow'];   // per page, never saved
 const plainMsg=(m)=>{const x={...m};for(const f of LOCAL_MSG)delete x[f];return x};
 function serialize(c){const msgs={};for(const [k,m] of Object.entries(c.msgs))msgs[k]=plainMsg(m);return {...c,msgs}}
-function contentOf(c){const {ui,rev,...rest}=serialize(c);return JSON.parse(JSON.stringify(rest))}
+function contentOf(c){const {ui:_ui,rev:_rev,...rest}=serialize(c);return JSON.parse(JSON.stringify(rest))}
 const contentKey=(x)=>JSON.stringify({...x,updated:0});
 function syncReset(c){sync.id=c.id;sync.rev=c.rev||0;sync.base=contentOf(c);sync.sent=c.rev?contentKey(sync.base):'';sync.ui=JSON.stringify(c.ui||{})}
 async function flush(){
@@ -386,7 +386,14 @@ async function mergeRemote(c,theirs,mine){
     try{res=ThreadOps.merge(base,mine,t,{newId:(k)=>(k==='t'?'b':'m')+rid()+rid().slice(0,3),keep:[...streaming.values()].filter(s=>s.conv===c).map(s=>s.mid)})}
     catch(e){if(e&&e.later)return null;if(!(e&&e.conflict))console.warn('merge failed',e);else console.info('not merged:',e.message)}
   }
-  if(!res){await keepCopy(c,mine);res={conv:JSON.parse(JSON.stringify(t))}}
+  if(!res){
+    const copy=await keepCopy(c,mine);
+    if(!copy){
+      if(c===conv){dirty=true;saveFailed=true;retrySave();setStatus('Not saved yet: conflict copy failed')}
+      return null;
+    }
+    res={conv:JSON.parse(JSON.stringify(t))};
+  }
   applyContent(c,res.conv);
   if(c===conv){sync.rev=theirs.rev||0;sync.base=JSON.parse(JSON.stringify(t));delete sync.base.rev;sync.sent=contentKey(sync.base);refreshAfterSync()}
   return contentOf(c);
@@ -454,11 +461,16 @@ async function keepCopy(c,mine,why){
 }
 async function deletedElsewhere(c,content){
   const base=sync.id===c.id?sync.base:null,added=!base||Object.keys(content.msgs).some(id=>!base.msgs[id]);
-  convList=convList.filter(x=>x.id!==c.id);
   const copy=added?await keepCopy(c,content,'deleted'):null;
+  if(added&&!copy){
+    if(c===conv){dirty=true;saveFailed=true;retrySave();setStatus('Not saved yet: recovery copy failed')}
+    toast('This conversation was deleted on another device and your local copy could not be saved.');
+    return;
+  }
+  convList=convList.filter(x=>x.id!==c.id);
   if(c===conv){dirty=false;setConv(copy?JSON.parse(JSON.stringify(copy)):newConv())}
   renderConvList();
-  toast(copy?'This conversation was deleted on another device. What you added here was kept as a copy.':added?'This conversation was deleted on another device and your local copy could not be saved.':'This conversation was deleted on another device.');
+  toast(copy?'This conversation was deleted on another device. What you added here was kept as a copy.':'This conversation was deleted on another device.');
 }
 async function saveLayout(c){
   if(!io.layout||c!==conv||!c.rev)return;

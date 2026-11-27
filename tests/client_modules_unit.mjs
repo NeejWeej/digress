@@ -325,4 +325,43 @@ await test('connectors.js: offlineCards delivers directly when localStorage quot
   }
 });
 
+await test('connectors.js: two offlineCards tabs sharing localStorage never roll back a newer synced card', async () => {
+  const prevLS = globalThis.localStorage;
+  const bag = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (bag.has(k) ? bag.get(k) : null),
+    setItem: (k, v) => { bag.set(k, String(v)); },
+    removeItem: (k) => { bag.delete(k); },
+  };
+  try {
+    let online = false;
+    const writes = [];
+    const server = {
+      list: async () => [],
+      put: async (id, card) => {
+        if (!online) throw new Error('offline');
+        writes.push({ id, rev: card.rev });
+      },
+      remove: async () => { if (!online) throw new Error('offline'); },
+    };
+    const tabA = offlineCards(server);
+    const tabB = offlineCards(server);
+    // Tab A queues older version while offline
+    await tabA.put('k1', { id: 'k1', rev: 1, front: 'Old' });
+    await tabA.flush();
+    assert.equal(writes.length, 0);
+    // Server comes back; Tab B saves newer version and drains shared outbox
+    online = true;
+    await tabB.put('k1', { id: 'k1', rev: 2, front: 'New' });
+    await tabB.flush();
+    assert.deepEqual(writes, [{ id: 'k1', rev: 2 }]);
+    // Tab A reconnects and flushes: must NOT revive rev 1
+    await tabA.flush();
+    assert.deepEqual(writes, [{ id: 'k1', rev: 2 }]);
+    assert.equal(tabA.pending(), 0);
+  } finally {
+    globalThis.localStorage = prevLS;
+  }
+});
+
 console.log(`\nall passed (${passed} tests)`);

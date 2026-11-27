@@ -90,9 +90,14 @@ function addMsg(tid,role,content,extra){
 async function send(tid,text,imgs){
   text=(text||'').trim();imgs=imgs||[];if(!text&&!imgs.length)return;
   if(streaming.has(tid)){toast('Wait for the current reply to finish');return}
-  const t=T(tid);
+  const c0=state.conv,t=T(tid);if(!c0||!t)return;
   let extra;
-  if(imgs.length){streaming.set(tid,{mid:null,ctrl:new AbortController()});try{extra={images:await storeImages(imgs)}}finally{streaming.delete(tid)}}
+  if(imgs.length){
+    streaming.set(tid,{mid:null,ctrl:new AbortController(),conv:c0});
+    try{extra={images:await storeImages(imgs)}}
+    finally{streaming.delete(tid);for(const im of imgs)if(im&&im.url)try{URL.revokeObjectURL(im.url)}catch(_){}}
+    if(state.conv!==c0||!c0.threads[tid])return;
+  }
   if(tid==='main'&&!state.conv.titleKept&&!state.conv.order.main.some(id=>state.conv.msgs[id].role==='user')){state.conv.title=trunc(text||'Question about an image',120);delete state.conv.autoTitle;renderTitle()}
   if(t.autoTitle&&!state.conv.order[tid].length){t.title=trunc(text||'About an image',48);delete t.autoTitle;refreshAnchorsFor(tid)}
   // asked in main with the PDF open beside it: the question keeps the page it was asked on (PROMPTS.lookingAt)
@@ -102,6 +107,7 @@ async function send(tid,text,imgs){
   renderPane(tid,true);renderMap();save();
   if(state.conv.ui.view==='canvas'){renderCanvas();const f=document.querySelector(`#cv .cnode[data-ctid="${tid}"] .cfull`);if(f)f.scrollTop=f.scrollHeight}
   await docReady();
+  if(state.conv!==c0||!c0.threads[tid])return;
   await generate(am,buildContext(tid,am.id),tid);
 }
 // Writes reply m. The reply runs on the server as run m.run (server/runs.mjs), saved with the message while
@@ -173,9 +179,15 @@ const MODEL_FAM=(id)=>/claude|haiku|sonnet|opus/i.test(id||'')?'claude':/gpt|^o\
 // kept model's, else the reply's; with only one provider connected, that one
 function titleModel(c,hint){
   const ids=io.llm.models().map(x=>x[0]),fast={claude:ids.find(x=>/haiku/i.test(x)),gpt:ids.find(x=>/terra/i.test(x))||ids.find(x=>/mini|luna/i.test(x)),google:ids.find(x=>/^gemini.*flash-lite/i.test(x))||ids.find(x=>/^gemini.*flash/i.test(x))};
-  const avail=Object.keys(fast).filter(k=>fast[k]);if(!avail.length)return hint||settings.model;if(avail.length===1)return fast[avail[0]];
-  const used=new Set(Object.values(c.msgs).filter(m=>m.role==='assistant'&&m.model).map(m=>MODEL_FAM(m.model)).filter(Boolean));
-  const f=used.size===1?[...used][0]:MODEL_FAM(c.llm&&c.llm[0])||MODEL_FAM(hint);return fast[f]||fast[avail[0]];
+  const avail=Object.keys(fast).filter(k=>fast[k]);
+  // Bind to the provider of the triggering reply/selection; never route content across providers.
+  const hf=MODEL_FAM(hint);
+  if(hf)return fast[hf]||hint;
+  if(!avail.length)return hint||settings.model;
+  const used=new Set(Object.values((c&&c.msgs)||{}).filter(m=>m.role==='assistant'&&m.model).map(m=>MODEL_FAM(m.model)).filter(Boolean));
+  const f=used.size===1?[...used][0]:MODEL_FAM(c&&c.llm&&c.llm[0])||MODEL_FAM(io.llm.defaultModel);
+  if(f)return fast[f]||hint||settings.model;
+  return fast[avail[0]]||hint||settings.model;
 }
 const qText=(m)=>String((m&&(m.content||m.text))||'').replace(/\s+/g,' ').trim();
 // the question names it well enough as it is: short and more than a word or two

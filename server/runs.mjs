@@ -75,8 +75,23 @@ export function createRun(id, { session, onOrphan } = {}) {
     clearTimeout(run.detachTimer);
     fireClose();
     if (session) session.close();
-    if (!seen && onOrphan) Promise.resolve().then(() => onOrphan(summary())).catch((e) => console.error('saving a finished reply:', e));
-    run.keepTimer = setTimeout(() => runs.delete(id), KEEP_MS);
+    let saved = false;
+    const persist = () => {
+      if (saved || !onOrphan) return Promise.resolve();
+      saved = true;
+      return Promise.resolve().then(() => onOrphan(summary())).catch((e) => console.error('saving a finished reply:', e));
+    };
+    if (!seen) persist();
+    const graceMs = Math.min(KEEP_MS, Number(process.env.RUN_SAVE_GRACE_MS || 5000));
+    if (seen && onOrphan && graceMs < KEEP_MS) {
+      run.saveTimer = setTimeout(() => { persist(); }, graceMs);
+      if (run.saveTimer.unref) run.saveTimer.unref();
+    }
+    run.keepTimer = setTimeout(async () => {
+      clearTimeout(run.saveTimer);
+      await persist();
+      runs.delete(id);
+    }, KEEP_MS);
   }
   // what the reply came to, read back from its own lines (the same lines the page reads)
   function summary() {
