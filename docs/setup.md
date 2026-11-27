@@ -150,14 +150,20 @@ To reach it from other devices, see [remote-access.md](remote-access.md). Don't 
 Everything lives in `data/` (or `DATA_DIR`):
 
 ```
-data/convs/<id>.json      one file per conversation
-data/index/<id>.json      search index entries
-data/files/<id>           uploaded documents (+ .meta.json)
+data/digress.db           SQLite database (conversations, layouts, flashcards, search index, prompts, skills)
+data/files/<id>           uploaded documents and images (+ .meta.json)
 ```
 
-A conversation you delete stays in the sidebar's Trash (still in `data/convs/`, marked `trashed`) for 7 days, then the server deletes it for good, along with its search index and any uploaded file no other conversation or flashcard uses.
+A conversation you delete stays in the sidebar's Trash (marked `trashed` in `digress.db`) for 7 days, then the server deletes it for good, along with its search index and any uploaded file no other conversation or flashcard uses.
 
-Back it up by copying the folder. It's git-ignored.
+To back it up cleanly while Digress is running, snapshot the SQLite database (WAL mode may also have `digress.db-wal` / `digress.db-shm` alongside it) and copy `data/files/`:
+
+```sh
+sqlite3 data/digress.db ".backup /path/to/backup/digress.db"
+cp -a data/files /path/to/backup/files
+```
+
+If Digress is stopped, copying the whole `data/` folder is enough. The folder is git-ignored.
 
 ## All settings
 

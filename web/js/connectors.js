@@ -69,68 +69,86 @@ export async function okOrThrow(r) {
 export function offlineCards(base) {
   const MK = 'digress:cards', QK = 'digress:cards-outbox';
   const rd = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } };
-  const wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { console.warn('local copy of cards not saved', e); } };
+  const wr = (k, v) => {
+    try { localStorage.setItem(k, JSON.stringify(v)); return true; }
+    catch (e) { console.warn('local copy of cards not saved', e); return false; }
+  };
+  let memMap = rd(MK, {}), memQ = rd(QK, []);
+  const readQ = () => {
+    const stored = rd(QK, null);
+    if (Array.isArray(stored) && stored.length > memQ.length) memQ = stored;
+    return memQ;
+  };
   let flushing = null, retry = 0;
   const st = {
     kind: 'cards',
     stuck: false,
     onchange: null,
-    pending: () => rd(QK, []).length,
+    pending: () => readQ().length,
     flush() {
       if (!flushing) {
         flushing = (async () => {
-          for (let q = rd(QK, []); q.length; q = rd(QK, [])) {
+          for (let q = readQ(); q.length; q = readQ()) {
             const op = q[0];
             try {
               if (op.del) await base.remove(op.id);
               else await base.put(op.id, op.card);
             } catch (e) { return false; }
-            const now = rd(QK, []);
+            const now = readQ();
             if (now.length && now[0].id === op.id && now[0].at === op.at) now.shift();
-            wr(QK, now);
+            memQ = now;
+            wr(QK, memQ);
           }
           return true;
         })().then((ok) => {
           const was = st.stuck;
           st.stuck = !ok;
           clearTimeout(retry);
-          if (!ok) retry = setTimeout(() => st.flush(), 30000);
+          if (!ok) { retry = setTimeout(() => st.flush(), 30000); if (retry && retry.unref) retry.unref(); }
           if (was !== st.stuck || ok) st.onchange && st.onchange();
           return ok;
         });
-        flushing.finally(() => { flushing = null; if (!st.stuck && rd(QK, []).length) st.flush(); });
+        flushing.finally(() => { flushing = null; if (!st.stuck && readQ().length) st.flush(); });
       }
       return flushing;
     },
     async list() {
-      const m0 = rd(MK, {}), local = () => Object.entries(rd(MK, {})).map(([id, data]) => ({ id, data }));
+      const m0 = rd(MK, memMap);
+      if (Object.keys(m0).length) memMap = m0;
+      const local = () => Object.entries(memMap).map(([id, data]) => ({ id, data }));
       const remote = (async () => {
         if (!await st.flush()) throw new Error('offline');
         const l = await base.list(), m = {};
         for (const { id, data } of l) m[id] = data;
+        memMap = m;
         wr(MK, m);
         return l;
       })();
       remote.catch(() => {});
-      const slow = Object.keys(m0).length ? new Promise((ok) => setTimeout(() => ok(null), 2500)) : null;
+      const slow = Object.keys(memMap).length ? new Promise((ok) => setTimeout(() => ok(null), 2500)) : null;
       try { return (await (slow ? Promise.race([remote, slow]) : remote)) || local(); } catch (e) { return local(); }
     },
-    async get(id) { return rd(MK, {})[id] || null; },
-    async put(id, d) { const m = rd(MK, {}); m[id] = d; wr(MK, m); await send({ id, card: d }); },
-    async update(id, p) { const m = rd(MK, {}); if (!m[id]) return; Object.assign(m[id], p); await st.put(id, m[id]); },
-    async remove(id) { const m = rd(MK, {}); delete m[id]; wr(MK, m); await send({ id, del: true }); },
+    async get(id) { return memMap[id] || rd(MK, {})[id] || null; },
+    async put(id, d) { memMap = { ...rd(MK, memMap), [id]: d }; wr(MK, memMap); await send({ id, card: d }); },
+    async update(id, p) { const cur = memMap[id] || rd(MK, {})[id]; if (!cur) return; const next = { ...cur, ...p }; await st.put(id, next); },
+    async remove(id) { memMap = { ...rd(MK, memMap) }; delete memMap[id]; wr(MK, memMap); await send({ id, del: true }); },
   };
   async function send(op) {
     op.at = Date.now() + Math.random();
-    const q = rd(QK, []).filter((o) => o.id !== op.id);
-    q.push(op);
-    wr(QK, q);
+    memQ = readQ().filter((o) => o.id !== op.id);
+    memQ.push(op);
+    const savedLocal = wr(QK, memQ);
+    if (!savedLocal) {
+      const ok = await st.flush();
+      if (!ok) throw new Error('Could not save card: local storage is unavailable and the server could not be reached.');
+      return;
+    }
     st.flush();
   }
   if (typeof addEventListener === 'function') addEventListener('online', () => st.flush());
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && rd(QK, []).length) st.flush();
+      if (document.visibilityState === 'visible' && readQ().length) st.flush();
     });
   }
   return st;
@@ -227,7 +245,7 @@ export function serverLayout() {
   };
 }
 
-export const WINDOWS = (() => { try { return new BroadcastChannel('digress'); } catch (e) { return null; } })();
+export const WINDOWS = (() => { try { const ch = new BroadcastChannel('digress'); if (ch.unref) ch.unref(); return ch; } catch (e) { return null; } })();
 export function tellWindows(id) { try { WINDOWS && WINDOWS.postMessage({ conv: id }); } catch (e) {} }
 export function toldWindows(st) {
   const w = { ...st };

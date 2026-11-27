@@ -366,9 +366,11 @@ async function saveContent(c,content){
     const mine=sync.id===c.id;
     const r=await io.store.save(c.id,content,mine?(sync.rev||null):(c.rev||null));
     if(r.rev){c.rev=r.rev;if(mine&&c===conv){sync.rev=r.rev;sync.base=content;sync.sent=contentKey(content);showInUrl()}return true}
-    if(r.deleted){deletedElsewhere(c,content);return false}
+    if(r.deleted){await deletedElsewhere(c,c===conv?contentOf(c):content);return false}
     if(!r.current)throw new Error('unexpected answer from the store');
-    const next=mergeRemote(c,r.current,content);
+    // Use current live content if c is still open, so edits made while the save was in flight are never lost.
+    const liveMine=c===conv?contentOf(c):content;
+    const next=await mergeRemote(c,r.current,liveMine);
     if(!next){dirty=true;return false}   // a reply here is still being written: saved once it's done
     if(contentKey(next)===sync.sent)return true;   // nothing of ours left to add
     content=next;c.updated=content.updated=Math.max(Date.now(),content.updated||0);
@@ -377,14 +379,14 @@ async function saveContent(c,content){
 }
 // Merge `theirs` (the server's copy) into conversation c, whose content is `mine`. Returns c's content after,
 // or null when it has to wait (see ThreadOps.merge: later). The page shows the result.
-function mergeRemote(c,theirs,mine){
+async function mergeRemote(c,theirs,mine){
   const t={...theirs};delete t.ui;
   const base=sync.id===c.id?sync.base:null;let res=null;
   if(base){
     try{res=ThreadOps.merge(base,mine,t,{newId:(k)=>(k==='t'?'b':'m')+rid()+rid().slice(0,3),keep:[...streaming.values()].filter(s=>s.conv===c).map(s=>s.mid)})}
     catch(e){if(e&&e.later)return null;if(!(e&&e.conflict))console.warn('merge failed',e);else console.info('not merged:',e.message)}
   }
-  if(!res){keepCopy(c,mine);res={conv:JSON.parse(JSON.stringify(t))}}
+  if(!res){await keepCopy(c,mine);res={conv:JSON.parse(JSON.stringify(t))}}
   applyContent(c,res.conv);
   if(c===conv){sync.rev=theirs.rev||0;sync.base=JSON.parse(JSON.stringify(t));delete sync.base.rev;sync.sent=contentKey(sync.base);refreshAfterSync()}
   return contentOf(c);
@@ -436,20 +438,27 @@ function refreshAfterSync(){
   placeMark();applyConvLlm();resumeRuns();
 }
 // this page's version, as its own conversation (when it couldn't be combined with another device's)
-function keepCopy(c,mine,why){
+async function keepCopy(c,mine,why){
   const id='c'+Date.now().toString(36)+rid().slice(0,4),copy={...JSON.parse(JSON.stringify(mine)),id,title:(mine.title||'Conversation')+' (from this device)',titleKept:true,updated:Date.now(),ui:JSON.parse(JSON.stringify(c.ui||{}))};
   for(const m of Object.values(copy.msgs))delete m.run;
-  io.store.put(id,copy).then(()=>{convList.unshift(metaOf(copy));renderConvList()}).catch(e=>console.warn('copy not saved',e));
-  if(why!=='deleted')toast(`This conversation changed on another device in a way that couldn’t be combined with yours, so yours was kept as “${copy.title}”.`);
-  return copy;
+  try{
+    await io.store.put(id,copy);
+    convList.unshift(metaOf(copy));renderConvList();
+    if(why!=='deleted')toast(`This conversation changed on another device in a way that couldn’t be combined with yours, so yours was kept as “${copy.title}”.`);
+    return copy;
+  }catch(e){
+    console.warn('copy not saved',e);
+    toast('This conversation changed on another device and your local copy could not be saved.');
+    return null;
+  }
 }
-function deletedElsewhere(c,content){
+async function deletedElsewhere(c,content){
   const base=sync.id===c.id?sync.base:null,added=!base||Object.keys(content.msgs).some(id=>!base.msgs[id]);
   convList=convList.filter(x=>x.id!==c.id);
-  const copy=added?keepCopy(c,content,'deleted'):null;
+  const copy=added?await keepCopy(c,content,'deleted'):null;
   if(c===conv){dirty=false;setConv(copy?JSON.parse(JSON.stringify(copy)):newConv())}
   renderConvList();
-  toast(copy?'This conversation was deleted on another device. What you added here was kept as a copy.':'This conversation was deleted on another device.');
+  toast(copy?'This conversation was deleted on another device. What you added here was kept as a copy.':added?'This conversation was deleted on another device and your local copy could not be saved.':'This conversation was deleted on another device.');
 }
 async function saveLayout(c){
   if(!io.layout||c!==conv||!c.rev)return;
@@ -470,11 +479,11 @@ function catchUp(force){
       const c=conv;if(sync.id!==c.id||!sync.rev)return;
       const rev=await io.store.rev(c.id);
       if(c!==conv)return;
-      if(rev===null){deletedElsewhere(c,contentOf(c));return}
+      if(rev===null){await deletedElsewhere(c,contentOf(c));return}
       if(rev===sync.rev)return;
       if(dirty||saving){await flushNow();return}   // saving finds the newer version and merges
       const cur=await io.store.get(c.id);if(!cur||c!==conv)return;
-      const next=mergeRemote(c,cur,contentOf(c));
+      const next=await mergeRemote(c,cur,contentOf(c));
       if(next&&contentKey(next)!==sync.sent)save();
     }catch(e){console.warn('catching up failed',e)}
   })().finally(()=>{catching=null;if(catchUp.again){catchUp.again=false;catchUp(true)}});

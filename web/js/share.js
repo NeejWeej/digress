@@ -141,8 +141,10 @@ export function shareSizeStatus(urlLen) {
 
 // Prune a conversation down to one branch (tid), its descendants, and the ancestor path leading up to it
 // (each ancestor truncated at the fork message; empty for CLIP/DOC/START branches). Always preserves a valid tree.
+// Returns null if a specific non-main branch ID does not exist in the conversation.
 export function sliceBranch(c, tid) {
-  if (!c || !tid || tid === 'main' || !c.threads || !c.threads[tid]) return c;
+  if (!c || !tid || tid === 'main') return c;
+  if (!c.threads || !c.threads[tid]) return null;
   const anc = [], seen = new Set();
   let cur = c.threads[tid];
   while (cur) {
@@ -186,6 +188,18 @@ export function sliceBranch(c, tid) {
   const out = { ...JSON.parse(JSON.stringify(c)), threads, order, msgs };
   out.title = c.threads[tid].title || c.title || 'Shared branch';
   return out;
+}
+
+// Whether a flashcard belongs inside an exported scope (full conversation or sliced branch).
+// Checks both thread survival AND that any message anchor / quote message survived pruning beyond the fork.
+export function cardInScope(card, scope) {
+  if (!card || !scope || !scope.threads || !scope.threads[card.thread]) return false;
+  if (card.at) {
+    if (card.at.thread && !scope.threads[card.at.thread]) return false;
+    if (card.at.msg && card.at.msg !== 'DOC' && card.at.msg !== 'CLIP' && (!scope.msgs || !scope.msgs[card.at.msg])) return false;
+  }
+  if (card.quote && card.quote.msg && card.quote.msg !== 'DOC' && card.quote.msg !== 'CLIP' && (!scope.msgs || !scope.msgs[card.quote.msg])) return false;
+  return true;
 }
 
 // Replace all non-'main' thread IDs and all message IDs in an imported conversation with fresh safe IDs,

@@ -5,9 +5,10 @@ import { DAY, MIN, fsrsNext, ivlText } from '../web/js/fsrs.js';
 import { esc, trunc, texText, stripCiteQuotes, plain, pdfTitleOk, passages, indexEntries, idxPages, sigOf } from '../web/js/text.js';
 import {
   PUBLIC_DEMO_URL, SHARE_GOOD_LEN, SHARE_MAX_LEN,
-  encodeSharePayload, decodeSharePayload, buildShareUrl, parseShareHash, shareSizeStatus, sliceBranch, remapConvIds,
+  encodeSharePayload, decodeSharePayload, buildShareUrl, parseShareHash, shareSizeStatus, sliceBranch, cardInScope, remapConvIds,
   parseInlineImageDataUrl, normalizePageIndex,
 } from '../web/js/share.js';
+import { offlineCards } from '../web/js/connectors.js';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
@@ -268,6 +269,60 @@ await test('share.js: normalizePageIndex accepts bounded non-negative integers a
   assert.equal(normalizePageIndex('0'), null);
   assert.equal(normalizePageIndex('<img src=x onerror=alert(1)>'), null);
   assert.equal(normalizePageIndex(99999999), null);
+});
+
+await test('share.js: sliceBranch returns null for missing branch and cardInScope excludes post-fork parent cards', () => {
+  const conv = {
+    id: 'c1', title: 'Parent',
+    threads: {
+      main: { id: 'main', parent: null, title: 'Main' },
+      b1: { id: 'b1', parent: 'main', anchorMsg: 'm1', title: 'Branch 1' },
+    },
+    order: { main: ['m1', 'm2'], b1: ['m3'] },
+    msgs: {
+      m1: { id: 'm1', thread: 'main', role: 'assistant', content: 'Fork point' },
+      m2: { id: 'm2', thread: 'main', role: 'assistant', content: 'Private after fork' },
+      m3: { id: 'm3', thread: 'b1', role: 'assistant', content: 'Branch reply' },
+    },
+  };
+  assert.equal(sliceBranch(conv, 'nonexistent'), null);
+  const sliced = sliceBranch(conv, 'b1');
+  assert.ok(sliced && sliced.msgs.m1 && !sliced.msgs.m2 && sliced.msgs.m3);
+  assert.equal(cardInScope({ thread: 'main', at: { thread: 'main', msg: 'm1' } }, sliced), true);
+  assert.equal(cardInScope({ thread: 'main', at: { thread: 'main', msg: 'm2' } }, sliced), false);
+  assert.equal(cardInScope({ thread: 'main', quote: { msg: 'm2', text: 'Private after fork' } }, sliced), false);
+  assert.equal(cardInScope({ thread: 'b1', at: { thread: 'b1', msg: 'm3' } }, sliced), true);
+});
+
+await test('connectors.js: offlineCards delivers directly when localStorage quota throws and fails loudly if server is also down', async () => {
+  const prevLS = globalThis.localStorage;
+  globalThis.localStorage = {
+    getItem: () => null,
+    setItem: () => { throw new Error('QuotaExceededError'); },
+  };
+  try {
+    const sent = [];
+    const okStore = offlineCards({
+      list: async () => [],
+      put: async (id, card) => { sent.push({ id, card }); },
+      remove: async () => {},
+    });
+    await okStore.put('k1', { id: 'k1', front: 'Q', back: 'A' });
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].id, 'k1');
+    assert.equal(okStore.pending(), 0);
+
+    const failStore = offlineCards({
+      list: async () => [],
+      put: async () => { throw new Error('network down'); },
+      remove: async () => { throw new Error('network down'); },
+    });
+    await assert.rejects(() => failStore.put('k2', { id: 'k2', front: 'Q2', back: 'A2' }), /Could not save card/);
+    assert.equal(failStore.pending(), 1);
+    assert.equal(failStore.stuck, true);
+  } finally {
+    globalThis.localStorage = prevLS;
+  }
 });
 
 console.log(`\nall passed (${passed} tests)`);

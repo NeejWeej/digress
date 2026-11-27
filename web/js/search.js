@@ -41,7 +41,7 @@ export function createSearch() {
   const wiresSoon = (...a) => app.wiresSoon(...a);
   /* ---------- search: a per-conversation text index (kept separately, updated on save) + BM25 ranking ---------- */
 const KIND={ct:['Conversation',3],bt:['Branch',2.4],h:['Highlight',2.2],n:['Takeaway',2],q:['Question',1.6],a:['Answer',1],d:['Document',0.9]};
-const IDX={map:new Map(),loaded:false,loading:null,ms:null,dirty:true,dirtyIds:new Set(),indexedIds:new Map(),lastSig:new Map(),backfilling:false};
+const IDX={map:new Map(),loaded:false,loading:null,ms:null,dirty:true,dirtyIds:new Set(),indexedIds:new Map(),lastSig:new Map(),docSig:new Map(),backfilling:false};
 function idxTouch(id){if(id)IDX.dirtyIds.add(id);else IDX.dirty=true}
 let miniP=null;
 function loadMini(){if(!miniP)miniP=loadScript('https://cdn.jsdelivr.net/npm/minisearch@7.1.0/dist/umd/index.js').catch(e=>{miniP=null;throw e});return miniP}
@@ -54,21 +54,27 @@ function loadMini(){if(!miniP)miniP=loadScript('https://cdn.jsdelivr.net/npm/min
 const IDXV=2;   // passages, indexEntries, idxPages, sigOf live in ./text.js
 async function idxWrite(c,pages){
   if(!io.index)return;
-  if(!pages&&c.doc){
+  const serverSearch=!!(io.index&&io.index.search);
+  let keepDoc=false;
+  if(serverSearch&&c.doc){
+    if(pages){
+      const ds=pages.length+':'+(pages[0]||'').slice(0,80)+':'+pages.reduce((n,p)=>n+p.length,0);
+      if(IDX.docSig.get(c.id)===ds){keepDoc=true;pages=null}
+      else IDX.docSig.set(c.id,ds);
+    }else keepDoc=true;
+  }else if(!pages&&c.doc){
     let old=IDX.map.get(c.id);
-    if(!old&&io.index.search&&io.index.get){try{old=await io.index.get(c.id)}catch(_){}}
     if(old)pages=idxPages(old);
   }
-  const E=indexEntries(c,pages),sig=sigOf(E);
-  const serverSearch=!!(io.index&&io.index.search);
+  const E=indexEntries(c,pages),sig=(keepDoc?'K:':'')+sigOf(E);
   if(IDX.lastSig.get(c.id)===sig&&(serverSearch||(IDX.map.get(c.id)||{}).v===IDXV))return;
-  const d={id:c.id,v:IDXV,updated:c.updated||Date.now(),sig,e:E};
+  const d={id:c.id,v:IDXV,rev:c.rev||0,updated:c.updated||Date.now(),sig,e:E,...(keepDoc?{keepDoc:true}:{})};
   IDX.lastSig.set(c.id,sig);
   if(!serverSearch){IDX.map.set(c.id,d);idxTouch(c.id)}
   try{await io.index.put(c.id,d)}
-  catch(e){console.warn('index write failed',e);IDX.lastSig.delete(c.id)}
+  catch(e){console.warn('index write failed',e);IDX.lastSig.delete(c.id);if(!keepDoc)IDX.docSig.delete(c.id)}
 }
-async function idxDelete(id){IDX.map.delete(id);IDX.lastSig.delete(id);idxTouch(id);try{io.index&&await io.index.remove(id)}catch(e){}}
+async function idxDelete(id){IDX.map.delete(id);IDX.lastSig.delete(id);IDX.docSig.delete(id);idxTouch(id);try{io.index&&await io.index.remove(id)}catch(e){}}
 function idxLoadAll(){
   if(IDX.loaded)return Promise.resolve();
   if(!IDX.loading)IDX.loading=(async()=>{

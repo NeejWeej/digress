@@ -3,7 +3,7 @@ import { DAY, fsrsNext } from './fsrs.js';
 import { esc, trunc, plain, stripCiteQuotes } from './text.js';
 import {
   PUBLIC_DEMO_URL, FILE_MAX_DECODED, gunzipBytesCapped, encodeSharePayload, decodeSharePayload,
-  buildShareUrl, parseShareHash, shareSizeStatus, sliceBranch, remapConvIds,
+  buildShareUrl, parseShareHash, shareSizeStatus, sliceBranch, cardInScope, remapConvIds,
   normalizePageIndex, parseInlineImageDataUrl,
 } from './share.js';
 import { okOrThrow } from './connectors.js';
@@ -475,8 +475,14 @@ async function convFull(id){
 }
 // every image record in a conversation (pasted into questions, an article's pictures, clipped images): {asset|data, type, w, h}
 const imageRecs=(c)=>[...Object.values(c.msgs||{}).flatMap(m=>(m&&m.images)||[]),...Object.values((c.doc&&c.doc.images)||{}),...Object.values(c.threads||{}).map(t=>t&&t.anchorShot),...Object.values(c.threads||{}).flatMap(t=>(t&&t.anchorImages)||[])].filter(Boolean);
+function exportScope(raw,branch){
+  if(!branch||branch==='main')return raw;
+  const c=sliceBranch(raw,branch);
+  if(!c)throw new Error('That branch could not be found.');
+  return c;
+}
 async function digressFile(id,o={}){
-  const raw=await convFull(id),c=o.branch?sliceBranch(raw,o.branch):raw,files={},withImgs=o.images!==false;
+  const raw=await convFull(id),c=exportScope(raw,o.branch),files={},withImgs=o.images!==false;
   const grab=async(assetId,type)=>{if(!assetId||files[assetId])return;const buf=await io.files.fetch(assetId);files[assetId]={type:type||'application/octet-stream',data:await blobB64(new Blob([buf]))}};
   for(const k of ['trashed','archived','pinned','folder','dropCards','cards'])delete c[k];
   for(const t of Object.values(c.threads))delete t.pinned;
@@ -496,7 +502,7 @@ async function digressFile(id,o={}){
   let cards=[];
   if(o.cards){await loadCards();
     for(const k of app.CARDS.values()){if(k.conv!==id||k.fix)continue;
-      if(o.branch&&!c.threads[k.thread])continue;
+      if(o.branch&&!cardInScope(k,c))continue;
       const x={front:k.front,back:k.back,thread:k.thread,at:k.at,where:k.where,src:k.src,created:k.created};
       if(k.quote)x.quote=k.quote;if(withImgs&&k.image){x.image={...k.image};if(x.image.asset)await grab(x.image.asset,x.image.type).catch(()=>{delete x.image})}
       cards.push(x)}}
@@ -523,20 +529,20 @@ function convMarkdown(c){
   walk('main',0);
   return out.filter((l,i,a)=>!(l===''&&a[i-1]==='')).join('\n').trim()+'\n';
 }
-async function exportMarkdown(id,branch){const raw=await convFull(id),c=branch?sliceBranch(raw,branch):raw;saveFile(new Blob([convMarkdown(c)],{type:'text/markdown'}),fileSafe(c.title)+'.md')}
+async function exportMarkdown(id,branch){const raw=await convFull(id),c=exportScope(raw,branch);saveFile(new Blob([convMarkdown(c)],{type:'text/markdown'}),fileSafe(c.title)+'.md')}
 // Anki imports this as is (File → Import): front, back, the sentence it came from, and a tag for the conversation
 async function exportAnki(id,branch){
-  await loadCards();const raw=await convFull(id),c=branch?sliceBranch(raw,branch):raw;
-  const cards=[...app.CARDS.values()].filter(k=>k.conv===id&&k.status!=='inbox'&&(!branch||c.threads[k.thread]));
+  await loadCards();const raw=await convFull(id),c=exportScope(raw,branch);
+  const cards=[...app.CARDS.values()].filter(k=>k.conv===id&&k.status!=='inbox'&&(!branch||cardInScope(k,c)));
   const cell=(v)=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"',tag='digress::'+fileSafe(c.title).replace(/[\s:]+/g,'_');
   const lines=['#separator:comma','#html:false','#columns:Front,Back,Source,Tags','#tags column:4',...cards.map(k=>[k.front,k.back,k.quote?k.quote.text:'',tag].map(cell).join(','))];
   saveFile(new Blob([lines.join('\n')+'\n'],{type:'text/csv'}),fileSafe(c.title)+' (cards).csv');
 }
 async function openExport(id,branch){
   const m=state.convList.find(x=>x.id===id)||{};let nCards=0,hasDoc=!!m.doc,docName=m.docName||'',hasImgs=false,isPdf=false,scope=null,title=m.title||'this conversation';
-  try{const raw=await convFull(id);scope=branch?sliceBranch(raw,branch):raw;hasImgs=imageRecs(scope).length>0;hasDoc=!!scope.doc;docName=(scope.doc&&scope.doc.name)||docName;isPdf=!!(scope.doc&&scope.doc.kind==='pdf');if(branch&&scope.title)title=scope.title}catch(e){}
-  try{await loadCards();nCards=[...app.CARDS.values()].filter(k=>k.conv===id&&!k.fix&&(!branch||!scope||scope.threads[k.thread])).length}catch(e){}
-  const kept=[...app.CARDS.values()].filter(k=>k.conv===id&&k.status!=='inbox'&&(!branch||!scope||scope.threads[k.thread])).length;
+  try{const raw=await convFull(id);scope=exportScope(raw,branch);hasImgs=imageRecs(scope).length>0;hasDoc=!!scope.doc;docName=(scope.doc&&scope.doc.name)||docName;isPdf=!!(scope.doc&&scope.doc.kind==='pdf');if(branch&&scope.title)title=scope.title}catch(e){if(branch){toast(e.message||'That branch could not be found.');return}}
+  try{await loadCards();nCards=[...app.CARDS.values()].filter(k=>k.conv===id&&!k.fix&&(!branch||cardInScope(k,scope))).length}catch(e){}
+  const kept=[...app.CARDS.values()].filter(k=>k.conv===id&&k.status!=='inbox'&&(!branch||cardInScope(k,scope))).length;
   const curBase=location.origin+location.pathname,onPublic=curBase===PUBLIC_DEMO_URL;
   let linkUrl='',linkOk=false,linkSeq=0;
   askConfirm(`${branch?'Export branch':'Export'} “${trunc(title,60)}”`,`<div class="xopts">
