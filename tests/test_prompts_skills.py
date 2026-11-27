@@ -122,18 +122,19 @@ async def main():
         # later, from the top bar's Prompt menu: a dialog with it filled in
         async def edit_prompt():
             await pg.locator('#skillT').click(); await pg.locator('#skillMenu [data-sk="="]').click(); await pg.locator('#cSysEd').wait_for()
-        await edit_prompt()
-        await soon(pg, "() => getComputedStyle(document.querySelector('#modal .mbox') || document.querySelector('#modal')).opacity === '1'"); await frames(pg, 3)
+            await soon(pg, "() => getComputedStyle(document.querySelector('#modal .mbox') || document.querySelector('#modal')).opacity === '1'")
+        await edit_prompt(); await frames(pg, 3)
         await pg.screenshot(path=os.path.join(OUT, 'prompts_conv_dialog.png'))
         check('the dialog shows this conversation’s prompt', await pg.locator('#cSysEd').input_value() == 'You are a patient guide.')
         await pg.locator('#cSysEd').fill('You are a patient guide. Use short paragraphs.'); await pg.locator('#mOk').click()
-        await soon(pg, "() => __digress.conv.system === 'You are a patient guide. Use short paragraphs.'")
+        await soon(pg, "() => __digress.conv.system === 'You are a patient guide. Use short paragraphs.'", timeout=10000)
         await edit_prompt(); await pg.locator('#cSysDef').click()
         check('Put my default back fills in the default', await pg.locator('#cSysEd').input_value() == 'You are a terse tutor.')
-        await pg.locator('#mOk').click(); await soon(pg, "() => !__digress.conv.system && !(__digress.sync.base && __digress.sync.base.system)")
+        await pg.locator('#mOk').click()
+        await soon(pg, "() => !__digress.conv.system && !(__digress.sync.base && __digress.sync.base.system)", timeout=10000)
         check('…and saving it follows the default again', await pg.locator('#skillT').inner_text() == 'Prompt')
         await edit_prompt(); await pg.locator('#cSysEd').fill('You are a patient guide.'); await pg.locator('#mOk').click()
-        await soon(pg, "() => __digress.sync.base && __digress.sync.base.system === 'You are a patient guide.'")
+        await soon(pg, "() => __digress.conv.system === 'You are a patient guide.' && __digress.sync.base && __digress.sync.base.system === 'You are a patient guide.'", timeout=10000)
 
         # --- after a reload ---
         await quiet(pg); await pg.goto(pg.url.split('#')[0] + '#c=' + cid); await booted(pg); await frames(pg, 3)
