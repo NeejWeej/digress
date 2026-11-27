@@ -348,7 +348,13 @@ test('source lookup defaults across empty turns, resolves earlier origins, and r
     const {sourceLists:lists} = buildContext(env, tid, null, {captureSources:true});
     const ctx = buildContext(env, tid);
     assert.deepEqual(ctx.tools, ['list_sources']);
-    assert.ok(!JSON.stringify(ctx).includes('archive.example.org'));
+    // Changing every source title and URL must leave the visible request identical.
+    const alternate = structuredClone(conv);
+    for (const m of Object.values(alternate.msgs)) {
+      if (m.sources) m.sources = m.sources.map((_, i) => ({ title: 'Alternate ' + i, url: 'https://example.net/' + i }));
+    }
+    assert.deepEqual(buildContext(makeEnv({conv: alternate}), tid), ctx);
+    assert.equal(Object.hasOwn(ctx, 'sourceLists'), false);
     const first = JSON.parse(listSources(lists, { reply: 'S1' }).parts[0].text);
     assert.equal(first.question, 'How was the Larch study organized?');
     assert.equal(first.references.length, 8);
