@@ -194,14 +194,37 @@ async def main():
             check('_headers CSP removes unsafe-inline from script-src and uses sha256 hashes',
                   "'unsafe-inline'" not in script_src and "'sha256-" in script_src, script_src)
 
+            # Verify the built demo actually opens and renders its sample PDF with the generated _headers CSP enforced
+            csp_ctx = await b.new_context(viewport={'width': 1280, 'height': 860}, ignore_https_errors=True, service_workers='block')
+            csp_pg = await csp_ctx.new_page()
+            csp_errs = []; csp_pg.on('pageerror', lambda e: csp_errs.append(str(e)))
+            csp_pg.on('console', lambda m: csp_errs.append(m.text) if m.type == 'error' and 'Content Security Policy' in m.text else None)
+            import mimetypes
+            from common import BOOT_WATCH
+            csp_url = 'https://digress.test/digress/'
+            async def csp_route(r):
+                u = r.request.url.split('#')[0].split('?')[0]
+                if not u.startswith('http'): return await r.continue_()
+                if u.startswith(csp_url):
+                    f = os.path.join(site, u[len(csp_url):] or 'index.html')
+                    if os.path.isdir(f): f = os.path.join(f, 'index.html')
+                    if not os.path.isfile(f): return await r.fulfill(status=404, body='not found')
+                    ct = 'text/javascript; charset=utf-8' if f.endswith(('.js', '.mjs')) else (mimetypes.guess_type(f)[0] or 'application/octet-stream')
+                    return await r.fulfill(path=f, content_type=ct, headers={'Content-Security-Policy': csp_line})
+                return await r.abort()
+            await csp_pg.route('**/*', csp_route)
+            await csp_pg.goto(csp_url)
+            await csp_pg.locator('.dpage canvas').first.wait_for(state='visible', timeout=15000)
+            await csp_pg.locator('.dpage .textLayer span').first.wait_for(timeout=15000)
+            check('built demo renders its sample PDF under the generated _headers CSP', not csp_errs, csp_errs[:3])
+            await csp_ctx.close()
+
             # Lock/Forget during an in-flight Gemini tool-call run aborts it and sends zero further Gemini requests;
             # Unlock vs Forget race keeps tab disconnected, deletes record, and falls back to demo replies.
             # Served on https://digress.test/digress/ (Secure Context for Web Crypto) with in-page fetch stub for Gemini.
             lock_ctx = await b.new_context(viewport={'width': 1280, 'height': 860}, ignore_https_errors=True, service_workers='block')
             lock_pg = await lock_ctx.new_page()
             lock_errs = []; lock_pg.on('pageerror', lambda e: lock_errs.append(str(e)))
-            import mimetypes
-            from common import BOOT_WATCH
             sec_url = 'https://digress.test/digress/'
             async def sec_route(r):
                 u = r.request.url.split('#')[0].split('?')[0]
@@ -213,7 +236,7 @@ async def main():
                     if f.endswith('index.html'):
                         h = open(f, encoding='utf-8').read().replace('<script src="demo/demo.js"></script>', '<script src="demo/demo.js"></script><script>' + BOOT_WATCH + '</script>', 1)
                         return await r.fulfill(body=h, content_type='text/html; charset=utf-8')
-                    ct = 'text/javascript; charset=utf-8' if f.endswith('.js') else (mimetypes.guess_type(f)[0] or 'application/octet-stream')
+                    ct = 'text/javascript; charset=utf-8' if f.endswith(('.js', '.mjs')) else (mimetypes.guess_type(f)[0] or 'application/octet-stream')
                     return await r.fulfill(path=f, content_type=ct)
                 return await r.abort()
             await lock_pg.add_init_script("""(() => {

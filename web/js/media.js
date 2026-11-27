@@ -147,30 +147,41 @@ export async function storeImages(list) {
 }
 
 export const pendingImgs = new Map();
+const pendingKey = (tid, cid = state.conv && state.conv.id) => (cid && tid ? cid + '\0' + tid : null);
+
+export function getPending(tid, cid) {
+  const k = pendingKey(tid, cid);
+  return (k && pendingImgs.get(k)) || [];
+}
 
 export async function addPending(tid, files) {
+  const cid = state.conv && state.conv.id;
+  if (!cid) return;
+  const k = pendingKey(tid, cid);
   for (const f of files) {
     try {
       const im = await fileToImage(f);
       im.url = URL.createObjectURL(im.blob);
-      if (!pendingImgs.has(tid)) pendingImgs.set(tid, []);
-      pendingImgs.get(tid).push(im);
+      if (!pendingImgs.has(k)) pendingImgs.set(k, []);
+      pendingImgs.get(k).push(im);
     } catch (e) {
       app.toast('That image couldn’t be read.');
     }
   }
-  renderPending(tid);
+  if (state.conv && state.conv.id === cid) renderPending(tid);
 }
 
-export function takePending(tid) {
-  const l = pendingImgs.get(tid) || [];
-  pendingImgs.delete(tid);
-  renderPending(tid);
+export function takePending(tid, cid) {
+  const k = pendingKey(tid, cid);
+  const l = (k && pendingImgs.get(k)) || [];
+  if (k) pendingImgs.delete(k);
+  if (!cid || (state.conv && state.conv.id === cid)) renderPending(tid);
   return l;
 }
 
 export function renderPending(tid) {
-  const list = pendingImgs.get(tid) || [];
+  const cid = (state.conv && state.conv.id) || '';
+  const list = getPending(tid, cid);
   const hosts = [];
   const pe = paneEls.get(tid);
   if (pe && pe.querySelector('.composer')) hosts.push([pe.querySelector('.composer'), pe.querySelector('.cbox')]);
@@ -180,7 +191,7 @@ export function renderPending(tid) {
     let st = host.querySelector(':scope > .cimgs');
     if (!list.length) { if (st) st.remove(); continue; }
     if (!st) { st = document.createElement('div'); st.className = 'cimgs'; host.insertBefore(st, before); }
-    st.innerHTML = list.map((im, i) => `<span class="cimg"><img src="${im.url}" alt="Pasted image ${i + 1}"><button type="button" class="cix" data-unpaste="${i}" data-utid="${esc(tid)}" title="Remove this image">${ic('x')}</button></span>`).join('');
+    st.innerHTML = list.map((im, i) => `<span class="cimg"><img src="${im.url}" alt="Pasted image ${i + 1}"><button type="button" class="cix" data-unpaste="${i}" data-utid="${esc(tid)}" data-ucid="${esc(cid)}" title="Remove this image">${ic('x')}</button></span>`).join('');
   }
   app.updateComposer(tid);
 }
@@ -341,11 +352,13 @@ export function initMediaListeners() {
   document.addEventListener('click', (e) => {
     const u = e.target.closest && e.target.closest('[data-unpaste]');
     if (u) {
-      const l = pendingImgs.get(u.dataset.utid) || [];
+      const cid = u.dataset.ucid || (state.conv && state.conv.id);
+      const k = pendingKey(u.dataset.utid, cid);
+      const l = (k && pendingImgs.get(k)) || [];
       const [im] = l.splice(+u.dataset.unpaste, 1);
       if (im) URL.revokeObjectURL(im.url);
-      if (!l.length) pendingImgs.delete(u.dataset.utid);
-      renderPending(u.dataset.utid);
+      if (k && !l.length) pendingImgs.delete(k);
+      if (!cid || (state.conv && state.conv.id === cid)) renderPending(u.dataset.utid);
       return;
     }
     const z = e.target.closest && e.target.closest('[data-zoomref]');

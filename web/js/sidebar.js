@@ -273,7 +273,7 @@ async function refileFolder(from,to){const ids=allConvMeta().filter(c=>c.folder=
 function renameFolder(g){const name=g.dataset.folder,hd=g.querySelector('.fhd'),t=hd.querySelector('.t');
   const inp=document.createElement('input');inp.className='fren';inp.value=name;inp.setAttribute('aria-label','Folder name');t.replaceWith(inp);inp.focus();inp.select();
   convRenaming={later:false};let done=false;
-  const end=async(ok)=>{if(done)return;done=true;const later=convRenaming&&convRenaming.later;convRenaming=null;const to=cleanFolder(inp.value);
+  const end=async(ok)=>{if(done)return;done=true;convRenaming=null;const to=cleanFolder(inp.value);
     const into=sameFolder(to,name);   // renamed onto another folder's name, in any case: the two become one
     if(ok&&into&&into!==name){await refileFolder(name,into);setStatus(into===to?`Renamed to “${into}”`:`Joined “${into}”`)}convListSig='';renderConvList()};
   inp.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();end(true)}else if(e.key==='Escape'){e.preventDefault();end(false)}};
@@ -374,7 +374,7 @@ function renameInSide(row){
   t.contentEditable='plaintext-only';t.spellcheck=false;t.textContent=was;t.focus();document.getSelection().selectAllChildren(t);
   let done=false;
   const end=async keep=>{
-    if(done)return;done=true;const v=t.textContent.replace(/\s+/g,' ').trim().slice(0,200),later=convRenaming.later;
+    if(done)return;done=true;const v=t.textContent.replace(/\s+/g,' ').trim().slice(0,200);
     convRenaming=null;t.removeAttribute('contenteditable');row.classList.remove('renaming');
     if(keep&&v&&v!==was){
       if(state.conv&&state.conv.id===id){state.conv.title=v;state.conv.titleKept=true;delete state.conv.autoTitle;renderTitle();save()}

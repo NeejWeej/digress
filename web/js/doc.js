@@ -4,7 +4,7 @@ import { esc, trunc, pdfTitleOk, plain } from './text.js';
 import { textWalker, nonWs, flatLen, charPos } from './anchors.js';
 import {
   isDocBranch, isWholePage, docImgRefOf, pageText as pageTextOf,
-  docTooLong as docTooLongOf, toolsWantedOf, cardToolOf,
+  docTooLong as docTooLongOf,
 } from './context.js';
 import { normalizePageIndex } from './share.js';
 import {
@@ -160,9 +160,14 @@ function loadPdfLib(){
       try{libBlob=await fetchWithSri(libEntry[0],libEntry[1]);fromLocal=true}
       catch(_){libBlob=await fetchWithSri(libCdn,libEntry[1])}
     }else libBlob=await fetchWithSri(libCdn,'');
-    const u=URL.createObjectURL(new Blob([libBlob],{type:'text/javascript'}));
     let mod;
-    try{mod=await import(u)}finally{URL.revokeObjectURL(u)}
+    if(fromLocal&&libEntry){
+      // Import same-origin packaged module directly so strict CSP (script-src 'self') allows it.
+      mod=await import(new URL(libEntry[0],document.baseURI).href);
+    }else{
+      const u=URL.createObjectURL(new Blob([libBlob],{type:'text/javascript'}));
+      try{mod=await import(u)}finally{URL.revokeObjectURL(u)}
+    }
     if(workerEntry&&fromLocal){
       mod.GlobalWorkerOptions.workerSrc=new URL(workerEntry[0],document.baseURI).href;
     }else{
@@ -796,10 +801,6 @@ const docTooLong=()=>docTooLongOf(docState);
    passes each call here, because this page has the document open. Each returns {parts:[text|image]} or
    {error} (which the model gets as an error), and adds an entry to `trail`, shown under the reply. */
 const READ_MAX=8,READ_CHARS=60000;
-const toolsWanted=(o)=>toolsWantedOf(state.conv,io,o);
-// suggest_card is offered in every request of a conversation with flashcards on (replies, card drafts, takeaways
-// alike, so they keep sharing one prompt cache); only a reply runs it (suggestCard), side jobs refuse it below
-const cardTool=(o)=>cardToolOf(state.conv,io,o);
 // the search tool. A query is found word for word, ignoring case, accents (ä = a), ligatures (ﬁ), and the spaces,
 // line breaks, hyphens, dashes and quotes between letters, so "water-hero" finds "water- hero" split across a line;
 // a match starts at the start of a word. A query not found that way gets the passages closest to it instead, ranked

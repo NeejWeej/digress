@@ -74,10 +74,27 @@ export function offlineCards(base) {
     catch (e) { console.warn('local copy of cards not saved', e); return false; }
   };
   let memMap = rd(MK, {}), memQ = rd(QK, []);
+  const localOnly = new Map(); // ops that failed localStorage write (quota/unavailable)
   const readQ = () => {
     const stored = rd(QK, null);
-    if (Array.isArray(stored) && stored.length > memQ.length) memQ = stored;
+    if (Array.isArray(stored)) {
+      if (!localOnly.size) { memQ = stored; return memQ; }
+      const out = stored.slice();
+      for (const [id, op] of localOnly) {
+        const idx = out.findIndex((o) => o.id === id);
+        if (idx < 0) out.push(op);
+        else if ((op.at || 0) > (out[idx].at || 0)) out[idx] = op;
+      }
+      memQ = out;
+      return memQ;
+    }
     return memQ;
+  };
+  const withLock = (fn) => {
+    if (typeof navigator !== 'undefined' && navigator.locks && navigator.locks.request) {
+      return navigator.locks.request('digress:cards-outbox', fn);
+    }
+    return fn();
   };
   let flushing = null, retry = 0;
   const st = {
@@ -87,20 +104,28 @@ export function offlineCards(base) {
     pending: () => readQ().length,
     flush() {
       if (!flushing) {
-        flushing = (async () => {
+        flushing = withLock(async () => {
           for (let q = readQ(); q.length; q = readQ()) {
             const op = q[0];
             try {
               if (op.del) await base.remove(op.id);
               else await base.put(op.id, op.card);
             } catch (e) { return false; }
-            const now = readQ();
-            if (now.length && now[0].id === op.id && now[0].at === op.at) now.shift();
-            memQ = now;
-            wr(QK, memQ);
+            const lo = localOnly.get(op.id);
+            if (lo && ((op.opId && lo.opId === op.opId) || (!op.opId && lo.at === op.at))) localOnly.delete(op.id);
+            const now = rd(QK, null);
+            if (Array.isArray(now)) {
+              const idx = now.findIndex((o) => o.id === op.id && (op.opId ? o.opId === op.opId : o.at === op.at));
+              if (idx >= 0) now.splice(idx, 1);
+              wr(QK, now);
+            } else {
+              const idx = memQ.findIndex((o) => o.id === op.id && (op.opId ? o.opId === op.opId : o.at === op.at));
+              if (idx >= 0) memQ.splice(idx, 1);
+            }
+            memQ = readQ();
           }
           return true;
-        })().then((ok) => {
+        }).then((ok) => {
           const was = st.stuck;
           st.stuck = !ok;
           clearTimeout(retry);
@@ -113,8 +138,8 @@ export function offlineCards(base) {
       return flushing;
     },
     async list() {
-      const m0 = rd(MK, memMap);
-      if (Object.keys(m0).length) memMap = m0;
+      const m0 = rd(MK, null);
+      if (m0 && typeof m0 === 'object') memMap = m0;
       const local = () => Object.entries(memMap).map(([id, data]) => ({ id, data }));
       const remote = (async () => {
         if (!await st.flush()) throw new Error('offline');
@@ -128,21 +153,25 @@ export function offlineCards(base) {
       const slow = Object.keys(memMap).length ? new Promise((ok) => setTimeout(() => ok(null), 2500)) : null;
       try { return (await (slow ? Promise.race([remote, slow]) : remote)) || local(); } catch (e) { return local(); }
     },
-    async get(id) { return memMap[id] || rd(MK, {})[id] || null; },
+    async get(id) { const m0 = rd(MK, null); if (m0 && typeof m0 === 'object') return m0[id] || null; return memMap[id] || null; },
     async put(id, d) { memMap = { ...rd(MK, memMap), [id]: d }; wr(MK, memMap); await send({ id, card: d }); },
-    async update(id, p) { const cur = memMap[id] || rd(MK, {})[id]; if (!cur) return; const next = { ...cur, ...p }; await st.put(id, next); },
+    async update(id, p) { const cur = await st.get(id); if (!cur) return; const next = { ...cur, ...p }; await st.put(id, next); },
     async remove(id) { memMap = { ...rd(MK, memMap) }; delete memMap[id]; wr(MK, memMap); await send({ id, del: true }); },
   };
   async function send(op) {
     op.at = Date.now() + Math.random();
-    memQ = readQ().filter((o) => o.id !== op.id);
-    memQ.push(op);
-    const savedLocal = wr(QK, memQ);
+    op.opId = randId() + randId();
+    const next = readQ().filter((o) => o.id !== op.id);
+    next.push(op);
+    memQ = next;
+    const savedLocal = wr(QK, next);
     if (!savedLocal) {
+      localOnly.set(op.id, op);
       const ok = await st.flush();
       if (!ok) throw new Error('Could not save card: local storage is unavailable and the server could not be reached.');
       return;
     }
+    localOnly.delete(op.id);
     st.flush();
   }
   if (typeof addEventListener === 'function') addEventListener('online', () => st.flush());

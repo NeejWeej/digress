@@ -6,7 +6,7 @@ import {
   state, app, paneEls, gutEls, msgCache, streaming, $, ic, qid, T, color, ancestors, branchesOn, hiddenNow, shownOn, branchNum, isCollapsed,
   STARTERS, effortLabel, modelLabel, sysPrompt, quickList, resetThreadIdx,
 } from './state.js';
-import { imageURL, pendingImgs, takePending, userMsgBody, regionRef } from './media.js';
+import { imageURL, getPending, takePending, userMsgBody, regionRef } from './media.js';
 
 export function createPanes() {
   const applyAnchors = (...a) => app.applyAnchors(...a);
@@ -337,10 +337,10 @@ function rememberSpot(pe){
   setTimeout(()=>{pe.__jumping=false},900);
 }
 function autosize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,200)+'px'}
-function submit(tid){if(streaming.has(tid))return;const el=paneEls.get(tid);const ta=el.querySelector('textarea');const v=ta.value.trim();if(!v&&!(pendingImgs.get(tid)||[]).length)return;const imgs=takePending(tid);ta.value='';autosize(ta);send(tid,v,imgs)}
+function submit(tid){if(streaming.has(tid))return;const el=paneEls.get(tid);const ta=el.querySelector('textarea');const v=ta.value.trim();if(!v&&!getPending(tid).length)return;const imgs=takePending(tid);ta.value='';autosize(ta);send(tid,v,imgs)}
 function updateComposer(tid){
   const el=paneEls.get(tid);if(!el)return;const b=el.querySelector('.sendb');const s=streaming.has(tid);
-  b.innerHTML=s?ic('stop'):ic('send');b.title=s?'Stop':'Send';b.disabled=!s&&!el.querySelector('textarea').value.trim()&&!(pendingImgs.get(tid)||[]).length;
+  b.innerHTML=s?ic('stop'):ic('send');b.title=s?'Stop':'Send';b.disabled=!s&&!el.querySelector('textarea').value.trim()&&!getPending(tid).length;
 }
 function fitOrigin(pe){   // show the ⌄ when the origin line is cut off
   const ph=pe&&pe.querySelector(':scope>.ph'),o=ph&&ph.querySelector('.ph-origin');if(!o)return;
@@ -581,7 +581,7 @@ function layout(){
     seq.push(el);if(isNew)fresh.push(tid);else updateHeader(tid);
     if(i<ui.open.length-1||!rail){const g=gutEl(tid);g.classList.toggle('glast',i===ui.open.length-1);seq.push(g)}   // the last pane gets one too, so its size can be changed
   });
-  for(const [tid,g] of gutEls)if(!seq.includes(g))g.remove();
+  for(const [_tid,g] of gutEls)if(!seq.includes(g))g.remove();
   seq.forEach((n,i)=>{if(wrap.children[i]!==n)wrap.insertBefore(n,wrap.children[i]||null)});
   if(dEl&&dWas&&dWas!==wrap&&dEl.parentNode===wrap)putDocSpot(dSpot);   // back from the canvas's dock: moving it reset its scroll
   while(wrap.children.length>seq.length)wrap.lastChild.remove();

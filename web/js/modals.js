@@ -471,7 +471,7 @@ const fileSafe=(t)=>String(t||'').replace(/[\\/:*?"<>|\x00-\x1f]+/g,' ').replace
 async function convFull(id){
   if(state.conv&&state.conv.id===id)return contentOf(state.conv);
   const d=await io.store.get(id);if(!d)throw new Error('That conversation couldn’t be loaded.');
-  const {rev,ui,...rest}=d;return JSON.parse(JSON.stringify({...rest,id}));
+  const {rev:_rev,ui:_ui,...rest}=d;return JSON.parse(JSON.stringify({...rest,id}));
 }
 // every image record in a conversation (pasted into questions, an article's pictures, clipped images): {asset|data, type, w, h}
 const imageRecs=(c)=>[...Object.values(c.msgs||{}).flatMap(m=>(m&&m.images)||[]),...Object.values((c.doc&&c.doc.images)||{}),...Object.values(c.threads||{}).map(t=>t&&t.anchorShot),...Object.values(c.threads||{}).flatMap(t=>(t&&t.anchorImages)||[])].filter(Boolean);
