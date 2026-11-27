@@ -137,7 +137,7 @@ export const gutEls = new Map();
 export const streaming = new Map();
 export const unread = new Set();
 
-export const S = {
+export const state = {
   conv: null,
   convList: [],
   convListLoaded: false,
@@ -146,6 +146,7 @@ export const S = {
   popState: null,
   hitSticky: false,
   hitTimer: null,
+  dirty: false,
 };
 
 // Cross-module action registry: each subsystem attaches its public hooks here so modules
@@ -167,7 +168,7 @@ export function newConv() {
   };
 }
 
-export const T = (id) => S.conv.threads[id];
+export const T = (id) => state.conv.threads[id];
 export const color = (t) => (t && t.parent ? PALETTE[t.colorIdx % PALETTE.length] : 'var(--faint)');
 export function ancestors(tid) {
   const p = [];
@@ -185,7 +186,7 @@ export const EMPTY_ARR = Object.freeze([]);
 let _tidx = null, _tidxQueued = false;
 export function resetThreadIdx() { _tidx = null; }
 export function threadIdx() {
-  const conv = S.conv;
+  const conv = state.conv;
   if (_tidx && _tidx.conv === conv) return _tidx;
   const byParent = new Map(), byAnchor = new Map(), numOf = new Map();
   const all = Object.values(conv.threads).sort((a, b) => (a.created || 0) - (b.created || 0));
@@ -212,11 +213,11 @@ export function threadIdx() {
 export const children = (tid) => threadIdx().byParent.get(tid) || EMPTY_ARR;
 export const branchesOn = (mid) => threadIdx().byAnchor.get(mid) || EMPTY_ARR;
 export function hiddenNow(tid) {
-  if (S.conv.ui.showHidden) return false;
+  if (state.conv.ui.showHidden) return false;
   let t = T(tid);
   while (t) { if (t.hidden) return true; t = t.parent ? T(t.parent) : null; }
   return false;
 }
 export const shownOn = (mid) => branchesOn(mid).filter((t) => !t.alt && !hiddenNow(t.id));
 export const branchNum = (t) => threadIdx().numOf.get(t.id) || 0;
-export const isCollapsed = (tid) => S.conv.ui.collapsed.includes(tid);
+export const isCollapsed = (tid) => state.conv.ui.collapsed.includes(tid);

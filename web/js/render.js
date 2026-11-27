@@ -1,6 +1,6 @@
 // Markdown, MathJax, Mermaid, remote-content sanitization, diagram/image zoom, and code-copy rendering for Digress.
 import { esc } from './text.js';
-import { S, app, ic, rid, memoSet } from './state.js';
+import { state, app, ic, rid, memoSet } from './state.js';
 
 const MATHJAX_CDN = 'https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg-full.js';
 const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js';
@@ -43,7 +43,7 @@ export function createRenderer() {
 
   let mathLoadP = null;
   function loadMath() {
-    if (S.mathReady) return Promise.resolve();
+    if (state.mathReady) return Promise.resolve();
     if (window.MathJax && MathJax.tex2svg) {
       window.__mathReady && window.__mathReady();
       return Promise.resolve();
@@ -239,7 +239,7 @@ export function createRenderer() {
     html = html.replace(/@@M(\d+)@@/g, (_, i) => `<span class="math${maths[+i] && maths[+i].d ? ' display' : ''}" data-i="${i}"></span>`);
     el.innerHTML = html;
     if (!o.doc) el.querySelectorAll('img[data-rsrc]').forEach(remoteImg);
-    const mReady = S.mathReady;
+    const mReady = state.mathReady;
     if (maths.length && !mReady) loadMath();
     el.querySelectorAll('span.math').forEach((s) => {
       const m = maths[+s.dataset.i];
@@ -276,7 +276,7 @@ export function createRenderer() {
       }
     });
     el.querySelectorAll('a').forEach((a) => { a.target = '_blank'; a.rel = 'noopener'; });
-    if (!o.doc && !el.classList.contains('docbody')) app.linkPages(el, { doc: S.conv && S.conv.doc });
+    if (!o.doc && !el.classList.contains('docbody')) app.linkPages(el, { doc: state.conv && state.conv.doc });
   }
 
   function mermaidTheme() {

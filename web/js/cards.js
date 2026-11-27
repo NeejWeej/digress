@@ -3,21 +3,21 @@
 import { fsrsNext, ivlText } from './fsrs.js';
 import { esc, trunc, plain } from './text.js';
 import { isWholePage, shotRef, appendText } from './context.js';
-import { S, app, $, ic, io, paneEls, settings, T, color, isCollapsed, fullSys, rid } from './state.js';
+import { state, app, $, ic, io, paneEls, settings, T, color, isCollapsed, fullSys, rid } from './state.js';
 
 const reEsc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export const quoteWords = (q) => String(q || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
 export const quoteRe = (ws) => new RegExp('(?<![\\p{L}\\p{N}])' + ws.map(reEsc).join('[^\\p{L}\\p{N}]+') + '(?![\\p{L}\\p{N}])', 'u');
 
 export function createCards() {
-  const getConv = () => S.conv;
-  const getConvList = () => S.convList;
-  const getConvListLoaded = () => S.convListLoaded;
-  const getDocState = () => S.docState;
+  const getConv = () => state.conv;
+  const getConvList = () => state.convList;
+  const getConvListLoaded = () => state.convListLoaded;
+  const getDocState = () => state.docState;
   const getSettings = () => settings;
   const getRegions = () => app.REGIONS;
-  const setHitSticky = (v) => { S.hitSticky = v; };
-  const setHitTimer = (t) => { S.hitTimer = t; };
+  const setHitSticky = (v) => { state.hitSticky = v; };
+  const setHitTimer = (t) => { state.hitTimer = t; };
   const toast = (...a) => app.toast(...a);
   const renderRich = (...a) => app.renderRich(...a);
   const imageBlob = (...a) => app.imageBlob(...a);
