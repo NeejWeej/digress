@@ -4,6 +4,7 @@
 //
 //   node evals/prompt_eval.mjs --model gpt-6.2-astra            # HEAD's prompts vs the working copy's
 //   node evals/prompt_eval.mjs --model X --before main --only quick-fact,unseen-branch
+//   node evals/prompt_eval.mjs --activity --model gpt-6.2-sol  # compare activity omitted vs included in buildContext
 //   options: --base http://localhost:8788 (a running Digress server)  --before <git ref> (default HEAD)  --jobs 3
 //
 // Each case is sent as the page would send it with that version's web/prompts.js: the system prompt (system, plus
@@ -15,6 +16,8 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ACTIVITY_CASES, activityFixture } from './activity_cases.mjs';
+import { buildContext } from '../web/js/context.js';
 import { CASES } from './cases.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -24,9 +27,12 @@ const JOBS = Math.max(1, +arg('jobs', 3)), ONLY = arg('only') ? arg('only').spli
 if (!MODEL) { console.error('Give a model: --model <id> (see GET /api/models)'); process.exit(2); }
 
 const load = (src) => new Function(src + '\nreturn PROMPTS;')();
-const VERSIONS = {
+const activity = process.argv.includes('--activity');
+const current = load(readFileSync(join(ROOT, 'web/prompts.js'), 'utf8'));
+const threadOps = activity && new Function(readFileSync(join(ROOT, 'web/threads.js'), 'utf8') + '\nreturn ThreadOps;')();
+const VERSIONS = activity ? { before: current, after: current } : {
   before: load(execFileSync('git', ['show', `${BEFORE}:web/prompts.js`], { cwd: ROOT, encoding: 'utf8' })),
-  after: load(readFileSync(join(ROOT, 'web/prompts.js'), 'utf8')),
+  after: current,
 };
 
 function systemFor(P, c) {
@@ -56,15 +62,23 @@ async function ask(system, messages) {
   return end && end.error ? { error: end.error, text } : { text, model: end && end.model, usage: end && end.usage };
 }
 
-const cases = CASES.filter((c) => !ONLY || ONLY.includes(c.id));
+function requestFor(c, version, prompts) {
+  if (!activity) return { system: systemFor(prompts, c), messages: c.messages(prompts) };
+  const { conv, tid } = activityFixture(c, version === 'after');
+  return buildContext({ conv, prompts, threadOps, io: { llm: { supportsWeb: true } } }, tid);
+}
+
+const comparison = activity ? 'same builder, saved activity omitted / included' : `prompts at ${BEFORE} / working copy`;
+const cases = (activity ? ACTIVITY_CASES : CASES).filter((c) => !ONLY || ONLY.includes(c.id));
 const jobs = cases.flatMap((c) => Object.entries(VERSIONS).map(([v, P]) => ({ c, v, P })));
-console.log(`${jobs.length} requests to ${MODEL} via ${BASE} (real usage): ${cases.length} cases × before (${BEFORE}) / after (working copy)`);
+console.log(`${jobs.length} requests to ${MODEL} via ${BASE} (real usage): ${cases.length} cases × ${comparison}`);
 const out = {};
 let next = 0, done = 0;
 await Promise.all(Array.from({ length: JOBS }, async () => {
   while (next < jobs.length) {
     const { c, v, P } = jobs[next++];
-    const t0 = Date.now(), res = await ask(systemFor(P, c), c.messages(P));
+    const { system, messages } = requestFor(c, v, P);
+    const t0 = Date.now(), res = await ask(system, messages);
     (out[c.id] ||= {})[v] = { ...res, ms: Date.now() - t0 };
     console.log(`  ${++done}/${jobs.length} ${c.id} ${v}${res.error ? ' ERROR ' + res.error : ` ${res.text.length} chars`}`);
   }
@@ -74,7 +88,7 @@ const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const dir = join(ROOT, 'evals/out'); mkdirSync(dir, { recursive: true });
 const base = join(dir, `${stamp}-${MODEL}`);
 const quote = (s) => (s || '').split('\n').map((l) => '> ' + l).join('\n');
-let md = `# Prompt eval: ${MODEL}\n\nBefore: \`${BEFORE}\`'s web/prompts.js. After: the working copy. ${new Date().toISOString()}\n`;
+let md = `# Prompt eval: ${MODEL}\n\n${comparison}. ${new Date().toISOString()}\n`;
 for (const c of cases) {
   const r = out[c.id] || {};
   md += `\n---\n\n## ${c.id}\n\n**Look for:** ${c.look}\n`;
@@ -84,5 +98,5 @@ for (const c of cases) {
   }
 }
 writeFileSync(base + '.md', md);
-writeFileSync(base + '.json', JSON.stringify({ model: MODEL, before: BEFORE, cases: out }, null, 2));
+writeFileSync(base + '.json', JSON.stringify({ model: MODEL, ...(!activity && { before: BEFORE }), comparison, cases: out }, null, 2));
 console.log('\nWrote ' + base + '.md');

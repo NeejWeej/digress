@@ -61,3 +61,5 @@ node evals/prompt_eval.mjs --model claude-opus-5-5 --before main --only unseen-b
 ```
 
 It needs the Digress server running (`--base`, default `http://localhost:8788`) and uses your real model connection, so it costs real usage: the tests and CI never run it. Nothing is scored; each case says what to look for.
+
+Run `node evals/prompt_eval.mjs --activity --model gpt-6.2-sol` to compare follow-ups through the current production context builder with saved reply activity omitted and included. Both arms use the same prompts and fixtures. The document is unavailable and live tools are disabled. The deterministic context tests use the same conversations. See the [first paired run](../evals/results/reply-activity.md).

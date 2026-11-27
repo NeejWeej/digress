@@ -191,6 +191,10 @@ async def main():
         mt = await pg.evaluate("Object.keys(__digress.conv.threads).find(t=>t!=='main')")
         bta = pg.locator(f'.pane[data-tid="{mt}"] textarea')
         await ask('Branch question.', bta)
+        await pg.evaluate("""tid => {
+          const c = __digress.conv;
+          c.msgs[c.order[tid].at(-1)].reads = [{t: 'view', p: 47}];
+        }""", mt)
         async def view():
             await pg.locator('#skillT').click(); await pg.locator('#skillMenu [data-sk="?"]').click()
             await pg.locator('#modal .mview').wait_for(); await frames(pg)
@@ -204,6 +208,7 @@ async def main():
         check('from a branch: main question, main reply, then the branch question with its [Side question marker, then its reply',
               len(msgs) == 4 and msgs[0]['t'].startswith('1. User') and 'Main question.' in msgs[0]['x'] and msgs[1]['t'].startswith('2. Assistant') and msgs[1]['x'].startswith('Reply')
               and msgs[2]['t'].startswith('3. User') and msgs[2]['x'].startswith('[Side question') and 'Branch question.' in msgs[2]['x'] and msgs[3]['t'].startswith('4. Assistant'), [(p['t'], p['x'][:60]) for p in msgs])
+        check('branch preview includes its reply activity', 'viewed an image of p. 47' in msgs[-1]['x'])
         check('the note names the branch, not main', 'main thread' not in v['note'], v['note'])
         await pg.locator('#modal #mCancel').click(); await frames(pg)
         check('Close closes it', not await pg.locator('#modal .mview').is_visible())

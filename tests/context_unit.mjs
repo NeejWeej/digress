@@ -1,6 +1,7 @@
 // Direct Node unit tests for web/js/context.js against the real web/prompts.js and web/threads.js.
 // Focuses on high-value invariants: prompt-cache prefix stability, over-budget doc handling
 // (tools vs. page-picking), CLIP branch isolation, takeaways/images merging, and system/skill precedence.
+import { ACTIVITY_CASES, activityFixture } from '../evals/activity_cases.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -295,6 +296,37 @@ test('docPreamble strips query strings, fragments, and credentials from doc.sour
   const noTools = buildContext(env, 'main', null, { tools: false });
   assert.ok(noTools.system.includes('https://private.example/docs/report.pdf'));
   assert.ok(!noTools.system.includes('topsecret') && !noTools.system.includes('user:pass'));
+});
+
+for (const c of ACTIVITY_CASES) {
+  test('reply activity: ' + c.id, () => {
+    const { conv, tid } = activityFixture(c), original = structuredClone(conv);
+    const ctx = buildContext(makeEnv({ conv }), tid);
+    const baseline = buildContext(makeEnv({ conv: activityFixture(c, false).conv }), tid);
+    if (c.id === 'sibling-page') {
+      assert.deepEqual(ctx, baseline);
+      assert.ok(!JSON.stringify(ctx.messages).includes('47'));
+    } else {
+      const receipt = c.id === 'web-source' ? 'web search reported Larch pilot methods appendix — https://example.org/larch/appendix' : 'viewed an image of p. 47';
+      const reply = baseline.messages.find(m => m.content === conv.msgs.reply.content);
+      reply.content += '\n\n[Digress activity for this reply: ' + receipt + ']';
+      assert.deepEqual(ctx, baseline);
+    }
+    assert.deepEqual(buildContext(makeEnv({ conv }), tid), ctx);
+    assert.deepEqual(conv, original);
+  });
+}
+
+test('activity distinguishes retrieved text, requested pictures, and search hits; caps unique web references', () => {
+  const { conv, tid } = activityFixture(ACTIVITY_CASES[0]);
+  conv.doc.kind = 'text';
+  conv.msgs.reply.reads = [{ t: 'read', a: 2, b: 4 }, { t: 'view', part: true, p: 7 }, { t: 'search', pages: [99] }];
+  conv.msgs.reply.sources = [1, 1, 2, 3, 4, 5].map(n => ({ url: 'https://example.org/' + n }));
+  const { content } = buildContext(makeEnv({ conv }), tid).messages.at(-2);
+  assert.match(content, /read parts 2–4; requested pictures from part 7/);
+  assert.ok(!content.includes('99'));
+  assert.equal(content.match(/example.org/g).length, 4);
+  assert.match(content, /\(\+1 more\)/);
 });
 
 console.log(`\nall passed (${passed} tests)`);

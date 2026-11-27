@@ -172,6 +172,29 @@ export function docPreamble(env, tid, question, tools) {
   };
 }
 
+// Derive the receipt from saved activity only. Keep it on the reply's own branch.
+function replyActivity(m, doc, prompt) {
+  const actions = new Set();
+  for (const r of Array.isArray(m.reads) ? m.reads : []) {
+    if (r?.t === 'read' && Number.isSafeInteger(r.a) && r.a > 0 && Number.isSafeInteger(r.b) && r.b >= r.a) {
+      actions.add(prompt.read(doc?.kind === 'pdf', r.a, r.b));
+    } else if (r?.t === 'view' && Number.isSafeInteger(r.p) && r.p > 0) {
+      actions.add(prompt.view(r.p, r.part));
+    }
+  }
+  const urls = new Set(), sources = [];
+  for (const s of Array.isArray(m.sources) ? m.sources : []) {
+    if (typeof s?.url !== 'string' || !/^https?:\/\//i.test(s.url) || urls.has(s.url)) continue;
+    urls.add(s.url);
+    if (sources.length >= 4) continue;
+    const title = trunc(s.title, 80);
+    const ref = s.url.length <= 320 ? [title, s.url].filter(Boolean).join(' — ') : title || trunc(s.url, 80);
+    sources.push(ref);
+  }
+  if (sources.length) actions.add(prompt.sources(sources, urls.size - sources.length));
+  return actions.size ? prompt.note([...actions]) : '';
+}
+
 export function buildContext(env, tid, excludeMid, opts) {
   const { conv, docState, custom, prompts, threadOps, settings, io } = env;
   const tools = toolsWantedOf(conv, io, opts);   // the model can read the document itself (see runDocTool); opts.tools:false for side jobs like drafting cards
@@ -206,6 +229,7 @@ export function buildContext(env, tid, excludeMid, opts) {
       return;
     }
     if (m.role === 'assistant' && (!c || m.pending)) return;
+    if (m.role === 'assistant') c += replyActivity(m, conv.doc, prompts.activity);
     let parts = [{ type: 'text', text: c }];
     if (m.role === 'user') {
       if (m.images && m.images.length) parts = [...m.images.map((ref, k) => ({ type: 'image', ref, label: `image ${k + 1} attached to “${trunc(c || 'a message', 40)}”` })), ...(c ? parts : [])];
