@@ -31,12 +31,12 @@ if (!MODEL) { console.error('Give a model: --model <id> (see GET /api/models)');
 const load = (src) => new Function(src + '\nreturn PROMPTS;')();
 const sourceEval = process.argv.includes('--sources');
 const activity = sourceEval || process.argv.includes('--activity');
-const inlineRef = arg('before', '1e0acd8');
-const oldFile = name => execFileSync('git', ['show', inlineRef + ':' + name], { cwd: ROOT, encoding: 'utf8' });
-let inlineBuilder;
+const baselineRef = arg('before', '1e0acd8');
+const oldFile = name => execFileSync('git', ['show', baselineRef + ':' + name], { cwd: ROOT, encoding: 'utf8' });
+let baselineBuilder;
 if (sourceEval) {
   const src = oldFile('web/js/context.js').replace("'./text.js'", JSON.stringify(new URL('../web/js/text.js', import.meta.url).href));
-  inlineBuilder = (await import('data:text/javascript;base64,' + Buffer.from(src).toString('base64'))).buildContext;
+  baselineBuilder = (await import('data:text/javascript;base64,' + Buffer.from(src).toString('base64'))).buildContext;
 }
 const current = load(readFileSync(join(ROOT, 'web/prompts.js'), 'utf8'));
 const threadOps = activity && new Function(readFileSync(join(ROOT, 'web/threads.js'), 'utf8') + '\nreturn ThreadOps;')();
@@ -85,7 +85,7 @@ async function ask({system, messages, tools, sourceLists = []}) {
 function requestFor(c, version, prompts) {
   if (sourceEval) {
     const {conv, tid} = sourceFixture(c);
-    const builder = version === 'before' ? inlineBuilder : buildContext;
+    const builder = version === 'before' ? baselineBuilder : buildContext;
     return builder({conv, prompts, threadOps, io:{llm:{supportsWeb:true,supportsTools:true}}}, tid, null, {captureSources:true});
   }
   if (!activity) return { system: systemFor(prompts, c), messages: c.messages(prompts) };
@@ -93,7 +93,7 @@ function requestFor(c, version, prompts) {
   return buildContext({ conv, prompts, threadOps, io: { llm: { supportsWeb:true, supportsTools:true } } }, tid, null, {captureSources:true});
 }
 
-const comparison = sourceEval ? 'inline references at ' + inlineRef + ' / source lookup in working copy' : activity ? 'same builder, saved activity omitted / included' : `prompts at ${BEFORE} / working copy`;
+const comparison = sourceEval ? 'context builder at ' + baselineRef + ' / source lookup in working copy' : activity ? 'same builder, saved activity omitted / included' : `prompts at ${BEFORE} / working copy`;
 const cases = (sourceEval ? SOURCE_CASES : activity ? ACTIVITY_CASES : CASES).filter((c) => !ONLY || ONLY.includes(c.id));
 const jobs = cases.flatMap((c) => Object.entries(VERSIONS).map(([v, P]) => ({ c, v, P })));
 console.log(`${jobs.length} requests to ${MODEL} via ${BASE} (real usage): ${cases.length} cases × ${comparison}`);

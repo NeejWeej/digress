@@ -19,6 +19,23 @@ Two earlier five-case development runs also selected the correct list and avoide
 
 Reproduce the source comparison with `node evals/prompt_eval.mjs --sources --model gpt-6.2-sol`. Reproduce the independent five-case activity regression with `PYTHON=.venv/bin/python node evals/prompt_eval.mjs --activity --model gpt-6.2-sol`. In that regression, the annotated visual follow-up called only `view_page(47)` and read **40**. The arm without the annotation opened three pages. With the PDF unavailable, both declined to invent the endpoint.
 
+## Comparison with main before inline references
+
+On 2026-11-27 at 23:25 UTC, the remote main branch pointed to `e14bee482fe3f926b8cc67f2897c191d31c19ed5`. We ran the same six histories with that commit’s actual builder and prompts versus the lookup implementation at `a980e12`. The thread walker and text helper were identical at both revisions. Both arms used the local server, web search off and one fresh response per case from `gpt-6.2-sol`. [Raw answers, tool calls and usage](source-lookup-main.json)
+
+| Follow-up | Main | Lookup | Provider rounds, main → lookup |
+|---|---|---|---|
+| Uncited appendix after intervening turns | Asked for more information | Returned the correct Larch URL using S1 | 1 → 2 |
+| First of two studies | Identified Larch but lacked the URL | Selected S1 and returned the Larch URL | 1 → 2 |
+| Explicitly cited appendix | Repeated the URL | Repeated the URL | 1 → 1 |
+| Sibling-only appendix | Acknowledged missing context | Acknowledged missing context | 1 → 1 |
+| Unrelated question after eight links | Answered directly | Answered directly | 1 → 1 |
+| Unrelated question after twenty long links | Answered directly | Answered directly | 1 → 1 |
+
+For the twenty-link control, the two paired experiments give **5,350 input tokens on main, 6,341 inline, and 5,439 with lookup**. Both lookup runs measured 5,439. All three took one provider round, so the input counts are directly comparable here. Lookup added 89 tokens over main to make the references accessible and saved 902 compared with carrying the list inline. For the two questions that actually needed an uncited URL, main acknowledged the missing information, inline answered immediately, and lookup needed a second provider round.
+
+Reproduce this baseline with `node evals/prompt_eval.mjs --sources --before e14bee482fe3f926b8cc67f2897c191d31c19ed5 --model gpt-6.2-sol`.
+
 ## Recorded source comparison
 
 ### source-earlier
