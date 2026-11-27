@@ -278,7 +278,7 @@ function docPaneEl(){
     // re-fit after the resize settles, but only if the same PDF is still open in this pane
     // (switching to another document inside the 250 ms used to rebuild the old one from the new state)
     const ds=docState;
-    clearTimeout(docView.resizeT);docView.resizeT=setTimeout(async()=>{if(docState!==ds||!ds.pdf||paneEls.get('doc')!==el||!el.isConnected)return;const cur=docView.current,sp=docSpotNow();await buildPdfPages(el,el.querySelector('.docwrap'));if(!putDocSpot(sp))scrollDocToPage(cur,false)},250);
+    clearTimeout(docView.resizeT);docView.resizeT=setTimeout(async()=>{if(docState!==ds||!ds.pdf||paneEls.get('doc')!==el||!el.isConnected)return;if(pb.clientWidth<100||(!docView.stale&&Math.abs(pb.clientWidth-docView.width)<40))return;const cur=docView.current,sp=docSpotNow();await buildPdfPages(el,el.querySelector('.docwrap'));if(!putDocSpot(sp))scrollDocToPage(cur,false)},250);
   });
   docView.ro.observe(pb);
   paneEls.set('doc',el);app.originRO.observe(el);return el;
@@ -345,6 +345,7 @@ function buildPdfPages(el,wrap){
     // never at the width of a pane that's hidden or being moved (0: the pages came out at the 260px minimum and, with
     // the width noted as 0, were never redrawn): put it off, and the resize watcher redraws once it has a real width
     if(pb.clientWidth<100){docView.stale=true;return}
+    docView.width=pb.clientWidth;docView.stale=false;
     const v1=(await pdf.getPage(1)).getViewport({scale:1});
     if(docState!==st)return;
     if(pb.clientWidth<100){docView.stale=true;return}   // (hidden while the page was fetched)
