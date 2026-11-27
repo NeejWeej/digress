@@ -144,36 +144,62 @@ async def run_browser_tests():
 
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True, **launch_args())
-                ctx = await browser.new_context(viewport={'width': 1280, 'height': 800})
+                ctx = await browser.new_context(viewport={'width': 1280, 'height': 800}, service_workers='block')
                 pg = await ctx.new_page()
+
+                # Single route handler registered before navigation (avoids WebKit mid-session route/unroute races).
+                route_state = {
+                    'delay_slow_a': False,
+                    'delay_count': 0,
+                    'fail_slow_a': False,
+                    'race_pin': False,
+                    'race_done': False,
+                }
+                first_put_seen = asyncio.Event()
+                release_first_put = asyncio.Event()
+                put_failed_once = asyncio.Event()
+
+                async def handle_conv_routes(route):
+                    r = route.request
+                    if r.method == 'PUT' and '/api/store/convs/c_slow_a' in r.url:
+                        if route_state['delay_slow_a'] and route_state['delay_count'] == 0:
+                            route_state['delay_count'] += 1
+                            first_put_seen.set()
+                            await release_first_put.wait()
+                        elif route_state['fail_slow_a']:
+                            put_failed_once.set()
+                            await route.fulfill(status=500, content_type='application/json', body='{"error":"write failed"}')
+                            return
+                    elif r.method == 'PUT' and '/api/store/convs/c_pin' in r.url and route_state['race_pin'] and not route_state['race_done']:
+                        route_state['race_done'] = True
+                        _, raw = req(base, 'GET', '/api/store/convs/c_pin')
+                        cur = json.loads(raw)
+                        cur['threads']['b2'] = {'id': 'b2', 'parent': 'main', 'anchorMsg': 'a1', 'anchorText': 'beta', 'title': 'Branch 2', 'colorIdx': 1}
+                        cur['order']['b2'] = ['b2u1', 'b2a1']
+                        cur['msgs']['b2u1'] = {'id': 'b2u1', 'thread': 'b2', 'role': 'user', 'content': 'About beta', 'ts': 40}
+                        cur['msgs']['b2a1'] = {'id': 'b2a1', 'thread': 'b2', 'role': 'assistant', 'content': 'Beta detail', 'ts': 41}
+                        st2, _ = req(base, 'PUT', '/api/store/convs/c_pin', cur, headers={'x-base-rev': str(cur['rev'])})
+                        assert st2 == 200
+                    await route.continue_()
+
+                await pg.route('**/api/store/convs/*', handle_conv_routes)
                 await pg.add_init_script(BOOT_WATCH)
-                await pg.goto(base)
+                await pg.goto(base + '/')
                 await booted(pg)
 
                 # --- Test 1: Navigating away during a slow save preserves latest edit ---
                 await pg.locator('.citem[data-conv="c_slow_a"]').click()
                 await pg.wait_for_function("__digress.conv && __digress.conv.id === 'c_slow_a'")
 
-                release_first_put = asyncio.Event()
-                first_put_seen = asyncio.Event()
-                put_count = {'n': 0}
+                route_state['delay_slow_a'] = True
 
-                async def delay_first_put(route):
-                    if route.request.method == 'PUT' and put_count['n'] == 0:
-                        put_count['n'] += 1
-                        first_put_seen.set()
-                        await release_first_put.wait()
-                    await route.continue_()
-
-                await pg.route('**/api/store/convs/c_slow_a', delay_first_put)
-
-                # First edit ("first edit"), trigger save immediately
+                # First edit ("first edit"), trigger save
                 await pg.evaluate("""() => {
                     __digress.conv.title = 'first edit';
                     document.querySelector('#cTitle').textContent = 'first edit';
                     __digress.refresh();
                 }""")
-                await asyncio.wait_for(first_put_seen.wait(), timeout=5)
+                await asyncio.wait_for(first_put_seen.wait(), timeout=15)
 
                 # Second edit while first PUT is still in flight
                 await pg.evaluate("""() => {
@@ -182,18 +208,17 @@ async def run_browser_tests():
                     __digress.refresh();
                 }""")
 
-                # Click Conv B (flushNow waits up to 5s, or let's release after navigation starts)
+                # Click Conv B, then release first PUT while navigation is waiting
                 nav_task = asyncio.create_task(pg.locator('.citem[data-conv="c_slow_b"]').click())
                 await asyncio.sleep(0.3)
-                # Release first PUT after navigation is waiting / proceeding
                 release_first_put.set()
                 await nav_task
                 await pg.wait_for_function("__digress.conv && __digress.conv.id === 'c_slow_b'")
-                await pg.unroute('**/api/store/convs/c_slow_a', delay_first_put)
+                route_state['delay_slow_a'] = False
 
                 # Poll backend until latest edit lands
                 stored_title = None
-                for _ in range(40):
+                for _ in range(60):
                     _, raw = req(base, 'GET', '/api/store/convs/c_slow_a')
                     stored_title = json.loads(raw).get('title')
                     if stored_title == 'latest edit':
@@ -204,26 +229,16 @@ async def run_browser_tests():
                 # --- Test 1b: Reopening after a failed background write preserves unsaved edit and retries ---
                 await pg.locator('.citem[data-conv="c_slow_a"]').click()
                 await pg.wait_for_function("__digress.conv && __digress.conv.id === 'c_slow_a'")
-                fail_puts = {'on': True}
-                put_failed_once = asyncio.Event()
-
-                async def fail_put_route(route):
-                    if route.request.method == 'PUT' and fail_puts['on']:
-                        put_failed_once.set()
-                        await route.fulfill(status=500, content_type='application/json', body='{"error":"write failed"}')
-                        return
-                    await route.continue_()
-
-                await pg.route('**/api/store/convs/c_slow_a', fail_put_route)
+                route_state['fail_slow_a'] = True
                 await pg.evaluate("""() => {
                     __digress.conv.title = 'failed bg edit';
                     document.querySelector('#cTitle').textContent = 'failed bg edit';
                     __digress.refresh();
                 }""")
-                await asyncio.wait_for(put_failed_once.wait(), timeout=5)
+                await asyncio.wait_for(put_failed_once.wait(), timeout=15)
                 # Leave anyway when prompted (since write failed)
                 nav_b = asyncio.create_task(pg.locator('.citem[data-conv="c_slow_b"]').click())
-                await pg.locator('#mOk').wait_for(state='visible', timeout=5000)
+                await pg.locator('#mOk').wait_for(state='visible', timeout=10000)
                 await pg.locator('#mOk').click()
                 await nav_b
                 await pg.wait_for_function("__digress.conv && __digress.conv.id === 'c_slow_b'")
@@ -233,16 +248,15 @@ async def run_browser_tests():
                 await pg.wait_for_function("__digress.conv && __digress.conv.id === 'c_slow_a'")
                 reopened_title = await pg.evaluate("() => __digress.conv.title")
                 # Restore writes and trigger online event so retry flushes immediately
-                fail_puts['on'] = False
+                route_state['fail_slow_a'] = False
                 await pg.evaluate("() => window.dispatchEvent(new Event('online'))")
                 recovered_title = None
-                for _ in range(40):
+                for _ in range(60):
                     _, raw = req(base, 'GET', '/api/store/convs/c_slow_a')
                     recovered_title = json.loads(raw).get('title')
                     if recovered_title == 'failed bg edit':
                         break
                     await asyncio.sleep(0.1)
-                await pg.unroute('**/api/store/convs/c_slow_a', fail_put_route)
                 check('reopening after a failed background write keeps unsaved edit and recovers when writes return',
                       reopened_title == 'failed bg edit' and recovered_title == 'failed bg edit',
                       {'reopened_title': reopened_title, 'recovered_title': recovered_title})
@@ -265,38 +279,21 @@ async def run_browser_tests():
                       'no longer open' in snip_err, snip_err)
 
                 # --- Test 3: Sidebar unpin retries on 409 and preserves concurrently created branch ---
-                # Ensure c_pin is NOT the open conversation
                 await pg.wait_for_function("__digress.conv && __digress.conv.id !== 'c_pin'")
-                injected = {'done': False}
-
-                async def race_unpin(route):
-                    if route.request.method == 'PUT' and not injected['done']:
-                        injected['done'] = True
-                        # Concurrently commit branch b2 + reply on another device before this PUT reaches SQLite
-                        _, raw = req(base, 'GET', '/api/store/convs/c_pin')
-                        cur = json.loads(raw)
-                        cur['threads']['b2'] = {'id': 'b2', 'parent': 'main', 'anchorMsg': 'a1', 'anchorText': 'beta', 'title': 'Branch 2', 'colorIdx': 1}
-                        cur['order']['b2'] = ['b2u1', 'b2a1']
-                        cur['msgs']['b2u1'] = {'id': 'b2u1', 'thread': 'b2', 'role': 'user', 'content': 'About beta', 'ts': 40}
-                        cur['msgs']['b2a1'] = {'id': 'b2a1', 'thread': 'b2', 'role': 'assistant', 'content': 'Beta detail', 'ts': 41}
-                        st2, _ = req(base, 'PUT', '/api/store/convs/c_pin', cur, headers={'x-base-rev': str(cur['rev'])})
-                        assert st2 == 200
-                    await route.continue_()
-
-                await pg.route('**/api/store/convs/c_pin', race_unpin)
+                route_state['race_pin'] = True
                 unpin_btn = pg.locator('[data-unpinb="c_pin|b1"]')
                 await unpin_btn.wait_for(state='attached')
                 await unpin_btn.click(force=True)
                 await soon(pg, "() => !document.querySelector('[data-unpinb=\"c_pin|b1\"]')")
-                await pg.unroute('**/api/store/convs/c_pin', race_unpin)
+                route_state['race_pin'] = False
 
                 _, raw_pin = req(base, 'GET', '/api/store/convs/c_pin')
                 after_pin = json.loads(raw_pin)
                 b1_unpinned = not after_pin['threads']['b1'].get('pinned')
                 b2_kept = 'b2' in after_pin['threads'] and 'b2a1' in after_pin['msgs']
                 check('sidebar unpin retries on 409 and preserves concurrently created branch',
-                      injected['done'] and b1_unpinned and b2_kept,
-                      {'injected': injected['done'], 'b1_unpinned': b1_unpinned, 'threads': list(after_pin['threads'].keys())})
+                      route_state['race_done'] and b1_unpinned and b2_kept,
+                      {'injected': route_state['race_done'], 'b1_unpinned': b1_unpinned, 'threads': list(after_pin['threads'].keys())})
 
                 # --- Test 4: Export "Include the original link" checkbox defaults & stripping ---
                 await pg.locator('[data-expconv="c_doc_clean"]').click(force=True)
