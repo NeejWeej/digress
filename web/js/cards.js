@@ -250,13 +250,15 @@ export function createCards() {
         return;
       }
     }
-    const conv = getConv(), t = T(tid);
-    if (!t) return;
+    const conv = getConv(), t = c0.threads[tid];
+    if (conv !== c0 || !t) return;
+    const model = modelFor(tid, c0);
     await docReady();
+    if (getConv() !== c0 || !c0.threads[tid]) return;
     const ctxObj = buildContext(tid), seen = lastReply(tid);
-    const have = [...CARDS.values()].filter((c) => c.conv === conv.id).map((c) => '- ' + c.front.replace(/\s+/g, ' ').slice(0, 160)).slice(-80);
-    const ord = conv.order[tid] || [], from = o.since ? ord.indexOf(o.since) : -1;
-    const nextQ = from >= 0 ? ord.slice(from + 1).map((id) => conv.msgs[id]).find((m) => m && m.role === 'user') : null;
+    const have = [...CARDS.values()].filter((c) => c.conv === c0.id).map((c) => '- ' + c.front.replace(/\s+/g, ' ').slice(0, 160)).slice(-80);
+    const ord = c0.order[tid] || [], from = o.since ? ord.indexOf(o.since) : -1;
+    const nextQ = from >= 0 ? ord.slice(from + 1).map((id) => c0.msgs[id]).find((m) => m && m.role === 'user') : null;
     const ask = PROMPTS.cardsAsk({
       what: o.takeaway ? 'takeaway' : tid === 'main' ? 'main' : 'branch',
       about: t.anchorText ? trunc(t.regionText || t.anchorText, 120) : '',
@@ -270,14 +272,16 @@ export function createCards() {
     if (last && last.role === 'user') appendText(last, '\n\n' + ask);
     else msgs.push({ role: 'user', content: ask });
     if (!io.llm) await io.ready;
+    if (getConv() !== c0 || !c0.threads[tid]) return;
     const rc = await resolveContext(ctxObj, !!io.llm.supportsImages);
+    if (getConv() !== c0 || !c0.threads[tid]) return;
     const r = await io.llm.complete({
       system: rc.system,
       messages: rc.messages,
-      model: modelFor(tid),
+      model,
       effort: 'low',
       web: false,
-      tools: ctxObj.tools ? { names: ctxObj.tools, run: (n, i) => runDocTool(n, i, []) } : undefined,
+      tools: ctxObj.tools ? { names: ctxObj.tools, run: (n, i) => runDocTool(n, i, [], c0.id) } : undefined,
     });
     let list = [];
     try {
@@ -286,7 +290,7 @@ export function createCards() {
     } catch (e) { throw new Error('the model’s reply wasn’t a list of cards'); }
     list = (Array.isArray(list) ? list : []).filter((x) => x && typeof x.front === 'string' && typeof x.back === 'string' && x.front.trim()).slice(0, 6);
     for (const x of list) {
-      const q = typeof x.quote === 'string' && findQuote(x.quote, o.note ? [o.note] : conv.order[tid] || []);
+      const q = typeof x.quote === 'string' && getConv() === c0 && findQuote(x.quote, o.note ? [o.note] : c0.order[tid] || []);
       x.q = q || null;
     }
     let image = null;
@@ -608,15 +612,26 @@ export function createCards() {
     if (!io.llm) await io.ready;
     const conv = getConv(), settings = getSettings();
     const ask = PROMPTS.cardFix({ front: c.front, back: c.back, quote: c.quote && c.quote.text, note: c.fix.note, tags: c.fix.tags || [] });
-    let req, mine = conv && conv.id === c.conv && T(c.thread), src = null;
+    let req, mine = !!(conv && conv.id === c.conv && T(c.thread)), src = null;
+    let model = mine ? modelFor(c.thread, conv) : settings.model;
     if (mine) {
       await docReady();
-      const ctxObj = buildContext(c.thread), msgs = ctxObj.messages, last = msgs[msgs.length - 1];
-      if (last && last.role === 'user') appendText(last, '\n\n' + ask); else msgs.push({ role: 'user', content: ask });
-      const rc = await resolveContext(ctxObj, !!io.llm.supportsImages);
-      req = { system: rc.system, messages: rc.messages, tools: ctxObj.tools ? { names: ctxObj.tools, run: (n, i) => runDocTool(n, i, []) } : undefined };
-    } else {
+      if (getConv() !== conv || !conv.threads[c.thread]) {
+        mine = false;
+      } else {
+        const ctxObj = buildContext(c.thread), msgs = ctxObj.messages, last = msgs[msgs.length - 1];
+        if (last && last.role === 'user') appendText(last, '\n\n' + ask); else msgs.push({ role: 'user', content: ask });
+        const rc = await resolveContext(ctxObj, !!io.llm.supportsImages);
+        if (getConv() !== conv || !conv.threads[c.thread]) {
+          mine = false;
+        } else {
+          req = { system: rc.system, messages: rc.messages, tools: ctxObj.tools ? { names: ctxObj.tools, run: (n, i) => runDocTool(n, i, [], conv.id) } : undefined };
+        }
+      }
+    }
+    if (!mine) {
       src = await io.store.get(c.conv).catch(() => null);
+      model = src ? modelFor(c.thread, src) : settings.model;
       const lines = [];
       if (src && src.threads && src.threads[c.thread]) {
         ThreadOps.walk(src, c.thread, (m) => {
@@ -627,7 +642,7 @@ export function createCards() {
       const text = lines.join('\n\n').slice(-60000);
       req = { system: fullSys(src), messages: [{ role: 'user', content: (text ? PROMPTS.cardFixSource(text) + '\n\n' : '') + ask }] };
     }
-    const r = await io.llm.complete({ ...req, model: mine ? modelFor(c.thread) : settings.model, effort: 'low', web: false });
+    const r = await io.llm.complete({ ...req, model, effort: 'low', web: false });
     let o;
     try { const a = r.text.indexOf('{'), b = r.text.lastIndexOf('}'); o = JSON.parse(r.text.slice(a, b + 1)); } catch (e) { throw new Error('the model’s reply wasn’t a fix'); }
     const verdict = ['rewrite', 'split', 'delete', 'right'].includes(o && o.verdict) ? o.verdict : null;
@@ -635,7 +650,7 @@ export function createCards() {
     let cards = (Array.isArray(o.cards) ? o.cards : []).filter((x) => x && typeof x.front === 'string' && typeof x.back === 'string' && x.front.trim()).slice(0, verdict === 'split' ? 2 : 1);
     if ((verdict === 'rewrite' || verdict === 'split') && !cards.length) throw new Error('the model’s fix had no card in it');
     cards = cards.map((x) => {
-      const q = mine && typeof x.quote === 'string' ? findQuote(x.quote, conv.order[c.thread] || []) : null;
+      const q = mine && getConv() === conv && typeof x.quote === 'string' ? findQuote(x.quote, conv.order[c.thread] || []) : null;
       return { front: x.front.trim(), back: x.back.trim(), ...(q ? { quote: q } : {}) };
     });
     return { verdict, why: typeof o.why === 'string' ? o.why.trim().slice(0, 600) : '', change: o.change === 'answer' ? 'answer' : 'wording', cards };

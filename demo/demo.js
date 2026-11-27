@@ -75,6 +75,38 @@
   }
   const publicMeta = ({ _refs, ...m }) => m;
   const putConv = (id, c) => kv.batch((s) => { s.put(c, 'convs/' + id); s.put(convSummary(id, c), 'meta/convs/' + id); });
+  const txConvWrite = async (id, fn) => {
+    const d = await db();
+    return new Promise((ok, no) => {
+      const t = d.transaction('kv', 'readwrite'), s = t.objectStore('kv');
+      let out;
+      const gr = s.get('convs/' + id);
+      gr.onsuccess = () => {
+        out = fn(gr.result || null);
+        if (out && out.write) {
+          s.put(out.write, 'convs/' + id);
+          s.put(convSummary(id, out.write), 'meta/convs/' + id);
+        }
+      };
+      t.oncomplete = () => ok(out);
+      t.onerror = t.onabort = () => no(t.error || new Error('the demo’s storage refused it'));
+    });
+  };
+  const txDocPatch = async (k, patch) => {
+    const d = await db();
+    return new Promise((ok, no) => {
+      const t = d.transaction('kv', 'readwrite'), s = t.objectStore('kv');
+      let found = false;
+      const gr = s.get(k);
+      gr.onsuccess = () => {
+        if (!gr.result) return;
+        found = true;
+        s.put({ ...gr.result, ...patch }, k);
+      };
+      t.oncomplete = () => ok(found);
+      t.onerror = t.onabort = () => no(t.error || new Error('the demo’s storage refused it'));
+    });
+  };
   const delConv = (id) => kv.batch((s) => { s.delete('convs/' + id); s.delete('meta/convs/' + id); s.delete('layout/' + id); s.delete('index/' + id); });
   const putFile = (id, rec) => kv.batch((s) => { s.put(rec, 'file/' + id); s.put({ type: rec.type, at: rec.at || 0 }, 'meta/file/' + id); });
   const delFile = (id) => kv.batch((s) => { s.delete('file/' + id); s.delete('meta/file/' + id); });
@@ -671,20 +703,34 @@
         const rows = await kv.list(coll + '/');
         return json(rows.map(([i, data]) => ({ id: i, data })));
       }
-      const cur = await kv.get(k);
-      if (method === 'GET') return cur ? json(url.searchParams.has('rev') ? { rev: cur.rev || 0 } : cur) : json({ error: 'Not found' }, 404);
+      if (method === 'GET') {
+        const cur = await kv.get(k);
+        return cur ? json(url.searchParams.has('rev') ? { rev: cur.rev || 0 } : cur) : json({ error: 'Not found' }, 404);
+      }
       if (method === 'PUT') {
-        if (coll !== 'convs') { await kv.put(k, await body()); return json({ ok: true }); }
+        const d = await body();
+        if (coll !== 'convs') { await kv.put(k, d); return json({ ok: true }); }
         const base = new Headers(init.headers || {}).get('x-base-rev');   // versions, as the real server
-        if (base !== null && !cur && Number(base) > 0) return json({ error: 'deleted' }, 410);
-        if (base !== null && cur && (cur.rev || 0) !== Number(base)) return json({ error: 'Changed elsewhere', current: cur }, 409);
-        const d = await body(); d.rev = (cur ? cur.rev || 0 : 0) + 1; await putConv(id, d); return json({ ok: true, rev: d.rev });
+        const res = await txConvWrite(id, (cur) => {
+          if (base !== null && !cur && Number(base) > 0) return { status: 410, body: { error: 'deleted' } };
+          if (base !== null && cur && (cur.rev || 0) !== Number(base)) return { status: 409, body: { error: 'Changed elsewhere', current: cur } };
+          d.rev = (cur ? cur.rev || 0 : 0) + 1;
+          return { write: d, status: 200, body: { ok: true, rev: d.rev } };
+        });
+        return json(res.body, res.status);
       }
       if (method === 'PATCH') {
-        if (!cur) return json({ error: 'Not found' }, 404);
-        const next = { ...cur, ...(await body()) };
-        if (coll === 'convs') await putConv(id, next); else await kv.put(k, next);
-        return json({ ok: true });
+        const patch = await body();
+        if (coll !== 'convs') {
+          const ok = await txDocPatch(k, patch);
+          return ok ? json({ ok: true }) : json({ error: 'Not found' }, 404);
+        }
+        const res = await txConvWrite(id, (cur) => {
+          if (!cur) return { status: 404, body: { error: 'Not found' } };
+          const next = { ...cur, ...patch, rev: (cur.rev || 0) + 1 };
+          return { write: next, status: 200, body: { ok: true, rev: next.rev } };
+        });
+        return json(res.body, res.status);
       }
       if (method === 'DELETE') {
         if (coll === 'convs') { await delConv(id); await sweepFiles(); } else await kv.del(k);

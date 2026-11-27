@@ -873,9 +873,12 @@ function nearPassages(st,fold,q,N){
     out.push({page:w.page,text:st.pages[w.page-1].slice(w.i,w.e),has:[...new Set(w.has.flatMap(h=>[...h]))].slice(0,8)})}
   return out;
 }
-async function runDocTool(name,input,trail){
+async function runDocTool(name,input,trail,expectedConvId){
   if(name==='suggest_card')return {error:'Not in this request: it is a task with its own instructions (drafting flashcards or writing a takeaway). Do what it asks instead.'};
   const st=docState;
+  if(expectedConvId&&(!state.conv||state.conv.id!==expectedConvId||!st||st.key!==expectedConvId)){
+    return {error:'The reader switched to another conversation, so this document is no longer open.'};
+  }
   if(!st||!st.loaded)return {error:'The document isn’t loaded in the reader’s browser right now, so it can’t be read. Tell the reader.'};
   const P=st.pages,N=P.length,pdf=st.kind==='pdf',one=pdf?'p.':'part',many=pdf?'pages':'parts';
   const num=(v)=>typeof v==='number'?v:typeof v==='string'&&/^\s*\d+\s*$/.test(v)?+v:NaN;

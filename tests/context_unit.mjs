@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import {
   DOC_FIRST, DOC_TOOL_NAMES,
-  fullSysOf, buildContext, joinParts, appendText,
+  fullSysOf, buildContext, joinParts, appendText, safeDocSource,
 } from '../web/js/context.js';
 
 // Load real web/prompts.js and web/threads.js (classic browser globals) into a sandboxed VM.
@@ -270,6 +270,31 @@ test('system prompt & skills precedence: conv.system > custom > default, howDigr
   assert.ok(s2.startsWith('Conversation-specific tutor.'));
   assert.ok(!s2.includes('Custom default tutor.'));
   assert.ok(s2.includes(PROMPTS.howDigress));
+});
+
+test('docPreamble strips query strings, fragments, and credentials from doc.source', () => {
+  assert.equal(safeDocSource('https://user:pass@private.example/docs/report.pdf?X-Amz-Signature=secret#page=2'), 'https://private.example/docs/report.pdf');
+  assert.equal(safeDocSource('https://arxiv.org/pdf/2401.12345.pdf'), 'https://arxiv.org/pdf/2401.12345.pdf');
+  assert.equal(safeDocSource('javascript:alert(1)'), '');
+
+  const env = makeEnv({
+    conv: {
+      id: 'c_sec',
+      title: 'Signed doc',
+      doc: { name: 'report.pdf', kind: 'pdf', source: 'https://user:pass@private.example/docs/report.pdf?token=topsecret#frag' },
+      threads: { main: { id: 'main', parent: null, title: 'Main' } },
+      order: { main: ['m1'] },
+      msgs: { m1: { id: 'm1', thread: 'main', role: 'user', content: 'Summarize.' } },
+    },
+    docState: { loaded: true, kind: 'pdf', name: 'report.pdf', pages: ['Page 1 content.'] },
+  });
+  const withTools = buildContext(env, 'main');
+  assert.ok(withTools.system.includes('https://private.example/docs/report.pdf'));
+  assert.ok(!withTools.system.includes('topsecret') && !withTools.system.includes('user:pass'));
+
+  const noTools = buildContext(env, 'main', null, { tools: false });
+  assert.ok(noTools.system.includes('https://private.example/docs/report.pdf'));
+  assert.ok(!noTools.system.includes('topsecret') && !noTools.system.includes('user:pass'));
 });
 
 console.log(`\nall passed (${passed} tests)`);

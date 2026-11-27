@@ -496,7 +496,7 @@ async function digressFile(id,o={}){
         delete c.doc.assetId;
       }else if(c.doc.assetId)await grab(c.doc.assetId,c.doc.kind==='pdf'?'application/pdf':'text/markdown');
       if(!withImgs)delete c.doc.images;
-    }else{delete c.doc.assetId;delete c.doc.text;delete c.doc.images;c.doc.left=true}
+    }else{delete c.doc.assetId;delete c.doc.text;delete c.doc.images;c.doc.left=true;if(!o.docSource)delete c.doc.source}
   }
   if(withImgs)for(const im of imageRecs(c))if(im.asset)await grab(im.asset,im.type).catch(e=>{console.warn('image left out',e);delete im.asset});
   let cards=[];
@@ -538,19 +538,27 @@ async function exportAnki(id,branch){
   const lines=['#separator:comma','#html:false','#columns:Front,Back,Source,Tags','#tags column:4',...cards.map(k=>[k.front,k.back,k.quote?k.quote.text:'',tag].map(cell).join(','))];
   saveFile(new Blob([lines.join('\n')+'\n'],{type:'text/csv'}),fileSafe(c.title)+' (cards).csv');
 }
+function isQueryFreeUrl(src){
+  if(typeof src!=='string'||!/^https?:\/\//i.test(src))return false;
+  try{const u=new URL(src);return !u.search&&!u.hash&&!u.username&&!u.password}catch(_){return false}
+}
 async function openExport(id,branch){
-  const m=state.convList.find(x=>x.id===id)||{};let nCards=0,hasDoc=!!m.doc,docName=m.docName||'',hasImgs=false,isPdf=false,scope=null,title=m.title||'this conversation';
-  try{const raw=await convFull(id);scope=exportScope(raw,branch);hasImgs=imageRecs(scope).length>0;hasDoc=!!scope.doc;docName=(scope.doc&&scope.doc.name)||docName;isPdf=!!(scope.doc&&scope.doc.kind==='pdf');if(branch&&scope.title)title=scope.title}catch(e){if(branch){toast(e.message||'That branch could not be found.');return}}
+  const m=state.convList.find(x=>x.id===id)||{};let nCards=0,hasDoc=!!m.doc,docName=m.docName||'',docSource='',hasImgs=false,isPdf=false,scope=null,title=m.title||'this conversation';
+  try{const raw=await convFull(id);scope=exportScope(raw,branch);hasImgs=imageRecs(scope).length>0;hasDoc=!!scope.doc;docName=(scope.doc&&scope.doc.name)||docName;docSource=(scope.doc&&typeof scope.doc.source==='string'&&/^https?:\/\//i.test(scope.doc.source))?scope.doc.source:'';isPdf=!!(scope.doc&&scope.doc.kind==='pdf');if(branch&&scope.title)title=scope.title}catch(e){if(branch){toast(e.message||'That branch could not be found.');return}}
   try{await loadCards();nCards=[...app.CARDS.values()].filter(k=>k.conv===id&&!k.fix&&(!branch||cardInScope(k,scope))).length}catch(e){}
   const kept=[...app.CARDS.values()].filter(k=>k.conv===id&&k.status!=='inbox'&&(!branch||cardInScope(k,scope))).length;
   const curBase=location.origin+location.pathname,onPublic=curBase===PUBLIC_DEMO_URL;
+  const defaultDocSrc=isQueryFreeUrl(docSource);
+  let docSrcHost='';try{docSrcHost=docSource?new URL(docSource).hostname:''}catch(_){}
+  const srcNote=defaultDocSrc?`${esc(docSrcHost||docSource)}. Lets whoever opens it download their own copy.`:`${esc(docSrcHost||docSource)} — this URL has query parameters or credentials that may grant private access.`;
   let linkUrl='',linkOk=false,linkSeq=0;
   askConfirm(`${branch?'Export branch':'Export'} “${trunc(title,60)}”`,`<div class="xopts">
     <label class="xopt"><input type="radio" name="xfmt" value="digress" checked><span><span><b>Digress file</b> <i class="xext">.digress</i></span><small>${branch?'This branch (its path and any sub-branches). Open it in your Digress, or someone else’s, to read it and carry on.':'Everything: every branch, highlight and takeaway. Open it in your Digress, or someone else’s, to read it and carry on.'}</small></span></label>
-    <div class="xsub" id="xFileSub">${hasDoc?`<label><input type="checkbox" id="xDoc"><span>Include the document <small>${esc(trunc(docName||'the document',50))}. Without it, whoever opens the file attaches their own copy.</small></span></label>`:''}${nCards?`<label><input type="checkbox" id="xCards"><span>Include ${nCards>1?`the ${nCards} flashcards`:'its flashcard'} <small>They arrive in the inbox, without your review history.</small></span></label>`:''}</div>
+    <div class="xsub" id="xFileSub">${hasDoc?`<label><input type="checkbox" id="xDoc"><span>Include the document <small>${esc(trunc(docName||'the document',50))}. Without it, whoever opens the file attaches their own copy.</small></span></label>`:''}${hasDoc&&docSource?`<label id="xDocSrcRow"><input type="checkbox" id="xDocSrc"${defaultDocSrc?' checked':''}><span>Include the original link <small>${srcNote}</small></span></label>`:''}${nCards?`<label><input type="checkbox" id="xCards"><span>Include ${nCards>1?`the ${nCards} flashcards`:'its flashcard'} <small>They arrive in the inbox, without your review history.</small></span></label>`:''}</div>
     <label class="xopt"><input type="radio" name="xfmt" value="link"><span><span><b>Shareable link</b> <i class="xext">#share=…</i></span><small>Paste in a message to share with one click. The conversation lives in the URL’s <code>#</code> fragment, which browsers never send to any server.</small></span></label>
     <div class="xsub off" id="xLinkSub">
       ${hasDoc?`<label><input type="checkbox" id="xLDoc"><span>Include the document <small>${esc(trunc(docName||'the document',50))}${isPdf?' (PDFs are usually too large for a link)':''}. Without it, whoever opens the link attaches their own copy.</small></span></label>`:''}
+      ${hasDoc&&docSource?`<label id="xLDocSrcRow"><input type="checkbox" id="xLDocSrc"${defaultDocSrc?' checked':''}><span>Include the original link <small>${srcNote}</small></span></label>`:''}
       ${hasImgs?`<label><input type="checkbox" id="xLImg"><span>Include images <small>Pasted screenshots and snips make links much longer.</small></span></label>`:''}
       ${nCards?`<label><input type="checkbox" id="xLCards"><span>Include ${nCards>1?`the ${nCards} flashcards`:'its flashcard'} <small>They arrive in the inbox, without your review history.</small></span></label>`:''}
       ${onPublic?'':`<label><input type="checkbox" id="xLPub"><span>Use public Digress link <small>Links to <code>digress.neejweej.workers.dev</code> instead of this address, so someone outside your network can open it.</small></span></label>`}
@@ -567,19 +575,23 @@ async function openExport(id,branch){
         if(!linkUrl||!linkOk)throw new Error('This conversation is too large for a shareable link. Export it as a .digress file instead.');
         const p=copyText(linkUrl);await p;setStatus('Link copied');toast('Share link copied. Nothing was uploaded.');
       }else{
-        const doc=!!($('#xDoc')||{}).checked,cards=!!($('#xCards')||{}).checked;
-        await exportDigress(id,{doc,cards,branch});setStatus('Exported');
+        const doc=!!($('#xDoc')||{}).checked,docSource=!!($('#xDocSrc')||{}).checked,cards=!!($('#xCards')||{}).checked;
+        await exportDigress(id,{doc,docSource,cards,branch});setStatus('Exported');
       }
     }catch(e){console.warn(e);toast('Couldn’t export it: '+((e&&e.message)||'error'))}},{ok:'Export',kind:'primary',wide:true});
   const fileSub=$('#xFileSub'),linkSub=$('#xLinkSub'),sizeEl=$('#xLSize'),okBtn=$('#mOk');
+  const syncDocSrcRows=()=>{
+    const fd=$('#xDoc'),fs=$('#xDocSrcRow');if(fs)fs.style.display=fd&&fd.checked?'none':'';
+    const ld=$('#xLDoc'),ls=$('#xLDocSrcRow');if(ls)ls.style.display=ld&&ld.checked?'none':'';
+  };
   const estimateLink=async()=>{
     const seq=++linkSeq;linkUrl='';linkOk=false;
     if(sizeEl){sizeEl.className='xsize';sizeEl.textContent='Estimating link size…'}
     if(okBtn)okBtn.disabled=true;
     try{
-      const doc=!!($('#xLDoc')||{}).checked,images=!!($('#xLImg')||{}).checked,cards=!!($('#xLCards')||{}).checked;
+      const doc=!!($('#xLDoc')||{}).checked,docSource=!!($('#xLDocSrc')||{}).checked,images=!!($('#xLImg')||{}).checked,cards=!!($('#xLCards')||{}).checked;
       const pub=!!($('#xLPub')||{}).checked;
-      const {file}=await digressFile(id,{doc,images,cards,branch,inlineText:true});
+      const {file}=await digressFile(id,{doc,docSource,images,cards,branch,inlineText:true});
       const {token}=await encodeSharePayload(file);
       if(seq!==linkSeq)return;
       const url=buildShareUrl(token,pub?PUBLIC_DEMO_URL:curBase);
@@ -596,11 +608,14 @@ async function openExport(id,branch){
     const v=(document.querySelector('[name=xfmt]:checked')||{}).value;
     if(fileSub)fileSub.classList.toggle('off',v!=='digress');
     if(linkSub)linkSub.classList.toggle('off',v!=='link');
+    syncDocSrcRows();
     if(okBtn){okBtn.textContent=v==='link'?'Copy link':'Export';okBtn.disabled=v==='link'&&!linkOk}
     if(v==='link')estimateLink();
   };
   document.querySelectorAll('#mBody [name=xfmt]').forEach(r=>r.addEventListener('change',syncFmt));
-  if(linkSub)linkSub.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.addEventListener('change',()=>{if(document.querySelector('[name=xfmt]:checked')?.value==='link')estimateLink()}));
+  if(fileSub)fileSub.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.addEventListener('change',syncDocSrcRows));
+  if(linkSub)linkSub.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.addEventListener('change',()=>{syncDocSrcRows();if(document.querySelector('[name=xfmt]:checked')?.value==='link')estimateLink()}));
+  syncDocSrcRows();
 }
 // --- import ---
 function fresh(c){

@@ -95,18 +95,27 @@ export function branchParts(env, t, tools) {
   return [{ type: 'text', text: branchPrefix(conv, t, prompts) }];
 }
 
+export function safeDocSource(src) {
+  if (typeof src !== 'string' || !src.trim()) return '';
+  try {
+    const u = new URL(src);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    return u.origin + (u.pathname && u.pathname !== '/' ? u.pathname : '');
+  } catch { return ''; }
+}
+
 export function docPreamble(env, tid, question, tools) {
   const { conv, docState, docView, prompts, budget = DOC_BUDGET } = env;
   if (!conv || !conv.doc) return { text: '', docSeen: null };
   if (!docState || !docState.loaded) return { text: prompts.doc.notLoaded(conv.doc.name), docSeen: null };
   const P = docState.pages, pdf = docState.kind === 'pdf', label = i => pdf ? `p. ${i + 1}` : `part ${i + 1}`;
-  const D = prompts.doc, cite = D.cite(pdf), unit = pdf ? 'pages' : 'parts';
+  const D = prompts.doc, cite = D.cite(pdf), unit = pdf ? 'pages' : 'parts', srcLabel = safeDocSource(conv.doc.source);
   if (tools) {
     // With the document tools the model reads what it needs itself. What it starts with is fixed for the
     // whole conversation (the same text every question, so every thread shares one prompt cache): all of
     // it when it fits; otherwise the table of contents and the first pages. Branches about a passage add
     // the pages around it to their own first message (branchParts), where they stay for the whole branch.
-    const head = D.head(docState.name, P.length, unit, conv.doc.source);
+    const head = D.head(docState.name, P.length, unit, srcLabel);
     const look = pdf ? D.lookPdf : conv.doc.article ? D.lookArticle : '';
     if (!docTooLong(docState, budget)) {
       return {
@@ -159,7 +168,7 @@ export function docPreamble(env, tid, question, tools) {
   const cut = partial ? D.cut({ n: pick.size, of: P.length, unit, missing: missing.map(span).join(', '), one: pdf ? 'page' : 'part' }) : '';
   return {
     docSeen,
-    text: `${D.head(docState.name, P.length, unit, conv.doc.source)}${D.textOnly}${cut} ${cite}${D.noVisuals}\n<document>\n${out.join('\n\n')}\n</document>`,
+    text: `${D.head(docState.name, P.length, unit, srcLabel)}${D.textOnly}${cut} ${cite}${D.noVisuals}\n<document>\n${out.join('\n\n')}\n</document>`,
   };
 }
 

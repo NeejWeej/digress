@@ -33,11 +33,19 @@ function waitTabReady(tabId) {
   });
 }
 
+function matchesDigressUrl(tabUrl, digressUrl) {
+  if (!tabUrl || !digressUrl) return false;
+  let target, actual;
+  try { target = new URL(digressUrl); actual = new URL(tabUrl); } catch (_) { return false; }
+  if (actual.origin !== target.origin) return false;
+  const basePath = target.pathname.replace(/\/+$/, '');
+  if (!basePath) return true;
+  return actual.pathname === basePath || actual.pathname.startsWith(basePath + '/');
+}
+
 async function findDigressTab(digressUrl) {
-  let origin;
-  try { origin = new URL(digressUrl).origin; } catch (_) { return null; }
   const tabs = await chrome.tabs.query({});
-  return tabs.find((t) => t.url && t.url.startsWith(origin)) || null;
+  return tabs.find((t) => matchesDigressUrl(t.url, digressUrl)) || null;
 }
 
 async function ensureDigressTab(digressUrl, focus) {
@@ -52,10 +60,22 @@ async function ensureDigressTab(digressUrl, focus) {
   return tab;
 }
 
-async function sendToDigressTab(tabId, msg) {
+async function sendToDigressTab(tabId, msg, expectedDigressUrl) {
+  if (expectedDigressUrl) {
+    const cur = await chrome.tabs.get(tabId);
+    if (!cur || !matchesDigressUrl(cur.url, expectedDigressUrl)) {
+      throw new Error('Digress tab navigated away.');
+    }
+  }
   try {
     return await chrome.tabs.sendMessage(tabId, msg);
   } catch (_) {
+    if (expectedDigressUrl) {
+      const cur = await chrome.tabs.get(tabId);
+      if (!cur || !matchesDigressUrl(cur.url, expectedDigressUrl)) {
+        throw new Error('Digress tab navigated away.');
+      }
+    }
     await chrome.scripting.executeScript({ target: { tabId }, files: ['bridge.js'] });
     return await chrome.tabs.sendMessage(tabId, msg);
   }
@@ -200,7 +220,7 @@ async function deliverToDigress(payload, overrideRule, sourceTabId) {
   let res;
   try {
     const tab = await ensureDigressTab(cfg.digressUrl, focus);
-    res = await sendToDigressTab(tab.id, { type: 'deliverClip', payload: full });
+    res = await sendToDigressTab(tab.id, { type: 'deliverClip', payload: full }, cfg.digressUrl);
   } catch (e) {
     res = { ok: false, error: String((e && e.message) || e || 'Could not reach Digress') };
   }
@@ -318,7 +338,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const url = msg.digressUrl || cfg.digressUrl;
       const tab = await findDigressTab(url);
       if (!tab) return { ok: false, connected: false, error: 'No Digress tab open' };
-      const res = await sendToDigressTab(tab.id, { type: 'queryDigress', convId: msg.convId || '' });
+      const res = await sendToDigressTab(tab.id, { type: 'queryDigress', convId: msg.convId || '' }, url);
       return { connected: !!(res && res.ok), ...res };
     })().then(sendResponse, (e) => sendResponse({ ok: false, connected: false, error: String((e && e.message) || e) }));
     return true;
@@ -342,7 +362,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const cfg = await getSettings();
       const tab = await ensureDigressTab(cfg.digressUrl, true);
       if (msg.convId || msg.threadId) {
-        await sendToDigressTab(tab.id, { type: 'focusClip', convId: msg.convId || '', threadId: msg.threadId || '' }).catch(() => {});
+        await sendToDigressTab(tab.id, { type: 'focusClip', convId: msg.convId || '', threadId: msg.threadId || '' }, cfg.digressUrl).catch(() => {});
       }
       return { ok: true };
     })().then(sendResponse, (e) => sendResponse({ ok: false, error: String(e) }));

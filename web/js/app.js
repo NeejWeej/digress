@@ -33,12 +33,12 @@ Object.defineProperties(state, {
   convList: { get: () => convList, set: (v) => { convList = v; }, enumerable: true, configurable: true },
   mathReady: { get: () => mathReady, set: (v) => { mathReady = v; }, enumerable: true, configurable: true },
   popState: { get: () => popState, set: (v) => { popState = v; }, enumerable: true, configurable: true },
-  dirty: { get: () => dirty, set: (v) => { dirty = v; }, enumerable: true, configurable: true },
+  dirty: { get: () => { const j = conv && saveJobs.get(conv.id); return !!(j && j.dirty); }, set: (v) => { const j = activeJob(); if (j) j.dirty = !!v; }, enumerable: true, configurable: true },
   cvTook: { get: () => cvTook, set: (v) => { cvTook = v; }, enumerable: true, configurable: true },
   modalOk: { get: () => modalOk, set: (v) => { modalOk = v; }, enumerable: true, configurable: true },
 });
 window.__digressBusy = () => streaming.size > 0; // read by the server's dev live-reload, so it never reloads mid-reply
-window.__digress = { get conv() { return conv; }, get sync() { return sync; }, deleteConv: (id) => deleteConv(id), refresh: () => refreshAll(), get convList() { return convList; }, get keys() { return KEYS; }, get custom() { return CUSTOM; }, skillLink: (u) => skillLink(u), putSkill: (t, o) => putSkill(t, o), get cards() { return CARDS; }, runDocTool: (n, i, t) => runDocTool(n, i, t), get docState() { return state.docState; }, set docState(v) { DOC_MOD.docState = v; }, get docView() { return docView; }, linkPages: (r, o) => linkPages(r, o), renderRich: (el, md, f, o) => renderRich(el, md, f, o), plain, convMarkdown: (c) => convMarkdown(c), ingestClip: (p) => ingestClip(p) };   // for tests and the console
+window.__digress = { get conv() { return conv; }, get sync() { return (conv && saveJobs.get(conv.id)) || emptySync; }, deleteConv: (id) => deleteConv(id), refresh: () => refreshAll(), get convList() { return convList; }, get keys() { return KEYS; }, get custom() { return CUSTOM; }, skillLink: (u) => skillLink(u), putSkill: (t, o) => putSkill(t, o), get cards() { return CARDS; }, runDocTool: (n, i, t, cid) => runDocTool(n, i, t, cid), get docState() { return state.docState; }, set docState(v) { DOC_MOD.docState = v; }, get docView() { return docView; }, linkPages: (r, o) => linkPages(r, o), renderRich: (el, md, f, o) => renderRich(el, md, f, o), plain, convMarkdown: (c) => convMarkdown(c), ingestClip: (p) => ingestClip(p) };   // for tests and the console
 
 /* ---------- connectors: the only code that knows where the app is running ----------
    io.llm    complete({system, messages, model, effort, web, signal, onText, onSearch})
@@ -310,78 +310,110 @@ const {
    threads.js: nothing either side added is lost, and every message keeps what it saw) and saves that. If they
    can't be combined, this page's version is kept as a separate conversation. Coming back to the tab (catchUp)
    fetches whatever changed elsewhere, so switching devices finds everything where it was left. */
-let saveTimer=0,saving=false,dirty=false;
-/* A save that fails (no connection) isn't dropped: the change stays pending and is tried again, after 2 s, then
-   less often (at most every 30 s), and at once when the connection comes back or the tab is shown. Leaving the
-   conversation with it still unsaved asks first (leaveOk), and so does closing the tab. When the tab is hidden
-   (another tab or app, the screen locked, usually a close or reload too), a pending change is saved right away
-   instead of 0.7 s later. */
-let saveFailed=false,saveTries=0,retryT=0;
-function retrySave(){clearTimeout(retryT);retryT=setTimeout(()=>{if(dirty&&conv){saveTries++;flush()}},Math.min(30000,2000*Math.pow(2,saveTries)))}
-function saveSoon(){if(dirty&&conv&&!saving){clearTimeout(saveTimer);clearTimeout(retryT);flush()}}
-addEventListener('online',saveSoon);
-document.addEventListener('visibilitychange',saveSoon);   // hidden: don't wait the 0.7 s; shown again: retry now
-addEventListener('pagehide',saveSoon);
-addEventListener('beforeunload',e=>{if(saveFailed&&dirty){e.preventDefault();e.returnValue=''}});   // a change that couldn't be saved: the browser asks
-const sync={id:null,rev:0,base:null,sent:'',ui:'',uiSaving:0};   // for the open conversation: its version, content as last saved/loaded, what that was
-function save(){if(!conv)return;dirty=true;if(typeof IDX!=='undefined')idxTouch(conv.id);clearTimeout(saveTimer);saveTimer=setTimeout(flush,700)}
+/* Each conversation owns its own save queue (saveJobs), so switching conversations during a slow write never
+   drops pending edits or mixes revisions across conversations. A save that fails (no connection) stays pending
+   and retries with backoff (2 s up to 30 s), and at once when the connection comes back or the tab is shown.
+   Leaving a conversation with a failed save asks first (leaveOk), and beforeunload warns if any job failed. */
+const emptySync={id:null,rev:0,base:null,sent:'',ui:'',uiSaving:0};
+const saveJobs=new Map();
 const LOCAL_MSG=['pending','ver','live','t0','toolNow'];   // per page, never saved
 const plainMsg=(m)=>{const x={...m};for(const f of LOCAL_MSG)delete x[f];return x};
 function serialize(c){const msgs={};for(const [k,m] of Object.entries(c.msgs))msgs[k]=plainMsg(m);return {...c,msgs}}
 function contentOf(c){const {ui:_ui,rev:_rev,...rest}=serialize(c);return JSON.parse(JSON.stringify(rest))}
 const contentKey=(x)=>JSON.stringify({...x,updated:0});
-function syncReset(c){sync.id=c.id;sync.rev=c.rev||0;sync.base=contentOf(c);sync.sent=c.rev?contentKey(sync.base):'';sync.ui=JSON.stringify(c.ui||{})}
-async function flush(){
-  if(!dirty||!conv)return;
-  if(saving){clearTimeout(saveTimer);saveTimer=setTimeout(flush,500);return}
-  if(isBlank(conv)){dirty=false;return}   // the one rule for "nothing to keep": a prompt or skills of its own count
-  if(!io.store){clearTimeout(saveTimer);saveTimer=setTimeout(flush,400);return}
-  dirty=false;saving=true;const c=conv;
-  try{
-    const content=contentOf(c);
-    const changed=contentKey(content)!==sync.sent||sync.id!==c.id;
-    if(changed){
-      c.updated=content.updated=Date.now();
-      if(await saveContent(c,content)&&io.store.label)setStatus(io.store.label);
-    }
-    await saveLayout(c);
-    if(changed)await idxWrite(c,state.docState&&state.docState.key===c.id&&state.docState.loaded?state.docState.pages:null);
-  }catch(e){
-    console.warn('save failed',e);
-    if(e&&e.code==='quota_exceeded')toast('Storage is full. Delete an old conversation.');
-    else if(e&&e.code==='invalid_argument'&&JSON.stringify(contentOf(c)).length>250000)toast('This conversation is too large to save (256 KB limit).');
-    else if(c===conv){if(!saveFailed)toast('Couldn’t save just now. It keeps trying in the background.');dirty=true;saveFailed=true;retrySave();setStatus('Not saved yet: retrying')}   // (a connection that dropped: keep it and try again; one popup, not one per try)
-    else setStatus('Not saved');
+function jobOf(c,create=false){
+  if(!c)return null;
+  let j=saveJobs.get(c.id);
+  if(!j&&create){
+    const base=contentOf(c);
+    j={id:c.id,conv:c,rev:c.rev||0,base,sent:c.rev?contentKey(base):'',ui:JSON.stringify(c.ui||{}),uiSaving:0,dirty:false,saving:false,failed:false,tries:0,timer:0,retryT:0,promise:null};
+    saveJobs.set(c.id,j);
   }
-  if(c===conv&&!dirty&&saveFailed){saveFailed=false;saveTries=0;clearTimeout(retryT);setStatus('Saved');toast('Saved. All caught up.')}
-  saving=false;
-  if(!convList.length&&c!==conv)return;
-  const i=convList.findIndex(x=>x.id===c.id);const meta=metaOf(c);
-  if(i>=0)convList[i]=meta;else if(c===conv)convList.unshift(meta);
-  convList.sort((a,b)=>b.updated-a.updated);renderConvList();
+  if(j)j.conv=c;
+  return j;
+}
+const activeJob=()=>conv?jobOf(conv,true):null;
+function maybePruneJob(j){if(j&&!j.saving&&!j.dirty&&!j.failed&&(!conv||conv.id!==j.id)&&saveJobs.get(j.id)===j)saveJobs.delete(j.id)}
+function dropJob(id){const j=saveJobs.get(id);if(!j)return;clearTimeout(j.timer);clearTimeout(j.retryT);j.timer=0;j.retryT=0;j.dirty=false;j.failed=false;saveJobs.delete(id)}
+function retryJob(j){clearTimeout(j.retryT);j.retryT=setTimeout(()=>{if(j.dirty&&j.conv&&saveJobs.get(j.id)===j){j.tries++;flushJob(j)}},Math.min(30000,2000*Math.pow(2,j.tries)))}
+function saveSoon(){for(const j of [...saveJobs.values()])if(j.dirty&&j.conv&&!j.saving){clearTimeout(j.timer);clearTimeout(j.retryT);j.timer=0;j.retryT=0;flushJob(j)}}
+addEventListener('online',saveSoon);
+document.addEventListener('visibilitychange',saveSoon);   // hidden: don't wait the 0.7 s; shown again: retry now
+addEventListener('pagehide',saveSoon);
+addEventListener('beforeunload',e=>{for(const j of saveJobs.values())if(j.failed&&j.dirty){e.preventDefault();e.returnValue='';return}});   // a change that couldn't be saved: the browser asks
+function save(c=conv){if(!c)return;const j=jobOf(c,true);j.dirty=true;if(typeof IDX!=='undefined')idxTouch(c.id);clearTimeout(j.timer);j.timer=setTimeout(()=>flushJob(j),700)}
+function syncReset(c){
+  const j=jobOf(c,true),base=contentOf(c);
+  j.rev=c.rev||0;j.base=base;j.sent=c.rev?contentKey(base):'';j.ui=JSON.stringify(c.ui||{});
+  j.dirty=false;j.failed=false;j.tries=0;clearTimeout(j.timer);clearTimeout(j.retryT);j.timer=0;j.retryT=0;
+}
+function flushJob(j){
+  if(!j||!j.dirty||!j.conv||saveJobs.get(j.id)!==j)return Promise.resolve();
+  if(j.saving)return j.promise||Promise.resolve();
+  if(isBlank(j.conv)){j.dirty=false;maybePruneJob(j);return Promise.resolve()}   // the one rule for "nothing to keep": a prompt or skills of its own count
+  if(!io.store){clearTimeout(j.timer);j.timer=setTimeout(()=>flushJob(j),400);return Promise.resolve()}
+  j.saving=true;
+  j.promise=(async()=>{
+    try{
+      while(j.dirty&&j.conv&&saveJobs.get(j.id)===j){
+        const c=j.conv;
+        if(isBlank(c)){j.dirty=false;break}
+        clearTimeout(j.timer);j.timer=0;j.dirty=false;
+        let savedOk=true;
+        try{
+          const content=contentOf(c);
+          const changed=contentKey(content)!==j.sent;
+          if(changed){
+            c.updated=content.updated=Date.now();
+            savedOk=await saveContent(j,c,content);
+            if(savedOk&&io.store.label&&c===conv)setStatus(io.store.label);
+          }
+          if(savedOk)await saveLayout(j,c);
+          if(savedOk&&changed)await idxWrite(c,state.docState&&state.docState.key===c.id&&state.docState.loaded?state.docState.pages:null);
+        }catch(e){
+          console.warn('save failed',e);
+          if(e&&e.code==='quota_exceeded'){if(c===conv)toast('Storage is full. Delete an old conversation.');break}
+          if(e&&e.code==='invalid_argument'&&JSON.stringify(contentOf(c)).length>250000){if(c===conv)toast('This conversation is too large to save (256 KB limit).');break}
+          if(c===conv&&!j.failed)toast('Couldn’t save just now. It keeps trying in the background.');
+          j.dirty=true;j.failed=true;retryJob(j);
+          if(c===conv)setStatus('Not saved yet: retrying');
+          break;
+        }
+        if(!savedOk)break;
+        if(!j.dirty&&j.failed){j.failed=false;j.tries=0;clearTimeout(j.retryT);j.retryT=0;if(c===conv){setStatus('Saved');toast('Saved. All caught up.')}}
+        if(convList.length||c===conv){
+          const i=convList.findIndex(x=>x.id===c.id);const meta=metaOf(c);
+          if(i>=0)convList[i]=meta;else if(c===conv)convList.unshift(meta);
+          convList.sort((a,b)=>b.updated-a.updated);renderConvList();
+        }
+      }
+    }finally{
+      j.saving=false;j.promise=null;maybePruneJob(j);
+    }
+  })();
+  return j.promise;
 }
 // -> true once saved. Merges and tries again when another device saved first.
-async function saveContent(c,content){
+async function saveContent(j,c,content){
   for(let tries=0;tries<4;tries++){
-    const mine=sync.id===c.id;
-    const r=await io.store.save(c.id,content,mine?(sync.rev||null):(c.rev||null));
-    if(r.rev){c.rev=r.rev;if(mine&&c===conv){sync.rev=r.rev;sync.base=content;sync.sent=contentKey(content);showInUrl()}return true}
-    if(r.deleted){await deletedElsewhere(c,c===conv?contentOf(c):content);return false}
+    const r=await io.store.save(c.id,content,j.rev||null);
+    if(r.rev){c.rev=r.rev;j.rev=r.rev;j.base=content;j.sent=contentKey(content);if(c===conv)showInUrl();return true}
+    if(r.deleted){await deletedElsewhere(j,c,contentOf(c));return false}
     if(!r.current)throw new Error('unexpected answer from the store');
-    // Use current live content if c is still open, so edits made while the save was in flight are never lost.
-    const liveMine=c===conv?contentOf(c):content;
-    const next=await mergeRemote(c,r.current,liveMine);
-    if(!next){dirty=true;return false}   // a reply here is still being written: saved once it's done
-    if(contentKey(next)===sync.sent)return true;   // nothing of ours left to add
+    // Use current live content on c so edits made while the save was in flight are never lost.
+    const liveMine=contentOf(c);
+    const next=await mergeRemote(j,c,r.current,liveMine);
+    if(!next){j.dirty=true;return false}   // a reply here is still being written: saved once it's done
+    if(contentKey(next)===j.sent)return true;   // nothing of ours left to add
     content=next;c.updated=content.updated=Math.max(Date.now(),content.updated||0);
   }
   throw new Error('This conversation kept changing on another device.');
 }
 // Merge `theirs` (the server's copy) into conversation c, whose content is `mine`. Returns c's content after,
 // or null when it has to wait (see ThreadOps.merge: later). The page shows the result.
-async function mergeRemote(c,theirs,mine){
+async function mergeRemote(j,c,theirs,mine){
   const t={...theirs};delete t.ui;
-  const base=sync.id===c.id?sync.base:null;let res=null;
+  const base=j.base;let res=null;
   if(base){
     try{res=ThreadOps.merge(base,mine,t,{newId:(k)=>(k==='t'?'b':'m')+rid()+rid().slice(0,3),keep:[...streaming.values()].filter(s=>s.conv===c).map(s=>s.mid)})}
     catch(e){if(e&&e.later)return null;if(!(e&&e.conflict))console.warn('merge failed',e);else console.info('not merged:',e.message)}
@@ -389,13 +421,15 @@ async function mergeRemote(c,theirs,mine){
   if(!res){
     const copy=await keepCopy(c,mine);
     if(!copy){
-      if(c===conv){dirty=true;saveFailed=true;retrySave();setStatus('Not saved yet: conflict copy failed')}
+      j.dirty=true;j.failed=true;retryJob(j);
+      if(c===conv)setStatus('Not saved yet: conflict copy failed');
       return null;
     }
     res={conv:JSON.parse(JSON.stringify(t))};
   }
   applyContent(c,res.conv);
-  if(c===conv){sync.rev=theirs.rev||0;sync.base=JSON.parse(JSON.stringify(t));delete sync.base.rev;sync.sent=contentKey(sync.base);refreshAfterSync()}
+  j.rev=theirs.rev||0;j.base=JSON.parse(JSON.stringify(t));delete j.base.rev;j.sent=contentKey(j.base);
+  if(c===conv)refreshAfterSync();
   return contentOf(c);
 }
 // put merged content into the live conversation, keeping the objects of replies being written here
@@ -459,24 +493,26 @@ async function keepCopy(c,mine,why){
     return null;
   }
 }
-async function deletedElsewhere(c,content){
-  const base=sync.id===c.id?sync.base:null,added=!base||Object.keys(content.msgs).some(id=>!base.msgs[id]);
+async function deletedElsewhere(j,c,content){
+  const base=j.base,added=!base||Object.keys(content.msgs).some(id=>!base.msgs[id]);
   const copy=added?await keepCopy(c,content,'deleted'):null;
   if(added&&!copy){
-    if(c===conv){dirty=true;saveFailed=true;retrySave();setStatus('Not saved yet: recovery copy failed')}
+    j.dirty=true;j.failed=true;retryJob(j);
+    if(c===conv)setStatus('Not saved yet: recovery copy failed');
     toast('This conversation was deleted on another device and your local copy could not be saved.');
     return;
   }
+  dropJob(c.id);
   convList=convList.filter(x=>x.id!==c.id);
-  if(c===conv){dirty=false;setConv(copy?JSON.parse(JSON.stringify(copy)):newConv())}
+  if(c===conv)setConv(copy?JSON.parse(JSON.stringify(copy)):newConv());
   renderConvList();
   toast(copy?'This conversation was deleted on another device. What you added here was kept as a copy.':'This conversation was deleted on another device.');
 }
-async function saveLayout(c){
+async function saveLayout(j,c){
   if(!io.layout||c!==conv||!c.rev)return;
-  const k=JSON.stringify(c.ui);if(k===sync.ui)return;
-  sync.ui=k;sync.uiSaving++;   // set before it's sent, so a second change doesn't send it twice; uiSaving: still on its way
-  try{await io.layout.put(c.id,c.ui)}catch(e){sync.ui='';console.warn('layout not saved',e)}finally{sync.uiSaving--}
+  const k=JSON.stringify(c.ui);if(k===j.ui)return;
+  j.ui=k;j.uiSaving++;   // set before it's sent, so a second change doesn't send it twice; uiSaving: still on its way
+  try{await io.layout.put(c.id,c.ui)}catch(e){j.ui='';console.warn('layout not saved',e)}finally{j.uiSaving--}
 }
 // Back to this tab (or online again): whatever changed on other devices
 let catching=null,lastCatch=0;
@@ -488,15 +524,15 @@ function catchUp(force){
   catching=(async()=>{
     try{
       loadList();
-      const c=conv;if(sync.id!==c.id||!sync.rev)return;
+      const c=conv,j=saveJobs.get(c.id);if(!j||!j.rev)return;
       const rev=await io.store.rev(c.id);
       if(c!==conv)return;
-      if(rev===null){await deletedElsewhere(c,contentOf(c));return}
-      if(rev===sync.rev)return;
-      if(dirty||saving){await flushNow();return}   // saving finds the newer version and merges
+      if(rev===null){await deletedElsewhere(j,c,contentOf(c));return}
+      if(rev===j.rev)return;
+      if(j.dirty||j.saving){await flushNow(c);return}   // saving finds the newer version and merges
       const cur=await io.store.get(c.id);if(!cur||c!==conv)return;
-      const next=await mergeRemote(c,cur,contentOf(c));
-      if(next&&contentKey(next)!==sync.sent)save();
+      const next=await mergeRemote(j,c,cur,contentOf(c));
+      if(next&&contentKey(next)!==j.sent)save(c);
     }catch(e){console.warn('catching up failed',e)}
   })().finally(()=>{catching=null;if(catchUp.again){catchUp.again=false;catchUp(true)}});
   return catching;
@@ -514,15 +550,24 @@ async function loadList(){
   }catch(e){console.warn('list failed',e)}
   renderConvList();
 }
-// before leaving the open conversation: save what's pending; if that fails (no connection), ask, since leaving drops it
+// before leaving the open conversation: flush what's pending; if a save has failed (no connection), ask first
 async function leaveOk(){
-  await flushNow();if(!dirty||!saveFailed||!conv||isBlank(conv))return true;
+  await flushNow();
+  const j=conv&&saveJobs.get(conv.id);
+  if(!j||!j.dirty||!j.failed||!conv||isBlank(conv))return true;
   return new Promise(ok=>askConfirm('This change isn’t saved yet','The last change to this conversation couldn’t be saved (no connection?). It’s still trying. If you leave now, the change is lost.',()=>ok(true),{ok:'Leave anyway',cancel:'Stay',onCancel:()=>ok(false)}));
 }
 async function openConv(id){
   if(conv&&conv.id===id)return;
   await io.ready;
   if(!await leaveOk())return;
+  // If we navigated away from `id` while its save queue was still draining, wait for it before reading from store.
+  const pending=saveJobs.get(id);
+  if(pending&&(pending.saving||pending.dirty)){
+    clearTimeout(pending.timer);pending.timer=0;clearTimeout(pending.retryT);pending.retryT=0;
+    if(pending.saving&&pending.promise)await pending.promise;
+    if(!pending.saving&&pending.dirty)await flushJob(pending);
+  }
   let data=null;
   try{
     data=await io.store.get(id);
@@ -541,9 +586,16 @@ async function openConv(id){
   setConv(data);
   if(conv.trashed)toast(`This conversation is in the trash: it’s deleted for good in ${trashLeft(conv)} day${trashLeft(conv)>1?'s':''}.`,{label:'Restore',fn:()=>restoreConv(id)});
 }
-async function flushNow(){clearTimeout(saveTimer);for(let i=0;saving&&i<200;i++)await new Promise(ok=>setTimeout(ok,25));if(dirty)await flush()}
+async function flushNow(c=conv){
+  const j=c&&saveJobs.get(c.id);
+  if(!j)return;
+  clearTimeout(j.timer);j.timer=0;clearTimeout(j.retryT);j.retryT=0;
+  if(j.saving&&j.promise)await Promise.race([j.promise,new Promise(ok=>setTimeout(ok,5000))]);
+  if(!j.saving&&j.dirty)await Promise.race([flushJob(j),new Promise(ok=>setTimeout(ok,5000))]);
+}
 async function deleteConv(id){
   await io.ready;
+  dropJob(id);
   if(conv&&conv.id===id)for(const s of [...streaming.values()])stopReply(s);
   // its document's file isn't deleted here: another conversation may use it. The server deletes files nothing uses.
   const dropK=!!(convInfo(id)||{}).dropCards;
@@ -554,9 +606,18 @@ async function deleteConv(id){
   if(conv&&conv.id===id)await openNextAfter(id);else renderConvList();
 }
 function setConv(c){
+  const prev=conv;
   clearHere();   // "You were here" belongs to this conversation's canvas visit
   for(const s of streaming.values()){s.detached=true;s.ctrl.abort()}streaming.clear();unread.clear();   // replies carry on on the server; back here, resumeRuns picks them up
-  conv=c;const ui=conv.ui=conv.ui||{};
+  conv=c;
+  if(prev&&prev!==c){
+    const pj=saveJobs.get(prev.id);
+    if(pj){
+      if(pj.dirty&&!pj.saving&&!pj.failed&&!isBlank(prev)){clearTimeout(pj.timer);pj.timer=0;flushJob(pj)}
+      else maybePruneJob(pj);
+    }
+  }
+  const ui=conv.ui=conv.ui||{};
   ui.open=(ui.open||[]).filter(id=>conv.threads[id]||(id==='doc'&&conv.doc));   // main or the document may have been closed here
   if(!ui.open.length)ui.open=conv.doc?['doc','main']:['main'];
   ui.collapsed=(ui.collapsed||[]).filter(id=>ui.open.includes(id));
@@ -570,7 +631,7 @@ function setConv(c){
   layout();renderTitle();renderMap();renderConvList();hidePop();syncCardsUI();
   $('#stage').classList.toggle('canvas',ui.view==='canvas');if(ui.view==='canvas')renderCanvas();
   syncViewSeg();
-  syncReset(conv);dirty=false;closeViews();syncViewsUI();
+  syncReset(conv);closeViews();syncViewsUI();
   applyConvLlm();showInUrl();resumeRuns();syncSkillT();
 }
 // The address names the open conversation (#c=ID) once it's saved, so a window can be opened, reloaded or
@@ -1234,11 +1295,12 @@ function convLlm(c){
    else the one of the thread it branched from, up to main. It's stamped on the thread's first question, so a branch
    keeps its model even if its parent switches later. The picker shows and changes the model of the thread you're
    in (the pane last used; on the canvas, the selected card). */
-const llmTid=(tid)=>!tid||tid==='doc'||!conv||!T(tid)?'main':tid;
-function threadLlm(tid){
-  let t=T(llmTid(tid)),n=0;
-  while(t&&t.id!=='main'&&n++<500){if(Array.isArray(t.llm))return t.llm;t=T(t.parent)||T('main')}
-  return convLlm(conv);
+const llmTid=(tid,c=conv)=>!tid||tid==='doc'||!c||!c.threads||!c.threads[tid]?'main':tid;
+function threadLlm(tid,c=conv){
+  if(!c||!c.threads)return null;
+  let t=c.threads[llmTid(tid,c)],n=0;
+  while(t&&t.id!=='main'&&n++<500){if(Array.isArray(t.llm))return t.llm;t=c.threads[t.parent]||c.threads.main}
+  return convLlm(c);
 }
 const ownLlm=(tid)=>{tid=llmTid(tid);return tid==='main'?conv.llm:T(tid).llm};
 const pickerTid=()=>!conv?'main':llmTid(conv.ui.view==='canvas'?cvState().sel:curPane());
@@ -1264,7 +1326,7 @@ function applyConvLlm(tid,quiet){
 }
 // the pane or card you're in changed: the picker shows its model
 // the model to call for a thread's own work (cards, fixes): its model if offered here, else the closest one, else the picker's
-function modelFor(tid){const w=threadLlm(tid),ids=io.llm?io.llm.models().map(x=>x[0]):[];if(!w||!w[0])return settings.model;return ids.includes(w[0])?w[0]:closestModel(w[0],ids)||settings.model}
+function modelFor(tid,c=conv){const w=threadLlm(tid,c),ids=io.llm?io.llm.models().map(x=>x[0]):[],fallback=c===conv?settings.model:'auto';if(!w||!w[0])return fallback;return ids.includes(w[0])?w[0]:closestModel(w[0],ids)||fallback}
 function syncPicker(){if(!conv||!io.llm)return;const k=conv.id+'|'+pickerTid();if(k!==pickerFor)applyConvLlm()}
 // the picker changed (force), or a thread's first question is being sent: the thread keeps what the picker says
 function stickLlm(tid,force=true){
