@@ -10,7 +10,7 @@ If `agents.local/` exists, read `agents.local/README.md` before any work: notes 
 - `web/prompts.js`: every instruction the page sends the model (`PROMPTS`). New model-facing text goes there, never inline.
 - `web/threads.js`: `ThreadOps`, pure functions on a conversation's message tree (`walk`, `split`, `join`, `swap`, `merge`), property-tested.
 - `server/server.mjs`: Node ≥22.5 (uses built-in `node:sqlite`), **no dependencies**; keep it that way. `server/db.mjs`: SQLite + FTS5 storage and search. `server/runs.mjs`: replies as runs that outlive their connection.
-- `demo/`: the demo on GitHub Pages: the same page with an in-browser stand-in for the server.
+- `demo/`: the demo site (Cloudflare Workers; the old GitHub Pages address redirects there): the same page with an in-browser stand-in for the server.
 - `tests/`: Python Playwright; `python3 tests/run_all.py`. `evals/`: prompt comparisons against a real model, run by hand only.
 - `docs/`: user docs. "Ask about Digress" answers from README.md, `docs/` and these notes, so keep them current when a feature changes.
 

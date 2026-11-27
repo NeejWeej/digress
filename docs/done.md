@@ -68,3 +68,11 @@ only when math is rendered; `pdf.js` runs in a real Web Worker from `/lib/`, ren
 immediately while extracting text in the background, evicts off-screen page canvases/text layers, and
 destroys previous PDF instances on switch. Streaming caches `highlight.js` output, canvas reuses cached
 message DOM, `MiniSearch` updates incrementally per conversation, and CSS lives in `web/styles.css`.
+
+## SQLite storage and server-side search
+
+The server keeps everything in one SQLite database (`data/digress.db`, Node's built-in `node:sqlite`, so still
+no dependencies) instead of a JSON file per conversation, card and layout; older `data/` folders are imported on
+first start and moved to `data/_legacy_json/`. Search runs on the server with FTS5 (BM25 ranking, with a
+typo-tolerant fallback through `fts5vocab`), advertised by `search:true` in `/api/health`; the demo, which has no
+server, keeps using `MiniSearch` in the browser.

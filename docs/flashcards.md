@@ -119,7 +119,7 @@ if the server takes more than a couple of seconds to answer.
 
 ## Where they're stored
 
-Cards live in their own collection, `data/cards/` (next to `data/convs/`), not inside conversations, which
+Cards live in their own table in `data/digress.db`, beside conversations rather than inside them, which
 is what lets review span all of them. Deleting a conversation doesn't delete its cards unless you tick **Also delete its N flashcards** when you
 move it to the Trash (the dialog lists them, folded away in a box that scrolls). That's the only time it asks:
 
