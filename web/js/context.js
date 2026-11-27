@@ -186,7 +186,7 @@ function replyActivity(m, doc, prompt) {
   for (const s of Array.isArray(m.sources) ? m.sources : []) {
     if (typeof s?.url !== 'string' || !/^https?:\/\//i.test(s.url) || urls.has(s.url)) continue;
     urls.add(s.url);
-    if (sources.length >= 4) continue;
+    if (sources.length >= 20) continue;
     const title = trunc(s.title, 80);
     const ref = s.url.length <= 320 ? [title, s.url].filter(Boolean).join(' — ') : title || trunc(s.url, 80);
     sources.push(ref);

@@ -321,11 +321,12 @@ test('activity distinguishes retrieved text, requested pictures, and search hits
   const { conv, tid } = activityFixture(ACTIVITY_CASES[0]);
   conv.doc.kind = 'text';
   conv.msgs.reply.reads = [{ t: 'read', a: 2, b: 4 }, { t: 'view', part: true, p: 7 }, { t: 'search', pages: [99] }];
-  conv.msgs.reply.sources = [1, 1, 2, 3, 4, 5].map(n => ({ url: 'https://example.org/' + n }));
+  const urls = Array.from({ length: 21 }, (_, i) => 'https://example.org/' + (i + 1));
+  conv.msgs.reply.sources = [urls[0], ...urls].map(url => ({ url }));
   const { content } = buildContext(makeEnv({ conv }), tid).messages.at(-2);
   assert.match(content, /read parts 2–4; requested pictures from part 7/);
   assert.ok(!content.includes('99'));
-  assert.equal(content.match(/example.org/g).length, 4);
+  assert.deepEqual(content.match(/https:\/\/example\.org\/\d+/g), urls.slice(0, 20));
   assert.match(content, /\(\+1 more\)/);
 });
 
