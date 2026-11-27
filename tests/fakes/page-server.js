@@ -82,8 +82,21 @@
       if (p[2] === 'gemini' && method === 'DELETE') { conn.gemini = null; return list(); }
       return json({ error: 'Not found' }, 404);
     }
-    if (p[1] === 'models') return json({ models: [...(window.fakeModels || [['claude-opus-5-5', 'Opus 5.5'], ['claude-sonnet-5-5', 'Sonnet 5.5'], ['claude-haiku-5-5', 'Haiku 5.5']]), ...(conn.gemini ? gemModels : [])], defaultLabel: 'Opus 5.5' });   // a test can list others (window.fakeModels)
-    if (p[1] === 'chat' && p[2] === 'tool' && method === 'POST') { const b = JSON.parse(init.body), r = toolWait.get(b.id); toolWait.delete(b.id); if (r) r(b.error ? { error: b.error } : { parts: b.parts }); return json({ ok: true }); }
+    const prefs = () => JSON.parse(localStorage.getItem(KEY + 'prefs') || '{}');
+    if (p[1] === 'models') {   // default / chosen as the server: chosen is the saved default model, default is it if offered, else the first
+      const models = [...(window.fakeModels || [['claude-opus-5-5', 'Opus 5.5'], ['claude-sonnet-5-5', 'Sonnet 5.5'], ['claude-haiku-5-5', 'Haiku 5.5']]), ...(conn.gemini ? gemModels : [])];   // a test can list others (window.fakeModels)
+      const chosen = prefs().defaultModel || null, d = models.find((m) => m[0] === chosen);
+      return json({ models, defaultLabel: d ? d[1] : 'Opus 5.5', default: d ? d[0] : models[0][0], chosen });
+    }
+    if (p[1] === 'prefs') {
+      if (method === 'PUT') {
+        const m = JSON.parse(init.body).defaultModel, next = { ...prefs(), defaultModel: m || null };
+        if (!next.defaultModel) delete next.defaultModel;
+        localStorage.setItem(KEY + 'prefs', JSON.stringify(next)); return json(next);
+      }
+      return json(prefs());
+    }
+    if (p[1] === 'chat' && p[2] === 'tool' && method === 'POST') { const b = JSON.parse(init.body), r = toolWait.get(b.id); toolWait.delete(b.id); if (!r) return json({ error: 'No tool call is waiting for that result.' }, 404); r(b.error ? { error: b.error } : { parts: b.parts }); return json({ ok: true }); }
     if (p[1] === 'tools') return json({ tools: [{ name: 'list_sources', description: 'Read saved web references.', schema: {type:'object',properties:{reply:{type:'string'}}} }, { name: 'suggest_card', description: 'Suggest one flashcard (fake).', schema: { type: 'object', properties: { front: {}, back: {} } } }], maxCalls: 30, maxCards: 10 });
     if (p[1] === 'chat' && p[2] === 'stop' && method === 'POST') { const c = runs.get(JSON.parse(init.body).chat); if (c) c.abort(); return json({ ok: true }); }
     if (p[1] === 'chat' && p[2] === 'run') return json({ error: 'Not found' }, 404);   // reconnecting isn't faked (test_runs.py covers the real server)
@@ -120,7 +133,7 @@
         return json({ ok: true, rev: d.rev });
       }
       if (method === 'PATCH') { const v = localStorage.getItem(k + id); if (!v) return json({ error: 'Not found' }, 404); localStorage.setItem(k + id, JSON.stringify({ ...JSON.parse(v), ...JSON.parse(init.body) })); return json({ ok: true }); }
-      if (method === 'DELETE') { localStorage.removeItem(k + id); return json({ ok: true }); }
+      if (method === 'DELETE') { localStorage.removeItem(k + id); if (coll === 'convs') localStorage.removeItem(KEY + 'layout/' + id); return json({ ok: true }); }
     }
     if (p[1] === 'files') {
       if (method === 'POST') {
