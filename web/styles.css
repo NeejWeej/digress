@@ -649,6 +649,9 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .origin .ol button{color:var(--muted);text-decoration:underline;font-size:11.5px}
 .origin .ol button:hover{color:var(--ink)}
 .origin .oq{font-family:var(--serif);font-size:15px;line-height:1.5;font-style:italic;max-height:132px;overflow-y:auto;white-space:pre-wrap;padding-right:4px}
+.origin.exp .oq{max-height:none;overflow-y:visible}
+.origin .oexp{display:inline-block;margin-top:6px;padding:0;border:0;background:none;color:var(--muted);font-size:11.5px;text-decoration:underline;cursor:pointer}
+.origin .oexp:hover{color:var(--ink)}
 .empty{padding:20px 4px;color:var(--muted)}
 .empty .eor{margin-top:14px}.elink{display:inline-flex;align-items:center;gap:6px;border:0;background:none;padding:4px 0;color:var(--muted);font:13px var(--sans);cursor:pointer}.elink:hover{color:var(--accent)}.elink .i{width:15px;height:15px}
 .esteps{list-style:none;counter-reset:es;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;padding:0;margin:34px 0 0}

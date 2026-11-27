@@ -13,6 +13,11 @@ import {
   buildShareUrl, parseShareHash, shareSizeStatus, sliceBranch, remapConvIds,
   parseInlineImageDataUrl, normalizePageIndex,
 } from './share.js';
+import {
+  memoryStore, noLlm, noFiles, findServer, okOrThrow, offlineCards, serverStore,
+  otherScreen, DEVICE, WINDOW, layoutKey, serverLayout, WINDOWS, tellWindows, toldWindows,
+  serverFiles, runId, serverLlm,
+} from './connectors.js';
 
 /* ---------- constants ---------- */
 const PALETTE=['#d9774b','#3f8fd2','#3fa077','#9d6ad6','#cc9a2e','#d65a8a','#2a9ea3','#7f8f36'];
@@ -159,243 +164,6 @@ const isCollapsed=(tid)=>conv.ui.collapsed.includes(tid);
    io.files  upload(blob, type) -> {id}, fetch(id, 'text'|'arrayBuffer'), remove(id), canUpload
    They come from the Digress server (server/server.mjs); nothing else in the app should call the server directly. */
 const io={llm:null,store:null,layout:null,index:null,files:null,cards:null,ready:null};
-function memoryStore(label){
-  const m=new Map();
-  return {kind:'memory',label:label||'',
-    list:async()=>[...m.entries()].map(([id,data])=>({id,data:structuredClone(data)})),
-    get:async(id)=>m.has(id)?structuredClone(m.get(id)):null,
-    put:async(id,d)=>{m.set(id,structuredClone(d))},
-    save:async(id,d)=>{const rev=((m.get(id)||{}).rev||0)+1;m.set(id,{...structuredClone(d),rev});return {rev}},
-    update:async(id,p)=>{if(m.has(id))Object.assign(m.get(id),structuredClone(p))},
-    remove:async(id)=>{m.delete(id)}};
-}
-function noLlm(why){return {kind:'none',supportsEffort:false,supportsWeb:false,why,models:()=>[['auto','Auto']],ready:async()=>false,complete:async()=>{throw {message:why}},stop:async()=>{}}}
-const noFiles={kind:'none',canUpload:false,upload:async()=>{throw {code:'unavailable'}},fetch:async()=>{throw new Error('This document\'s file isn\'t available here.')},remove:async()=>{}};
-/* Self-hosted: the Digress server (server/server.mjs) serves this page and offers the same four parts over HTTP. */
-async function findServer(){
-  if(!/^https?:$/.test(location.protocol))return null; // opened as a file: no server to ask
-  try{const r=await fetch('api/health',{cache:'no-store'});if(!r.ok)return null;const j=await r.json();return j&&j.app==='digress'?j:null}catch(e){return null}
-}
-async function okOrThrow(r){if(r.ok)return r;let msg='';try{msg=(await r.json()).error||''}catch(e){}const err=new Error(msg||('Server error '+r.status));err.status=r.status;throw err}
-/* Flashcards keep working offline: a copy of every card is kept in this browser (localStorage), and
-   changes made while the server can't be reached wait in an outbox, sent in order once it's back
-   (the latest change per card wins). Paired with web/sw.js, which keeps the page and its libraries. */
-function offlineCards(base){
-  const MK='digress:cards',QK='digress:cards-outbox';
-  const rd=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}};
-  const wr=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){console.warn('local copy of cards not saved',e)}};
-  // A change is kept here (the local copy and the outbox) straight away, and sent in the background: nothing
-  // waits on the network, so reviewing offline (or on a network that goes nowhere) never stalls. Requests time
-  // out (serverStore's timeout); the outbox is retried when the connection comes back, when the tab is shown,
-  // and every 30 s while anything is waiting. st.stuck: the last try failed; onchange tells the page.
-  let flushing=null,retry=0;
-  const st={kind:'cards',stuck:false,onchange:null,
-    pending:()=>rd(QK,[]).length,
-    flush(){   // -> true when nothing is left to send
-      if(!flushing)flushing=(async()=>{
-        for(let q=rd(QK,[]);q.length;q=rd(QK,[])){
-          const op=q[0];try{if(op.del)await base.remove(op.id);else await base.put(op.id,op.card)}catch(e){return false}
-          const now=rd(QK,[]);if(now.length&&now[0].id===op.id&&now[0].at===op.at)now.shift();wr(QK,now);
-        }
-        return true;
-      })().then(ok=>{const was=st.stuck;st.stuck=!ok;clearTimeout(retry);if(!ok)retry=setTimeout(()=>st.flush(),30000);
-        if(was!==st.stuck||ok)st.onchange&&st.onchange();return ok});
-      // a change queued just as the last send finished would otherwise wait for the next retry
-      flushing.finally(()=>{flushing=null;if(!st.stuck&&rd(QK,[]).length)st.flush()});
-      return flushing;
-    },
-    // the server's cards (after sending what's waiting), or this device's copy if the server is slow to answer
-    // (a couple of seconds) or can't be reached; a late answer still refreshes the copy for next time
-    async list(){
-      const m0=rd(MK,{}),local=()=>Object.entries(rd(MK,{})).map(([id,data])=>({id,data}));
-      const remote=(async()=>{if(!await st.flush())throw new Error('offline');const l=await base.list(),m={};for(const {id,data} of l)m[id]=data;wr(MK,m);return l})();
-      remote.catch(()=>{});
-      const slow=Object.keys(m0).length?new Promise(ok=>setTimeout(()=>ok(null),2500)):null;
-      try{return (await (slow?Promise.race([remote,slow]):remote))||local()}catch(e){return local()}
-    },
-    async get(id){return rd(MK,{})[id]||null},
-    async put(id,d){const m=rd(MK,{});m[id]=d;wr(MK,m);await send({id,card:d})},
-    async update(id,p){const m=rd(MK,{});if(!m[id])return;Object.assign(m[id],p);await st.put(id,m[id])},
-    async remove(id){const m=rd(MK,{});delete m[id];wr(MK,m);await send({id,del:true})}};
-  async function send(op){op.at=Date.now()+Math.random();const q=rd(QK,[]).filter(o=>o.id!==op.id);q.push(op);wr(QK,q);st.flush()}   // not awaited
-  addEventListener('online',()=>st.flush());
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&rd(QK,[]).length)st.flush()});
-  return st;
-}
-function serverStore(coll,label,o={}){
-  const base='api/store/'+coll,u=(id)=>base+'/'+encodeURIComponent(id),json={'content-type':'application/json'};
-  // o.timeout: give up on a request after that long (cards: a network that's there but goes nowhere would hang)
-  const fetch=o.timeout?(url,opt={})=>window.fetch(url,{...opt,signal:AbortSignal.timeout(o.timeout)}):window.fetch.bind(window);
-  return {kind:'server',label:label||'',
-    list:async()=>(await okOrThrow(await fetch(base))).json(),
-    listMeta:async()=>(await okOrThrow(await fetch(base+'?meta=1'))).json(),
-    get:async(id)=>{const r=await fetch(u(id));if(r.status===404)return null;return (await okOrThrow(r)).json()},
-    put:async(id,d)=>{await okOrThrow(await fetch(u(id),{method:'PUT',headers:json,body:JSON.stringify(d)}))},
-    // conversations: save from version `base` (null: new) -> {rev} | {current} (changed elsewhere) | {deleted}
-    save:async(id,d,base)=>{
-      const r=await fetch(u(id),{method:'PUT',headers:{...json,...(base!=null?{'x-base-rev':String(base)}:{})},body:JSON.stringify(d)});
-      if(r.status===409){const j=await r.json();if(j.current)return {current:j.current}}
-      if(r.status===410)return {deleted:true};
-      return {rev:(await (await okOrThrow(r)).json()).rev||1};
-    },
-    rev:async(id)=>{const r=await fetch(u(id)+'?rev=1',{cache:'no-store'});if(r.status===404)return null;return (await (await okOrThrow(r)).json()).rev||0},
-    update:async(id,p)=>{await okOrThrow(await fetch(u(id),{method:'PATCH',headers:json,body:JSON.stringify(p)}))},
-    remove:async(id)=>{await okOrThrow(await fetch(u(id),{method:'DELETE'}))}};
-}
-// per-device layout of each conversation (server: api/layout)
-// A layout from another device keeps what's open, the view and the canvas's arrangement, but not what was sized
-// for that device's screen: pane widths, zoom levels, cards stuck to the screen
-function otherScreen(ui){
-  const u=JSON.parse(JSON.stringify(ui||{}));delete u.sizes;delete u.pz;
-  if(u.cv){delete u.cv.dock;delete u.cv.pre;delete u.cv.cz}
-  return u;
-}
-const DEVICE=(()=>{try{let d=localStorage.getItem('digress:device');if(!d){d='d'+rid()+rid();localStorage.setItem('digress:device',d)}return d}catch(e){return 'd'+rid()+rid()}})();
-// Several windows on one machine share DEVICE, so each window also takes a number: the lowest one no other open
-// window holds (a Web Lock, which the browser lets go when the window closes), the same one again after a reload
-// (sessionStorage). Window 1 keeps its layouts under DEVICE, window n under DEVICE+'w'+n, so a canvas on one
-// monitor and columns on another don't overwrite each other's layout. Without Web Locks (plain http), every window is 1.
-const WINDOW=(async()=>{
-  try{
-    if(!(navigator.locks&&navigator.locks.request))return 1;
-    let want=0;try{want=+sessionStorage.getItem('digress:window')||0}catch(e){}
-    const take=n=>new Promise(ok=>{navigator.locks.request('digress:window:'+n,{ifAvailable:true},lock=>{ok(!!lock);if(lock)return new Promise(()=>{})}).catch(()=>ok(false))});
-    let n=want>0&&await take(want)?want:0;
-    for(let i=1;!n&&i<=50;i++)if(await take(i))n=i;
-    n=n||1;try{sessionStorage.setItem('digress:window',String(n))}catch(e){}
-    return n;
-  }catch(e){return 1}
-})();
-const layoutKey=async()=>{const n=await WINDOW;return n>1?DEVICE+'w'+n:DEVICE};
-function serverLayout(){
-  const u=(id)=>'api/layout/'+encodeURIComponent(id);
-  return {get:async(id)=>(await okOrThrow(await fetch(u(id),{cache:'no-store'}))).json(),
-    put:async(id,ui)=>{await okOrThrow(await fetch(u(id)+'?device='+encodeURIComponent(await layoutKey()),{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(ui)}))}};
-}
-// Other windows of this browser hear about every saved change at once. A window on another monitor stays visible
-// and never gets focus, so without this it would show old content until clicked (catchUp runs on focus/visibility).
-const WINDOWS=(()=>{try{return new BroadcastChannel('digress')}catch(e){return null}})();
-function tellWindows(id){try{WINDOWS&&WINDOWS.postMessage({conv:id})}catch(e){}}
-function toldWindows(st){
-  const w={...st};
-  for(const k of ['put','update','remove'])w[k]=async(id,...a)=>{const r=await st[k](id,...a);tellWindows(id);return r};
-  w.save=async(id,...a)=>{const r=await st.save(id,...a);if(r&&r.rev)tellWindows(id);return r};
-  return w;
-}
-function serverFiles(){
-  return {kind:'server',canUpload:true,
-    // the server downloads a document from a link (server/fetchdoc.mjs). A link that needs the reader's OK
-    // (http, a bare IP, an odd port) throws {warnings:[{code,text}], url}; send their codes back in `confirm`.
-    fromLink:async(url,confirm)=>{
-      const r=await fetch('api/fetch-doc',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url,confirm:confirm||[]})});
-      if(r.status===409){const j=await r.json();throw {message:j.error,warnings:j.warnings||[],url:j.url}}
-      await okOrThrow(r);
-      const dec=(h)=>{try{return decodeURIComponent(r.headers.get(h)||'')}catch(e){return ''}};
-      const k=r.headers.get('x-doc-kind');
-      return {blob:await r.blob(),kind:k==='pdf'?'pdf':k==='html'?'html':'text',name:dec('x-doc-name'),url:dec('x-doc-url')};
-    },
-    // one of a web article's images, through the same strict download (only real PNG/JPEG/WebP/GIF)
-    fetchImage:async(url,confirm)=>{
-      const r=await fetch('api/fetch-doc',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url,confirm:confirm||[],image:true})});
-      if(r.status===409){const j=await r.json();throw {message:j.error,warnings:j.warnings||[],url:j.url}}
-      return (await okOrThrow(r)).blob();
-    },
-    upload:async(blob,type)=>{const r=await fetch('api/files?type='+encodeURIComponent(type),{method:'POST',body:blob});if(r.status===413)throw {code:'too_large'};return (await okOrThrow(r)).json()},
-    fetch:async(id,as)=>{const r=await okOrThrow(await fetch('api/files/'+encodeURIComponent(id)));return as==='text'?r.text():r.arrayBuffer()},
-    remove:async(id)=>{await fetch('api/files/'+encodeURIComponent(id),{method:'DELETE'})}};
-}
-const LLM_RECONNECT_MS=11*60e3,LLM_SILENT_MS=40e3;   // keep trying a reply this long (the server keeps it 10 min); a stream silent this long is dead
-const runId=()=>[...crypto.getRandomValues(new Uint8Array(16))].map(b=>b.toString(16).padStart(2,'0')).join('');
-function serverLlm(info){
-  let models=[['auto','Default']];
-  const llm={kind:'server',supportsEffort:true,supportsWeb:!!(info.llm&&info.web),supportsImages:true,supportsTools:!!(info.llm&&info.tools),
-    why:info.why||'The server has no model configured yet. See the README to connect one.',
-    models:()=>models,
-    ready:async()=>!!info.llm,
-    async loadModels(){
-      try{const j=await (await okOrThrow(await fetch('api/models'))).json();models=[['auto','Default'+(j.defaultLabel?' ('+j.defaultLabel+')':'')],...j.models];llm.defaultModel=j.default||null}catch(e){console.warn('model list failed',e)}
-    },
-    // Connections: which providers are on; API keys added or removed here are kept on the server, never sent back
-    async connections(){return (await okOrThrow(await fetch('api/connections'))).json()},
-    async setKey(id,key){const r=await fetch('api/connections/'+encodeURIComponent(id),{method:id&&key?'PUT':'DELETE',headers:{'content-type':'application/json'},body:key?JSON.stringify({key}):undefined});
-      const j=await r.json().catch(()=>({}));if(!r.ok)throw {message:j.error||('The server answered '+r.status)};await llm.refresh();return j},
-    // the providers changed (a key added or removed): what the server offers now, without a reload
-    async refresh(){try{const h=await (await okOrThrow(await fetch('api/health',{cache:'no-store'}))).json();Object.assign(info,h);llm.supportsWeb=!!(h.llm&&h.web);llm.supportsTools=!!(h.llm&&h.tools);if(h.why)llm.why=h.why}catch(e){console.warn(e)}await llm.loadModels()},
-    // what "Default" means on every device (stored by the server); then the list is reloaded with its new label
-    async toolList(){return (await okOrThrow(await fetch('api/tools',{cache:'no-store'}))).json()},
-    async setDefault(id){await okOrThrow(await fetch('api/prefs',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({defaultModel:id})}));await llm.loadModels()},
-    // tools: {names, run(name,input) → {parts}|{error}} lets the model use the page's tools (server/doctools.mjs:
-    // the document tools, suggest_card), the ones named:
-    // the server sends each call down this stream as {tool:{id,name,input}}, we run it here (this page has the
-    // document open) and post the result back to api/chat/tool, where the server's loop is waiting for it.
-    // The reply runs on the server whether or not this page is connected (server/runs.mjs): if the connection
-    // drops (a phone locked, the network changed) this reconnects with GET api/chat/run/<id>?from=<lines it
-    // has> and carries on. Stopping it is stop(run), not dropping the connection. resume:true only reconnects
-    // (a reply this page, or another device, started earlier). save:{conv,msg}: where the server writes the
-    // reply if it finishes with no page connected.
-    async complete({system,messages,model,effort,web,signal,onText,onSearch,onTool,tools,run,save,resume}){
-      if(!info.llm)throw {message:llm.why};
-      const useTools=!!(tools&&tools.names&&tools.names.length&&llm.supportsTools),chat=run||runId();
-      const st={text:'',model:null,truncated:false,searches:[],sources:[],n:0,end:false,error:null};
-      const answer=async(call)=>{let res;try{res=await tools.run(call.name,call.input||{})}catch(e){res={error:'The tool failed: '+((e&&e.message)||e)}}
-        try{await fetch('api/chat/tool',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({chat,id:call.id,...res})})}catch(e){console.warn('tool result not delivered',e)}};
-      // one JSON object per line: {d:"text"} deltas, {search:"query"}, {sources:[{title,url}]}, {tool:{id,name,input}}
-      // ({toolDone} when replayed after it was answered), {hb} heartbeats, then {done:true,model,truncated} or {error}
-      const handle=(ev)=>{
-        if(ev.hb)return;
-        st.n++;
-        if(ev.d){st.text+=ev.d;onText&&onText(st.text)}
-        else if(ev.search){st.searches.push(String(ev.search));onSearch&&onSearch({searches:st.searches,sources:st.sources})}
-        else if(ev.sources){for(const x of ev.sources)if(x&&/^https?:\/\//i.test(x.url)&&!st.sources.some(y=>y.url===x.url))st.sources.push({title:String(x.title||x.url),url:String(x.url)});onSearch&&onSearch({searches:st.searches,sources:st.sources})}
-        else if(ev.tool){if(useTools||resume){onTool&&onTool(ev.tool,false);if(tools)answer(ev.tool)}}   // not awaited: keep reading the stream meanwhile
-        else if(ev.toolDone){onTool&&onTool(ev.toolDone,true)}
-        else if(ev.error){st.error=String(ev.error);st.end=true}
-        else if(ev.done){st.model=ev.model||null;st.truncated=!!ev.truncated;st.usage=ev.usage&&typeof ev.usage==='object'?ev.usage:null;st.end=true}
-        else if(ev.stopped){st.stopped=String(ev.stopped);st.end=true}   // the server stopped it: Stop ('stop'), or no page came back in time ('away')
-      };
-      // read one connection until the reply ends ('end') or the connection goes ('lost'). A connection that's
-      // silent past the heartbeats is taken as dead (phones can leave one hanging after they wake up).
-      const read=async(r)=>{
-        const rd=r.body.getReader(),dec=new TextDecoder();let buf='',last=Date.now();
-        const kick=()=>{if(Date.now()-last>LLM_SILENT_MS)rd.cancel().catch(()=>{})};
-        const dog=setInterval(kick,3000),vis=()=>{if(document.visibilityState==='visible'&&Date.now()-last>20000)rd.cancel().catch(()=>{})};
-        document.addEventListener('visibilitychange',vis);
-        try{
-          for(;;){
-            const {value,done}=await rd.read();if(done)break;
-            last=Date.now();buf+=dec.decode(value,{stream:true});let i;
-            while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i);buf=buf.slice(i+1);if(line.trim())handle(JSON.parse(line));if(st.end)return 'end'}
-          }
-        }catch(e){if(signal&&signal.aborted)throw e}
-        finally{clearInterval(dog);document.removeEventListener('visibilitychange',vis)}
-        return st.end?'end':'lost';
-      };
-      const fail=(o)=>Object.assign({text:st.text,searches:st.searches,sources:st.sources},o);
-      let state='lost';
-      if(!resume){
-        let r=null;
-        try{r=await fetch('api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({system,messages,model,effort,web:!!(web&&llm.supportsWeb),chat,...(useTools?{tools:tools.names}:{}),...(save?{save}:{})}),signal})}
-        catch(e){if(signal&&signal.aborted)throw e}
-        if(r){await okOrThrow(r);state=await read(r)}
-      }
-      for(let wait=400,until=Date.now()+LLM_RECONNECT_MS;state==='lost';wait=Math.min(wait*2,4000)){
-        if(signal&&signal.aborted)throw new DOMException('Aborted','AbortError');
-        if(Date.now()>until)throw fail({message:'Lost the connection to the server before the reply finished.',cut:true});
-        if(st.n||resume||wait>400)await new Promise(ok=>setTimeout(ok,wait));
-        let g;try{g=await fetch('api/chat/run/'+chat+'?from='+st.n,{signal,cache:'no-store'})}catch(e){if(signal&&signal.aborted)throw e;continue}
-        if(g.status===404)throw fail(st.n||resume?{message:'The server no longer has this reply, so it stops here.',cut:true}:{message:'Couldn’t reach the server.'});
-        // a 5xx with no JSON is the server restarting or a proxy in front of it: try again. One with {error} is the
-        // server's own answer (the model was busy, say): show it rather than retrying for minutes.
-        if(!g.ok){if(g.status>=500&&g.status!==500){let j=null;try{j=await g.clone().json()}catch(e){}if(!(j&&j.error))continue}await okOrThrow(g)}
-        state=await read(g);
-      }
-      if(st.error)throw fail({message:st.error});
-      if(st.stopped)throw fail(st.stopped==='away'?{message:'no page was connected to it for too long, so the server stopped it.',cut:true}:{message:'Stopped.',stopped:true});
-      return {text:st.text,truncated:st.truncated,model:st.model,usage:st.usage,searches:st.searches,sources:st.sources};
-    },
-    stop:(run)=>fetch('api/chat/stop',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({chat:run})}).catch(()=>{})};
-  return llm;
-}
 async function initConnectors(){
   const srv=await findServer();
   if(srv){
@@ -2947,18 +2715,38 @@ function altLine(t,n,show){
     :empty?'':`<button class="usev" data-usev="${esc(t.id)}" title="Make this the version ${full} goes on with. The other one moves here; nothing is lost.">Use this version</button>`;
   return `${show?'<div class="ol">':''}<span>${what}</span>${showB}${useB}${show?'</div>':''}`;
 }
+const originExpanded=new Set();
+function wireOriginExpand(d,t){
+  const oq=d.querySelector('.oq');if(!oq)return;
+  const key=(conv?conv.id:'')+':'+t.id;
+  const btn=document.createElement('button');btn.type='button';btn.className='oexp';
+  const sync=()=>{
+    const exp=originExpanded.has(key);
+    d.classList.toggle('exp',exp);
+    btn.textContent=exp?'Show less':'Show full';
+    btn.title=exp?'Collapse back to compact preview':'Expand full clipped passage';
+  };
+  btn.addEventListener('click',(e)=>{e.stopPropagation();if(originExpanded.has(key))originExpanded.delete(key);else originExpanded.add(key);sync()});
+  sync();
+  requestAnimationFrame(()=>{
+    if(!oq.isConnected)return;
+    if(originExpanded.has(key)||oq.scrollHeight>oq.clientHeight+4){
+      oq.after(btn);
+    }
+  });
+}
 function originCard(t){
   const d=document.createElement('div');d.className='origin';d.style.setProperty('--c',color(t));
   if(isDocBranch(t)&&t.anchorShot){const ref=shotRef(t);d.innerHTML=`<div class="ol"><span>Branched from a snip of the document</span><button data-back="1" title="Scroll the document to where it came from">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(ref).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The snip isn’t available, so it can’t be shown.'}))});d.querySelector('.oimg').__ref=ref;return d}
   if(isDocBranch(t)&&t.anchorImg){const whole=isWholePage(t.anchorImg),ref=docImgRef(t);d.innerHTML=`<div class="ol"><span>Branched from ${whole?'an image':'a snip of an image'} in the document</span><button data-back="1" title="Scroll the document to this image">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(ref).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The image isn’t kept with this conversation, so it can’t be shown.'}))});d.querySelector('.oimg').__ref=ref;return d}
   if(isDocBranch(t)&&t.anchorRegion){const p=normalizePageIndex(t.anchorPage);d.innerHTML=`<div class="ol"><span></span><button data-back="1" title="Scroll the document to this ${isWholePage(t.anchorRegion)?'page':'snip'}">Show in source</button></div><button class="oimg" data-zoomref="1" title="Show larger"><img alt=""></button>`;d.querySelector('.ol span').textContent=`Branched from ${isWholePage(t.anchorRegion)?'':'a snip of '}${p!=null?`page ${p+1} of `:''}the document`;const im=d.querySelector('img');im.alt=t.anchorText;imageURL(regionRef(t)).then(u=>{im.src=u}).catch(()=>{im.replaceWith(Object.assign(document.createElement('span'),{className:'gone',textContent:'The document isn’t loaded, so the snip can’t be shown.'}))});d.querySelector('.oimg').__ref=regionRef(t);return d}
-  if(isDocBranch(t)){const pl=conv.doc&&conv.doc.kind==='pdf'?docPagesLabel(t,true):'';d.innerHTML=`<div class="ol"><span></span><button data-back="1" title="Scroll the document to the exact passage this branch came from">Show in source</button></div><div class="oq"></div>`;d.querySelector('.ol span').textContent='Branched from the document'+(pl?`, ${pl}`:'');const oq0=d.querySelector('.oq');oq0.textContent=t.anchorText;oq0.dataset.back='1';oq0.title='Jump to this passage in the document';return d}
+  if(isDocBranch(t)){const pl=conv.doc&&conv.doc.kind==='pdf'?docPagesLabel(t,true):'';d.innerHTML=`<div class="ol"><span></span><button data-back="1" title="Scroll the document to the exact passage this branch came from">Show in source</button></div><div class="oq"></div>`;d.querySelector('.ol span').textContent='Branched from the document'+(pl?`, ${pl}`:'');const oq0=d.querySelector('.oq');oq0.textContent=t.anchorText;oq0.dataset.back='1';oq0.title='Jump to this passage in the document';wireOriginExpand(d,t);return d}
   if(isClipBranch(t)){
     const safeUrl=t.anchorUrl&&/^https?:\/\//i.test(t.anchorUrl)?t.anchorUrl:'';
     const host=safeUrl?(()=>{try{return new URL(safeUrl).hostname.replace(/^www\./,'')}catch(_){return ''}})():'';
     const label=t.anchorTitle||host||'the web';
     d.innerHTML=`<div class="ol"><span>Clipped from ${esc(label)}</span>${safeUrl?`<a class="clink" href="${esc(safeUrl)}" target="_blank" rel="noopener">Open source ↗</a>`:''}</div>${t.anchorText?'<div class="oq"></div>':''}`;
-    if(t.anchorText)d.querySelector('.oq').textContent=t.anchorText;
+    if(t.anchorText){d.querySelector('.oq').textContent=t.anchorText;wireOriginExpand(d,t)}
     for(const ref of (t.anchorImages||[])){
       const btn=document.createElement('button');btn.className='oimg';btn.dataset.zoomref='1';btn.title='Show larger';btn.__ref=ref;
       const im=document.createElement('img');im.alt=t.anchorTitle||'Clipped image';btn.appendChild(im);d.appendChild(btn);
@@ -2969,7 +2757,7 @@ function originCard(t){
   const p=T(t.parent);
   if(t.alt){d.innerHTML=altLine(t,60,'Show');return d}
   d.innerHTML=`<div class="ol"><span>Branched from ${esc(p.parent?p.title:'the main thread')}${t.anchorText?'':' (the whole reply)'}</span><button data-back="1" title="Scroll the parent to the exact passage this branch came from">Show in source</button></div>${t.anchorText?'<div class="oq"></div>':''}`;
-  if(t.anchorText){const oq=d.querySelector('.oq');oq.textContent=t.anchorText;oq.dataset.back='1';oq.title='Jump to this passage in the reply it came from'}
+  if(t.anchorText){const oq=d.querySelector('.oq');oq.textContent=t.anchorText;oq.dataset.back='1';oq.title='Jump to this passage in the reply it came from';wireOriginExpand(d,t)}
   return d;
 }
 function emptyState(t){
