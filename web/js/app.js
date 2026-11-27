@@ -19,7 +19,7 @@ import {
   serverFiles, runId, serverLlm,
 } from './connectors.js';
 import { copyText, createRenderer } from './render.js';
-import { createCards } from './cards.js';
+import { createCards, quoteWords, quoteRe } from './cards.js';
 
 /* ---------- constants ---------- */
 const PALETTE=['#d9774b','#3f8fd2','#3fa077','#9d6ad6','#cc9a2e','#d65a8a','#2a9ea3','#7f8f36'];
