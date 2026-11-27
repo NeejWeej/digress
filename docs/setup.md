@@ -152,7 +152,11 @@ Everything lives in `data/` (or `DATA_DIR`):
 ```
 data/digress.db           SQLite database (conversations, layouts, flashcards, search index, prompts, skills)
 data/files/<id>           uploaded documents and images (+ .meta.json)
+data/keys.json            API keys added in Connections (readable only by you)
+data/prefs.json           preferences shared by every device (the ☆ default model)
 ```
+
+Older versions kept everything as JSON files in `data/convs/`, `data/cards/` and so on. The first start of a newer version copies them into `digress.db` and moves the old folders to `data/_legacy_json/`, which you can delete once you're happy.
 
 A conversation you delete stays in the sidebar's Trash (marked `trashed` in `digress.db`) for 7 days, then the server deletes it for good, along with its search index and any uploaded file no other conversation or flashcard uses.
 
@@ -175,14 +179,17 @@ If Digress is stopped, copying the whole `data/` folder is enough. The folder is
 | `CLAUDE_CODE_OAUTH_TOKEN` | | Token from `claude setup-token`, for headless machines |
 | `ANTHROPIC_API_KEY` | | Use the Anthropic API for Claude |
 | `ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | API address |
-| `GEMINI_API_KEY` | | Use Google's Gemini API (or add the key in Connections) |
+| `GEMINI_API_KEY` | | Use Google's Gemini API (or add the key in Connections); `GOOGLE_API_KEY` works too |
 | `GEMINI_API_BASE` | `https://generativelanguage.googleapis.com/v1beta` | Gemini API address |
 | `MAX_TOKENS` | `16000` | Longest reply on the API path |
 | `CHATGPT_AUTH_FILE` | `~/.config/digress/chatgpt.json` | Where the ChatGPT sign-in is kept |
 | `CHATGPT_LOGIN_PORT` | `1457` | Port for the one-time sign-in callback |
 | `WEB_SEARCH` | on | `off` removes the Web button |
 | `MAX_SEARCHES` | `5` | Searches per reply (API path) |
-| `MAX_TOOL_CALLS` | `15` | Document tool calls (search, read, view) per reply |
+| `MAX_TOOL_CALLS` | `30` | Document tool calls (search, read, view) per reply |
+| `MAX_CARD_CALLS` | `10` | Flashcards the model may suggest (`suggest_card`) per reply |
+| `RUN_DETACH_MS` | `600000` (10 min) | How long a reply keeps going with no page watching before it's stopped and offers **Continue** |
+| `LAYOUT_DAYS` | `90` | A device's saved layout for a conversation is forgotten after this many days unused |
 | `PORT` | `8787` | Port to listen on |
 | `HOST` | `127.0.0.1` | Address to listen on |
 | `ALLOWED_HOSTS` | `.ts.net` | Extra names the server answers to (see above) |

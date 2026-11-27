@@ -7,7 +7,7 @@ The **Digress Clipper** (`extension/`) is a small Manifest V3 browser extension 
 1. Open `chrome://extensions` (or `brave://extensions` / `edge://extensions`).
 2. Turn on **Developer mode** (top right).
 3. Click **Load unpacked** and choose the `extension/` folder in this repository.
-4. Click the extension’s icon → **Settings**, and set **Digress URL** to your own server (e.g. `https://your-box.tailnet.ts.net` or `http://127.0.0.1:8788`).
+4. Click the extension’s icon → **Settings**, and set **Digress URL** to your own server (e.g. `https://your-box.tailnet.ts.net` or `http://127.0.0.1:8787`).
 
 ## How to clip
 

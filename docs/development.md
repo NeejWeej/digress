@@ -16,11 +16,12 @@ Editing `web/` reloads open pages, and editing the server restarts it (and then 
 npm install                              # local copies of the CDN libraries, for the tests
 pip install -r tests/requirements.txt && python -m playwright install chromium
 npm test                                 # or: python3 tests/run_all.py canvas
+npm run lint                             # ESLint over web/js/, server/ and demo/build.mjs
 ```
 
-`tests/test_server.py` runs the server against fake stand-ins for Claude Code, the Anthropic API and OpenAI (`tests/fakes/`), so it needs none of them. The other tests drive the UI from the file directly, with the CDN libraries served from `node_modules`. Screenshots and logs land in `tests/.artifacts/`. The test files run side by side (`-j N` to choose how many, `-j 1` for one at a time). Set `CHROME_PATH` to use your own Chrome.
+`tests/test_server.py` (and the tests built on it) runs the server against fake stand-ins for Claude Code, the Anthropic API, OpenAI and Gemini (`tests/fakes/`), so it needs none of them. The other tests drive the UI from the file directly, with the CDN libraries served from `node_modules`. A few run plain Node unit tests instead: the storage and link fetching (`tests/server_unit.mjs`), the client's pure modules (`client_modules_unit.mjs`, `context_unit.mjs`) and randomized checks of the thread operations and merging (`threads_prop.mjs`, `merge_prop.mjs`). Screenshots and logs land in `tests/.artifacts/`. The test files run side by side (`-j N` to choose how many, `-j 1` for one at a time; `--shard K/N` runs one slice of them). Set `CHROME_PATH` to use your own Chrome, or `DIGRESS_BROWSER=webkit` (after `python -m playwright install webkit`) to run everything in Safari's engine.
 
-GitHub Actions runs the same tests on every push and pull request (`.github/workflows/tests.yml`); a failed run keeps `tests/.artifacts/` for a week.
+GitHub Actions runs the lint and the same tests on every push and pull request, in Chromium and WebKit, each split into four shards (`.github/workflows/tests.yml`); a failed run keeps `tests/.artifacts/` for a week. More on writing tests, and on how WebKit differs, is in [agents/testing.md](../agents/testing.md).
 
 ## The demo site
 
@@ -30,7 +31,7 @@ python3 -m http.server -d _site 8000     # then open http://localhost:8000
 .venv/bin/python demo/make_sample.py     # remake the sample PDF and conversation (after changing either)
 ```
 
-After Tests passes on main, `.github/workflows/demo.yml` builds it and publishes it to GitHub Pages, so the demo always matches the code. It has no model: the sample reading's suggested questions get replies written in `demo/replies.js`, and anything else gets the closest passages of the document. `tests/test_demo.py` checks it.
+After Tests passes on main, `.github/workflows/demo.yml` builds it and publishes it to Cloudflare Workers (<https://digress.neejweej.workers.dev/>; the old GitHub Pages address only redirects there), so the demo always matches the code. Without a model, the sample reading's suggested questions get replies written in `demo/replies.js`, and anything else gets the closest passages of the document; a visitor can also connect their own Gemini API key, which the browser uses directly. `tests/test_demo.py` checks it.
 
 ## README screenshots and GIF
 
