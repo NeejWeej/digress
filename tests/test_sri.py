@@ -23,7 +23,7 @@ table = page[page.index('window.LIBS={'):page.index('};', page.index('window.LIB
 libs = {c: (l, h) for c, l, h in re.findall(r"'(https://[^']+)':\['(lib/[^']+)','(sha384-[^']+)'\]", table)}
 urls = sorted({u for u in re.findall(r"https://(?:cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com)/[^\"'`\s]+", code) if u.endswith('.js')})
 pdfjs = re.search(r"const PDFJS='([^']+)'", code).group(1)   # pdf.js and its worker: the base URL, then the file names
-urls = sorted(set(urls) | {pdfjs + 'pdf.min.js', pdfjs + 'pdf.worker.min.js'})
+urls = sorted(set(urls) | {pdfjs + 'pdf.min.mjs', pdfjs + 'pdf.worker.min.mjs'})
 sha = lambda f: 'sha384-' + base64.b64encode(hashlib.sha384(open(f, 'rb').read()).digest()).decode()
 
 check('the page loads libraries', len(urls) >= 10, urls)

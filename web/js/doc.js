@@ -64,7 +64,7 @@ export function createDoc() {
   const wrapText = (...a) => app.wrapText(...a);
 
 /* ---------- document mode (everything here only runs when state.conv.doc exists) ---------- */
-const PDFJS='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+const PDFJS='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/';
 const DOC_STARTERS=['Give me an overview of this document','What\'s the main contribution or argument?','Outline the sections with page references','What background do I need to follow this?'];
 let docState=null;
 const docView={scale:1,width:0,current:1,rendered:new Map(),visible:new Set(),obs:null,ro:null,resizeT:0,built:null};
@@ -145,19 +145,32 @@ const docBranches=()=>state.conv&&state.conv.doc?Object.values(state.conv.thread
 // resolves with the address it came from
 function addScript(src,hash){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;if(hash){s.integrity=hash;s.crossOrigin='anonymous'}s.onload=()=>res(src);s.onerror=()=>{s.remove();rej(new Error('Could not load '+src))};document.head.appendChild(s)})}
 function loadScript(src){const l=LIBS[src];return l?addScript(l[0],l[1]).catch(()=>addScript(src,l[1])):addScript(src)}
+async function fetchWithSri(url,hash){
+  const r=await fetch(url,hash?{integrity:hash}:{});
+  if(!r.ok)throw new Error('Could not load '+url);
+  return await r.blob();
+}
 let pdfLibP=null;
 function loadPdfLib(){
   if(!pdfLibP)pdfLibP=(async()=>{
-    const libUrl=await loadScript(PDFJS+'pdf.min.js');
-    const workerEntry=LIBS[PDFJS+'pdf.worker.min.js'];
-    // Same-origin /lib/ allows a real Web Worker (off the main UI thread); cross-origin CDN falls back to fake worker in-page.
-    if(workerEntry&&libUrl===LIBS[PDFJS+'pdf.min.js'][0]){
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc=workerEntry[0];
+    const libCdn=PDFJS+'pdf.min.mjs',workerCdn=PDFJS+'pdf.worker.min.mjs';
+    const libEntry=LIBS[libCdn],workerEntry=LIBS[workerCdn];
+    let fromLocal=false,libBlob;
+    if(libEntry){
+      try{libBlob=await fetchWithSri(libEntry[0],libEntry[1]);fromLocal=true}
+      catch(_){libBlob=await fetchWithSri(libCdn,libEntry[1])}
+    }else libBlob=await fetchWithSri(libCdn,'');
+    const u=URL.createObjectURL(new Blob([libBlob],{type:'text/javascript'}));
+    let mod;
+    try{mod=await import(u)}finally{URL.revokeObjectURL(u)}
+    if(workerEntry&&fromLocal){
+      mod.GlobalWorkerOptions.workerSrc=new URL(workerEntry[0],document.baseURI).href;
     }else{
-      const worker=await loadScript(PDFJS+'pdf.worker.min.js');
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc=worker;
+      const wb=await fetchWithSri(workerCdn,workerEntry?workerEntry[1]:'');
+      mod.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([wb],{type:'text/javascript'}));
     }
-    return window.pdfjsLib;
+    window.pdfjsLib=mod;
+    return mod;
   })().catch(e=>{pdfLibP=null;throw e});
   return pdfLibP;
 }
@@ -370,7 +383,7 @@ function buildPdfPages(el,wrap){
 async function makeTextLayer(page,vp){
   const tl=document.createElement('div');tl.className='textLayer';tl.style.setProperty('--scale-factor',vp.scale);
   const tc=await page.getTextContent();
-  await window.pdfjsLib.renderTextLayer({textContentSource:tc,container:tl,viewport:vp}).promise;
+  await new window.pdfjsLib.TextLayer({textContentSource:tc,container:tl,viewport:vp}).render();
   const end=document.createElement('div');end.className='endOfContent';tl.append(end);   // see pdfSelection below
   return tl;
 }

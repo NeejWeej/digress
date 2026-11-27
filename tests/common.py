@@ -315,7 +315,7 @@ CORS = {'access-control-allow-origin': '*'}
 SITE_URL = 'http://digress.test/digress/'
 CDN = {   # every library the page loads from a CDN, from node_modules
     'highlight.js/11.9.0/highlight.min.js': '@highlightjs/cdn-assets/highlight.min.js',
-    'pdf.js/3.11.174/pdf.min.js': 'pdfjs-dist/build/pdf.min.js', 'pdf.js/3.11.174/pdf.worker.min.js': 'pdfjs-dist/build/pdf.worker.min.js',
+    'pdfjs-dist@4.10.38/build/pdf.min.mjs': 'pdfjs-dist/build/pdf.min.mjs', 'pdfjs-dist@4.10.38/build/pdf.worker.min.mjs': 'pdfjs-dist/build/pdf.worker.min.mjs',
     'purify.min.js': 'dompurify/dist/purify.min.js', 'marked.min.js': 'marked/marked.min.js', 'tex-svg-full.js': 'mathjax/es5/tex-svg-full.js',
     'mermaid.min.js': 'mermaid/dist/mermaid.min.js', 'minisearch@7.1.0/dist/umd/index.js': 'minisearch/dist/umd/index.js',
     'Readability.js': '@mozilla/readability/Readability.js', 'turndown@7.2.0/dist/turndown.js': 'turndown/dist/turndown.js',
