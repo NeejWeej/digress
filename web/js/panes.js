@@ -560,7 +560,97 @@ function placeDocPane(){
   if(el.parentNode!==slot){slot.appendChild(el);renderDocPane();putDocSpot(sp);return}   // moving it resets its scroll
   renderDocPane();
 }
+let railStackPop=null;
+function closeRailStack(){
+  if(!railStackPop)return false;
+  railStackPop.el.remove();
+  if(railStackPop.btn)railStackPop.btn.classList.remove('open');
+  railStackPop=null;
+  return true;
+}
+function placeRailStack(){
+  if(!railStackPop)return;
+  const {el,btn}=railStackPop;
+  if(!btn||!btn.isConnected){closeRailStack();return}
+  const r=btn.getBoundingClientRect(),w=Math.min(280,innerWidth-16),rows=state.conv&&state.conv.ui.layout==='rows';
+  el.style.width=w+'px';
+  if(rows){
+    el.style.left=Math.max(8,Math.min(r.left,innerWidth-w-8))+'px';
+    const below=innerHeight-r.bottom-12,above=r.top-12,up=below<180&&above>below;
+    el.style.maxHeight=Math.max(120,Math.min(innerHeight*.6,up?above:below))+'px';
+    el.style.top=up?'':(r.bottom+6)+'px';el.style.bottom=up?(innerHeight-r.top+6)+'px':'';
+  }else{
+    const right=innerWidth-r.right-12,left=r.left-12,goLeft=right<w&&left>right;
+    el.style.left=Math.max(8,Math.min(goLeft?r.left-w-6:r.right+6,innerWidth-w-8))+'px';
+    el.style.top=Math.max(8,Math.min(r.top,innerHeight-220))+'px';
+    el.style.bottom='';
+    el.style.maxHeight=Math.max(120,Math.min(innerHeight*.65,innerHeight-parseFloat(el.style.top)-12))+'px';
+  }
+}
+function openRailStack(btn,tids){
+  const same=railStackPop&&railStackPop.btn===btn;
+  closeRailStack();
+  if(same||!tids.length)return;
+  const el=document.createElement('div');
+  el.className='rspop';el.setAttribute('role','dialog');
+  el.innerHTML=`<div class="rsph"><span>${tids.length} collapsed</span><button type="button" class="shbtn" data-unstack-all="1">Expand all</button></div><div class="rslist"></div>`;
+  const list=el.querySelector('.rslist');
+  for(const tid of tids){
+    const isDoc=tid==='doc',t=isDoc?null:T(tid);
+    if(!isDoc&&!t)continue;
+    const title=isDoc?(state.conv.doc&&state.conv.doc.name)||'Document':(tid==='main'?'Main thread':t.title);
+    const row=document.createElement('div');
+    row.className='rsrow';row.dataset.rstid=tid;
+    row.style.setProperty('--c',isDoc||tid==='main'?'var(--faint)':color(t));
+    row.innerHTML=`<button type="button" class="rsgo" data-rsexpand="${esc(tid)}">${isDoc?`<span class="docico">${ic('doc')}</span>`:'<span class="dot"></span>'}<span class="rst"></span></button><button type="button" class="ib rsx" data-rsclose="${esc(tid)}" title="Close pane (nothing is deleted)">${ic('x')}</button>`;
+    row.querySelector('.rst').textContent=title;
+    list.appendChild(row);
+  }
+  el.addEventListener('click',e=>{
+    if(e.target.closest('[data-unstack-all]')){
+      state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>!tids.includes(x));
+      closeRailStack();layout();save();return;
+    }
+    const cls=e.target.closest('[data-rsclose]');
+    if(cls){
+      const id=cls.dataset.rsclose;
+      closeRailStack();app.closeThread(id);return;
+    }
+    const exp=e.target.closest('[data-rsexpand]');
+    if(exp){
+      const id=exp.dataset.rsexpand;
+      state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==id);
+      closeRailStack();layout();save();app.revealPane(id);
+    }
+  });
+  document.body.appendChild(el);
+  btn.classList.add('open');
+  railStackPop={el,btn,tids};
+  placeRailStack();
+}
+addEventListener('resize',()=>placeRailStack());
+document.addEventListener('pointerdown',e=>{if(railStackPop&&!railStackPop.el.contains(e.target)&&!railStackPop.btn.contains(e.target))closeRailStack()},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&railStackPop){closeRailStack();e.stopPropagation();e.preventDefault()}},true);
+
+function makeRailStackEl(run){
+  const el=document.createElement('div');
+  el.className='rail-stack';el.setAttribute('role','button');el.tabIndex=0;
+  el.dataset.stack=run.join(',');
+  const names=run.map(tid=>tid==='doc'?((state.conv.doc&&state.conv.doc.name)||'Document'):(tid==='main'?'Main thread':((T(tid)&&T(tid).title)||'Branch')));
+  el.title=`${run.length} collapsed panes: ${names.join(', ')}. Click to choose one or expand all.`;
+  const dots=run.slice(0,5).map(tid=>{
+    if(tid==='doc')return `<span class="docico">${ic('doc')}</span>`;
+    const t=T(tid),c=tid==='main'||!t?'var(--faint)':color(t);
+    return `<span class="dot" style="background:${c}"></span>`;
+  }).join('');
+  el.innerHTML=`<div class="rs-inner"><span class="rs-dots">${dots}</span><span class="rs-count">${run.length} collapsed</span></div>`;
+  el.addEventListener('click',()=>openRailStack(el,run));
+  el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openRailStack(el,run)}});
+  return el;
+}
+
 function layout(){
+  closeRailStack();
   resetThreadIdx();
   const wrap=$('#panes'),ui=state.conv.ui;
   wrap.className='panes '+ui.layout;
@@ -572,15 +662,37 @@ function layout(){
   // collapsing the pane that was taking up the rest doesn't leave them all narrow beside empty space
   const shown=ui.open.filter(x=>!isCollapsed(x)&&!(inDock&&x==='doc'));
   const filler=shown.every(x=>ui.sizes[x])?shown.at(-1):null;
-  ui.open.forEach((tid,i)=>{
-    if(inDock&&tid==='doc'){if(!paneEls.has(tid))fresh.push(tid);paneEl(tid);return}   // it's in its canvas card
-    const isNew=!paneEls.has(tid);const el=paneEl(tid);
-    const rail=isCollapsed(tid);el.classList.toggle('rail',rail);
-    el.title=rail?'Click to expand':'';
-    const sz=ui.sizes[tid];el.style.flex=(sz&&!rail)?`${tid===filler?1:0} 0 ${sz}px`:'';el.classList.toggle('sized',!!(sz&&!rail));
-    seq.push(el);if(isNew)fresh.push(tid);else updateHeader(tid);
-    if(i<ui.open.length-1||!rail){const g=gutEl(tid);g.classList.toggle('glast',i===ui.open.length-1);seq.push(g)}   // the last pane gets one too, so its size can be changed
+  const visible=ui.open.filter(tid=>{
+    if(inDock&&tid==='doc'){if(!paneEls.has(tid))fresh.push(tid);paneEl(tid);return false}
+    return true;
   });
+  for(let i=0;i<visible.length;i++){
+    const tid=visible[i];
+    if(isCollapsed(tid)){
+      // Group 2+ adjacent collapsed panes into a single compact stack strip
+      let j=i;
+      while(j<visible.length&&isCollapsed(visible[j]))j++;
+      const run=visible.slice(i,j);
+      for(const rtid of run){
+        const isNew=!paneEls.has(rtid);const el=paneEl(rtid);
+        el.classList.add('rail');el.classList.remove('sized');el.style.flex='';el.title='Click to expand';
+        if(isNew)fresh.push(rtid);else updateHeader(rtid);
+      }
+      if(run.length===1){
+        seq.push(paneEl(tid));
+      }else{
+        seq.push(makeRailStackEl(run));
+      }
+      if(j<visible.length){const g=gutEl(run[run.length-1]);g.classList.toggle('glast',false);seq.push(g)}
+      i=j-1;
+      continue;
+    }
+    const isNew=!paneEls.has(tid);const el=paneEl(tid);
+    el.classList.remove('rail');el.title='';
+    const sz=ui.sizes[tid];el.style.flex=sz?`${tid===filler?1:0} 0 ${sz}px`:'';el.classList.toggle('sized',!!sz);
+    seq.push(el);if(isNew)fresh.push(tid);else updateHeader(tid);
+    const g=gutEl(tid);g.classList.toggle('glast',i===visible.length-1);seq.push(g);   // the last pane gets one too, so its size can be changed
+  }
   for(const [_tid,g] of gutEls)if(!seq.includes(g))g.remove();
   seq.forEach((n,i)=>{if(wrap.children[i]!==n)wrap.insertBefore(n,wrap.children[i]||null)});
   if(dEl&&dWas&&dWas!==wrap&&dEl.parentNode===wrap)putDocSpot(dSpot);   // back from the canvas's dock: moving it reset its scroll
@@ -638,8 +750,8 @@ let drag=null;
 // Which pane a handle resizes: the one before it, or, when that one is a collapsed strip, the one after it
 // (dragging then works the other way round: toward that pane makes it smaller).
 function gutTarget(g){
-  const el=paneEls.get(g.dataset.left);if(!el)return null;
-  if(!el.classList.contains('rail'))return {tid:g.dataset.left,el,sign:1};
+  const prev=g.previousElementSibling;
+  if(prev&&prev.classList.contains('pane')&&!prev.classList.contains('rail'))return {tid:prev.dataset.tid,el:prev,sign:1};
   const nx=g.nextElementSibling;if(!nx||!nx.classList.contains('pane')||nx.classList.contains('rail'))return null;
   return {tid:nx.dataset.tid,el:nx,sign:-1};
 }
@@ -756,6 +868,6 @@ function wires(){
 
 
   return {
-    msgKey, openUsage, closeUsage, buildFoot, branchChips, streamInto, webSources, queueStream, updateJump, rememberSpot, autosize, submit, updateComposer, fitOrigin, originRO, updateHeader, altLine, sysScope, paneZoom, applyPaneZoom, editZoom, setPaneZoom, stepPaneZoom, renderPane, refreshAnchorsFor, docInDock, placeDocPane, layout, get drag() { return drag; }, set drag(v) { drag = v; }, wiresSoon, wires,
+    msgKey, openUsage, closeUsage, buildFoot, branchChips, streamInto, webSources, queueStream, updateJump, rememberSpot, autosize, submit, updateComposer, fitOrigin, originRO, updateHeader, altLine, sysScope, paneZoom, applyPaneZoom, editZoom, setPaneZoom, stepPaneZoom, renderPane, refreshAnchorsFor, docInDock, placeDocPane, layout, closeRailStack, get drag() { return drag; }, set drag(v) { drag = v; }, wiresSoon, wires,
   };
 }

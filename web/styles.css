@@ -453,7 +453,7 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 #plist,#clist{position:relative}#plist{max-height:22vh;overflow-y:auto;overscroll-behavior:contain}#clist{max-height:30vh;overflow-y:auto;overscroll-behavior:contain}
 .sfold{display:inline-flex;align-items:center;gap:4px;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;padding:0;margin-left:-2px}.sfold:hover{color:var(--ink)}
 .sfold .chev{display:inline-flex;transition:transform .15s;transform:rotate(90deg)}.sfoldw.folded .sfold .chev{transform:none}
-.sfoldw.folded>:not(.sh){display:none}.sfoldw.folded .cfilt,.sfoldw.folded .shbtn{display:none}.sfoldw.folded{margin-bottom:12px}
+.sfoldw.folded>:not(.sh){display:none}.sfoldw.folded .cfilt,.sfoldw.folded .shbtn,.sfoldw.folded .shacts{display:none}.sfoldw.folded{margin-bottom:12px}
 .citem{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;cursor:pointer;color:var(--muted)}
 .citem:hover{background:var(--user-bg);color:var(--ink)}
 .citem.cur{background:var(--user-bg);color:var(--ink);font-weight:500}
@@ -607,6 +607,28 @@ button.acday:hover,.acday.sel{outline:2px solid var(--ink);outline-offset:1px}
 .pane.rail .rail-label .dot{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
 .pane.rail:hover{border-color:var(--c)}
 .pane.rail:hover .rail-label{color:var(--ink)}
+.rail-stack{flex:0 0 44px !important;min-width:0;cursor:pointer;background:var(--panel);border:1px solid var(--pane-edge,var(--line));border-radius:12px;box-shadow:var(--pane-glow,none);display:flex;align-items:center;justify-content:center;transition:border-color .15s}
+.panes.rows .rail-stack{flex:0 0 40px !important;min-height:0}
+.rail-stack:hover,.rail-stack.open{border-color:var(--accent)}
+.rail-stack.rready{border-color:var(--accent)}
+.rail-stack .rs-inner{display:flex;align-items:center;gap:8px;padding:14px 0;writing-mode:vertical-rl;color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;height:100%;width:100%}
+.panes.rows .rail-stack .rs-inner{writing-mode:horizontal-tb;padding:0 14px}
+.rail-stack:hover .rs-inner,.rail-stack.open .rs-inner{color:var(--ink)}
+.rail-stack .rs-dots{display:inline-flex;align-items:center;gap:4px;flex:none}
+.rail-stack .rs-dots .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.rail-stack .rs-dots .docico{display:inline-flex;color:var(--faint)}.rail-stack .rs-dots .docico svg.i{width:12px;height:12px}
+.rail-stack .rbadge.ready{padding:6px 2px}.rail-stack .rbadge.writing{flex-direction:column}
+.panes.rows .rail-stack .rbadge.writing{flex-direction:row}
+.rspop{position:fixed;z-index:62;background:var(--panel);border:1px solid var(--line2);border-radius:10px;box-shadow:var(--shadow);padding:6px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
+.rsph{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 4px;border-bottom:1px solid var(--line);font-size:11.5px;color:var(--faint);font-weight:600}
+.rslist{display:flex;flex-direction:column;gap:2px}
+.rsrow{display:flex;align-items:center;gap:4px;border-radius:7px}
+.rsrow:hover{background:var(--user-bg)}
+.rsgo{flex:1;min-width:0;display:flex;align-items:center;gap:7px;padding:6px 8px;text-align:left;color:var(--ink);font-size:12.5px}
+.rsgo .dot{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.rsgo .docico{display:inline-flex;color:var(--faint);flex:none}.rsgo .docico svg.i{width:13px;height:13px}
+.rsgo .rst{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--you)}
+.rsrow .rsx{opacity:.6;margin-right:3px}.rsrow:hover .rsx{opacity:1}
 /* a reply in a thread you can't see (a strip, a folded canvas card, a sidebar row): writing, then ready until you open it */
 .rbadge{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:3px;line-height:1}
 .rbadge.writing i{width:4px;height:4px;border-radius:50%;background:var(--muted);animation:bl 1.2s infinite}
@@ -1189,8 +1211,10 @@ table.pptools code{font-size:11.5px;color:var(--muted)}
 .cfilt button{font:500 11px var(--sans);text-transform:none;letter-spacing:0;color:var(--faint);padding:1px 7px;border-radius:6px}
 .cfilt button:hover{color:var(--ink)}
 .cfilt button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.shacts{display:inline-flex;align-items:center;gap:2px}
 .shbtn{font:500 11px var(--sans);text-transform:none;letter-spacing:0;color:var(--faint);padding:2px 6px;border-radius:6px}
 .shbtn:hover{color:var(--ink);background:var(--user-bg)}
+.shbtn.shdir{padding:2px 5px;min-width:20px;text-align:center}
 .tchev{width:16px;height:18px;margin:1px -4px 0 -6px;display:inline-flex;align-items:center;justify-content:center;color:var(--faint);border-radius:4px;flex:none}
 .tchev:hover{color:var(--ink);background:var(--line)}
 .tchev svg.i{width:11px;height:11px;transition:transform .15s}
