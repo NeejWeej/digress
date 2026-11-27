@@ -4,11 +4,11 @@
 
 https://github.com/user-attachments/assets/4435b865-4ed3-46e9-b086-07de01d6515c
 
-**[Try the demo](https://digress.neejweej.workers.dev/)** in your browser (nothing to install; pre-written sample replies, or connect your own Google Gemini API key straight from your browser — everything stays local) — or run it locally with your Claude, ChatGPT, or Gemini account in 30 seconds.
+**[Try the demo](https://digress.neejweej.workers.dev/)** in your browser (nothing to install; pre-written sample replies, or connect your own Google Gemini API key straight from your browser — no Digress backend stores your data) — or run it locally with your Claude, ChatGPT, or Gemini account in 30 seconds.
 
 ## Quick start
 
-Needs **Node 18+** and at least one model connection (your existing Claude or ChatGPT subscription, or an Anthropic / Gemini API key):
+Needs **Node 22.5+** and at least one model connection (your existing Claude or ChatGPT subscription, or an Anthropic / Gemini API key):
 
 ```sh
 git clone https://github.com/NeejWeej/digress && cd digress

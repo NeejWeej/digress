@@ -12,18 +12,18 @@ The **Digress Clipper** (`extension/`) is a small Manifest V3 browser extension 
 ## How to clip
 
 - **On X / Twitter:**
-  - Click the small **Digress branch icon** injected into any tweet’s action bar right from your scrolling feed (no need to open the tweet), **or**
-  - Right-click anywhere on a tweet → **Send to Digress**.
-  - By default, tweets clip as isolated branches into a **"Twitter clippings"** conversation in the background so you can keep scrolling. Each branch sends only that tweet (plus its quoted tweet and attached images) to the model—never the rest of your clippings.
+  - Click the small **Digress branch icon** injected into any tweet’s action bar right from your scrolling feed (`Shift+Click` to jump straight to Digress), **or**
+  - Right-click anywhere on a tweet → **Send to Digress**, which opens a submenu: **Send using site rule**, **Send thread up to here**, **Send just this tweet**, **Branch in current conversation**, or **New document conversation**.
+  - By default, tweets clip as isolated branches into a **"Twitter clippings"** conversation in the background with a fading in-page confirmation toast (and an **Open** button). Each branch sends only that tweet or thread (plus quoted tweets and up to 4 images) to the model—never the rest of your clippings. Long clipped passages include a **Show full / Show less** toggle at the top of the branch.
 - **On any other website:**
   - Highlight text and right-click → **Send to Digress** (or press `Alt+D`) to clip the selection, or trigger it with nothing selected to send the full rendered page (including paywalled articles you’re logged into) through Digress’s reader view.
-  - Click the toolbar icon to override the destination for a single clip (new document vs. branch in a named conversation, and whether to switch to the Digress tab).
+  - Click the toolbar icon to pick an **existing conversation** (or create a new one), choose **+ New clipped branch** (with an optional custom branch title) or drop the clip into an **existing branch**, add an optional question/note (`⌘/Ctrl+Enter` to send), or tick **Remember for `<site>`** to save a per-site rule in one click.
 
-## Per-site rules
+## Settings & per-site rules
 
-In **Settings**, add ordered rules mapping hostnames (`x.com`), wildcard subdomains (`*.substack.com`), or URL prefixes (`x.com/i/lists/123`) to either:
+In **Settings**, click **Detect open tab** or **Test** to connect to your Digress URL, choose your default X clip scope (**Single tweet** vs. **Thread up to clicked tweet**) and whether to show in-page toasts, and add ordered rules mapping hostnames (`x.com`), wildcard subdomains (`*.substack.com`), or URL prefixes (`x.com/i/lists/123`) to either:
 
-- **Branch in conversation** (auto-creates the conversation if it doesn’t exist yet), or
+- **Branch in conversation** (with live conversation name suggestions; auto-creates the conversation if it doesn’t exist yet), or
 - **New document conversation**,
 
-plus whether to focus the Digress tab or clip silently in the background. First matching rule wins; everything else uses the default fallback rule.
+plus whether to focus the Digress tab or clip silently in the background. Use ↑/↓ to reorder rules—first matching rule wins; everything else uses the default fallback rule.
