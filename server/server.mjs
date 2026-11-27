@@ -291,6 +291,8 @@ async function builtinDefault() {
   if (process.env.DEFAULT_MODEL) return process.env.DEFAULT_MODEL;
   const k = enabled()[0];
   if (k === 'chatgpt') { const m = await chatgpt.listModels(); if (m.length) return m[0][0]; }
+  if (k === 'gemini') { const m = await gemini.listModels(); if (m.length) return m[0][0]; }
+  if (k === 'anthropic') { const m = await anthropicModels(); if (m.length) return m[0][0]; }
   return DEFAULT_MODEL;
 }
 async function providerFor(model) {
@@ -298,9 +300,11 @@ async function providerFor(model) {
   if (!owner.has(model)) await listModels();
   const k = owner.get(model);
   if (k && on.includes(k)) return k;
-  // not in any list (an older Claude model id, say): Claude ids go to the Claude provider
-  if (/^gemini/i.test(model) && on.includes('gemini')) return 'gemini';
-  return /^claude/i.test(model) && on.includes(claudeSide()) ? claudeSide() : on[0];
+  // Known model families only route to their own provider; never silently send one provider's model to another.
+  if (/^gemini/i.test(model)) return on.includes('gemini') ? 'gemini' : null;
+  if (/^claude/i.test(model)) return on.includes(claudeSide()) ? claudeSide() : null;
+  if (/^(?:gpt|o\d|chatgpt)/i.test(model)) return on.includes('chatgpt') ? 'chatgpt' : null;
+  return on[0] || null;
 }
 // ---- Connections ----
 const KEY_CHECKS = {
@@ -351,6 +355,7 @@ async function handleChat(req, res) {
   try { payload.messages = normalizeMessages(payload.messages); } catch (e) { return fail(res, e.status || 400, e.message); }
   payload.model = !payload.model || payload.model === 'auto' ? await defaultModel() : String(payload.model);
   const k = await providerFor(payload.model);
+  if (!k) return fail(res, 400, `Model "${payload.model}" is not available from any connected provider.`);
   payload.web = payload.web === true && webOk(k); // the one place web access gets switched on, for every provider
   // whether the search tool is listed at all: always where the provider could search, so Web on or off sends the
   // same tools and the prompt cache survives the switch (Claude Code, ChatGPT); `web` is whether it may run
@@ -378,7 +383,8 @@ async function saveOrphan({ conv, msg }, runId, r) {
   await updateConv(conv, (d) => {
     const m = d.msgs && d.msgs[msg];
     if (!m || m.run !== runId) return false;
-    m.content = r.text;
+    const prefix = Number.isInteger(m.runFrom) && m.runFrom > 0 ? String(m.content || '').slice(0, m.runFrom) : '';
+    m.content = prefix + (r.text || '');
     if (r.model) m.model = r.model;
     if (r.usage) m.usage = r.usage;
     if (r.searches.length) m.searches = r.searches;
@@ -387,6 +393,7 @@ async function saveOrphan({ conv, msg }, runId, r) {
     else if (r.cut) { m.cut = true; m.error = 'Cut off before it finished: no page came back to it within ' + Math.round(DETACH_MS / 60000) + ' minutes.'; }
     else if (r.truncated) m.error = 'Reply was cut off (length limit).';
     delete m.run;
+    delete m.runFrom;
     return true;
   });
 }
@@ -729,13 +736,33 @@ const bound = hostOf(HOST);
 if (bound && !['0.0.0.0', '[::]'].includes(bound)) EXACT.add(bound); // 0.0.0.0 means "every address": list the names you use
 const SUFFIXES = ALLOWED_HOSTS.filter((h) => h.startsWith('.'));
 const knownHost = (h) => !!h && (EXACT.has(h) || SUFFIXES.some((s) => h.endsWith(s)));
+function parseOrigin(value) {
+  try {
+    const u = new URL(value);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    const port = u.port || (u.protocol === 'https:' ? '443' : '80');
+    return { proto: u.protocol, host: u.hostname.toLowerCase(), port };
+  } catch { return null; }
+}
+function parseHostHeader(value, req) {
+  try {
+    const u = new URL('http://' + value);
+    const host = u.hostname.toLowerCase();
+    const fwd = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+    const proto = fwd === 'https' || (!u.port && SUFFIXES.some((s) => host.endsWith(s))) ? 'https:' : 'http:';
+    const port = u.port || (proto === 'https:' ? '443' : '80');
+    return { proto, host, port };
+  } catch { return null; }
+}
 function requestAllowed(req) {
-  const host = hostOf(req.headers.host || '');
-  if (!knownHost(host)) return false; // rebinding: the browser thinks it's talking to some other site
+  const h = parseHostHeader(req.headers.host || '', req);
+  if (!h || !knownHost(h.host)) return false; // rebinding: the browser thinks it's talking to some other site
   const origin = req.headers.origin;
   // no Origin: not a cross-site browser request (same-origin GETs, curl, the tests).
   // "null" comes from sandboxed frames and file:// pages; they don't get in either.
-  return !origin || hostOf(origin) === host;
+  if (!origin) return true;
+  const o = parseOrigin(origin);
+  return !!o && o.host === h.host && o.proto === h.proto && o.port === h.port;
 }
 
 // ---- routes -----------------------------------------------------------------

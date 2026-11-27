@@ -208,6 +208,9 @@ export function openDb(dataDir) {
   const stDeleteLayout = db.prepare('DELETE FROM layouts WHERE conv_id = ?');
 
   const stDeletePassages = db.prepare('DELETE FROM passages WHERE cid = ?');
+  const stDeleteNonDocPassages = db.prepare("DELETE FROM passages WHERE cid = ? AND k != 'd'");
+  const stMaxDocPassageIdx = db.prepare("SELECT COALESCE(MAX(idx), -1) AS m FROM passages WHERE cid = ? AND k = 'd'");
+  const stHasDocPassages = db.prepare("SELECT 1 AS ok FROM passages WHERE cid = ? AND k = 'd' LIMIT 1");
   const stInsertPassage = db.prepare(`
     INSERT INTO passages (cid, idx, k, tid, mid, p, n, o, x) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
@@ -251,13 +254,21 @@ export function openDb(dataDir) {
   }
 
   function syncPassages(cid, indexDoc) {
-    stDeletePassages.run(cid);
     const entries = Array.isArray(indexDoc && indexDoc.e) ? indexDoc.e : [];
+    const preserveDoc = !!(indexDoc && indexDoc.keepDoc && stHasDocPassages.get(cid));
+    let baseIdx = 0;
+    if (preserveDoc) {
+      stDeleteNonDocPassages.run(cid);
+      baseIdx = Number((stMaxDocPassageIdx.get(cid) || {}).m ?? -1) + 1;
+    } else {
+      stDeletePassages.run(cid);
+    }
     for (let i = 0; i < entries.length; i++) {
       const e = entries[i];
       if (!e || typeof e.x !== 'string') continue;
+      if (preserveDoc && e.k === 'd') continue;
       stInsertPassage.run(
-        cid, i, String(e.k || ''), String(e.tid || ''), String(e.mid || ''),
+        cid, baseIdx + i, String(e.k || ''), String(e.tid || ''), String(e.mid || ''),
         Number(e.p || 0), Number(e.n || 0), Number(e.o || 0), e.x
       );
     }
@@ -348,6 +359,15 @@ export function openDb(dataDir) {
 
   function putDoc(coll, id, d) {
     tx(() => {
+      if (coll === 'index') {
+        const cur = stGetDoc.get('index', id);
+        if (cur) {
+          try {
+            const old = JSON.parse(cur.data);
+            if (Number(old && old.rev) > 0 && Number(d && d.rev) > 0 && Number(d.rev) < Number(old.rev)) return;
+          } catch { /* overwrite corrupt */ }
+        }
+      }
       const convId = coll === 'cards' ? String(d.conv || '') : '';
       stUpsertDoc.run(coll, id, convId, JSON.stringify(d));
       if (coll === 'index') syncPassages(id, d);

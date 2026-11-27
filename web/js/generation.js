@@ -114,11 +114,13 @@ async function generate(m,ctx,lockTid,o={}){
   const prefix=o.prefix||'';
   try{
     if(!io.llm)await io.ready;
-    let web=!!m.web;
+    let web=!!m.web,sendModel=settings.model,sendEffort=settings.effort;
+    const targetConvId=st.conv.id;
     if(!o.resume){
       web=!!(settings.web&&io.llm.supportsWeb);if(web)m.web=true;else delete m.web;delete m.searches;delete m.sources;delete m.reads;delete m.toolNow;delete m.cut;
       applyConvLlm(m.thread,true);   // the model this thread asks with (the picker follows it)
-      if(io.llm.supportsEffort)m.effort=settings.effort;else delete m.effort;
+      sendModel=settings.model;sendEffort=settings.effort;   // capture before async save / context prep
+      if(io.llm.supportsEffort)m.effort=sendEffort;else delete m.effort;
       stickLlm(m.thread,false);   // a thread keeps the model it started with
       if(ctx.docSeen)m.docSeen=ctx.docSeen;else delete m.docSeen;
       m.run=run;save();await flushNow();   // saved with its run first, so the server can finish it into this message
@@ -140,7 +142,7 @@ async function generate(m,ctx,lockTid,o={}){
     else{
       const rc=await resolveContext(ctx,!!io.llm.supportsImages);
       if(rc.skipped)toast('This connection can’t send images, so the AI only gets a note where each image was.');
-      r=await io.llm.complete({system:rc.system,messages:rc.messages,model:settings.model,effort:settings.effort,web,signal:ctrl.signal,run,save:{conv:state.conv.id,msg:m.id},
+      r=await io.llm.complete({system:rc.system,messages:rc.messages,model:sendModel,effort:sendEffort,web,signal:ctrl.signal,run,save:{conv:targetConvId,msg:m.id},
         onText,onSearch:(x)=>{keepSearch(x);queueStream(m.id)},onTool,tools});
     }
     m.content=prefix+r.text;if(r.model)m.model=r.model;if(r.usage)m.usage=r.usage;keepSearch(r);

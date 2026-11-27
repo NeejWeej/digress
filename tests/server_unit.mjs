@@ -205,4 +205,37 @@ test('fetchdoc: looksLikeHtml handles comments without catastrophic backtracking
   assert.equal(looksLikeHtml('<!-- x -->'.repeat(5000) + '<html>'), true);
 });
 
+test('db: putDoc index preserves doc passages on keepDoc and ignores stale lower-rev writes', () => {
+  const dir = makeTempDir();
+  try {
+    const db = openDb(dir);
+    db.saveConv('c1', { id: 'c1', title: 'Doc', threads: {}, msgs: {} });
+    db.putDoc('index', 'c1', {
+      id: 'c1', v: 2, rev: 2,
+      e: [
+        { k: 'd', p: 1, n: 0, o: 0, x: 'quantum entanglement document passage' },
+        { k: 'a', tid: 'main', mid: 'm1', n: 0, o: 0, x: 'first answer text' },
+      ],
+    });
+    // keepDoc update replaces only non-doc passages while preserving existing 'd' passages
+    db.putDoc('index', 'c1', {
+      id: 'c1', v: 2, rev: 3, keepDoc: true,
+      e: [{ k: 'a', tid: 'main', mid: 'm1', n: 0, o: 0, x: 'revised answer text' }],
+    });
+    assert.ok(db.searchPassages('entanglement').some((r) => r.cid === 'c1' && r.k === 'd'), 'doc passage preserved');
+    assert.ok(db.searchPassages('revised').some((r) => r.cid === 'c1' && r.k === 'a'), 'new answer indexed');
+    assert.equal(db.searchPassages('first').length, 0, 'old answer removed');
+    // Stale lower-rev index write must be ignored
+    db.putDoc('index', 'c1', {
+      id: 'c1', v: 2, rev: 1,
+      e: [{ k: 'a', tid: 'main', mid: 'm1', n: 0, o: 0, x: 'stale overwritten answer' }],
+    });
+    assert.equal(db.searchPassages('stale').length, 0, 'stale rev ignored');
+    assert.ok(db.searchPassages('revised').some((r) => r.cid === 'c1'), 'newer rev preserved');
+    db.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 console.log(`server_unit: ${passed} passed`);
