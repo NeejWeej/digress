@@ -2,7 +2,7 @@
 import { trunc, plain } from './text.js';
 import { textWalker, nonWs } from './anchors.js';
 import {
-  DOC_TOOL_NAMES, isDocBranch, joinParts,
+  listSources, resumeSourceLists, DOC_TOOL_NAMES, isDocBranch, joinParts,
   appendText, buildContext as buildContextPure,
 } from './context.js';
 import { runId } from './connectors.js';
@@ -56,7 +56,7 @@ export function createGeneration() {
 /* ---------- context for the model (pure logic lives in ./context.js) ---------- */
 const ctxEnv=()=>({conv:state.conv,docState:state.docState,docView,custom:CUSTOM,prompts:PROMPTS,threadOps:ThreadOps,settings,io});
 function buildContext(tid,excludeMid,opts){
-  const res=buildContextPure(ctxEnv(),tid,excludeMid,opts);
+  const res=buildContextPure(ctxEnv(),tid,excludeMid,{captureSources:true,...opts});
   app.DOC_MOD.lastDocSeen=res.docSeen;
   return res;
 }
@@ -129,14 +129,17 @@ async function generate(m,ctx,lockTid,o={}){
       if(io.llm.supportsEffort)m.effort=sendEffort;else delete m.effort;
       stickLlm(m.thread,false);   // a thread keeps the model it started with
       if(ctx.docSeen)m.docSeen=ctx.docSeen;else delete m.docSeen;
+      if(ctx.sourceLists?.length)m.runSourceIds=ctx.sourceLists.map(s=>s.id);
+      else delete m.runSourceIds;
       m.run=run;save();await flushNow();   // saved with its run first, so the server can finish it into this message
     }
     // m.live: what it has done so far, shown while it works (not saved: generate drops it when done)
     m.live=[];m.t0=m.t0||Date.now();tick=setInterval(()=>queueStream(m.id),1000);
     const step=(icon,text,done)=>{const l=m.live[m.live.length-1];if(l)l.done=true;m.live.push({icon,text,done});queueStream(m.id)};
-    const toolText=(name,input)=>name==='suggest_card'?`suggested a flashcard: “${trunc(String(input.front||''),60)}”`:trailText(name==='search'?{t:'search',q:[].concat(input.queries!=null?input.queries:input.query||'').map(String).join('”, “')}:name==='read_pages'?{t:'read',a:input.from,b:input.to||input.from}:{t:'view',p:input.page});
+    const toolText=(name,input)=>name==='list_sources'?'checked saved web references':name==='suggest_card'?`suggested a flashcard: “${trunc(String(input.front||''),60)}”`:trailText(name==='search'?{t:'search',q:[].concat(input.queries!=null?input.queries:input.query||'').map(String).join('”, “')}:name==='read_pages'?{t:'read',a:input.from,b:input.to||input.from}:{t:'view',p:input.page});
     let nCards=0;
     const trail=[...(o.resume&&m.reads||[])],tools=ctx.tools?{names:ctx.tools,run:async(name,input)=>{   // the model reading the document or suggesting a card: run the call here, show what it's doing
+      if(name==='list_sources')return listSources(ctx.sourceLists,input);
       if(name==='suggest_card'){try{const r=await suggestCard(st.conv,m,input);if(!r.error)nCards++;return r}finally{const l=m.live[m.live.length-1];if(l)l.done=true;queueStream(m.id)}}
       try{await docReady();return await runDocTool(name,input,trail,targetConvId)}finally{m.reads=[...trail];const l=m.live[m.live.length-1];if(l)l.done=true;queueStream(m.id)}}}:undefined;
     let nq=0;
@@ -164,7 +167,7 @@ async function generate(m,ctx,lockTid,o={}){
   }
   clearInterval(tick);
   if(state.conv!==st.conv)return;
-  delete m.pending;delete m.run;delete m.runFrom;delete m.toolNow;delete m.live;delete m.t0;if(m.reads&&!m.reads.length)delete m.reads;m.ver++;streaming.delete(lockTid);
+  delete m.pending;delete m.run;delete m.runFrom;delete m.runSourceIds;delete m.toolNow;delete m.live;delete m.t0;if(m.reads&&!m.reads.length)delete m.reads;m.ver++;streaming.delete(lockTid);
   if(!seenNow(m.thread))unread.add(m.thread);   // finished out of sight: badge it until it's opened
   if(document.hidden&&!m.error){app.CANVAS_MOD.tabReady=true;tabName()}
   cardsAfterReply(m);nameAfterReply(m);
@@ -220,7 +223,14 @@ function resumeRuns(){
     if(streaming.has(m.thread))continue;
     const prefix=(m.content||'').slice(0,m.runFrom||0);m.content=prefix;m.pending=true;m.ver++;
     const names=io.llm&&io.llm.supportsTools?[...(state.conv.doc?DOC_TOOL_NAMES:[]),...(cardsOn()?['suggest_card']:[])]:[];
-    generate(m,{tools:names.length?names:false},m.thread,{resume:true,prefix});
+    let sourceLists;
+    if(Array.isArray(m.runSourceIds)&&m.runSourceIds.length){
+      names.push('list_sources');
+      const current=buildContext(m.thread,m.id).sourceLists || [];
+      // Keep the original handles on reconnect. A deleted or off-path list must fail lookup.
+      sourceLists=resumeSourceLists(m.runSourceIds,current);
+    }
+    generate(m,{sourceLists,tools:names.length?names:false},m.thread,{resume:true,prefix});
   }
 }
 // a reply that was cut off: ask the model to carry on from where it stopped

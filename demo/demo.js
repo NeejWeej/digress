@@ -289,7 +289,7 @@
       if (!names.has(name)) return Promise.resolve(failedTool(`There is no tool called "${name}". The tools are: ${[...names].join(', ')}.`));
       const isCard = name === 'suggest_card';
       if (isCard) { if (++s.cards > maxCards) return Promise.resolve(failedTool(`That is the limit of ${maxCards} suggested cards for one answer.`)); }
-      else if (++s.calls > maxCalls) return Promise.resolve(failedTool(`That is the limit of ${maxCalls} document tool calls for one answer. Answer now with what you have, and say plainly which parts of the document you did not get to read.`));
+      else if (++s.calls > maxCalls) return Promise.resolve(failedTool(`That is the limit of ${maxCalls} reading tool calls for one answer. Answer now with what you have, and say plainly which evidence you could not retrieve.`));
       const id = randHex(8);
       emit({ tool: { id, name, input: input && typeof input === 'object' && !Array.isArray(input) ? input : {} } });
       return new Promise((resolve) => {
@@ -297,7 +297,7 @@
         const done = (r) => {
           clearTimeout(timer); s.pending.delete(id);
           const left = isCard ? 99 : maxCalls - s.calls;
-          if (left <= 3) r = { ...r, parts: [...(r.parts || []), { type: 'text', text: left ? `(${left} document tool call${left > 1 ? 's' : ''} left for this answer.)` : '(That was the last document tool call for this answer: answer now with what you have, and say what you didn’t get to read.)' }] };
+          if (left <= 3) r = { ...r, parts: [...(r.parts || []), { type: 'text', text: left ? `(${left} reading tool call${left > 1 ? 's' : ''} left for this answer.)` : '(That was the last reading tool call for this answer: answer now with what you have, and say what you didn’t get to read.)' }] };
           resolve(r);
         };
         s.pending.set(id, done);

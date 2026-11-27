@@ -84,7 +84,7 @@
     }
     if (p[1] === 'models') return json({ models: [...(window.fakeModels || [['claude-opus-5-5', 'Opus 5.5'], ['claude-sonnet-5-5', 'Sonnet 5.5'], ['claude-haiku-5-5', 'Haiku 5.5']]), ...(conn.gemini ? gemModels : [])], defaultLabel: 'Opus 5.5' });   // a test can list others (window.fakeModels)
     if (p[1] === 'chat' && p[2] === 'tool' && method === 'POST') { const b = JSON.parse(init.body), r = toolWait.get(b.id); toolWait.delete(b.id); if (r) r(b.error ? { error: b.error } : { parts: b.parts }); return json({ ok: true }); }
-    if (p[1] === 'tools') return json({ tools: [{ name: 'suggest_card', description: 'Suggest one flashcard (fake).', schema: { type: 'object', properties: { front: {}, back: {} } } }], maxCalls: 30, maxCards: 10 });
+    if (p[1] === 'tools') return json({ tools: [{ name: 'list_sources', description: 'Read saved web references.', schema: {type:'object',properties:{reply:{type:'string'}}} }, { name: 'suggest_card', description: 'Suggest one flashcard (fake).', schema: { type: 'object', properties: { front: {}, back: {} } } }], maxCalls: 30, maxCards: 10 });
     if (p[1] === 'chat' && p[2] === 'stop' && method === 'POST') { const c = runs.get(JSON.parse(init.body).chat); if (c) c.abort(); return json({ ok: true }); }
     if (p[1] === 'chat' && p[2] === 'run') return json({ error: 'Not found' }, 404);   // reconnecting isn't faked (test_runs.py covers the real server)
     if (p[1] === 'chat' && method === 'POST') {

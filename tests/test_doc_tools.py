@@ -77,14 +77,14 @@ async def main():
 
             # the model knows the budget up front, and is told as it runs low (server/doctools.mjs on its own)
             script = ("const { DOC_TOOLS, openSession, deliverResult, MAX_TOOL_CALLS } = await import(process.argv[1]);"
-                      "const up = DOC_TOOLS.every((t) => t.description.includes(`up to ${MAX_TOOL_CALLS} document tool calls per answer`));"
+                      "const up = DOC_TOOLS.every((t) => t.description.includes(`up to ${MAX_TOOL_CALLS} reading tool calls per answer`));"
                       "const s = openSession('a'.repeat(32)); s.out = (o) => setTimeout(() => deliverResult({ chat: s.chatId, id: o.tool.id, parts: [{ type: 'text', text: 'x' }] }));"
                       "const tails = []; for (let i = 0; i <= MAX_TOOL_CALLS; i++) { const r = await s.call('read_pages', { from: 1 }); tails.push((r.error ? 'E:' : '') + r.parts.at(-1).text); } s.close();"
                       "console.log(JSON.stringify({ up, tails, max: MAX_TOOL_CALLS }));")
             out = json.loads(subprocess.run(['node', '--input-type=module', '-e', script, os.path.join(os.path.dirname(FAKES), '..', 'server', 'doctools.mjs')], capture_output=True, text=True).stdout)
             t, M = out['tails'], out['max']   # t[i]: call i+1 of M
             check('every tool\'s description tells the model its budget of calls', out['up'])
-            check('results say how many calls are left once only a few are', t[M - 5] == 'x' and t[M - 4].startswith('(3 document tool calls left') and t[M - 2].startswith('(1 document tool call left') and 'last document tool call' in t[M - 1], t[M - 5:M])
+            check('results say how many calls are left once only a few are', t[M - 5] == 'x' and t[M - 4].startswith('(3 reading tool calls left') and t[M - 2].startswith('(1 reading tool call left') and 'last reading tool call' in t[M - 1], t[M - 5:M])
             check('past the budget, calls come back as an error telling it to answer', t[M].startswith('E:That is the limit'), t[M])
 
             # each reply offers the tools the page named: suggest_card alone (a conversation with cards on, no document)

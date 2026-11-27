@@ -172,9 +172,54 @@ export function docPreamble(env, tid, question, tools) {
   };
 }
 
+// Derive the receipt from saved activity only. Keep it on the reply's own branch.
+function replyActivity(m, doc, prompt, sourceList, handle) {
+  const actions = new Set();
+  for (const r of Array.isArray(m.reads) ? m.reads : []) {
+    if (r?.t === 'read' && Number.isSafeInteger(r.a) && r.a > 0 && Number.isSafeInteger(r.b) && r.b >= r.a) {
+      actions.add(prompt.read(doc?.kind === 'pdf', r.a, r.b));
+    } else if (r?.t === 'view' && Number.isSafeInteger(r.p) && r.p > 0) {
+      actions.add(prompt.view(r.p, r.part));
+    }
+  }
+  if (sourceList) actions.add(prompt.sources(sourceList.refs.length, handle));
+  return actions.size ? prompt.note([...actions]) : '';
+}
+
+// References are data reported by the provider. Keep distinct original links and never fetch them.
+function reportedRefs(sources) {
+  const refs = new Map();
+  for (const s of Array.isArray(sources) ? sources : []) {
+    if (typeof s?.url !== 'string' || !/^https?:\/\//i.test(s.url) || !URL.canParse(s.url)) continue;
+    const title = typeof s.title === 'string' && !/^https?:\/\//i.test(s.title.trim()) ? s.title.trim() : '';
+    if (!refs.has(s.url) || !refs.get(s.url)) refs.set(s.url, title);
+  }
+  return [...refs].map(([url, title]) => title ? title + ' — ' + url : url);
+}
+
+// A resumed run retains its original numbering, including holes for deleted or off-path replies.
+export function resumeSourceLists(ids, current) {
+  const byId = new Map(current.map(s => [s.id, s]));
+  return ids.map((id, i) => {
+    const item = byId.get(id);
+    return item ? { ...item, handle: 'S' + (i + 1) } : null;
+  });
+}
+
+export function listSources(lists, input = {}) {
+  if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some(k => k !== 'reply')) {
+    return { error: 'list_sources takes only an optional reply handle.' };
+  }
+  const item = input.reply === undefined ? lists?.at(-1) : lists?.find(s => s && s.handle === input.reply);
+  if (!item?.refs) return { error: 'No saved source list with that handle is available on this reply path.' };
+  return { parts: [{ type: 'text', text: JSON.stringify({ reply: item.handle, question: item.question, references: item.refs }) }] };
+}
+
 export function buildContext(env, tid, excludeMid, opts) {
   const { conv, docState, custom, prompts, threadOps, settings, io } = env;
   const tools = toolsWantedOf(conv, io, opts);   // the model can read the document itself (see runDocTool); opts.tools:false for side jobs like drafting cards
+  const lists = [];
+  const canLookup = io?.llm?.supportsTools && opts?.tools !== false;
   const out = [];
   const push = (role, c) => {
     const parts = typeof c === 'string' ? [{ type: 'text', text: c }] : c;
@@ -206,6 +251,12 @@ export function buildContext(env, tid, excludeMid, opts) {
       return;
     }
     if (m.role === 'assistant' && (!c || m.pending)) return;
+    if (m.role === 'assistant') {
+      const refs = reportedRefs(m.sources);
+      const item = refs.length ? { id: m.id, handle: 'S' + (lists.length + 1), question: trunc(lastQ, 160), refs } : null;
+      if (item) lists.push(item);
+      c += replyActivity(m, conv.doc, prompts.activity, item, canLookup && item?.handle);
+    }
     let parts = [{ type: 'text', text: c }];
     if (m.role === 'user') {
       if (m.images && m.images.length) parts = [...m.images.map((ref, k) => ({ type: 'image', ref, label: `image ${k + 1} attached to “${trunc(c || 'a message', 40)}”` })), ...(c ? parts : [])];
@@ -226,5 +277,8 @@ export function buildContext(env, tid, excludeMid, opts) {
     docSeen = pre.docSeen;
   }
   const names = [...(tools && conv.doc && docState && docState.loaded ? DOC_TOOL_NAMES : []), ...cardToolOf(conv, io, opts)];
-  return { system, messages: out.map(o => ({ role: o.role, content: joinParts(o.parts) })), docSeen, tools: names.length ? names : false };
+  if (lists.length && canLookup) names.push('list_sources');
+  // Callers that execute tools can collect the snapshot. The preview and provider messages contain only the markers.
+  const snapshot = opts?.captureSources && canLookup && lists.length ? { sourceLists: lists } : {};
+  return { ...snapshot, system, messages: out.map(o => ({ role: o.role, content: joinParts(o.parts) })), docSeen, tools: names.length ? names : false };
 }

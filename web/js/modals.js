@@ -306,7 +306,7 @@ function editConvSystem(){
 // loaded: the tools, the system prompt in its parts, and every message on the path with its markers.
 function showModelView(tid){
   if(!state.conv)return;tid=tid||pickerTid();if(!T(tid))tid='main';
-  const keep=app.DOC_MOD.lastDocSeen;let ctx;try{ctx=buildContext(tid)}finally{app.DOC_MOD.lastDocSeen=keep}
+  const keep=app.DOC_MOD.lastDocSeen;let ctx;try{ctx=buildContext(tid,null,{captureSources:false})}finally{app.DOC_MOD.lastDocSeen=keep}
   const own=sysPrompt(state.conv),sk=skillsPrompt(state.conv),rest=ctx.system.slice(fullSys(state.conv).length).replace(/^\n\n/,'');
   const n=(x)=>`${x.length.toLocaleString()} characters`;
   const part=(title,text,open)=>text?`<details class="mvp"${open?' open':''}><summary>${esc(title)} <small>${n(text)}</small></summary><pre>${esc(text)}</pre></details>`:'';
@@ -406,6 +406,7 @@ async function addSkillFrom(get){
 const TOOL_INFO=[
   ['Web search',null,'Web in the top bar, per question.','The one that reaches outside (your words go to a search engine), so it’s yours to switch. The provider runs it.'],
   ['Reading the document',['search','read_pages','view_page'],'Always, with a document.','Only reads what you opened, in this browser.'],
+  ['Saved web references',['list_sources'],'An earlier reply on this path has web references.','Looks up a saved list even when Web is off.'],
   ['Suggesting flashcards',['suggest_card'],'Flashcards on in the conversation.','Adds a card to your inbox when the model judges something has landed.'],
 ];
 async function renderToolList(){
@@ -486,7 +487,7 @@ async function digressFile(id,o={}){
   const grab=async(assetId,type)=>{if(!assetId||files[assetId])return;const buf=await io.files.fetch(assetId);files[assetId]={type:type||'application/octet-stream',data:await blobB64(new Blob([buf]))}};
   for(const k of ['trashed','archived','pinned','folder','dropCards','cards'])delete c[k];
   for(const t of Object.values(c.threads))delete t.pinned;
-  for(const m of Object.values(c.msgs)){delete m.run;delete m.runFrom;if(!withImgs)delete m.images}
+  for(const m of Object.values(c.msgs)){delete m.run;delete m.runFrom;delete m.runSourceIds;if(!withImgs)delete m.images}
   if(!withImgs){for(const t of Object.values(c.threads)){delete t.anchorShot;delete t.anchorImages}}
   if(c.doc){
     delete c.doc.mark;delete c.doc.unsaved;
@@ -634,7 +635,7 @@ async function importDigressData(d,kind='file'){
     for(const k of ['rev','ui','trashed','archived','pinned','folder','dropCards','cards'])delete c[k];
     const {tMap,mMap}=remapConvIds(c,(p)=>p+rid());
     c.id=id;c.title=typeof c.title==='string'&&c.title?c.title:'Shared conversation';c.created=+c.created||Date.now();c.updated=Date.now();c.nextColor=+c.nextColor||0;
-    for(const m of Object.values(c.msgs)){for(const f of [...app.LOCAL_MSG,'run','runFrom'])delete m[f];for(const im of m.images||[])await restore(im)}
+    for(const m of Object.values(c.msgs)){for(const f of [...app.LOCAL_MSG,'run','runFrom','runSourceIds'])delete m[f];for(const im of m.images||[])await restore(im)}
     if(c.doc){
       if(typeof c.doc!=='object'){delete c.doc}
       else{

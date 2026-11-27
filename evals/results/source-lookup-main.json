@@ -1,0 +1,200 @@
+{
+  "model": "gpt-6.2-sol",
+  "comparison": "context builder at e14bee482fe3f926b8cc67f2897c191d31c19ed5 / source lookup in working copy",
+  "cases": {
+    "source-earlier": {
+      "before": {
+        "text": "The first study was **Larch**. Its calibration appendix URL wasn’t included in the earlier reply, so I can’t verify it from this conversation.",
+        "model": "gpt-6.2-sol",
+        "usage": {
+          "ctx": 5388,
+          "cached": 4096,
+          "out": 35,
+          "rounds": 1,
+          "window": 500000
+        },
+        "calls": [],
+        "messageChars": 602,
+        "ms": 1927
+      },
+      "after": {
+        "text": "[Larch study calibration appendix](https://archive.example.org/papers/r7x-p14)",
+        "model": "gpt-6.2-sol",
+        "usage": {
+          "ctx": 5698,
+          "cached": 3968,
+          "out": 42,
+          "rounds": 2,
+          "window": 500000
+        },
+        "calls": [
+          {
+            "input": {
+              "reply": "S1"
+            },
+            "result": "S1"
+          }
+        ],
+        "messageChars": 754,
+        "ms": 4099
+      }
+    },
+    "source-gap": {
+      "before": {
+        "text": "I don’t have a verified URL for the Larch study’s calibration appendix. If you share the paper’s title, DOI, or a link to the study, I can help identify the appendix.",
+        "model": "gpt-6.2-sol",
+        "usage": {
+          "ctx": 5409,
+          "cached": 4096,
+          "out": 44,
+          "rounds": 1,
+          "window": 500000
+        },
+        "calls": [],
+        "messageChars": 709,
+        "ms": 3687
+      },
+      "after": {
+        "text": "The Larch study’s [calibration appendix](https://archive.example.org/papers/r7x-p14) was listed at `https://archive.example.org/papers/r7x-p14`.",
+        "model": "gpt-6.2-sol",
+        "usage": {
+          "ctx": 5701,
+          "cached": 3968,
+          "out": 63,
+          "rounds": 2,
+          "window": 500000
+        },
+        "calls": [
+          {
+            "input": {
+              "reply": "S1"
+            },
+            "result": "S1"
+          }
+        ],
+        "messageChars": 785,
+        "ms": 8688
+      }
+    },
+    "source-cited": {
+      "before": {
+        "text": "[Calibration appendix](https://archive.example.org/papers/r7x-p14)",
+        "model": "gpt-6.2-sol",
+        "usage": {
+          "ctx": 5366,
+          "cached": 4096,
+          "out": 21,
+          "rounds": 1,
+          "window": 500000
+        },
+        "calls": [],
+        "messageChars": 453,
+        "ms": 1862
+      },
+      "after": {
+        "text": "[Calibration appendix](https://archive.example.org/papers/r7x-p14)",
+        "model": "gpt-6.2-sol",
+        "usage": {
+          "ctx": 5455,
+          "cached": 3968,
+          "out": 21,
+          "rounds": 1,
+          "window": 500000
+        },
+        "calls": [],
+        "messageChars": 529,
+        "ms": 1956
+      }
+    },
+    "source-sibling": {
+      "before": {
+        "text": "I can’t see your other branch, and the calibration appendix URL isn’t in this one. Could you paste the passage where it was mentioned?",
+        "model": "gpt-6.2-sol",
+        "usage": {
+          "ctx": 5327,
+          "cached": 4096,
+          "out": 33,
+          "rounds": 1,
+          "window": 500000
+        },
+        "calls": [],
+        "messageChars": 270,
+        "ms": 2278
+      },
+      "after": {
+        "text": "I can’t see your other branch, so I don’t know the URL. If you paste the excerpt where the calibration appendix was mentioned, I can help identify it.",
+        "model": "gpt-6.2-sol",
+        "usage": {
+          "ctx": 5327,
+          "cached": 5120,
+          "out": 38,
+          "rounds": 1,
+          "window": 500000
+        },
+        "calls": [],
+        "messageChars": 270,
+        "ms": 2257
+      }
+    },
+    "source-verbose": {
+      "before": {
+        "text": "Random assignment means using chance to decide which study group each participant joins, rather than letting participants or researchers choose.",
+        "model": "gpt-6.2-sol",
+        "usage": {
+          "ctx": 5350,
+          "cached": 3840,
+          "out": 26,
+          "rounds": 1,
+          "window": 500000
+        },
+        "calls": [],
+        "messageChars": 392,
+        "ms": 1900
+      },
+      "after": {
+        "text": "Random assignment means using chance to decide which study group each participant joins, so the groups are more likely to be comparable before the study begins.",
+        "model": "gpt-6.2-sol",
+        "usage": {
+          "ctx": 5439,
+          "cached": 3968,
+          "out": 32,
+          "rounds": 1,
+          "window": 500000
+        },
+        "calls": [],
+        "messageChars": 469,
+        "ms": 2902
+      }
+    },
+    "source-unrelated": {
+      "before": {
+        "text": "Random assignment means using chance, rather than anyone’s choice, to decide which study group each participant joins.",
+        "model": "gpt-6.2-sol",
+        "usage": {
+          "ctx": 5350,
+          "cached": 4096,
+          "out": 25,
+          "rounds": 1,
+          "window": 500000
+        },
+        "calls": [],
+        "messageChars": 392,
+        "ms": 1948
+      },
+      "after": {
+        "text": "Random assignment means using chance to decide which group each study participant joins, rather than letting participants or researchers choose.",
+        "model": "gpt-6.2-sol",
+        "usage": {
+          "ctx": 5439,
+          "cached": 3712,
+          "out": 26,
+          "rounds": 1,
+          "window": 500000
+        },
+        "calls": [],
+        "messageChars": 468,
+        "ms": 2517
+      }
+    }
+  }
+}

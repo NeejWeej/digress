@@ -1,12 +1,14 @@
 // Direct Node unit tests for web/js/context.js against the real web/prompts.js and web/threads.js.
 // Focuses on high-value invariants: prompt-cache prefix stability, over-budget doc handling
 // (tools vs. page-picking), CLIP branch isolation, takeaways/images merging, and system/skill precedence.
+import { SOURCE_CASES, sourceFixture } from '../evals/source_cases.mjs';
+import { ACTIVITY_CASES, activityFixture } from '../evals/activity_cases.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {
   DOC_FIRST, DOC_TOOL_NAMES,
-  fullSysOf, buildContext, joinParts, appendText, safeDocSource,
+  fullSysOf, buildContext, listSources, resumeSourceLists, joinParts, appendText, safeDocSource,
 } from '../web/js/context.js';
 
 // Load real web/prompts.js and web/threads.js (classic browser globals) into a sandboxed VM.
@@ -295,6 +297,124 @@ test('docPreamble strips query strings, fragments, and credentials from doc.sour
   const noTools = buildContext(env, 'main', null, { tools: false });
   assert.ok(noTools.system.includes('https://private.example/docs/report.pdf'));
   assert.ok(!noTools.system.includes('topsecret') && !noTools.system.includes('user:pass'));
+});
+
+for (const c of ACTIVITY_CASES) {
+  test('reply activity: ' + c.id, () => {
+    const { conv, tid } = activityFixture(c), original = structuredClone(conv);
+    const docState = c.id === 'figure-tool' ? { loaded: true, kind: 'pdf', name: 'Pilot report', pages: Array(47).fill('Pilot study notes') } : null;
+    const env = makeEnv({ conv, docState });
+    const ctx = buildContext(env, tid);
+    const baseline = buildContext({ ...env, conv: activityFixture(c, false).conv }, tid);
+    if (docState) assert.ok(ctx.tools.includes('view_page'));
+    if (c.id === 'sibling-page') {
+      assert.deepEqual(ctx, baseline);
+      assert.ok(!JSON.stringify(ctx.messages).includes('47'));
+    } else {
+      const receipt = c.id === 'web-source' ? 'web search returned 1 reference (S1)' : 'viewed an image of p. 47';
+      if (c.id === 'web-source') baseline.tools = ['list_sources'];
+      const reply = baseline.messages.find(m => m.content === conv.msgs.reply.content);
+      reply.content += '\n\n[Digress activity for this reply: ' + receipt + ']';
+      assert.deepEqual(ctx, baseline);
+    }
+    assert.deepEqual(buildContext(env, tid), ctx);
+    assert.deepEqual(conv, original);
+  });
+}
+
+test('activity distinguishes retrieved text, requested pictures, and search hits; keeps references out of message text', () => {
+  const { conv, tid } = activityFixture(ACTIVITY_CASES[0]);
+  conv.doc.kind = 'text';
+  conv.msgs.reply.reads = [{ t: 'read', a: 2, b: 4 }, { t: 'view', part: true, p: 7 }, { t: 'search', pages: [99] }];
+  const urls = Array.from({ length: 21 }, (_, i) => 'https://example.org/' + (i + 1));
+  conv.msgs.reply.sources = [urls[0], ...urls].map(url => ({ url }));
+  const { messages, sourceLists:lists } = buildContext(makeEnv({ conv }), tid, null, {captureSources:true});
+  const { content } = messages.at(-2);
+  assert.match(content, /read parts 2–4; requested pictures from part 7/);
+  assert.ok(!content.includes('99'));
+  assert.ok(!content.includes('https://'));
+  assert.ok(content.includes('21 references (S1)'));
+  assert.deepEqual(JSON.parse(listSources(lists).parts[0].text).references, urls);
+});
+
+function sourceCase(id) {
+  return sourceFixture(SOURCE_CASES.find(c => c.id === id));
+}
+
+test('source lookup defaults across empty turns, resolves earlier origins, and rejects unknown handles', () => {
+  for (const id of ['source-gap', 'source-earlier']) {
+    const { conv, tid } = sourceCase(id);
+    const env = makeEnv({conv});
+    const {sourceLists:lists} = buildContext(env, tid, null, {captureSources:true});
+    const ctx = buildContext(env, tid);
+    assert.deepEqual(ctx.tools, ['list_sources']);
+    // Changing every source title and URL must leave the visible request identical.
+    const alternate = structuredClone(conv);
+    for (const m of Object.values(alternate.msgs)) {
+      if (m.sources) m.sources = m.sources.map((_, i) => ({ title: 'Alternate ' + i, url: 'https://example.net/' + i }));
+    }
+    assert.deepEqual(buildContext(makeEnv({conv: alternate}), tid), ctx);
+    assert.equal(Object.hasOwn(ctx, 'sourceLists'), false);
+    const first = JSON.parse(listSources(lists, { reply: 'S1' }).parts[0].text);
+    assert.equal(first.question, 'How was the Larch study organized?');
+    assert.equal(first.references.length, 8);
+    assert.ok(first.references[2].endsWith('/r7x-p14'));
+    const last = JSON.parse(listSources(lists).parts[0].text);
+    assert.equal(last.reply, id === 'source-gap' ? 'S1' : 'S2');
+    assert.ok(last.references[2].endsWith(id === 'source-gap' ? '/r7x-p14' : '/j2v-p06'));
+    for (const args of [{ reply: 'S3' }, { reply: null }, { reply:'' }, { page:1 }, null]) {
+      assert.ok(listSources(lists, args).error);
+    }
+  }
+});
+
+test('source lists follow the fork boundary and skip pending and excluded replies', () => {
+  const {conv, tid} = sourceCase('source-sibling');
+  const env = makeEnv({conv});
+  const sibling = buildContext(env, tid, null, {captureSources:true});
+  assert.equal(sibling.tools, false);
+  assert.ok(listSources(sibling.sourceLists, {reply:'S1'}).error);
+  const id = conv.order.left.at(-1);
+  conv.threads.child = { id:'child', parent:'left', anchorMsg:id };
+  conv.order.child = [];
+  const {sourceLists:lists} = buildContext(env, 'child', null, {captureSources:true});
+  assert.equal(lists.length, 1);
+  // Later parent history and its references stay beyond the child's fork.
+  conv.order.left.push('later');
+  conv.msgs.later = { id:'later', thread:'left', role:'assistant', content:'Later answer', sources:[{url:'https://later.example/'}] };
+  assert.deepEqual(buildContext(env, 'child', null, {captureSources:true}).sourceLists, lists);
+  assert.equal(buildContext(env, 'child', id).tools, false);
+  conv.msgs[id].pending = true;
+  assert.equal(buildContext(env, 'child').tools, false);
+});
+
+test('handles are request scoped, exact URLs survive, and tool-free connections get count only', () => {
+  const {conv, tid} = sourceCase('source-gap'), env = makeEnv({conv});
+  const msg = Object.values(conv.msgs).find(m => m.sources?.length);
+  const root = 'https://example.org/doc?key=', url = root + 'x'.repeat(400);
+  msg.sources = [null, {url:'file:///x'}, {url:'https://'}, {url, title:url}, {url, title:'Methods'}, {url:root+'2'}];
+  const {sourceLists:lists} = buildContext(env, tid, null, {captureSources:true});
+  msg.sources.splice(0);
+  assert.deepEqual(JSON.parse(listSources(lists).parts[0].text).references, ['Methods — ' + url, root+'2']);
+  msg.sources = [{url}];
+  for (const opts of [{tools:false}, {}]) {
+    if (!('tools' in opts)) env.io.llm.supportsTools = false;
+    const ctx = buildContext(env, tid, null, opts);
+    assert.equal(ctx.tools, false);
+    assert.ok(JSON.stringify(ctx).includes('web search returned 1 reference]'));
+    assert.ok(!JSON.stringify(ctx).includes(url));
+  }
+});
+
+test('reconnect keeps original handle order and fails closed when the requested list disappeared', () => {
+  const {conv,tid} = sourceCase('source-earlier');
+  const {sourceLists:lists} = buildContext(makeEnv({conv}), tid, null, {captureSources:true});
+  const ids = lists.map(x => x.id);
+  const missing = resumeSourceLists(ids, [lists[0]]);
+  assert.ok(listSources(missing).error);
+  assert.ok(listSources(missing, {reply:'S2'}).error);
+  assert.equal(JSON.parse(listSources(missing,{reply:'S1'}).parts[0].text).question, lists[0].question);
+  assert.equal(JSON.parse(listSources(resumeSourceLists(ids,[...lists].reverse())).parts[0].text).question, lists[1].question);
 });
 
 console.log(`\nall passed (${passed} tests)`);
