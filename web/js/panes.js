@@ -1,13 +1,12 @@
 // Pane view: message elements, composer, pane headers, per-pane zoom, resize/reorder, and connector wires.
-import { esc, trunc, plain } from './text.js';
+import { esc, trunc } from './text.js';
 import { isDocBranch, isClipBranch, isWholePage, shotRef } from './context.js';
 import { normalizePageIndex } from './share.js';
 import {
-  state, app, io, settings, CUSTOM, paneEls, gutEls, msgCache, streaming, unread,
-  $, ic, qid, T, color, ancestors, children, branchesOn, hiddenNow, shownOn, branchNum, isCollapsed,
-  STARTERS, MODELS, EFFORTS, effortLabel, modelLabel, defaultSys, sysPrompt, convSkills, quickList, resetThreadIdx,
+  state, app, paneEls, gutEls, msgCache, streaming, $, ic, qid, T, color, ancestors, branchesOn, hiddenNow, shownOn, branchNum, isCollapsed,
+  STARTERS, effortLabel, modelLabel, sysPrompt, quickList, resetThreadIdx,
 } from './state.js';
-import { imageURL, pendingImgs, takePending, renderPending, userMsgBody, regionRef } from './media.js';
+import { imageURL, pendingImgs, takePending, userMsgBody, regionRef } from './media.js';
 
 export function createPanes() {
   const applyAnchors = (...a) => app.applyAnchors(...a);

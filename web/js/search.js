@@ -1,6 +1,5 @@
 // Search & navigation: per-conversation index, Cmd+K palette, Describe-it-instead, hit landing, and Back stack.
-import { esc, trunc, plain, indexEntries, idxPages, sigOf } from './text.js';
-import { textWalker, charPos } from './anchors.js';
+import { esc, trunc, indexEntries, idxPages, sigOf } from './text.js';
 import { state, app, io, settings, saveSettings, paneEls, $, ic, T, color, ancestors } from './state.js';
 
 export function createSearch() {
@@ -40,8 +39,7 @@ export function createSearch() {
   const toast = (...a) => app.toast(...a);
   const toggleCollapse = (...a) => app.toggleCollapse(...a);
   const wiresSoon = (...a) => app.wiresSoon(...a);
-  const zen = (...a) => app.zen(...a);
-/* ---------- search: a per-conversation text index (kept separately, updated on save) + BM25 ranking ---------- */
+  /* ---------- search: a per-conversation text index (kept separately, updated on save) + BM25 ranking ---------- */
 const KIND={ct:['Conversation',3],bt:['Branch',2.4],h:['Highlight',2.2],n:['Takeaway',2],q:['Question',1.6],a:['Answer',1],d:['Document',0.9]};
 const IDX={map:new Map(),loaded:false,loading:null,ms:null,dirty:true,dirtyIds:new Set(),indexedIds:new Map(),lastSig:new Map(),backfilling:false};
 function idxTouch(id){if(id)IDX.dirtyIds.add(id);else IDX.dirty=true}
@@ -436,7 +434,7 @@ async function goBack(){
   const sb=$('#sboxIn');
   sb.addEventListener('focus',()=>{const v=sb.value;sb.value='';sb.blur();openPalette(v)});
   // ⌘B / Ctrl+B: show or hide the sidebar (as in VS Code), from anywhere, even while typing
-  document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&e.key==='.'){e.preventDefault();setZen(!zen)}},true);
+  document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&e.key==='.'){e.preventDefault();setZen(!app.zen)}},true);
   document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='b'){e.preventDefault();$('#tSide').click()}});
   document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='k'){e.preventDefault();if($('#pal').classList.contains('show'))closePalette();else openPalette('')}},true);
   // ⌘' / Ctrl+': the canvas, or back to the panes (Columns or Rows, whichever you had); with Shift: Columns ⇄ Rows.

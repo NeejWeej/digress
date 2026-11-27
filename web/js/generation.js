@@ -1,18 +1,16 @@
 // Generation & branching: context assembly, streaming replies, retries/versions, takeaways, and thread lifecycle.
-import { esc, trunc, stripCiteQuotes, plain } from './text.js';
+import { trunc, plain } from './text.js';
 import { textWalker, nonWs } from './anchors.js';
 import {
-  DOC_TOOL_NAMES, isDocBranch, isWholePage, cropRef, joinParts,
+  DOC_TOOL_NAMES, isDocBranch, joinParts,
   appendText, buildContext as buildContextPure,
 } from './context.js';
 import { runId } from './connectors.js';
 import {
   state, app, io, settings, CUSTOM, paneEls, msgCache, streaming, unread, newConv,
-  $, ic, rid, qid, T, color, ancestors, isDesc, resetThreadIdx,
-  children, branchesOn, hiddenNow, shownOn, branchNum, isCollapsed,
-  fullSys, modelLabel,
-} from './state.js';
-import { imageBlob, blobB64, storeImages, regionRef } from './media.js';
+  $, ic, rid, qid, T, color, isDesc, branchesOn, hiddenNow, isCollapsed,
+  } from './state.js';
+import { imageBlob, blobB64, storeImages } from './media.js';
 
 export function createGeneration() {
   const applyConvLlm = (...a) => app.applyConvLlm(...a);

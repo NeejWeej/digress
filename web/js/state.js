@@ -148,6 +148,7 @@ export const state = {
   hitTimer: null,
   dirty: false,
   cvTook: false,
+  modalOk: null,
 };
 
 // Cross-module action registry: each subsystem attaches its public hooks here so modules

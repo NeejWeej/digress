@@ -1,12 +1,12 @@
 // Canvas view: infinite pan/zoom board, card layout, edge wires, docking/snapping, and saved views.
 import { esc, trunc, plain } from './text.js';
-import { isDocBranch, isClipBranch, isWholePage } from './context.js';
+import { isDocBranch } from './context.js';
 import {
-  state, app, settings, paneEls, cvMsgCache, streaming, unread, $, ic, rid, qid,
-  T, color, ancestors, isDesc, children, branchesOn, hiddenNow, shownOn, branchNum, isCollapsed,
-  modelLabel, EFFORTS, effortLabel, resetThreadIdx,
+  state, app, paneEls, cvMsgCache, streaming, $, ic, rid, qid,
+  T, color, children, branchesOn, hiddenNow, branchNum, isCollapsed,
+  resetThreadIdx,
 } from './state.js';
-import { imageURL, pendingImgs, takePending, renderPending, userMsgBody, regionRef } from './media.js';
+import { pendingImgs, takePending, renderPending, userMsgBody } from './media.js';
 import { copyText } from './render.js';
 
 export function createCanvas() {
