@@ -48,6 +48,8 @@ export function createCanvas() {
   const revealPane = (...a) => app.revealPane(...a);
   const save = (...a) => app.save(...a);
   const send = (...a) => app.send(...a);
+  const setDraft = (...a) => app.setDraft(...a);
+  const draftOf = (...a) => app.draftOf(...a);
   const setStatus = (...a) => app.setStatus(...a);
   const streamInto = (...a) => app.streamInto(...a);
   const syncPicker = (...a) => app.syncPicker(...a);
@@ -167,8 +169,8 @@ function renderCanvas(){
       const ask=document.createElement('div');ask.className='cask';
       ask.innerHTML=`<textarea rows="1" placeholder="${t.parent?'Ask a follow-up in this branch…':'Ask anything…'}"></textarea><button class="sendb" data-cact="ask" title="Send (Enter). Shift+Enter adds a new line.">${ic('send')}</button>`;
       n.appendChild(ask);if(getPending(t.id).length)queueMicrotask(()=>renderPending(t.id));
-      const cta=ask.querySelector('textarea');cta.addEventListener('input',()=>{autosizeCask(cta)});
-      const k=keep[t.id];if(k&&k.v){cta.value=k.v;requestAnimationFrame(()=>autosizeCask(cta))}
+      const cta=ask.querySelector('textarea');cta.addEventListener('input',()=>{autosizeCask(cta);setDraft(t.id,cta.value,cta)});
+      const k=keep[t.id],dv=k&&k.v||draftOf(t.id);if(dv){cta.value=dv;requestAnimationFrame(()=>autosizeCask(cta))}
       const upd=()=>{n.classList.toggle('away',full.scrollHeight-full.scrollTop-full.clientHeight>100);
         const k=cvPrevKey(t.id),p=cvPrev.get(k);if(p&&!p.jumping&&Math.abs(full.scrollTop-p.top)<40){cvPrev.delete(k);n.classList.remove('hasprev')}};
       if(cvPrev.has(cvPrevKey(t.id)))n.classList.add('hasprev');   // survives the card being redrawn
@@ -566,7 +568,7 @@ function canvasAction(act,tid,btn){
   else if(act==='zin'){setCardZoom(tid,cardZoom(tid)*1.15)}
   else if(act==='zout'){setCardZoom(tid,cardZoom(tid)/1.15)}
   else if(act==='zedit'){editZoom(btn,cardZoom(tid),z=>setCardZoom(tid,z))}
-  else if(act==='ask'){if(streaming.has(tid))return;const i=btn.closest('.cnode').querySelector('.cask textarea');const v=i.value.trim();if(!v&&!getPending(tid).length)return;const imgs=takePending(tid);i.value='';autosizeCask(i);send(tid,v,imgs)}
+  else if(act==='ask'){if(streaming.has(tid))return;const i=btn.closest('.cnode').querySelector('.cask textarea');const v=i.value.trim();if(!v&&!getPending(tid).length)return;const imgs=takePending(tid);i.value='';autosizeCask(i);setDraft(tid,'');send(tid,v,imgs)}
 }
 (()=>{
   const cv=$('#cv');let pan=null,cd=null;
@@ -820,6 +822,6 @@ $('#resetOrder').addEventListener('click',()=>{state.conv.ui.open=branchOrder();
     restoreCard, canvasRevealSource, canvasAction, syncViewsUI, closeViews, setView,
     get tabReady() { return tabReady; }, set tabReady(v) { tabReady = v; },
     get camFitted() { return camFitted; }, set camFitted(v) { camFitted = v; },
-    tabName, syncViewSeg,
+    tabName, syncViewSeg, autosizeCask,
   };
 }

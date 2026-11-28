@@ -292,6 +292,9 @@ None of this makes a rogue certificate impossible; it makes it quick to notice a
     const all = msgs.map((m) => textOf(m.content)).join('\n');
     for (const [re, t] of TAKEAWAYS) if (re.test(all)) return t;
     const last = [...msgs].reverse().find((m) => m.role === 'assistant');
+    // a no-model reply is quoted excerpts under a "Here's what … says" line: carry the excerpts (and their [p. N])
+    const ex = last ? textOf(last.content).split('\n').filter((l) => /^> \S/.test(l)).map((l) => l.slice(2).trim()).slice(0, 2) : [];
+    if (ex.length) return ex.map((x) => '- ' + x).join('\n') + '\n- *(A demo takeaway: the excerpts the branch found. A model would summarize what you learned.)*';
     const s = last ? chunks(textOf(last.content).replace(/^>.*$/gm, '').replace(/\*[^*]*demo[^*]*\*/gi, '')).slice(0, 2) : [];
     return s.length ? s.map((x) => '- ' + x).join('\n') + '\n- *(A demo takeaway: the first lines of the branch’s last reply. A model would summarize what you learned.)*'
       : '- *(A demo takeaway: with a model connected, this would sum up what the branch found.)*';

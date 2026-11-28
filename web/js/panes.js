@@ -253,7 +253,8 @@ function paneEl(tid){
     <div class="rail-label"><span class="dot"></span><span class="rl"></span></div>`;
   const ta=el.querySelector('textarea');
   ta.placeholder=isMain?'Ask anything…':'Ask a follow-up in this branch…';
-  ta.addEventListener('input',()=>{autosize(ta);updateComposer(tid)});
+  const dv=draftOf(tid);if(dv){ta.value=dv;requestAnimationFrame(()=>{autosize(ta);updateComposer(tid)})}
+  ta.addEventListener('input',()=>{autosize(ta);updateComposer(tid);setDraft(tid,ta.value,ta)});
   ta.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();submit(tid)}});
   el.querySelector('form').addEventListener('submit',e=>{e.preventDefault();const s=streaming.get(tid);if(s){stopReply(s);return}submit(tid)});
   const tk=el.querySelector('.tk');
@@ -341,7 +342,26 @@ function rememberSpot(pe,pill){
   setTimeout(()=>{pe.__jumping=false},900);
 }
 function autosize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,200)+'px'}
-function submit(tid){if(streaming.has(tid))return;const el=paneEls.get(tid);const ta=el.querySelector('textarea');const v=ta.value.trim();if(!v&&!getPending(tid).length)return;const imgs=takePending(tid);ta.value='';autosize(ta);send(tid,v,imgs)}
+function submit(tid){if(streaming.has(tid))return;const el=paneEls.get(tid);const ta=el.querySelector('textarea');const v=ta.value.trim();if(!v&&!getPending(tid).length)return;const imgs=takePending(tid);ta.value='';autosize(ta);setDraft(tid,'');send(tid,v,imgs)}
+/* Unsent text in a thread's message box: kept on this device (localStorage, never saved with the conversation or
+   synced: a half-typed question belongs to the screen it was typed on), so a reload or another conversation in
+   between doesn't lose it. One draft per conversation and thread, shared by the pane's composer and the canvas
+   card's box: typing in one fills in the other. Written straight through, read back fresh per key, so two windows
+   each typing in their own thread don't overwrite each other. Drafts untouched for DRAFT_DAYS are dropped. */
+const DRAFT_KEY='digress:drafts',DRAFT_DAYS=60;
+function draftsRead(){try{const d=JSON.parse(localStorage.getItem(DRAFT_KEY)||'{}');return d&&typeof d==='object'?d:{}}catch(_){return {}}}
+function draftOf(tid,cid=state.conv&&state.conv.id){const d=cid&&draftsRead()[cid];return d&&d[tid]&&typeof d[tid].v==='string'?d[tid].v:''}
+function draftBoxes(tid){const pe=paneEls.get(tid),c=document.querySelector(`#cv .cnode[data-ctid="${CSS.escape(tid)}"] .cask textarea`);return [pe&&pe.querySelector('.composer textarea'),c].filter(Boolean)}
+// set tid's draft to v (from: the box it was typed in, left alone); '' removes it
+function setDraft(tid,v,from){
+  const cid=state.conv&&state.conv.id;if(!cid||!tid||tid==='doc')return;
+  for(const ta of draftBoxes(tid))if(ta!==from&&ta.value!==v){ta.value=v;if(ta.closest('.cask'))app.autosizeCask(ta);else{autosize(ta);updateComposer(tid)}}
+  const all=draftsRead(),cut=Date.now()-DRAFT_DAYS*864e5;
+  for(const c of Object.keys(all)){for(const t of Object.keys(all[c]||{}))if(!(all[c][t]&&all[c][t].at>cut))delete all[c][t];if(!Object.keys(all[c]||{}).length)delete all[c]}
+  if(v.trim())(all[cid]=all[cid]||{})[tid]={v,at:Date.now()};
+  else if(all[cid]){delete all[cid][tid];if(!Object.keys(all[cid]).length)delete all[cid]}
+  try{localStorage.setItem(DRAFT_KEY,JSON.stringify(all))}catch(_){}
+}
 function updateComposer(tid){
   const el=paneEls.get(tid);if(!el)return;const b=el.querySelector('.sendb');const s=streaming.has(tid);
   b.innerHTML=s?ic('stop'):ic('send');b.title=s?'Stop':'Send';b.disabled=!s&&!el.querySelector('textarea').value.trim()&&!getPending(tid).length;
@@ -925,6 +945,6 @@ function wires(){
 
 
   return {
-    msgKey, openUsage, closeUsage, buildFoot, branchChips, streamInto, webSources, queueStream, updateJump, rememberSpot, autosize, submit, updateComposer, fitOrigin, originRO, updateHeader, altLine, sysScope, paneZoom, applyPaneZoom, editZoom, setPaneZoom, stepPaneZoom, renderPane, refreshAnchorsFor, docInDock, placeDocPane, layout, closeRailStack, get drag() { return drag; }, set drag(v) { drag = v; }, wiresSoon, wires,
+    msgKey, openUsage, closeUsage, buildFoot, branchChips, streamInto, webSources, queueStream, updateJump, rememberSpot, autosize, submit, draftOf, setDraft, updateComposer, fitOrigin, originRO, updateHeader, altLine, sysScope, paneZoom, applyPaneZoom, editZoom, setPaneZoom, stepPaneZoom, renderPane, refreshAnchorsFor, docInDock, placeDocPane, layout, closeRailStack, get drag() { return drag; }, set drag(v) { drag = v; }, wiresSoon, wires,
   };
 }

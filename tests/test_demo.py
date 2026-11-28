@@ -88,6 +88,13 @@ async def main():
             br = await pg.evaluate("(()=>{const b=[...document.querySelectorAll('.pane:not([data-tid=main]):not([data-tid=doc]) .msg.assistant .body')].at(-1);return b?b.innerText:''})()")
             check('a branch from a highlighted passage gets the passages around it', ok == 'ok' and 'innocent' in br and 'This is the demo' in br, [ok, br[:300]])
 
+            # a takeaway of that branch carries the excerpts it found, not the "closest to your question" header
+            bt = await pg.evaluate("(()=>{const m=Object.values(__digress.conv.msgs).filter(m=>m.role==='assistant'&&m.thread!=='main'&&/This is the demo/.test(m.content||'')).at(-1);return m?m.thread:null})()")
+            br = pg.locator(f'.pane[data-tid="{bt}"]')
+            await br.locator('.ph [data-act=take]').click(); await answered(pg, br.locator('.tk .go').click())
+            tk = await pg.evaluate("(()=>{const n=Object.values(__digress.conv.msgs).filter(m=>m.role==='note').at(-1);return n?n.content:''})()")
+            check('a takeaway made in the demo carries the excerpts the branch found', bt and 'innocent' in tk and 'closest to your question' not in tk and 'excerpts' in tk, tk[:300])
+
             await pg.keyboard.press('ControlOrMeta+k'); await pg.locator('#palIn').fill('prosecutor')
             await soon(pg, "()=>!!document.querySelector('#palRes .pr')")
             check('search works', await pg.locator('#palRes .pr').count() >= 1)

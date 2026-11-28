@@ -172,7 +172,7 @@ const {
   updateComposer, fitOrigin, originRO, updateHeader, altLine, sysScope,
   paneZoom, applyPaneZoom, editZoom, setPaneZoom, stepPaneZoom,
   renderPane, refreshAnchorsFor, docInDock, placeDocPane, layout,
-  wiresSoon, closeRailStack,
+  wiresSoon, closeRailStack, draftOf, setDraft,
 } = PANES_MOD;
 
 /* ---------- canvas view (web/js/canvas.js) ---------- */
@@ -182,7 +182,7 @@ const {
   renderCanvas, fitCanvas, focusCard,
   clearHere, curPane, markCur, keyClose, contentScale, REGIONS,
   placeDocked, dockCard, restoreCard, canvasRevealSource, canvasAction,
-  syncViewsUI, closeViews, setView, tabName, syncViewSeg,
+  syncViewsUI, closeViews, setView, tabName, syncViewSeg, autosizeCask,
 } = CANVAS_MOD;
 
 /* ---------- open / resolved status ---------- */
@@ -508,6 +508,8 @@ async function deletedElsewhere(j,c,content){
   renderConvList();
   toast(copy?'This conversation was deleted on another device. What you added here was kept as a copy.':'This conversation was deleted on another device.');
 }
+// just this device's layout, now (the reading spot: ui.dspot), without a content save
+function saveLayoutNow(){if(conv)saveLayout(jobOf(conv,true),conv)}
 async function saveLayout(j,c){
   if(!io.layout||c!==conv||!c.rev)return;
   const k=JSON.stringify(c.ui);if(k===j.ui)return;
@@ -635,7 +637,8 @@ function setConv(c,o={}){
   // after ui is complete: a document already loaded draws straight away, and its header reads ui.collapsed
   destroyDoc(state.docState);if(docView.obs)docView.obs.disconnect();state.docState=null;if(conv.doc)startDoc();
   for(const m of Object.values(conv.msgs)){m.ver=m.ver||0;if(m.pending){delete m.pending;if(!m.content)m.error='Interrupted.'}}
-  msgCache.clear();cvMsgCache.clear();clearImgMemo();CANVAS_MOD.cvNodes.clear();resetThreadIdx();for(const el of paneEls.values())el.remove();paneEls.clear();for(const g of gutEls.values())g.remove();gutEls.clear();
+  msgCache.clear();cvMsgCache.clear();clearImgMemo();CANVAS_MOD.cvNodes.clear();$('#cv').querySelectorAll('.cnode').forEach(n=>n.remove());resetThreadIdx();   /* the old conversation's cards: renderCanvas would carry their scroll and unsent text over by thread id */
+  for(const el of paneEls.values())el.remove();paneEls.clear();for(const g of gutEls.values())g.remove();gutEls.clear();
   CANVAS_MOD.camFitted=false;
   layout();renderTitle();renderMap();renderConvList();hidePop();syncCardsUI();
   $('#stage').classList.toggle('canvas',ui.view==='canvas');if(ui.view==='canvas')renderCanvas();
@@ -916,7 +919,7 @@ document.addEventListener('click',e=>{
   const uv=e.target.closest('[data-usev]');if(uv){e.stopPropagation();useVersion(uv.dataset.usev);return}
   const vc=e.target.closest('[data-vers]');if(vc){e.stopPropagation();openVersions(vc.dataset.vers);return}
   const mf=e.target.closest('[data-mmfix]');if(mf){const box=mf.closest('.mermaid-box'),pane=mf.closest('.pane[data-tid]'),ta=pane&&pane.querySelector('.composer textarea');
-    if(ta){ta.value=`The diagram that starts “${trunc((mermaidSrc.get(box)||'').trim().split('\n')[0],40)}” has a syntax error and can’t be drawn:\n${box.dataset.err||''}\nPlease send a corrected version of just that diagram.`;autosize(ta);updateComposer(pane.dataset.tid);ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}return}
+    if(ta){setDraft(pane.dataset.tid,`The diagram that starts “${trunc((mermaidSrc.get(box)||'').trim().split('\n')[0],40)}” has a syntax error and can’t be drawn:\n${box.dataset.err||''}\nPlease send a corrected version of just that diagram.`);ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}return}
   // the PDF's "Page N": click to type a page and jump there (Enter), Esc or clicking away to leave it
   const gp=e.target.closest('[data-gopage]');if(gp){e.stopPropagation();
     const inp=document.createElement('input');inp.className='pgin';inp.type='number';inp.min=1;inp.max=state.docState.n;inp.value=docView.current;inp.setAttribute('aria-label','Page number');
@@ -1402,6 +1405,7 @@ Object.assign(app, {
   deleteConv, fillModelPicker, fillPopChips, inInbox, kidsOf, loadCards, loadList,
   mSel, modelTier, pickerTid, placeDocked, renderBack, resolvedModel,
   savePrompts, showBanner, sideFold, statusDot, storeDocFile, syncCardsUI, sysScope,
+  draftOf, setDraft, autosizeCask, saveLayoutNow,
 });
 Object.defineProperty(app, 'zen', { get: () => zen, enumerable: true, configurable: true });
 syncPick();
