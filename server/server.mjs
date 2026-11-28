@@ -37,7 +37,7 @@ import os from 'node:os';
 import * as chatgpt from './chatgpt.mjs';
 import * as gemini from './gemini.mjs';
 import { fetchDocument, WARNINGS } from './fetchdoc.mjs';
-import { normalizeMessages, toAnthropic, toClaudeCodeBlocks, IMAGE_TYPES, isImage } from './content.mjs';
+import { normalizeMessages, toAnthropic, toClaudeCodeBlocks, IMAGE_TYPES, isImage, sourcesLine } from './content.mjs';
 import { createRun, getRun, DETACH_MS } from './runs.mjs';
 import { guideDocs } from './guide.mjs';
 import { libFile, libType } from './libs.mjs';
@@ -252,7 +252,7 @@ const PROVIDERS = {
   },
   gemini: {
     label: 'Google Gemini API', web: true, tools: true, available: () => !!apiKey('gemini'), models: () => gemini.listModels(apiKey('gemini')),
-    chat: (payload, res) => gemini.chat(payload, res, { startStream, sourcesLine, fail }, apiKey('gemini')),
+    chat: (payload, res) => gemini.chat(payload, resIo(res), apiKey('gemini')),
     why: 'The server has no Gemini API key. Add one in Connections (or GEMINI_API_KEY in .env).',
   },
   chatgpt: {
@@ -305,7 +305,7 @@ async function builtinDefault() {
   if (process.env.DEFAULT_MODEL) return process.env.DEFAULT_MODEL;
   const k = enabled()[0];
   if (k === 'chatgpt') { const m = await chatgpt.listModels(); if (m.length) return m[0][0]; }
-  if (k === 'gemini') { const m = await gemini.listModels(apiKey('gemini')); if (m.length) return m[0][0]; }
+  if (k === 'gemini') { const m = gemini.defaultModel(await gemini.listModels(apiKey('gemini'))); if (m) return m; }
   if (k === 'anthropic') { const m = await anthropicModels(); if (m.length) return m[0][0]; }
   return DEFAULT_MODEL;
 }
@@ -411,6 +411,13 @@ async function saveOrphan({ conv, msg }, runId, r) {
     return true;
   });
 }
+// an HTTP response as the io gemini.mjs writes a reply through (the demo gives it a stream in the page instead)
+const resIo = (res) => ({
+  onClose: (fn) => res.on('close', () => { if (!res.writableFinished) fn(); }),
+  fail: (status, msg) => fail(res, status, msg),
+  start: () => startStream(res),
+  end: () => res.end(),
+});
 function startStream(res) {
   res.writeHead(200, { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store', 'x-accel-buffering': 'no' });
   return (o) => res.write(JSON.stringify(o) + '\n');
@@ -419,15 +426,6 @@ function startStream(res) {
 // It also rebuilds the content blocks of the current message (st.blocks), which the API needs
 // to resume a turn the server paused in the middle of searching.
 const SEARCH_TOOLS = new Set(['web_search', 'WebSearch']);
-function sourcesLine(list) {
-  const seen = new Set(), out = [];
-  for (const r of Array.isArray(list) ? list : []) {
-    const url = r && typeof r.url === 'string' ? r.url : '';
-    if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
-    seen.add(url); out.push({ title: String(r.title || url).slice(0, 300), url: url.slice(0, 2000) });
-  }
-  return out.length ? { sources: out.slice(0, 20) } : null;
-}
 // Token counts, from each request's message_start / message_delta (the API and Claude Code's stream events alike).
 // usage.ctx is the last request's whole input (new + written to cache + read from cache): how full the context
 // was when the reply ended. With document tools or a paused search a reply is several requests, each resending

@@ -12,22 +12,17 @@
 (() => {
   const realFetch = window.fetch.bind(window);
   const API = new URL('api/', document.baseURI).pathname;   // works both at root (workers.dev) and under a path
-  const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
-  const MAX_OUTPUT = 16000, WAIT_MS = 90000, RETRY_MS = 2000;
   const PBKDF2_ITER = 600000;
   const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
-  // the shape the server checks before any model sees a request (normalizeMessages, server/content.mjs), so a
-  // malformed one is refused here too: 400 {error}. Only the shape: the server also checks images' bytes.
-  const badChat = (b) => {
-    const list = b && b.messages; if (!Array.isArray(list) || !list.length) return 'messages are required';
-    for (let i = 0; i < list.length; i++) {
-      const m = list[i]; if (!m || (m.role !== 'user' && m.role !== 'assistant')) return `message ${i + 1} has no valid role`;
-      const parts = typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : m.content;
-      if (!Array.isArray(parts)) return `message ${i + 1} has no content`;
-      for (let j = 0; j < parts.length; j++) { const p = parts[j]; if (!(p && ((p.type === 'text' && typeof p.text === 'string') || p.type === 'image'))) return `message ${i + 1}: part ${j + 1} isn't text or an image`; }
-    }
-    return '';
-  };
+  // ---- the server's own code, run here: server/gemini.mjs (the Gemini API: request, stream, tool loop, errors,
+  // models), doctools.mjs (the tools' sessions and their checks) and content.mjs (what a request may contain),
+  // copied next to this file by demo/build.mjs. So a Gemini reply in the demo goes through exactly the code a
+  // self-hosted one does; what's left here is the server's job of passing it a request and a place to write. ----
+  const randHex = (n) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (x) => x.toString(16).padStart(2, '0')).join('');
+  const here = document.currentScript.src;
+  let sharedP = null;
+  const shared = () => sharedP || (sharedP = Promise.all(['gemini', 'doctools', 'content'].map((n) => import(new URL(`server/${n}.mjs`, here).href)))
+    .then(([G, D, C]) => { G.configure({ fetch: realFetch }); return { G, D, C }; }));
 
   // ---- a key-value store in IndexedDB ----
   // Files are kept as bytes (ArrayBuffer), not Blobs: Safari's private browsing can't store a Blob in IndexedDB, and
@@ -155,8 +150,6 @@
   let credOp = 0;                // monotonic credential transition counter so an older Unlock/Connect cannot beat a newer Forget/Lock
   let savedMeta = null;          // { last4 } if an encrypted key exists in IndexedDB ('byok/gemini')
   let pendingAction = null;      // { type: 'unlock'|'lock'|'forget', pass? } coordinated with #connModal
-  let modelsCache = null;        // { gen, at, list }
-  const windows = new Map();     // model id -> inputTokenLimit
   const enc = new TextEncoder(), dec = new TextDecoder();
   const b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]); return btoa(s); };
   const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
@@ -188,142 +181,13 @@
     syncDemoUi();
   })());
 
-  // ---- Gemini API helpers (matching server/gemini.mjs) ----
-  const SPECIAL = /embedding|image|imagen|nano-banana|omni|tts|audio|live|transcribe|aqa|veo|lyria|genie|robotics|computer-use/i;
-  const SEARCH_REFUSED = /google_?search|grounding|function calling is unsupported|server_?side_?tool_?invocations/i;
-  const REDIRECT = /\[([^\]\n]{1,300})\]\((https:\/\/vertexaisearch\.cloud\.google\.com\/grounding-api-redirect\/[A-Za-z0-9_\-=%.~]+)\)/g;
-  const THINKING = { low: 'low', medium: 'medium', high: 'high', xhigh: 'high', max: 'high' };
-
-  function groundedLinks(text) {
-    const out = [], seen = new Set();
-    for (const m of String(text || '').matchAll(REDIRECT)) {
-      if (seen.has(m[2])) continue; seen.add(m[2]);
-      out.push({ title: m[1].replace(/[*_`]/g, '').trim() || 'Source', url: m[2] });
-    }
-    return out;
-  }
-  function geminiError(txt, status, web) {
-    let msg = ''; try { const j = JSON.parse(txt); const e = Array.isArray(j) ? j[0] && j[0].error : j.error; msg = (e && e.message) || ''; } catch { /* not JSON */ }
-    if (status === 503) return 'Gemini is busy right now (Google says this model is in high demand). Try again in a little while, or pick another model.';
-    if (status === 429 && web) return 'Google refused this for quota. With Web on, that’s usually because web search isn’t included on Gemini’s free tier: turn Web off and try again (or use a paid key). If it happens with Web off too, you’ve reached the free tier’s request limit; wait a minute.';
-    if (status === 429) return 'Gemini’s rate limit was reached (free-tier keys allow only a few requests a minute, and a daily cap). Wait a little and try again.';
-    if (/API key not valid|API_KEY_INVALID/i.test(msg) || status === 401) return 'Google rejected the Gemini API key. Check it in Connections.';
-    if (status === 403) return 'Google refused this request with this key' + (msg ? ': ' + msg : '.') + ' (A Google Cloud API key has to be restricted to the Gemini API; keys made in AI Studio work as they are.)';
-    if (SEARCH_REFUSED.test(msg) && status === 400) return 'This Gemini key or model can’t search the web (Google Search isn’t available on the free tier). Turn Web off, or use a paid key.';
-    return msg ? 'Gemini: ' + msg : 'The Gemini request failed (' + status + ').';
-  }
-  async function checkGeminiKey(key) {
-    try {
-      const r = await realFetch(GEMINI_API + '/models?pageSize=1', { headers: { 'x-goog-api-key': key } });
-      if (r.ok) return { ok: true };
-      return { error: geminiError(await r.text(), r.status) };
-    } catch (e) { return { error: 'Could not reach Google: ' + ((e && e.message) || e) }; }
-  }
+  // the models this key offers (gemini.mjs's list, cached there per key), none once the key has changed
   async function listGeminiModels(key, gen = keyGen) {
     if (!key || gen !== keyGen) return [];
-    if (modelsCache && modelsCache.gen === gen && Date.now() - modelsCache.at < 10 * 60e3) return modelsCache.list;
-    let list = [];
-    try {
-      const r = await realFetch(GEMINI_API + '/models?pageSize=1000', { headers: { 'x-goog-api-key': key } });
-      if (gen !== keyGen) return [];
-      if (r.ok) {
-        const ms = ((await r.json()).models || []).filter((m) => /^models\/gemini/.test(m.name || '') && (m.supportedGenerationMethods || []).includes('generateContent') && !SPECIAL.test(m.name));
-        list = ms.map((m) => [m.name.slice(7), m.displayName || m.name.slice(7)]);
-        for (const m of ms) if (Number.isFinite(m.inputTokenLimit)) windows.set(m.name.slice(7), m.inputTokenLimit);
-      }
-    } catch (e) { console.warn('demo: Gemini model list failed', e); }
-    if (gen === keyGen && activeKey === key) modelsCache = { gen, at: Date.now(), list };
-    return list;
+    const list = await (await shared()).G.listModels(key);
+    return gen === keyGen ? list : [];
   }
-  function pickDefaultModel(list, chosen) {
-    if (!list.length) return ['demo', 'Demo replies', 'auto'];
-    if (chosen && chosen !== 'auto') {
-      const hit = list.find(([id]) => id === chosen);
-      if (hit) return [hit[0], hit[1], chosen];
-    }
-    const pref = list.find(([id]) => id === 'gemini-2.5-flash')
-      || list.find(([id]) => /flash/i.test(id) && !/lite|preview|exp/i.test(id))
-      || list.find(([id]) => /flash/i.test(id))
-      || list[0];
-    return [pref[0], pref[1], 'auto'];
-  }
-  function toParts(content) {
-    if (typeof content === 'string') return [{ type: 'text', text: content }];
-    return Array.isArray(content) ? content : [];
-  }
-  const toGemini = (msgs) => (msgs || []).map((m) => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: toParts(m.content).filter((p) => p && (p.type !== 'text' || p.text !== '')).map((p) => (p.type === 'text' ? { text: p.text } : { inlineData: { mimeType: p.mediaType, data: p.data } })),
-  })).filter((c) => c.parts.length);
-  function plainSchema(s) {
-    if (Array.isArray(s)) return s.map(plainSchema);
-    if (!s || typeof s !== 'object') return s;
-    const out = {};
-    for (const [k, v] of Object.entries(s)) if (k !== 'additionalProperties') out[k] = k === 'properties' ? Object.fromEntries(Object.entries(v).map(([n, x]) => [n, plainSchema(x)])) : plainSchema(v);
-    return out;
-  }
-  const toolDecls = (tools) => [{ functionDeclarations: tools.map((t) => ({ name: t.name, description: t.description, parameters: plainSchema(t.schema) })) }];
-  function resultParts(r, name, id) {
-    const text = (r.parts || []).filter((p) => p.type === 'text').map((p) => p.text).join('\n') || '(empty)';
-    const images = (r.parts || []).filter((p) => p.type === 'image').map((p) => ({ inlineData: { mimeType: p.mediaType, data: p.data } }));
-    return [{ functionResponse: { ...(id ? { id } : {}), name, response: r.error ? { error: text } : { result: text } } }, ...images];
-  }
-  function geminiRequestBody({ system, contents, effort, web, session, final }, withEffort, withSearch) {
-    const body = { contents, generationConfig: { maxOutputTokens: MAX_OUTPUT } };
-    if (system) body.systemInstruction = { parts: [{ text: system }] };
-    if (withEffort && THINKING[effort]) body.generationConfig.thinkingConfig = { thinkingLevel: THINKING[effort] };
-    const tools = [...(session ? toolDecls(session.tools) : []), ...(web && withSearch ? [{ googleSearch: {} }] : [])];
-    if (tools.length) body.tools = tools;
-    if (session) body.toolConfig = { functionCallingConfig: { mode: final ? 'NONE' : 'AUTO' } };
-    if (session && web && withSearch) body.toolConfig.includeServerSideToolInvocations = true;
-    return body;
-  }
-
-  // ---- in-browser tool sessions (same limits and contract as server/doctools.mjs) ----
-  let toolsMetaP = null;
-  const loadToolsMeta = () => toolsMetaP || (toolsMetaP = realFetch('demo/tools.json').then((r) => r.json()).catch(() => ({ tools: [], maxCalls: 30, maxCards: 10 })));
-  const toolSessions = new Map();
-  const failedTool = (text) => ({ error: true, parts: [{ type: 'text', text }] });
-  const randHex = (n) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (x) => x.toString(16).padStart(2, '0')).join('');
-
-  async function openToolSession(chatId, want, emit) {
-    if (!chatId || !want) return null;
-    const meta = await loadToolsMeta();
-    const docNames = new Set(['search', 'read_pages', 'view_page']);
-    const tools = want === true ? meta.tools.filter((t) => docNames.has(t.name))
-      : Array.isArray(want) ? meta.tools.filter((t) => want.includes(t.name)) : [];
-    if (!tools.length) return null;
-    const maxCalls = meta.maxCalls || 30, maxCards = meta.maxCards || 10, maxRounds = maxCalls + 3;
-    const names = new Set(tools.map((t) => t.name));
-    const s = { chatId, tools, maxRounds, calls: 0, cards: 0, pending: new Map(), closed: false };
-    s.call = (name, input) => {
-      if (s.closed) return Promise.resolve(failedTool('The reader stopped this reply.'));
-      if (!names.has(name)) return Promise.resolve(failedTool(`There is no tool called "${name}". The tools are: ${[...names].join(', ')}.`));
-      const isCard = name === 'suggest_card';
-      if (isCard) { if (++s.cards > maxCards) return Promise.resolve(failedTool(`That is the limit of ${maxCards} suggested cards for one answer.`)); }
-      else if (++s.calls > maxCalls) return Promise.resolve(failedTool(`That is the limit of ${maxCalls} reading tool calls for one answer. Answer now with what you have, and say plainly which evidence you could not retrieve.`));
-      const id = randHex(8);
-      emit({ tool: { id, name, input: input && typeof input === 'object' && !Array.isArray(input) ? input : {} } });
-      return new Promise((resolve) => {
-        const timer = setTimeout(() => done(failedTool('The browser did not return this tool result in time.')), 120000);
-        const done = (r) => {
-          clearTimeout(timer); s.pending.delete(id);
-          const left = isCard ? 99 : maxCalls - s.calls;
-          if (left <= 3) r = { ...r, parts: [...(r.parts || []), { type: 'text', text: left ? `(${left} reading tool call${left > 1 ? 's' : ''} left for this answer.)` : '(That was the last reading tool call for this answer: answer now with what you have, and say what you didn’t get to read.)' }] };
-          resolve(r);
-        };
-        s.pending.set(id, done);
-      });
-    };
-    s.close = () => {
-      if (s.closed) return;
-      s.closed = true;
-      for (const done of [...s.pending.values()]) done(failedTool('The reply was stopped.'));
-      toolSessions.delete(chatId);
-    };
-    toolSessions.set(chatId, s);
-    return s;
-  }
+  const checkGeminiKey = async (key) => (await shared()).G.checkKey(key);
 
   // ---- the sample conversation, loaded once (again when a newer seed is published) ----
   let seeding = null;
@@ -375,7 +239,6 @@
   function setActiveKey(nextKey) {
     keyGen++;
     activeKey = nextKey || null;
-    modelsCache = null;
     for (const r of [...runs.values()]) { try { r.abort(); } catch { /* ignore */ } }
   }
   function chatDemo(body) {
@@ -401,181 +264,52 @@
     }), { headers: { 'content-type': 'application/x-ndjson' } });
   }
 
+  // A reply from Gemini, as the server's handleChat makes one: the model (the default, as the server picks it), the
+  // tools' session (doctools.mjs), then gemini.mjs's chat writing NDJSON lines into the response's stream. Stop, a
+  // locked or changed key, or the page cancelling the stream all end it the same way.
   async function chatGemini(body) {
     const key = activeKey, gen = keyGen;
     if (!key) return chatDemo(body);
+    const { G, D } = await shared();
     const list = await listGeminiModels(key, gen);
     if (gen !== keyGen) return json({ error: 'Gemini key was locked or changed.' }, 401);
     const prefs = (await kv.get('prefs')) || {};
-    if (gen !== keyGen) return json({ error: 'Gemini key was locked or changed.' }, 401);
-    const [defId] = pickDefaultModel(list, prefs.defaultModel);
-    const model = body.model && body.model !== 'auto' && body.model !== 'demo' ? body.model : defId;
-    if (!model || model === 'demo') return json({ error: 'No Gemini models were returned for this key.' }, 502);
-
-    const ctrl = new AbortController();
-    let stopped = false, session = null, activeRd = null, reqCleanup = null;
-    const detachReq = () => { if (reqCleanup) { reqCleanup(); reqCleanup = null; } };
-    const stopAll = () => {
-      stopped = true;
-      ctrl.abort();
-      if (activeRd) { const r = activeRd; activeRd = null; r.cancel().catch(() => {}); }
-      if (session) session.close();
-    };
-    const runKey = body.chat || Symbol('run');
-    runs.set(runKey, { abort: stopAll });
-
-    return new Response(new ReadableStream({
-      cancel() { stopAll(); },
-      async start(c) {
-        const line = (o) => { try { c.enqueue(enc.encode(JSON.stringify(o) + '\n')); } catch { stopAll(); } };
-        const hb = setInterval(() => { if (!stopped) line({ hb: 1 }); }, 15000);
-        try {
-          session = await openToolSession(body.chat, body.tools, line);
-          if (stopped || gen !== keyGen) { line({ stopped: 'stop' }); return; }
-          let contents = toGemini(body.messages), final = false, withEffort = true, withSearch = true;
-          const NO_ANSWER = `Gemini hasn’t answered in ${Math.round(WAIT_MS / 1000)} seconds (Google may be overloaded). Try again in a little while, or pick another model.`;
-          const once = async () => {
-            if (stopped || gen !== keyGen) throw new DOMException('Aborted', 'AbortError');
-            detachReq();
-            const reqCtrl = new AbortController();
-            const onStop = () => reqCtrl.abort();
-            ctrl.signal.addEventListener('abort', onStop, { once: true });
-            reqCleanup = () => ctrl.signal.removeEventListener('abort', onStop);
-            const t = setTimeout(() => reqCtrl.abort(new Error('no answer')), WAIT_MS);
-            try {
-              const r = await realFetch(`${GEMINI_API}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
-                method: 'POST', signal: reqCtrl.signal,
-                headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-                body: JSON.stringify(geminiRequestBody({ system: body.system, contents, effort: body.effort, web: !!body.web, session, final }, withEffort, withSearch)),
-              });
-              clearTimeout(t);
-              return r;
-            } catch (e) {
-              clearTimeout(t);
-              detachReq();
-              throw e;
-            }
-          };
-          const send = async () => {
-            for (let i = 0; ; i++) {
-              const t0 = Date.now(), r = await once();
-              if (r.status !== 503 || i >= 2 || Date.now() - t0 > 15000 || stopped || gen !== keyGen) return r;
-              await r.text().catch(() => {});
-              await new Promise((ok) => setTimeout(ok, RETRY_MS * (i + 1)));
-              if (stopped || gen !== keyGen) return r;
-            }
-          };
-
-          let up;
-          try {
-            up = await send();
-            while (up.status === 400) {
-              const txt = await up.text();
-              if (withEffort && /thinking/i.test(txt)) withEffort = false;
-              else if (withSearch && body.web && session && SEARCH_REFUSED.test(txt)) withSearch = false;
-              else { line({ error: geminiError(txt, 400, body.web && withSearch) }); return; }
-              up = await send();
-            }
-          } catch (e) {
-            if (stopped) { line({ stopped: 'stop' }); return; }
-            line({ error: e && e.name === 'AbortError' ? NO_ANSWER : 'Could not reach Google: ' + ((e && e.message) || e) });
-            return;
-          }
-          if (!up.ok) { line({ error: geminiError(await up.text(), up.status, body.web && withSearch) }); return; }
-
-          const st = { any: false, usage: null, lastUsage: null, end: null, text: '', gotSources: false };
-          const emitSources = (srcs) => {
-            const clean = srcs.filter((x) => x && /^https?:\/\//i.test(x.url));
-            if (clean.length) { st.gotSources = true; line({ sources: clean }); }
-          };
-
-          for (let round = 0; ; round++) {
-            const modelParts = [], calls = [];
-            let finish = null; const searched = new Set();
-            try {
-              const rd = up.body.getReader(), sdec = new TextDecoder();
-              activeRd = rd;
-              if (stopped || gen !== keyGen) { rd.cancel().catch(() => {}); }
-              let buf = '';
-              for (;;) {
-                if (stopped || gen !== keyGen) { rd.cancel().catch(() => {}); break; }
-                const { value, done } = await rd.read();
-                if (done) break;
-                if (stopped || gen !== keyGen) { rd.cancel().catch(() => {}); break; }
-                buf += sdec.decode(value, { stream: true });
-                let i;
-                while ((i = buf.indexOf('\n')) >= 0) {
-                  const ln = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
-                  if (!ln.startsWith('data:')) continue;
-                  let ev; try { ev = JSON.parse(ln.slice(5)); } catch { continue; }
-                  if (ev.error) { st.end = { error: geminiError(JSON.stringify(ev), ev.error.code || 500) }; continue; }
-                  if (ev.usageMetadata) st.lastUsage = ev.usageMetadata;
-                  const cand = (ev.candidates || [])[0];
-                  if (!cand) continue;
-                  for (const p of (cand.content && cand.content.parts) || []) {
-                    modelParts.push(p);
-                    if (p.thought) continue;
-                    if (typeof p.text === 'string' && p.text) { st.any = true; st.text += p.text; line({ d: p.text }); }
-                    if (p.functionCall) calls.push(p.functionCall);
-                  }
-                  const g = cand.groundingMetadata;
-                  if (g) {
-                    for (const q of g.webSearchQueries || []) if (!searched.has(q)) { searched.add(q); line({ search: String(q).slice(0, 500) }); }
-                    emitSources((g.groundingChunks || []).map((x) => x.web).filter(Boolean).map((w) => ({ title: w.title, url: w.uri })));
-                  }
-                  if (cand.finishReason) finish = cand.finishReason;
-                }
-              }
-            } catch {
-              if (stopped || gen !== keyGen) { line({ stopped: 'stop' }); return; }
-              st.end = { error: 'The connection to Gemini was interrupted.' };
-            } finally {
-              activeRd = null;
-              detachReq();
-            }
-            if (stopped) { line({ stopped: 'stop' }); return; }
-            if (st.lastUsage) {
-              const u = st.lastUsage, g = st.usage || (st.usage = { ctx: 0, cached: 0, out: 0, rounds: 0 });
-              g.rounds++; g.ctx = u.promptTokenCount || 0; g.cached = u.cachedContentTokenCount || 0; g.out += (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0);
-              st.lastUsage = null;
-            }
-            if (st.end && st.end.error) break;
-            if (calls.length && session && !final) {
-              if (round + 1 >= session.maxRounds) final = true;
-              const resp = [];
-              for (const fc of calls) resp.push(...resultParts(await session.call(fc.name, fc.args || {}), fc.name, fc.id));
-              if (stopped || gen !== keyGen) { line({ stopped: 'stop' }); return; }
-              contents = [...contents, { role: 'model', parts: modelParts }, { role: 'user', parts: resp }];
-              try { up = await send(); } catch (e) {
-                if (stopped || gen !== keyGen) { line({ stopped: 'stop' }); return; }
-                st.end = { error: e && e.name === 'AbortError' ? NO_ANSWER : 'Could not reach Google: ' + ((e && e.message) || e) };
-                break;
-              }
-              if (!up.ok) { st.end = { error: geminiError(await up.text(), up.status, body.web && withSearch) }; break; }
-              continue;
-            }
-            if (/SAFETY|RECITATION|PROHIBITED|BLOCKLIST|SPII/.test(finish || '') && !st.any) st.end = { error: 'Gemini didn’t answer this (its ' + finish.toLowerCase() + ' filter stopped it).' };
-            else st.end = { done: true, truncated: finish === 'MAX_TOKENS' };
-            break;
-          }
-          if (st.end && st.end.error) line({ error: st.end.error });
-          else {
-            if (!st.gotSources && body.web) {
-              const found = groundedLinks(st.text);
-              if (found.length) emitSources(found);
-            }
-            const w = windows.get(model), u = st.usage;
-            line({ done: true, model, truncated: !!(st.end && st.end.truncated), ...(u ? { usage: { ctx: u.ctx, cached: u.cached, out: u.out, rounds: u.rounds, ...(w ? { window: w } : {}) } } : {}) });
-          }
-        } finally {
-          clearInterval(hb);
-          detachReq();
-          if (session) session.close();
-          runs.delete(runKey);
-          try { c.close(); } catch { /* already closed */ }
-        }
-      },
-    }), { headers: { 'content-type': 'application/x-ndjson' } });
+    const model = body.model && body.model !== 'auto' && body.model !== 'demo' ? String(body.model) : G.defaultModel(list, prefs.defaultModel);
+    if (!model) return json({ error: 'No Gemini models were returned for this key.' }, 502);
+    const id = typeof body.chat === 'string' && /^[a-f0-9]{32}$/.test(body.chat) ? body.chat : randHex(16);
+    if (runs.has(id)) return json({ error: 'That reply is already running.' }, 409);
+    const session = D.openSession(id, D.pickTools(body.tools));
+    const payload = { ...body, model, web: body.web === true, webListed: true, session };
+    delete payload.tools; delete payload.chat; delete payload.save;
+    return new Promise((resolve) => {
+      let c = null, answered = false, closed = false, hb = 0;
+      const closers = [];
+      const out = (o) => { if (closed || !c) return; try { c.enqueue(enc.encode(JSON.stringify(o) + '\n')); } catch { stop(); } };
+      const finish = () => {
+        if (closed) return; closed = true; clearInterval(hb);
+        if (session) session.close(); runs.delete(id);
+        try { if (c) c.close(); } catch { /* cancelled */ }
+      };
+      const stream = () => { answered = true; resolve(new Response(new ReadableStream({ start(ctl) { c = ctl; }, cancel() { stop(); } }), { headers: { 'content-type': 'application/x-ndjson' } })); };
+      const stop = () => {
+        if (closed) return;
+        for (const f of closers.splice(0)) { try { f(); } catch { /* ignore */ } }
+        if (!answered) stream();
+        out({ stopped: 'stop' }); finish();
+      };
+      runs.set(id, { abort: stop });
+      const io = {
+        onClose: (fn) => closers.push(fn),
+        fail: (status, error) => { if (!answered) { answered = true; resolve(json({ error }, status)); } finish(); },
+        start: () => { stream(); hb = setInterval(() => out({ hb: 1 }), 15000); return out; },   // heartbeats, as runs.mjs sends
+        end: finish,
+      };
+      G.chat(payload, io, key).then(() => { if (!answered) stop(); }, (e) => {
+        console.warn('demo: Gemini reply failed', e);
+        if (!answered) { answered = true; resolve(json({ error: 'The demo failed while asking Gemini.' }, 500)); finish(); }
+        else { out({ error: 'The demo failed while writing this reply.' }); finish(); }
+      });
+    });
   }
 
   function connectionPayload() {
@@ -612,8 +346,9 @@
       if (!activeKey) return json({ models: [['demo', 'Demo replies']], defaultLabel: 'Demo replies', default: 'demo', chosen: 'auto' });
       const list = await listGeminiModels(activeKey);
       const prefs = (await kv.get('prefs')) || {};
-      const [defId, defLabel, chosen] = pickDefaultModel(list, prefs.defaultModel);
-      return json({ models: list.length ? list : [['demo', 'Demo replies']], defaultLabel: defLabel, default: defId, chosen });
+      if (!list.length) return json({ models: [['demo', 'Demo replies']], defaultLabel: 'Demo replies', default: 'demo', chosen: 'auto' });
+      const defId = (await shared()).G.defaultModel(list, prefs.defaultModel), chosen = prefs.defaultModel && prefs.defaultModel !== 'auto' && defId === prefs.defaultModel ? defId : 'auto';
+      return json({ models: list, defaultLabel: (list.find(([x]) => x === defId) || [defId, defId])[1], default: defId, chosen });
     }
     if (p[0] === 'prefs') {
       if (method === 'PUT') {
@@ -690,15 +425,13 @@
       if (p[1] === 'stop') { const r = runs.get((await body()).chat); if (r) r.abort(); return json({ ok: true }); }
       if (p[1] === 'run') return json({ error: 'Not found' }, 404);   // replies here never outlive the page
       if (p[1] === 'tool') {
-        const b = await body(), s = b && toolSessions.get(b.chat), done = s && s.pending.get(b && b.id);
-        if (!done) return json({ error: 'No tool call waiting' }, 404);
-        if (typeof b.error === 'string') done(failedTool(b.error.slice(0, 4000)));
-        else done({ error: false, parts: Array.isArray(b.parts) ? b.parts : [] });
-        return json({ ok: true });
+        const r = (await shared()).D.deliverResult(await body());   // as the server's /api/chat/tool: checked the same way
+        return r.status === 200 ? json({ ok: true }) : json({ error: r.error }, r.status);
       }
-      const b = await body(), bad = badChat(b);
-      if (bad) return json({ error: bad }, 400);
-      return activeKey ? chatGemini(b) : chatDemo(b);
+      const b = await body();
+      // checked as the server checks it (normalizeMessages): anything not understood is refused, never dropped
+      let msgs; try { msgs = (await shared()).C.normalizeMessages(b && b.messages); } catch (e) { return json({ error: e.message }, e.status || 400); }
+      return activeKey ? chatGemini({ ...b, messages: msgs }) : chatDemo(b);
     }
     if (p[0] === 'fetch-doc') return json({ error: 'The browser demo can’t fetch web links (CORS). Upload a PDF, Markdown or text file, or paste text instead.' }, 502);
     if (p[0] === 'layout') {
@@ -799,7 +532,7 @@
   async function doReset() {
     if (!confirm('Start the demo over? This removes everything you did here (including any saved API key) and brings back the sample.')) return;
     resetting = true;
-    activeKey = null; savedMeta = null; modelsCache = null;
+    activeKey = null; savedMeta = null;
     await kv.clear();
     try { localStorage.clear(); } catch { /* no storage */ }
     location.replace(location.href.split('#')[0]);

@@ -7,6 +7,9 @@
 // normalizeMessages() checks all of it and refuses anything it doesn't understand (400) rather than
 // quietly leaving it out: nothing the reader sent may go missing on the way to the model. The
 // converters below keep every part, in order; tests/test_context.py checks that for every provider.
+//
+// No Node APIs here (nor in doctools.mjs and gemini.mjs, which import it): the demo runs these same files in the
+// browser (demo/build.mjs copies them), so its Gemini replies go through exactly the code a self-hosted one does.
 export const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // the Anthropic API's per-image limit
 export const MAX_IMAGES = 60;
@@ -17,8 +20,11 @@ const MAGIC = {
   'image/png': (b) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47,
   'image/jpeg': (b) => b[0] === 0xff && b[1] === 0xd8,
   'image/gif': (b) => b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46,
-  'image/webp': (b) => b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP',
+  'image/webp': (b) => ascii(b, 0, 4) === 'RIFF' && ascii(b, 8, 12) === 'WEBP',
 };
+const ascii = (b, s, e) => String.fromCharCode(...b.subarray(s, e));
+// base64 -> bytes, in Node and in a browser alike
+export const fromBase64 = (s) => Uint8Array.from(globalThis.atob(s), (c) => c.charCodeAt(0));
 
 export const isImage = (type, buf) => !!MAGIC[type] && buf.length > 12 && MAGIC[type](buf);
 
@@ -36,7 +42,7 @@ export function normalizeMessages(list) {
         if (m.role !== 'user') throw bad(`message ${i + 1}: only your own messages can carry images`);
         if (!IMAGE_TYPES.has(p.mediaType)) throw bad(`message ${i + 1}: image ${j + 1} isn't PNG, JPEG, WebP or GIF`);
         if (typeof p.data !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(p.data)) throw bad(`message ${i + 1}: image ${j + 1} isn't valid base64`);
-        const head = Buffer.from(p.data.slice(0, 24), 'base64');
+        const head = fromBase64(p.data.slice(0, 24));
         if (!MAGIC[p.mediaType](head)) throw bad(`message ${i + 1}: image ${j + 1} isn't really ${p.mediaType}`);
         if (p.data.length * 0.75 > MAX_IMAGE_BYTES) throw bad(`message ${i + 1}: image ${j + 1} is over 5 MB`);
         if (++images > MAX_IMAGES) throw bad(`too many images in one conversation (over ${MAX_IMAGES})`);
@@ -85,4 +91,15 @@ export function toClaudeCodeBlocks(msgs) {
   return seq.map((x) => typeof x === 'string'
     ? { type: 'text', text: x }
     : { type: 'image', source: { type: 'base64', media_type: x.mediaType, data: x.data } });
+}
+
+// a reply's web sources as a {sources} line: http(s) only, each once, at most 20 (every provider, and the demo)
+export function sourcesLine(list) {
+  const seen = new Set(), out = [];
+  for (const r of Array.isArray(list) ? list : []) {
+    const url = r && typeof r.url === 'string' ? r.url : '';
+    if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
+    seen.add(url); out.push({ title: String(r.title || url).slice(0, 300), url: url.slice(0, 2000) });
+  }
+  return out.length ? { sources: out.slice(0, 20) } : null;
 }

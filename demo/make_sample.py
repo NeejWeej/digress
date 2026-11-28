@@ -12,7 +12,7 @@ Rerun it when the sample reading or the prepared replies change:
 
 The two takeaways in it are a real model's, not written by hand: --record [URL] builds the conversations once to
 catch the page's own takeaway requests, sends them to the Digress server at URL (default http://127.0.0.1:8788,
-with its default model; the document tools left out), keeps the answers in demo/sample/takeaways.json (with the
+with --model ID or else its default model; the document tools left out), keeps the answers in demo/sample/takeaways.json (with the
 model and the date), and then builds the seed with them. Without --record it uses that file as it is. Rerun with
 --record when the prepared replies of those branches change, since a takeaway sums up what they say.
 """
@@ -58,13 +58,13 @@ def must(ok, what):
     if not ok: sys.exit('make_sample: ' + what)
 
 
-def record(url, bodies):
+def record(url, bodies, model_id='auto'):
     """Send each takeaway request the page made to a real Digress server; its answers, with the model."""
     import urllib.request, datetime
     out = {}
     for k in TAKEAWAY_KEYS:
         must(k in bodies, f'no takeaway request caught for "{k}"')
-        body = dict(bodies[k]); body.pop('tools', None); body['model'] = 'auto'; body['chat'] = 'seed-takeaway-' + os.urandom(4).hex()
+        body = dict(bodies[k]); body.pop('tools', None); body['model'] = model_id; body['chat'] = 'seed-takeaway-' + os.urandom(4).hex()
         req = urllib.request.Request(url.rstrip('/') + '/api/chat', data=json.dumps(body).encode(), headers={'content-type': 'application/json'})
         text, model = '', ''
         with urllib.request.urlopen(req, timeout=300) as r:
@@ -83,12 +83,13 @@ def record(url, bodies):
 async def main():
     rec = '--record' in sys.argv
     url = next((a for a in sys.argv[sys.argv.index('--record') + 1:][:1] if not a.startswith('-')), 'http://127.0.0.1:8788') if rec else None
+    model_id = sys.argv[sys.argv.index('--model') + 1] if '--model' in sys.argv else 'auto'
     takeaways = {} if rec else json.load(open(TAKEAWAYS))
     async with async_playwright() as p:
         b = await p.chromium.launch(**launch_args())
         if rec:
             bodies = await build(b, {k: {} for k in TAKEAWAY_KEYS}, True)
-            takeaways = record(url, bodies)
+            takeaways = record(url, bodies, model_id)
             with open(TAKEAWAYS, 'w') as f: json.dump(takeaways, f, ensure_ascii=False, indent=1); f.write('\n')
             print('wrote', TAKEAWAYS)
         await build(b, takeaways, False)
