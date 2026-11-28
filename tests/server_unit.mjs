@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { openDb } from '../server/db.mjs';
 import { publicAddress, looksLikeHtml } from '../server/fetchdoc.mjs';
 
@@ -260,6 +261,39 @@ test('db: putDoc index preserves doc passages on keepDoc and ignores stale lower
     });
     assert.equal(db.searchPassages('stale').length, 0, 'stale rev ignored');
     assert.ok(db.searchPassages('revised').some((r) => r.cid === 'c1'), 'newer rev preserved');
+    db.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('db: putDoc index changes only the passages that changed', () => {
+  const dir = makeTempDir();
+  try {
+    const db = openDb(dir);
+    db.saveConv('c2', { id: 'c2', title: 'Clips', threads: {}, msgs: {} });
+    const raw = new DatabaseSync(path.join(dir, 'digress.db'));
+    const rows = () => raw.prepare("SELECT rowid, k, mid, x FROM passages WHERE cid = 'c2' ORDER BY rowid").all().map((r) => ({ ...r }));
+    const a = { k: 'a', tid: 'b1', mid: 'm1', n: 0, o: 0, x: 'walrus answer' };
+    const twice = { k: 'q', tid: 'b2', mid: 'm2', n: 0, o: 0, x: 'repeated narwhal' };
+    db.putDoc('index', 'c2', { id: 'c2', v: 2, rev: 1, e: [a, twice, { ...twice }, { k: 'd', p: 1, n: 0, o: 0, x: 'page one manatee' }] });
+    const first = rows();
+    assert.equal(first.length, 4);
+    // one message added, one copy of a repeated passage gone, the document dropped (no keepDoc)
+    const added = { k: 'q', tid: 'b3', mid: 'm3', n: 0, o: 0, x: 'new dugong question' };
+    db.putDoc('index', 'c2', { id: 'c2', v: 2, rev: 2, e: [a, twice, added] });
+    const second = rows();
+    assert.equal(second.length, 3);
+    assert.equal(second.find((r) => r.mid === 'm1').rowid, first.find((r) => r.mid === 'm1').rowid, 'unchanged row kept, not re-added');
+    assert.equal(second.filter((r) => r.mid === 'm2').length, 1, 'one copy of the repeated passage left');
+    assert.ok(db.searchPassages('dugong').some((r) => r.mid === 'm3'), 'added passage searchable');
+    assert.equal(db.searchPassages('manatee').length, 0, 'removed document passage gone from search');
+    assert.ok(db.searchPassages('narwhal').some((r) => r.mid === 'm2'), 'kept passage still searchable');
+    // an edited message: its old text leaves search, its new text enters
+    db.putDoc('index', 'c2', { id: 'c2', v: 2, rev: 3, e: [{ ...a, x: 'walrus edited' }, twice, added] });
+    assert.equal(db.searchPassages('answer').length, 0);
+    assert.ok(db.searchPassages('edited').some((r) => r.mid === 'm1'));
+    raw.close();
     db.close();
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });

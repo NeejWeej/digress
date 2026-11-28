@@ -207,8 +207,8 @@ export function openDb(dataDir) {
   const stDeleteLayout = db.prepare('DELETE FROM layouts WHERE conv_id = ?');
 
   const stDeletePassages = db.prepare('DELETE FROM passages WHERE cid = ?');
-  const stDeleteNonDocPassages = db.prepare("DELETE FROM passages WHERE cid = ? AND k != 'd'");
-  const stMaxDocPassageIdx = db.prepare("SELECT COALESCE(MAX(idx), -1) AS m FROM passages WHERE cid = ? AND k = 'd'");
+  const stPassagesOf = db.prepare('SELECT rowid, idx, k, tid, mid, p, n, o, x FROM passages WHERE cid = ?');
+  const stDeletePassageRow = db.prepare('DELETE FROM passages WHERE rowid = ?');
   const stHasDocPassages = db.prepare("SELECT 1 AS ok FROM passages WHERE cid = ? AND k = 'd' LIMIT 1");
   const stInsertPassage = db.prepare(`
     INSERT INTO passages (cid, idx, k, tid, mid, p, n, o, x) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -254,25 +254,35 @@ export function openDb(dataDir) {
     );
   }
 
+  // Make cid's passages equal the index's entries, touching only the ones that changed: a save that adds one
+  // message to a long conversation inserts that message's passages and leaves every other row (and its FTS5
+  // entry) alone, instead of deleting and re-adding them all. Rows are compared on everything stored
+  // (k, tid, mid, p, n, o, x); idx is only an insertion counter, so kept rows keep theirs.
+  // With keepDoc (and doc passages present) the document's rows are left as they are and its entries ignored.
+  const passageKey = (r) => JSON.stringify([String(r.k || ''), String(r.tid || ''), String(r.mid || ''), Number(r.p || 0), Number(r.n || 0), Number(r.o || 0), r.x]);
   function syncPassages(cid, indexDoc) {
     const entries = Array.isArray(indexDoc && indexDoc.e) ? indexDoc.e : [];
     const preserveDoc = !!(indexDoc && indexDoc.keepDoc && stHasDocPassages.get(cid));
-    let baseIdx = 0;
-    if (preserveDoc) {
-      stDeleteNonDocPassages.run(cid);
-      baseIdx = Number((stMaxDocPassageIdx.get(cid) || {}).m ?? -1) + 1;
-    } else {
-      stDeletePassages.run(cid);
+    const old = new Map();   // key -> rowids (the same passage can occur twice)
+    let nextIdx = 0;
+    for (const r of stPassagesOf.all(cid)) {
+      nextIdx = Math.max(nextIdx, Number(r.idx) + 1);
+      if (preserveDoc && r.k === 'd') continue;
+      const k = passageKey(r);
+      const a = old.get(k);
+      if (a) a.push(r.rowid); else old.set(k, [r.rowid]);
     }
-    for (let i = 0; i < entries.length; i++) {
-      const e = entries[i];
+    for (const e of entries) {
       if (!e || typeof e.x !== 'string') continue;
       if (preserveDoc && e.k === 'd') continue;
+      const a = old.get(passageKey(e));
+      if (a && a.length) { a.pop(); continue; }   // already there
       stInsertPassage.run(
-        cid, baseIdx + i, String(e.k || ''), String(e.tid || ''), String(e.mid || ''),
+        cid, nextIdx++, String(e.k || ''), String(e.tid || ''), String(e.mid || ''),
         Number(e.p || 0), Number(e.n || 0), Number(e.o || 0), e.x
       );
     }
+    for (const a of old.values()) for (const rowid of a) stDeletePassageRow.run(rowid);
   }
 
   // Non-destructive one-time migration from legacy JSON folders (convs, cards, index, skills, prompts, layouts).
