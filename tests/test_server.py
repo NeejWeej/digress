@@ -406,6 +406,26 @@ def main():
         procs.append(proc_n)
         base_n = base_n.replace('127.0.0.1', '127.0.0.2')
         check(allowed(base_n, '127.0.0.2') and not allowed(base_n, 'box.tail1234.ts.net'), 'a specific HOST address is allowed; ALLOWED_HOSTS=none drops .ts.net')
+        # store size limits: a conversation (and its search index) may be up to 64 MB, other collections 8 MB; past the limit the
+        # page gets a real 413 response (not a dropped connection)
+        def big_conv(cid, mb):
+            return {'id': cid, 'title': 'Big', 'created': 1, 'updated': 1, 'threads': {'main': {'id': 'main', 'parent': None, 'title': 'Main'}},
+                    'msgs': {'m1': {'id': 'm1', 'thread': 'main', 'role': 'user', 'content': 'x' * int(mb * 1024 * 1024)}}, 'order': {'main': ['m1']}}
+        body = json.dumps(big_conv('big1', 9.5)).encode()
+        st, _ = req(base, 'PUT', '/api/store/convs/big1', raw=body); del body
+        check(st == 200, f'a 9.5 MB conversation saves (it was refused over 8 MB): {st}')
+        st, got = req(base, 'GET', '/api/store/convs/big1')
+        check(st == 200 and len(json.loads(got)['msgs']['m1']['content']) == int(9.5 * 1024 * 1024), 'the 9.5 MB conversation reads back whole'); del got
+        body = json.dumps({'id': 'big2', 'x': 'y' * (9 * 1024 * 1024)}).encode()
+        for coll in ('skills', 'prompts'):
+            st, resp = req(base, 'PUT', f'/api/store/{coll}/big2', raw=body)
+            check(st == 413 and 'error' in json.loads(resp), f'a 9 MB document in {coll} is refused with a 413 response: {st}')
+        del body
+        body = json.dumps(big_conv('big3', 65)).encode()   # just over 64 MB
+        st, resp = req(base, 'PUT', '/api/store/convs/big3', raw=body); del body
+        check(st == 413 and 'error' in json.loads(resp), f'a conversation over 64 MB gets a 413 response, not a reset connection: {st}')
+        check(req(base, 'GET', '/api/store/convs/big3')[0] == 404 and req(base, 'GET', '/api/health')[0] == 200, '…and nothing was saved; the server carries on')
+        req(base, 'DELETE', '/api/store/convs/big1')
         h = json.loads(req(base, 'GET', '/api/health')[1])
         check(h['app'] == 'digress' and h['llm'] and h['provider'] == 'claude-code' and h['web'] is True, f'health {h}')
         st, text, lines = chat(base, {'system': 'S' * 200000, 'model': 'claude-opus-5-5', 'effort': 'high',

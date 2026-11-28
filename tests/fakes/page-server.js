@@ -127,6 +127,7 @@
     if (p[1] === 'store') {
       if (window.fakeOffline && method !== 'GET') throw new TypeError('Failed to fetch');   // a test can drop the connection for saves (window.fakeOffline)
       if (method !== 'GET') window.__saves = (window.__saves || 0) + 1;
+      if (window.fakeStoreStatus && method === 'PUT') return json({ error: 'too large' }, window.fakeStoreStatus);   // a test can make saves fail with a status (window.fakeStoreStatus = 413)
       const coll = p[2], id = p[3], k = KEY + coll + '/';
       if (!id && method === 'GET') {
         const rows = keys(k).map((key) => ({ id: key.slice(k.length), data: JSON.parse(localStorage.getItem(key)) }));

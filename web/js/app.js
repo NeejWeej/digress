@@ -373,14 +373,16 @@ function flushJob(j){
         }catch(e){
           console.warn('save failed',e);
           if(e&&e.code==='quota_exceeded'){if(c===conv)toast('Storage is full. Delete an old conversation.');break}
-          if(e&&e.code==='invalid_argument'&&JSON.stringify(contentOf(c)).length>250000){if(c===conv)toast('This conversation is too large to save (256 KB limit).');break}
+          // too large for the server (413): trying again won't help, so no retry loop; it stays unsaved (failed),
+          // so leaving it asks first, and the next change tries again (deleting branches can bring it under)
+          if(e&&e.status===413){j.dirty=true;j.failed=true;if(c===conv){if(!j.tooBig)toast('This conversation is too large to save (over 64 MB). Delete some branches, or move on to a new conversation; until then, changes here stay only in this window.');setStatus('Not saved: too large')}j.tooBig=true;break}
           if(c===conv&&!j.failed)toast('Couldn’t save just now. It keeps trying in the background.');
           j.dirty=true;j.failed=true;retryJob(j);
           if(c===conv)setStatus('Not saved yet: retrying');
           break;
         }
         if(!savedOk)break;
-        if(!j.dirty&&j.failed){j.failed=false;j.tries=0;clearTimeout(j.retryT);j.retryT=0;if(c===conv){setStatus('Saved');toast('Saved. All caught up.')}}
+        if(!j.dirty&&j.failed){j.failed=false;j.tooBig=false;j.tries=0;clearTimeout(j.retryT);j.retryT=0;if(c===conv){setStatus('Saved');toast('Saved. All caught up.')}}
         if(convList.length||c===conv){
           const i=convList.findIndex(x=>x.id===c.id);const meta=metaOf(c);
           if(i>=0)convList[i]=meta;else if(c===conv)convList.unshift(meta);

@@ -701,6 +701,7 @@ function openRailStack(btn,tids){
   btn.classList.add('open');
   railStackPop={el,btn,tids};
   placeRailStack();
+  invalidate('badges');   // each row's own reply state (the strip shows only the stack's)
 }
 addEventListener('resize',()=>placeRailStack());
 document.addEventListener('pointerdown',e=>{if(railStackPop&&!railStackPop.el.contains(e.target)&&!railStackPop.btn.contains(e.target))closeRailStack()},true);
