@@ -26,6 +26,7 @@ The client never calls the server directly. Everything goes through `io = {llm, 
 - **Keep the prompt prefix stable**: the system prompt is the same for every question in a conversation, and anything added to a message comes from what's saved with it. `agents/model-context.md`.
 - **Security**: model text never fetches from another site by itself (`purifyNoRemote`); web access is search only, never shell or file tools; `fetchdoc.mjs` stays strict; `requestAllowed()` stays first in `route()`. `agents/server.md`, `agents/rendering.md`.
 - **Search has two engines**: the real server finds results with FTS5 (`server/db.mjs`), the demo and the UI tests' fake with MiniSearch; both rank with `web/js/searchrank.js`. A change to how one finds results goes in both; `tests/test_search_parity.py` checks they agree. `agents/search.md`.
+- **Modules call each other through `app`** (filled at the end of `web/js/app.js`), **and redraw each other through `invalidate('key')`** (`web/js/redraw.js`, synchronous on purpose). `tests/test_app_registry.py` catches a name or key nobody registered. `agents/layout.md`, `agents/ui.md`.
 - **Themes are CSS variables only**; no hard-coded colors, no `prefers-color-scheme`. `agents/ui.md`.
 - **The document pane is the pseudo-thread `'doc'`** and can be moved onto the canvas; never clone it. `agents/documents.md`, `agents/canvas.md`.
 - **Safari (WebKit) differs** (no scroll anchoring, scroll resets on hidden elements, …); a test that passes in Chromium can pass for the wrong reason. `agents/testing.md`.

@@ -16,6 +16,7 @@ import {
   fileToImage, storeImages, screenScale,
 } from './media.js';
 import { quoteWords, quoteRe } from './cards.js';
+import { invalidate } from './redraw.js';
 
 export function createDoc() {
   Object.defineProperty(state, 'docState', {
@@ -37,7 +38,6 @@ export function createDoc() {
   const importDigress = (...a) => app.importDigress(...a);
   const isDigressFile = (...a) => app.isDigressFile(...a);
   const isFocused = (...a) => app.isFocused(...a);
-  const layout = (...a) => app.layout(...a);
   const leaveOk = (...a) => app.leaveOk(...a);
   const markBack = (...a) => app.markBack(...a);
   const openConv = (...a) => app.openConv(...a);
@@ -45,11 +45,8 @@ export function createDoc() {
   const openThread = (...a) => app.openThread(...a);
   const paneZoom = (...a) => app.paneZoom(...a);
   const rememberSpot = (...a) => app.rememberSpot(...a);
-  const renderCanvas = (...a) => app.renderCanvas(...a);
-  const renderMap = (...a) => app.renderMap(...a);
   const renderMermaid = (...a) => app.renderMermaid(...a);
   const renderRich = (...a) => app.renderRich(...a);
-  const renderTitle = (...a) => app.renderTitle(...a);
   const revealMsg = (...a) => app.revealMsg(...a);
   const revealPane = (...a) => app.revealPane(...a);
   const save = (...a) => app.save(...a);
@@ -59,8 +56,6 @@ export function createDoc() {
   const toast = (...a) => app.toast(...a);
   const updateHeader = (...a) => app.updateHeader(...a);
   const updateJump = (...a) => app.updateJump(...a);
-  const wires = (...a) => app.wires(...a);
-  const wiresSoon = (...a) => app.wiresSoon(...a);
   const wrapText = (...a) => app.wrapText(...a);
 
 /* ---------- document mode (everything here only runs when state.conv.doc exists) ---------- */
@@ -249,7 +244,7 @@ function startDoc(){
       st.loaded=true;
       if(!d.pages||d.pages!==st.n){d.pages=st.n}
     }catch(e){st.error=e;console.warn('doc load failed',e)}
-    if(docState===st){renderDocPane(st.kind!=='pdf'||!!st.error);updateHeader('doc');if(state.conv.ui.view==='canvas')renderCanvas();if(st.loaded&&state.conv.id===key&&(state.conv.order.main.length||Object.keys(state.conv.threads).length>1||state.conv.doc))idxWrite(state.conv,st.pages)}
+    if(docState===st){renderDocPane(st.kind!=='pdf'||!!st.error);updateHeader('doc');if(state.conv.ui.view==='canvas')invalidate('canvas');if(st.loaded&&state.conv.id===key&&(state.conv.order.main.length||Object.keys(state.conv.threads).length>1||state.conv.doc))idxWrite(state.conv,st.pages)}
   })();
   return st.ready;
 }
@@ -269,7 +264,7 @@ async function applyPdfTitle(pdf){
     let dc=null;try{dc=meta.metadata&&meta.metadata.get('dc:title')}catch(e){}
     if(Array.isArray(dc))dc=dc[0];
     const t=pdfTitleOk(meta.info&&meta.info.Title)||pdfTitleOk(dc);
-    if(t){c.title=t;c.titleKept=true;renderTitle()}
+    if(t){c.title=t;c.titleKept=true;invalidate('title')}
   }
   delete c.autoTitle;save();
 }
@@ -284,7 +279,7 @@ function docPaneEl(){
     <div class="jumpw"><div class="jump"><button class="ib js" data-act="jsearch" title="Search this document">${ic('search')}</button><button class="ib jm" data-act="jmark" title="Mark where you got up to">${ic('mark')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button></div></div>
     <div class="rail-label"><span class="docico">${ic('doc')}</span><span class="rl"></span></div>`;
   const pb=el.querySelector('.pb');
-  pb.addEventListener('scroll',()=>{wiresSoon();updateJump(el);trackDocPage();noteDocSpot()},{passive:true});
+  pb.addEventListener('scroll',()=>{invalidate('wires-soon');updateJump(el);trackDocPage();noteDocSpot()},{passive:true});
   if(docView.ro)docView.ro.disconnect();clearTimeout(docView.resizeT);
   docView.ro=new ResizeObserver(()=>{
     // a text document re-wraps the moment its width changes (another pane closed, the sidebar went): the same scroll
@@ -354,7 +349,7 @@ function renderDocPane(force){
     // the text reflows with the pane's width: put the mark back on its character
     let mt=0;new ResizeObserver(()=>{clearTimeout(mt);mt=setTimeout(()=>{if(b.isConnected&&docMark())placeMark()},150)}).observe(b);
   }
-  updateDocHeader();wiresSoon();
+  updateDocHeader();invalidate('wires-soon');
 }
 function buildPdfPages(el,wrap){
   const st=docState;
@@ -474,7 +469,7 @@ function renderPdfPage(i,force){
     pg.style.width=vp.width+'px';pg.style.height=vp.height+'px';
     pg.querySelectorAll('canvas').forEach(c=>{c.width=0;c.height=0});
     pg.querySelectorAll('canvas,.textLayer,sup.fn,.dregion').forEach(n=>n.remove());
-    pg.appendChild(cv);pg.appendChild(tl);applyDocAnchorsPdf(pg,tl,i-1);wiresSoon();
+    pg.appendChild(cv);pg.appendChild(tl);applyDocAnchorsPdf(pg,tl,i-1);invalidate('wires-soon');
     evictPdfPages();
   })().catch(e=>{
     entry.task=null;
@@ -521,14 +516,14 @@ async function refreshDocAnchors(page){
     const tl=await makeTextLayer(page_,vp);
     pg.querySelectorAll('.textLayer,sup.fn,.dregion').forEach(n=>n.remove());pg.appendChild(tl);applyDocAnchorsPdf(pg,tl,i-1);
   }
-  wiresSoon();
+  invalidate('wires-soon');
 }
 function openDocPane(){
   if(!state.conv.doc)return;
   if(state.conv.ui.view==='canvas'&&!docInDock())setView(state.conv.ui.layout);
   if(!state.conv.ui.open.includes('doc'))state.conv.ui.open.unshift('doc');
   state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!=='doc');
-  layout();renderMap();save();
+  invalidate('panes');invalidate('map');save();
 }
 async function scrollDocToPage(n,flash=true){
   if(docView.built)await docView.built;
@@ -719,7 +714,7 @@ function goToEarlier(fromMid,quote){
       showQuote(n.querySelector(`.cfull .msg[data-mid="${hit.id}"] .body`),n.querySelector('.cfull'),quote,contentScale(n),{exact:true,sticky:true})},350);
     return;
   }
-  openThread(hit.thread);state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==hit.thread);layout();revealPane(hit.thread);
+  openThread(hit.thread);state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==hit.thread);invalidate('panes');revealPane(hit.thread);
   requestAnimationFrame(()=>{
     const pe=paneEls.get(hit.thread),b=pe&&pe.querySelector(`.msg[data-mid="${hit.id}"] .body`);
     if(b&&showQuote(b,pe.querySelector('.pb'),quote,1,{exact:true,sticky:true}))return;
@@ -737,7 +732,7 @@ async function revealDocAnchor(t,quiet){
     pb.scrollBy({top:a.getBoundingClientRect().top-pb.getBoundingClientRect().top-pb.clientHeight/3,behavior:'smooth'});
     revealPane('doc');
     el.querySelectorAll(`.anchor[data-tid="${t.id}"],.dregion[data-tid="${t.id}"]`).forEach(s=>{s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash')});
-    setTimeout(wires,450);
+    setTimeout(() => invalidate('wires'),450);
   });
 }
 function linkPages(root,opts){
@@ -1363,7 +1358,7 @@ async function ingestClip(p){
   if(targetTid&&state.conv.threads[targetTid]){
     if(!state.conv.ui.open.includes(targetTid))state.conv.ui.open.push(targetTid);
     state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==targetTid);
-    if(state.conv.ui.view==='canvas'){renderCanvas();focusCard(targetTid)}else{layout();revealPane(targetTid)}
+    if(state.conv.ui.view==='canvas'){invalidate('canvas');focusCard(targetTid)}else{invalidate('panes');revealPane(targetTid)}
     const pe=paneEls.get(targetTid),ta=pe&&pe.querySelector('textarea');
     if(ta){
       const parts=[];
@@ -1394,8 +1389,8 @@ async function ingestClip(p){
   state.conv.threads[tid]=t;state.conv.order[tid]=[];
   if(!state.conv.ui.open.includes(tid))state.conv.ui.open.push(tid);
   state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==tid);
-  if(state.conv.ui.view==='canvas'){renderCanvas();focusCard(tid)}else{layout();revealPane(tid)}
-  renderMap();state.dirty=true;await flushNow();
+  if(state.conv.ui.view==='canvas'){invalidate('canvas');focusCard(tid)}else{invalidate('panes');revealPane(tid)}
+  invalidate('map');state.dirty=true;await flushNow();
   const pe=paneEls.get(tid),ta=pe&&pe.querySelector('textarea');
   if(ta){if(p.question)ta.value=String(p.question);ta.focus()}
   toast(`Clipped to “${trunc(state.conv.title,32)}”`);
@@ -1443,7 +1438,7 @@ window.addEventListener('message',async e=>{
       if(tid&&state.conv&&state.conv.threads[tid]){
         if(!state.conv.ui.open.includes(tid))state.conv.ui.open.push(tid);
         state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==tid);
-        if(state.conv.ui.view==='canvas'){renderCanvas();focusCard(tid)}else{layout();revealPane(tid)}
+        if(state.conv.ui.view==='canvas'){invalidate('canvas');focusCard(tid)}else{invalidate('panes');revealPane(tid)}
       }
       window.postMessage({digressClipFocusAck:1,id,ok:true},location.origin);
     }catch(err){window.postMessage({digressClipFocusAck:1,id,ok:false,error:(err&&err.message)||'Focus failed'},location.origin)}

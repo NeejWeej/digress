@@ -2,6 +2,7 @@
 import { esc, trunc, indexEntries, idxPages, sigOf } from './text.js';
 import { KIND, reEsc, WB, qWords, foldTerm, foldKeep, MS_OPTIONS, searchMini } from './searchrank.js';
 import { state, app, io, settings, saveSettings, paneEls, $, ic, T, color, ancestors } from './state.js';
+import { invalidate } from './redraw.js';
 
 export function createSearch() {
   Object.defineProperties(state, {
@@ -18,7 +19,6 @@ export function createSearch() {
   const hidePop = (...a) => app.hidePop(...a);
   const hideTip = (...a) => app.hideTip(...a);
   const keyClose = (...a) => app.keyClose(...a);
-  const layout = (...a) => app.layout(...a);
   const loadScript = (...a) => app.loadScript(...a);
   const markCur = (...a) => app.markCur(...a);
   const menuFor = (...a) => app.menuFor(...a);
@@ -28,8 +28,6 @@ export function createSearch() {
   const openModelMenu = (...a) => app.openModelMenu(...a);
   const openThread = (...a) => app.openThread(...a);
   const rememberSpot = (...a) => app.rememberSpot(...a);
-  const renderCanvas = (...a) => app.renderCanvas(...a);
-  const renderMap = (...a) => app.renderMap(...a);
   const revealAnchor = (...a) => app.revealAnchor(...a);
   const revealMsg = (...a) => app.revealMsg(...a);
   const revealPane = (...a) => app.revealPane(...a);
@@ -39,7 +37,6 @@ export function createSearch() {
   const titleModel = (...a) => app.titleModel(...a);
   const toast = (...a) => app.toast(...a);
   const toggleCollapse = (...a) => app.toggleCollapse(...a);
-  const wiresSoon = (...a) => app.wiresSoon(...a);
   /* ---------- search: a per-conversation text index (kept separately, updated on save) + BM25 ranking ---------- */
 const IDX={map:new Map(),loaded:false,loading:null,ms:null,dirty:true,dirtyIds:new Set(),indexedIds:new Map(),lastSig:new Map(),docSig:new Map(),backfilling:false};
 function idxTouch(id){if(id)IDX.dirtyIds.add(id);else IDX.dirty=true}
@@ -345,7 +342,7 @@ async function openResult(r,keep){
   if(state.conv.ui.view==='canvas'){focusCard(tid,r.mid);if(r.mid)setTimeout(()=>{const n=$('#cv').querySelector(`.cnode[data-ctid="${tid}"]`);if(!n)return;
     showHit(n.querySelector(`.cfull .msg[data-mid="${r.mid}"] .body`),n.querySelector('.cfull'),terms,contentScale(n),null,r.x)},350);return}
   if(r.k==='h'){openThread(tid);revealAnchor(tid);return}
-  openThread(tid);state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==tid);layout();revealPane(tid);
+  openThread(tid);state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==tid);invalidate('panes');revealPane(tid);
   if(r.mid)requestAnimationFrame(()=>{const pe=paneEls.get(tid);const b=pe&&pe.querySelector(`.msg[data-mid="${r.mid}"] .body`);
     if(b&&showHit(b,pe.querySelector('.pb'),terms,1,()=>rememberSpot(pe),r.x))return;revealMsg(tid,r.mid)});
 }
@@ -412,10 +409,10 @@ async function goBack(){
   const ok=id=>id==='doc'?!!state.conv.doc:!!T(id);
   const open=s.open.filter(ok);if(open.length){state.conv.ui.open=open;state.conv.ui.collapsed=s.collapsed.filter(ok)}
   if(state.conv.ui.cv&&s.cvOpen)state.conv.ui.cv.open=s.cvOpen.filter(ok);
-  if(s.view==='canvas'){if(state.conv.ui.view!=='canvas')setView('canvas');else renderCanvas();Object.assign(app.cam,s.cam);applyCam()}
-  else{if(state.conv.ui.view==='canvas'||state.conv.ui.layout!==s.layout)setView(s.layout);else layout()}
-  renderMap();save();
-  const put=()=>{for(const [tid,top] of Object.entries(s.scroll)){const el=paneEls.get(tid),pb=el&&el.querySelector('.pb');if(pb)pb.scrollTop=top}$('#panes').scrollLeft=s.panesLeft;$('#panes').scrollTop=s.panesTop;wiresSoon()};
+  if(s.view==='canvas'){if(state.conv.ui.view!=='canvas')setView('canvas');else invalidate('canvas');Object.assign(app.cam,s.cam);applyCam()}
+  else{if(state.conv.ui.view==='canvas'||state.conv.ui.layout!==s.layout)setView(s.layout);else invalidate('panes')}
+  invalidate('map');save();
+  const put=()=>{for(const [tid,top] of Object.entries(s.scroll)){const el=paneEls.get(tid),pb=el&&el.querySelector('.pb');if(pb)pb.scrollTop=top}$('#panes').scrollLeft=s.panesLeft;$('#panes').scrollTop=s.panesTop;invalidate('wires-soon')};
   requestAnimationFrame(put);setTimeout(put,300);   // again once the document's pages have their sizes
 }
 (()=>{

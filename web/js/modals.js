@@ -13,6 +13,7 @@ import {
   modelLabel, $, ic, rid, T, newConv, } from './state.js';
 import { blobB64, storeImages } from './media.js';
 import { copyText } from './render.js';
+import { invalidate } from './redraw.js';
 
 export function createModals() {
   const mSel = $('#mSel');
@@ -22,11 +23,9 @@ export function createModals() {
   const closeThemes = (...a) => app.closeThemes(...a);
   const contentOf = (...a) => app.contentOf(...a);
   const docPagesLabel = (...a) => app.docPagesLabel(...a);
-  const drawEdgesSoon = (...a) => app.drawEdgesSoon(...a);
   const fillModelPicker = (...a) => app.fillModelPicker(...a);
   const fillPopChips = (...a) => app.fillPopChips(...a);
   const focusCard = (...a) => app.focusCard(...a);
-  const layout = (...a) => app.layout(...a);
   const leaveOk = (...a) => app.leaveOk(...a);
   const loadCards = (...a) => app.loadCards(...a);
   const loadList = (...a) => app.loadList(...a);
@@ -38,10 +37,7 @@ export function createModals() {
   const placeDocked = (...a) => app.placeDocked(...a);
   const putCard = (...a) => app.putCard(...a);
   const renderBack = (...a) => app.renderBack(...a);
-  const renderConvList = (...a) => app.renderConvList(...a);
-  const renderMap = (...a) => app.renderMap(...a);
   const renderPane = (...a) => app.renderPane(...a);
-  const renderTitle = (...a) => app.renderTitle(...a);
   const resolvedModel = (...a) => app.resolvedModel(...a);
   const revealPane = (...a) => app.revealPane(...a);
   const save = (...a) => app.save(...a);
@@ -54,8 +50,6 @@ export function createModals() {
   const tabName = (...a) => app.tabName(...a);
   const toast = (...a) => app.toast(...a);
   const updateHeader = (...a) => app.updateHeader(...a);
-  const wires = (...a) => app.wires(...a);
-  const wiresSoon = (...a) => app.wiresSoon(...a);
 /* ---------- Activity: what you did each day, what you remember, where you dug deepest ----------
    All of it is worked out from what's already saved (messages' ts, threads' created, cards' reviews); nothing
    new is recorded. Conversations come from io.store.list() (the open one from memory, which is newer). */
@@ -180,7 +174,7 @@ async function actGo(cid,tid){
   closeActivity();if(!state.conv||state.conv.id!==cid)await openConv(cid);
   if(!tid||!state.conv||state.conv.id!==cid||!T(tid))return;
   if(state.conv.ui.view==='canvas'){focusCard(tid);return}
-  openThread(tid);state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==tid);layout();renderMap();revealPane(tid);
+  openThread(tid);state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==tid);invalidate('panes');invalidate('map');revealPane(tid);
 }
 $('#activity').addEventListener('click',e=>{
   const t=e.target.closest('[data-aact],[data-akind],[data-aday],[data-aconv],[data-acard]');if(!t)return;
@@ -204,7 +198,7 @@ async function loadCustom(){
     CUSTOM.prompts=pr&&typeof pr==='object'&&!Array.isArray(pr)?pr:{};
   }catch(e){console.warn('prompts and skills failed to load',e)}
   fillPopChips();syncSkillT();
-  app.SIDEBAR_MOD.convListSig='';renderConvList();   // folders' prompts are marked in the sidebar
+  app.SIDEBAR_MOD.convListSig='';invalidate('conv-list');   // folders' prompts are marked in the sidebar
 }
 const skillLabel=(s)=>String(s.name||'Skill').replace(/[-_]+/g,' ').trim().replace(/^./,c=>c.toUpperCase());
 // SKILL.md: an optional header between --- lines (name:, description:), then the instructions
@@ -670,7 +664,7 @@ async function importDigressData(d,kind='file'){
     }
   }
   if(!first)return false;
-  await loadList();renderConvList();await openConv(first.id);
+  await loadList();invalidate('conv-list');await openConv(first.id);
   toast(`Opened “${trunc(first.title,50)}”${n>1?` and ${n-1} more`:''}${nc?`, with ${nc} card${nc>1?'s':''} in your inbox`:''}.${window.DemoReplies?' It’s kept only in this browser; delete it from the sidebar to remove it.':''}`);
   return true;
 }
@@ -841,12 +835,12 @@ modelMenu.addEventListener('click',e=>{e.stopPropagation();
 document.addEventListener('click',closeModels);
 addEventListener('keydown',e=>{if(e.key==='Escape'&&modelsOpen()){e.stopPropagation();e.preventDefault();const a=menuFor&&menuFor.anchor;closeModels();(a&&a.isConnected?a:mPick).focus({preventScroll:true})}},true);
 addEventListener('resize',()=>{if(modelsOpen())placeModels()});
-$('#tSide').addEventListener('click',()=>{const appEl=$('#app');if(app.zen){appEl.classList.toggle('zenside');return}if(innerWidth<760){appEl.classList.toggle('sideopen')}else{appEl.classList.toggle('noside');try{localStorage.setItem('sq:noside',appEl.classList.contains('noside')?'1':'')}catch(e){}}setTimeout(()=>{wires();if(state.conv.ui.view==='canvas')applyCam()},50)});
+$('#tSide').addEventListener('click',()=>{const appEl=$('#app');if(app.zen){appEl.classList.toggle('zenside');return}if(innerWidth<760){appEl.classList.toggle('sideopen')}else{appEl.classList.toggle('noside');try{localStorage.setItem('sq:noside',appEl.classList.contains('noside')?'1':'')}catch(e){}}setTimeout(()=>{invalidate('wires');if(state.conv.ui.view==='canvas')applyCam()},50)});
 try{if(localStorage.getItem('sq:noside'))$('#app').classList.add('noside')}catch(e){}
 (()=>{
   const appEl=$('#app'),g=$('#sgrip'),clampW=(w)=>Math.round(Math.min(Math.max(200,w),Math.min(620,innerWidth-360)));
   const setW=(w)=>{if(w)appEl.style.setProperty('--sidew',clampW(w)+'px');else appEl.style.removeProperty('--sidew')};
-  const after=()=>{wires();if(state.conv&&state.conv.ui.view==='canvas')applyCam()};
+  const after=()=>{invalidate('wires');if(state.conv&&state.conv.ui.view==='canvas')applyCam()};
   try{const w=+localStorage.getItem('sq:sidew');if(w)setW(w)}catch(e){}
   let drag=null;
   g.addEventListener('pointerdown',e=>{drag={x:e.clientX,w:$('#side').offsetWidth};g.classList.add('on');appEl.classList.add('sizing');try{g.setPointerCapture(e.pointerId)}catch(_){}e.preventDefault()});
@@ -859,10 +853,10 @@ $('#viewSeg').addEventListener('click',e=>{const b=e.target.closest('[data-v]');
 $('#newConv').addEventListener('click',async()=>{if(!await leaveOk())return;app.BACK.length=0;renderBack();setConv(newConv());setTimeout(()=>{if(!$('#pal').classList.contains('show'))paneEls.get('main').querySelector('textarea').focus()},30)});   // not if search opened meanwhile
 const ct=$('#cTitle');
 ct.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();ct.blur()}});
-ct.addEventListener('blur',()=>{const v=ct.textContent.trim();if(v&&v!==state.conv.title){state.conv.title=v;state.conv.titleKept=true;delete state.conv.autoTitle;updateHeader('main');tabName();save()}else renderTitle()});
-addEventListener('resize',wiresSoon);
-$('#panes').addEventListener('scroll',wiresSoon,{passive:true});
-new ResizeObserver(()=>{wiresSoon();if(state.conv&&state.conv.ui.view==='canvas'){placeDocked();drawEdgesSoon()}}).observe($('#stage'));
+ct.addEventListener('blur',()=>{const v=ct.textContent.trim();if(v&&v!==state.conv.title){state.conv.title=v;state.conv.titleKept=true;delete state.conv.autoTitle;updateHeader('main');tabName();save()}else invalidate('title')});
+addEventListener('resize',() => invalidate('wires-soon'));
+$('#panes').addEventListener('scroll',() => invalidate('wires-soon'),{passive:true});
+new ResizeObserver(()=>{invalidate('wires-soon');if(state.conv&&state.conv.ui.view==='canvas'){placeDocked();invalidate('edges-soon')}}).observe($('#stage'));
 
 
   return {

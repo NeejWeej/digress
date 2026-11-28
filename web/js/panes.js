@@ -7,8 +7,13 @@ import {
   STARTERS, effortLabel, modelLabel, sysPrompt, quickList, resetThreadIdx,
 } from './state.js';
 import { imageURL, getPending, takePending, userMsgBody, regionRef } from './media.js';
+import { invalidate, onRedraw } from './redraw.js';
 
 export function createPanes() {
+  // the parts of the page this module draws, for invalidate('…') from the others (web/js/redraw.js)
+  onRedraw('panes', layout);
+  onRedraw('wires', wires);
+  onRedraw('wires-soon', wiresSoon);
   const applyAnchors = (...a) => app.applyAnchors(...a);
   const brCount = (...a) => app.brCount(...a);
   const bringBack = (...a) => app.bringBack(...a);
@@ -21,13 +26,11 @@ export function createPanes() {
   const docSpotNow = (...a) => app.docSpotNow(...a);
   const docView = (...a) => app.docView(...a);
   const docViewReady = (...a) => app.docViewReady(...a);
-  const drawEdgesSoon = (...a) => app.drawEdgesSoon(...a);
   const editKeep = (...a) => app.editKeep(...a);
   const isFocused = (...a) => app.isFocused(...a);
   const joinable = (...a) => app.joinable(...a);
   const markCardButtons = (...a) => app.markCardButtons(...a);
   const markCur = (...a) => app.markCur(...a);
-  const markReplies = (...a) => app.markReplies(...a);
   const movedOn = (...a) => app.movedOn(...a);
   const ownSys = (...a) => app.ownSys(...a);
   const putDocSpot = (...a) => app.putDocSpot(...a);
@@ -36,7 +39,6 @@ export function createPanes() {
   const redoKeep = (...a) => app.redoKeep(...a);
   const refreshDocAnchors = (...a) => app.refreshDocAnchors(...a);
   const renderDocPane = (...a) => app.renderDocPane(...a);
-  const renderMap = (...a) => app.renderMap(...a);
   const renderMermaid = (...a) => app.renderMermaid(...a);
   const renderRich = (...a) => app.renderRich(...a);
   const replyMenuItems = (...a) => app.replyMenuItems(...a);
@@ -231,7 +233,7 @@ function queueStream(mid){
     }else{
       for(const id of streamQ){const m=state.conv.msgs[id];const b=m&&m.pending&&document.querySelector(`#cv .msg[data-mid="${id}"] .body`);if(b){const f=b.closest('.cfull');const stick=f&&f.scrollHeight-f.scrollTop-f.clientHeight<80;if(streamInto(b,m)){anyChanged=true;if(stick)f.scrollTop=f.scrollHeight}}}
     }
-    streamQ.clear();if(anyChanged){if(!onCv)wiresSoon();else drawEdgesSoon()}
+    streamQ.clear();if(anyChanged){if(!onCv)wiresSoon();else invalidate('edges-soon')}
   },70);
 }
 
@@ -263,7 +265,7 @@ function paneEl(tid){
   const title=el.querySelector('.ph-title');
   title.addEventListener('dblclick',()=>{if(isMain)return;title.contentEditable='true';title.focus();document.getSelection().selectAllChildren(title)});
   title.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();title.blur()}});
-  title.addEventListener('blur',()=>{if(title.contentEditable!=='true')return;title.contentEditable='false';const v=title.textContent.trim();if(v&&T(tid)){const ch=v!==T(tid).title;T(tid).title=v;if(ch)T(tid).titleKept=true;delete T(tid).autoTitle;refreshAnchorsFor(tid);renderMap();save()}});
+  title.addEventListener('blur',()=>{if(title.contentEditable!=='true')return;title.contentEditable='false';const v=title.textContent.trim();if(v&&T(tid)){const ch=v!==T(tid).title;T(tid).title=v;if(ch)T(tid).titleKept=true;delete T(tid).autoTitle;refreshAnchorsFor(tid);invalidate('map');save()}});
   const pb=el.querySelector('.pb');
   pb.addEventListener('scroll',()=>{wiresSoon();updateJump(el);notePaneSpot(el)},{passive:true});
   paneRO.observe(pb);
@@ -749,7 +751,7 @@ function layout(){
   while(wrap.children.length>seq.length)wrap.lastChild.remove();
   fresh.forEach(tid=>renderPane(tid,true));
   syncViewSeg();
-  wiresSoon();markCur();markReplies();markCardButtons();
+  wiresSoon();markCur();invalidate('badges');markCardButtons();
   if(inDock)placeDocPane();
 }
 /* Reorder panes by dragging the grip at the left of a pane's header, or a collapsed strip itself (Columns / Rows). The drag starts after a

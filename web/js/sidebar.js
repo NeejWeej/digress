@@ -5,8 +5,13 @@ import {
   state, app, io, CUSTOM, defaultSys, paneEls, streaming,
   PALETTE, $, ic, T, color, hiddenNow, isCollapsed, newConv,
 } from './state.js';
+import { invalidate, onRedraw } from './redraw.js';
 
 export function createSidebar() {
+  // the parts of the page this module draws, for invalidate('…') from the others (web/js/redraw.js)
+  onRedraw('map', renderMap);
+  onRedraw('conv-list', renderConvList);
+  onRedraw('title', renderTitle);
   const askConfirm = (...a) => app.askConfirm(...a);
   const cardsChoice = (...a) => app.cardsChoice(...a);
   const convInfo = (...a) => app.convInfo(...a);
@@ -18,14 +23,11 @@ export function createSidebar() {
   const focusCard = (...a) => app.focusCard(...a);
   const inInbox = (...a) => app.inInbox(...a);
   const kidsOf = (...a) => app.kidsOf(...a);
-  const layout = (...a) => app.layout(...a);
   const leaveOk = (...a) => app.leaveOk(...a);
   const markBack = (...a) => app.markBack(...a);
-  const markReplies = (...a) => app.markReplies(...a);
   const openConv = (...a) => app.openConv(...a);
   const openThread = (...a) => app.openThread(...a);
   const renderBack = (...a) => app.renderBack(...a);
-  const renderCanvas = (...a) => app.renderCanvas(...a);
   const renderPane = (...a) => app.renderPane(...a);
   const revealPane = (...a) => app.revealPane(...a);
   const save = (...a) => app.save(...a);
@@ -161,7 +163,7 @@ function renderMap(){
     n.innerHTML=`${chev('doc',kids)}<span class="docico">${ic('doc')}</span><div style="min-width:0;flex:1"><div class="mt"></div></div>${hiddenBadge('doc')}`;n.querySelector('.mt').textContent=state.conv.doc.name;
     li.appendChild(n);if(!fold.includes('doc')){const sub=document.createElement('ul');kids.forEach(c=>sub.appendChild(build(c.id)));li.appendChild(sub)}ul.appendChild(li);
   }else ul.appendChild(build('main'));
-  tree.replaceChildren(ul);fillBrList();markReplies();
+  tree.replaceChildren(ul);fillBrList();invalidate('badges');
   const nh=Object.values(state.conv.threads).filter(t=>t.hidden).length;
   if(nh){const b=document.createElement('button');b.className='showhid';b.dataset.showhid='1';b.textContent=state.conv.ui.showHidden?'Hide the hidden branches again':`Show ${nh} hidden branch${nh>1?'es':''}`;tree.appendChild(b)}
   const nThreads=Object.keys(state.conv.threads).length;
@@ -451,7 +453,7 @@ function toggleHidden(tid){
   refreshAll();setStatus(t.hidden?'Hidden from the tree and canvas (“Show hidden” under the tree brings it back)':'Shown again');
 }
 // after something changes which branches show: every pane, the tree and the canvas
-function refreshAll(){for(const id of state.conv.ui.open)if(id!=='doc'&&T(id)){renderPane(id);updateHeader(id)}if(state.conv.doc)updateHeader('doc');renderMap();if(state.conv.ui.view==='canvas')renderCanvas();save()}
+function refreshAll(){for(const id of state.conv.ui.open)if(id!=='doc'&&T(id)){renderPane(id);updateHeader(id)}if(state.conv.doc)updateHeader('doc');renderMap();if(state.conv.ui.view==='canvas')invalidate('canvas');save()}
 function toggleBranchPin(tid){
   const t=T(tid);if(!t||!t.parent)return;
   t.pinned=!t.pinned;if(!t.pinned)delete t.pinned;
@@ -488,7 +490,7 @@ async function openPinnedBranch(cid,tid){
   if(!state.conv||state.conv.id!==cid)await openConv(cid);
   if(!state.conv||state.conv.id!==cid||!T(tid)){toast('That branch no longer exists.');return}
   if(state.conv.ui.view==='canvas'){focusCard(tid);return}
-  openThread(tid);state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==tid);layout();revealPane(tid);
+  openThread(tid);state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==tid);invalidate('panes');revealPane(tid);
 }
 
 

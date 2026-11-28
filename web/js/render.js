@@ -1,6 +1,7 @@
 // Markdown, MathJax, Mermaid, remote-content sanitization, diagram/image zoom, and code-copy rendering for Digress.
 import { esc } from './text.js';
 import { state, app, ic, rid, memoSet } from './state.js';
+import { invalidate } from './redraw.js';
 
 const MATHJAX_CDN = 'https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg-full.js';
 const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js';
@@ -358,7 +359,7 @@ export function createRenderer() {
         }
       }
     }
-    app.wiresSoon();
+    invalidate('wires-soon');
   }
 
   const MMZ_MAX = 6, MMZ_STEP = 1.5;

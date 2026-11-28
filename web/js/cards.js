@@ -4,6 +4,7 @@ import { fsrsNext, ivlText } from './fsrs.js';
 import { esc, trunc, plain } from './text.js';
 import { listSources, isWholePage, shotRef, appendText } from './context.js';
 import { state, app, $, ic, io, paneEls, settings, T, color, isCollapsed, fullSys, rid } from './state.js';
+import { invalidate } from './redraw.js';
 
 const reEsc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export const quoteWords = (q) => String(q || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
@@ -23,7 +24,6 @@ export function createCards() {
   const imageBlob = (...a) => app.imageBlob(...a);
   const imageURL = (...a) => app.imageURL(...a);
   const storeImages = (...a) => app.storeImages(...a);
-  const renderConvList = (...a) => app.renderConvList(...a);
   const openActivity = (...a) => app.openActivity(...a);
   const cvState = (...a) => app.cvState(...a);
   const contentScale = (...a) => app.contentScale(...a);
@@ -43,7 +43,6 @@ export function createCards() {
   const focusCard = (...a) => app.focusCard(...a);
   const revealAnchor = (...a) => app.revealAnchor(...a);
   const openThread = (...a) => app.openThread(...a);
-  const layout = (...a) => app.layout(...a);
   const revealPane = (...a) => app.revealPane(...a);
   const revealMsg = (...a) => app.revealMsg(...a);
   const clearHit = (...a) => app.clearHit(...a);
@@ -150,7 +149,7 @@ export function createCards() {
     b.style.display = any ? '' : 'none';
     b.innerHTML = ic('cards') + 'Review' + (due ? ` · ${due} due` : '') + (inbox ? ` · ${inbox} in inbox` : '') + (drafting ? '<span class="kdrafting"> · drafting…</span>' : '');
     markCardButtons();
-    renderConvList();
+    invalidate('conv-list');
     if ($('#cardsModal').classList.contains('show')) renderCards();
   }
 
@@ -762,7 +761,7 @@ export function createCards() {
     const t = T(c.thread);
     if (t.parent && !qm) revealAnchor(c.thread);
     if (at.thread !== 'main' && !conv.ui.open.includes(at.thread)) openThread(at.thread, T(at.thread).parent);
-    if (isCollapsed(at.thread)) { conv.ui.collapsed = conv.ui.collapsed.filter((x) => x !== at.thread); layout(); }
+    if (isCollapsed(at.thread)) { conv.ui.collapsed = conv.ui.collapsed.filter((x) => x !== at.thread); invalidate('panes'); }
     revealPane(at.thread);
     if (qm) {
       requestAnimationFrame(() => {
