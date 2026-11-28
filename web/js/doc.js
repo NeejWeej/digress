@@ -13,7 +13,7 @@ import {
 } from './state.js';
 import {
   IMG_MAX, encodeCanvas, imageBlob, imageURL, blobB64,
-  fileToImage, storeImages, screenScale,
+  fileToImage, storeImages, screenScale, addPending,
 } from './media.js';
 import { quoteWords, quoteRe } from './cards.js';
 import { invalidate } from './redraw.js';
@@ -1359,6 +1359,10 @@ async function ingestClip(p){
     }
   }
   const targetTid=typeof p.targetThreadId==='string'?p.targetThreadId.trim():'';
+  // the clip's images (a tweet's, up to 4), as data: URLs of the image types we keep
+  const clipBlobs=async()=>{const out=[];for(const im of (Array.isArray(p.images)?p.images.slice(0,4):[])){
+    if(!im||typeof im.data!=='string'||!/^data:image\/(png|jpeg|jpg|webp|gif);base64,/i.test(im.data))continue;
+    try{out.push(await (await fetch(im.data)).blob())}catch(_){}}return out};
   if(targetTid&&state.conv.threads[targetTid]){
     if(!state.conv.ui.open.includes(targetTid))state.conv.ui.open.push(targetTid);
     state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==targetTid);
@@ -1373,16 +1377,14 @@ async function ingestClip(p){
       if(block)ta.value=ta.value.trim()?ta.value.trimEnd()+'\n\n'+block:block;
       ta.focus();
     }
+    // its images go with the draft, as if pasted (they used to be dropped here)
+    const blobs=await clipBlobs();if(blobs.length)await addPending(targetTid,blobs);
     const bt=targetTid==='main'?'Main':(state.conv.threads[targetTid].title||targetTid);
     toast(`Added to “${trunc(bt,32)}”`);
     return {convId:state.conv.id,convTitle:state.conv.title,threadId:targetTid,branchTitle:bt};
   }
-  const rawImgs=Array.isArray(p.images)?p.images.slice(0,4):[];
   const readyImgs=[];
-  for(const im of rawImgs){
-    if(!im||typeof im.data!=='string'||!/^data:image\/(png|jpeg|jpg|webp|gif);base64,/i.test(im.data))continue;
-    try{const blob=await (await fetch(im.data)).blob();readyImgs.push(await fileToImage(blob))}catch(_){}
-  }
+  for(const blob of await clipBlobs()){try{readyImgs.push(await fileToImage(blob))}catch(_){}}
   const anchorImages=readyImgs.length?await storeImages(readyImgs):[];
   const tid='t'+rid();
   const customBranch=String(p.branchTitle||'').trim();

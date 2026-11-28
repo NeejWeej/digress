@@ -213,11 +213,24 @@ async def main():
             'mode': 'branch', 'convId': cid, 'targetThreadId': tid1,
             'title': '@carol on X', 'url': 'https://x.com/carol/status/9',
             'text': 'Follow-up counterargument.', 'question': 'How does this compare?',
+            'images': [{'data': TINY_PNG, 'type': 'image/png'}],
         })
         ta_val = await pg.evaluate("(tid) => (document.querySelector(`.pane[data-tid=\"${tid}\"] textarea`) || {}).value || ''", tid1)
         check('targetThreadId pre-fills existing branch composer with clip and question',
               ack5.get('ok') and ack5.get('threadId') == tid1
               and 'Follow-up counterargument.' in ta_val and 'How does this compare?' in ta_val, ta_val)
+        # the clip's image becomes a pending image in that branch's composer, and goes with the message on Send
+        pend_sel = f'.pane[data-tid="{tid1}"] .composer .cimgs img'
+        await soon(pg, f"() => document.querySelectorAll('{pend_sel}').length === 1")
+        check('targetThreadId clip shows its image as one pending image in the composer', True)
+        n_calls = await pg.evaluate("window.__calls.length")
+        await pg.locator(f'.pane[data-tid="{tid1}"] textarea').press('Enter')
+        await soon(pg, f"() => window.__calls.length === {n_calls + 1}")
+        sent = await pg.evaluate("""(tid) => { const c = __digress.conv; const ms = Object.values(c.msgs).filter(m => m.thread === tid && m.role === 'user');
+          const m = ms[ms.length - 1]; return { content: m.content, n: (m.images || []).length }; }""", tid1)
+        check('sending puts the clipped image on the new user message', 'Follow-up counterargument.' in sent['content'] and sent['n'] == 1, sent)
+        await soon(pg, f"() => document.querySelectorAll('{pend_sel}').length === 0")
+        check('pending image strip is cleared after sending', True)
 
         # 7. digressClipFocus switches conversation and reveals target branch
         f1 = await post_focus(pg, ack3['convId'], 'main')

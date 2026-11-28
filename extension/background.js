@@ -44,8 +44,10 @@ function matchesDigressUrl(tabUrl, digressUrl) {
 }
 
 async function findDigressTab(digressUrl) {
-  const tabs = await chrome.tabs.query({});
-  return tabs.find((t) => matchesDigressUrl(t.url, digressUrl)) || null;
+  // with several Digress tabs or windows open, the one you used last (not whichever Chrome lists first)
+  const tabs = (await chrome.tabs.query({})).filter((t) => matchesDigressUrl(t.url, digressUrl));
+  tabs.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0));   // lastAccessed: Chrome 121+; older keeps the listed order
+  return tabs[0] || null;
 }
 
 async function ensureDigressTab(digressUrl, focus) {

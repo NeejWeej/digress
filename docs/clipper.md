@@ -15,9 +15,10 @@ The **Digress Clipper** (`extension/`) is a small Manifest V3 browser extension 
   - Click the small **Digress branch icon** injected into any tweet’s action bar right from your scrolling feed (`Shift+Click` to jump straight to Digress), **or**
   - Right-click anywhere on a tweet → **Send to Digress**, which opens a submenu: **Send using site rule**, **Send thread up to here**, **Send just this tweet**, **Branch in current conversation**, or **New document conversation**.
   - By default, tweets clip as isolated branches into a **"Twitter clippings"** conversation in the background with a fading in-page confirmation toast (and an **Open** button). Each branch sends only that tweet or thread (plus quoted tweets and up to 4 images) to the model—never the rest of your clippings. Long clipped passages include a **Show full / Show less** toggle at the top of the branch.
+- With several Digress tabs or windows open, clips go to the one you used most recently.
 - **On any other website:**
   - Highlight text and right-click → **Send to Digress** (or press `Alt+D`) to clip the selection, or trigger it with nothing selected to send the full rendered page (including paywalled articles you’re logged into) through Digress’s reader view.
-  - Click the toolbar icon to pick an **existing conversation** (or create a new one), choose **+ New clipped branch** (with an optional custom branch title) or drop the clip into an **existing branch**, add an optional question/note (`⌘/Ctrl+Enter` to send), or tick **Remember for `<site>`** to save a per-site rule in one click.
+  - Click the toolbar icon to pick an **existing conversation** (or create a new one), choose **+ New clipped branch** (with an optional custom branch title) or drop the clip into an **existing branch** (it's put in that branch's message box as a quote, images attached, for you to send), add an optional question/note (`⌘/Ctrl+Enter` to send), or tick **Remember for `<site>`** to save a per-site rule in one click.
 
 ## Settings & per-site rules
 
