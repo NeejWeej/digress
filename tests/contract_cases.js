@@ -233,8 +233,7 @@ globalThis.digressContract = async (opts) => {
     need(typeof last.model === 'string' && typeof last.truncated === 'boolean', JSON.stringify(last));
   });
   run('chat: a malformed request is refused with JSON {error}', async () => {
-    // the real server answers 400 {error}; the demo and the fake have no validation (they just answer): not checked there
-    if (impl !== 'server') return;
+    // all three check the request's shape first (the server's normalizeMessages; the demo's and the fake's badChat)
     const s = await stream({ messages: [{ role: 'user', content: 12 }] });
     need(s.status === 400 && s.objs[0] && typeof s.objs[0].error === 'string', s.status + ' ' + s.text.slice(0, 200));
   });

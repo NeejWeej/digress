@@ -19,6 +19,18 @@
   const toolWait = new Map();   // tool call id -> resolve, for the page's answer
   const KEY = 'fakesrv:';
   const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
+  // the shape the server checks before any model sees a request (normalizeMessages, server/content.mjs), so a
+  // malformed one is refused here too: 400 {error}. Only the shape: the server also checks images' bytes.
+  const badChat = (b) => {
+    const list = b && b.messages; if (!Array.isArray(list) || !list.length) return 'messages are required';
+    for (let i = 0; i < list.length; i++) {
+      const m = list[i]; if (!m || (m.role !== 'user' && m.role !== 'assistant')) return `message ${i + 1} has no valid role`;
+      const parts = typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : m.content;
+      if (!Array.isArray(parts)) return `message ${i + 1} has no content`;
+      for (let j = 0; j < parts.length; j++) { const p = parts[j]; if (!(p && ((p.type === 'text' && typeof p.text === 'string') || p.type === 'image'))) return `message ${i + 1}: part ${j + 1} isn't text or an image`; }
+    }
+    return '';
+  };
   const keys = (prefix) => { const out = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith(prefix)) out.push(k); } return out; };
   const readBody = async (body) => (body instanceof Blob ? new Uint8Array(await body.arrayBuffer()) : typeof body === 'string' ? new TextEncoder().encode(body) : new Uint8Array(body || []));
   const b64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
@@ -101,7 +113,8 @@
     if (p[1] === 'chat' && p[2] === 'stop' && method === 'POST') { const c = runs.get(JSON.parse(init.body).chat); if (c) c.abort(); return json({ ok: true }); }
     if (p[1] === 'chat' && p[2] === 'run') return json({ error: 'Not found' }, 404);   // reconnecting isn't faked (test_runs.py covers the real server)
     if (p[1] === 'chat' && method === 'POST') {
-      const body = JSON.parse(init.body), ctrl = new AbortController();
+      const body = JSON.parse(init.body), ctrl = new AbortController(), bad = badChat(body);
+      if (bad) return json({ error: bad }, 400);
       if (body.chat) runs.set(body.chat, ctrl);
       if (init.signal) init.signal.addEventListener('abort', () => ctrl.abort());
       return chat(body, ctrl.signal);
