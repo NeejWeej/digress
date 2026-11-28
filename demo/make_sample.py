@@ -187,7 +187,16 @@ async def build(b, takeaways, recording):
             must(conv['doc'].get('assetId'), 'the reading has no document file')
             must(not errs, f'page errors: {errs[:3]}')
             v = '.'.join(f"{c['id']}.{c['rev']}" for c in sorted(convs.values(), key=lambda c: c['id']))
-            seed = {'v': v, 'store': store, 'files': {conv['doc']['assetId']: {'type': 'application/pdf', 'src': 'demo/sample.pdf'}}}
+            # the sample PDF's id comes from the sample's source, not the upload: the same from one seed to the next (the PDF's
+            # bytes change with every build, by its creation date), so a conversation kept from an older sample, or any
+            # reference to it, still finds the file after the demo ships a new sample (demo.js's seed() keeps files)
+            import hashlib
+            pdf_id = hashlib.sha256(open(os.path.join(HERE, 'sample', 'bayes.html'), 'rb').read()).hexdigest()[:32]
+            store = json.loads(json.dumps(store, ensure_ascii=False).replace(conv['doc']['assetId'], pdf_id))
+            # the sample conversations sit in a "Demo conversations" folder: it shows folders, and keeps them apart from a visitor's own
+            for k, d in store.items():
+                if k.startswith(('convs/', 'meta/convs/')) and isinstance(d, dict): d['folder'] = 'Demo conversations'
+            seed = {'v': v, 'store': store, 'files': {pdf_id: {'type': 'application/pdf', 'src': 'demo/sample.pdf'}}}
             with open(SEED, 'w') as f: json.dump(seed, f, ensure_ascii=False, separators=(',', ':'))
             print('wrote', SEED, os.path.getsize(SEED), 'bytes')
 
