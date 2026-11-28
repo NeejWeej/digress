@@ -6,9 +6,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync } from 'node:fs';
 import path from 'node:path';
 
-const KIND_BOOST = { ct: 3, bt: 2.4, h: 2.2, n: 2, q: 1.6, a: 1, d: 0.9 };
-const RE_ESC = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const WB = '(?<![\\p{L}\\p{N}])';
+// the ranking rules (and the boost per kind of entry) are shared with the page's search, which can't import from here
+import { KIND, rankHits } from '../web/js/searchrank.js';
 
 // Bounded Damerau-Levenshtein distance (returns > maxD early when strings can't match).
 function editDistBounded(a, b, maxD) {
@@ -576,34 +575,19 @@ export function openDb(dataDir) {
     }
     if (!rows.length) return [];
 
-    const qw = words.filter((w) => w.length > 1);
-    const phRe = qw.length > 1 ? new RegExp(WB + qw.map(RE_ESC).join('[^\\p{L}\\p{N}]+'), 'u') : null;
-    const wRes = qw.map((w) => new RegExp(WB + RE_ESC(w), 'u'));
-
-    const ranked = rows.map((r) => {
-      const low = (r.x || '').toLowerCase();
-      const phrase = phRe && phRe.test(low) ? 1 : 0;
-      const exact = wRes.filter((re) => re.test(low)).length;
-      const boost = KIND_BOOST[r.k] || 1;
-      // SQLite bm25() is negative (more negative = better match)
-      const score = boost * (1 + Math.max(0, -Number(r.rank || 0)));
-      return {
-        cid: r.cid,
-        k: r.k,
-        tid: r.tid || undefined,
-        mid: r.mid || undefined,
-        p: r.p || undefined,
-        n: r.n || 0,
-        o: r.o || 0,
-        x: r.x,
-        phrase,
-        exact,
-        score,
-        terms: matchedTerms,
-      };
-    });
-
-    ranked.sort((a, b) => (b.phrase - a.phrase) || (b.exact - a.exact) || (b.score - a.score));
+    const ranked = rankHits(rows.map((r) => ({
+      cid: r.cid,
+      k: r.k,
+      tid: r.tid || undefined,
+      mid: r.mid || undefined,
+      p: r.p || undefined,
+      n: r.n || 0,
+      o: r.o || 0,
+      x: r.x,
+      // SQLite bm25() is negative (more negative = better match); rankHits sorts by phrase and typed words first
+      score: ((KIND[r.k] || [0, 1])[1]) * (1 + Math.max(0, -Number(r.rank || 0))),
+      terms: matchedTerms,
+    })), raw);   // the same rules as the page's search (web/js/searchrank.js)
 
     // One best passage per message/branch/page, and attach branch title (bt)
     const seen = new Set();

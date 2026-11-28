@@ -25,7 +25,7 @@ The client never calls the server directly. Everything goes through `io = {llm, 
 - **Several devices save by merging** (`ThreadOps.merge`). Anything new on a conversation must survive `merge`; per-page state goes in `LOCAL_MSG`, per-device layout in `ui`. `agents/data-model.md`.
 - **Keep the prompt prefix stable**: the system prompt is the same for every question in a conversation, and anything added to a message comes from what's saved with it. `agents/model-context.md`.
 - **Security**: model text never fetches from another site by itself (`purifyNoRemote`); web access is search only, never shell or file tools; `fetchdoc.mjs` stays strict; `requestAllowed()` stays first in `route()`. `agents/server.md`, `agents/rendering.md`.
-- **Search is written twice**: the real server ranks in `server/db.mjs` (FTS5), the demo and the UI tests' fake in `web/js/searchrank.js` (MiniSearch). A ranking change goes in both; `tests/test_search_parity.py` checks they agree. `agents/search.md`.
+- **Search has two engines**: the real server finds results with FTS5 (`server/db.mjs`), the demo and the UI tests' fake with MiniSearch; both rank with `web/js/searchrank.js`. A change to how one finds results goes in both; `tests/test_search_parity.py` checks they agree. `agents/search.md`.
 - **Themes are CSS variables only**; no hard-coded colors, no `prefers-color-scheme`. `agents/ui.md`.
 - **The document pane is the pseudo-thread `'doc'`** and can be moved onto the canvas; never clone it. `agents/documents.md`, `agents/canvas.md`.
 - **Safari (WebKit) differs** (no scroll anchoring, scroll resets on hidden elements, …); a test that passes in Chromium can pass for the wrong reason. `agents/testing.md`.

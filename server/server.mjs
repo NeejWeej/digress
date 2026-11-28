@@ -18,8 +18,8 @@
 //   POST /api/chat/tool                {chat, id, parts|error}: the page's answer to a tool call it was sent ({tool})
 //   * /api/mcp/:token                  Claude Code calling those tools, for one reply (doctools.mjs)
 //   POST /api/fetch-doc                {url} -> a document from a link, fetched strictly (fetchdoc.mjs)
-//   GET  /api/search?q=&scope=&cid=&tid=&limit=   {results}: FTS5 search (db.mjs; the page's own copy of the
-//                                      ranking is web/js/searchrank.js, and tests/search_parity.mjs keeps them agreeing)
+//   GET  /api/search?q=&scope=&cid=&tid=&limit=   {results}: FTS5 search (db.mjs), ranked by web/js/searchrank.js,
+//                                      as the page's own search is (tests/search_parity.mjs keeps them agreeing)
 //   GET|PUT /api/layout/:conv[?device=]  per-device layout
 //   POST /api/files?type=...           raw body -> {id}
 //   GET|DELETE /api/files/:id

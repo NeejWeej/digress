@@ -1,6 +1,6 @@
 // Search & navigation: per-conversation index, Cmd+K palette, Describe-it-instead, hit landing, and Back stack.
 import { esc, trunc, indexEntries, idxPages, sigOf } from './text.js';
-import { KIND, reEsc, WB, qWords, MS_OPTIONS, searchMini } from './searchrank.js';
+import { KIND, reEsc, WB, qWords, foldTerm, foldKeep, MS_OPTIONS, searchMini } from './searchrank.js';
 import { state, app, io, settings, saveSettings, paneEls, $, ic, T, color, ancestors } from './state.js';
 
 export function createSearch() {
@@ -167,8 +167,8 @@ function closePalette(){$('#pal').classList.remove('show')}
 // words too common to point anywhere: never highlighted or landed on (a phrase containing them still counts)
 const STOP=new Set('a an and are as at be but by can do does for from had has have how i if in into is it its me my no not of on or our so than that the their them then there these they this those to too two up us was we were what when where which while who why will with you your'.split(' '));
 function matchTerms(r,q){
-  const qw=qWords(q).filter(w=>!STOP.has(w)),low=(r.x||'').toLowerCase(),missing=qw.some(w=>!new RegExp(WB+reEsc(w),'u').test(low));
-  return [...new Set([...qw,...(missing?(r.terms||[]):[])])];
+  const qw=qWords(q).filter(w=>!STOP.has(w)),low=foldTerm(r.x),missing=qw.some(w=>!new RegExp(WB+reEsc(w),'u').test(low));
+  return [...new Set([...qw,...(missing?(r.terms||[]).map(foldTerm):[])])];   // folded, like the text they're placed in (foldKeep)
 }
 function bestSpot(low,terms,q){
   const out={hits:[],from:0,to:0};if(!terms.length)return out;
@@ -181,10 +181,14 @@ function bestSpot(low,terms,q){
   out.from=out.hits[best][0];out.to=out.from+200;return out;
 }
 function snippet(x,terms,q=PAL.q){
-  const re=terms.length?new RegExp('('+terms.map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).sort((a,b)=>b.length-a.length).join('|')+')','gi'):null;
-  let start=0;if(re){const sp=bestSpot(x.toLowerCase(),terms,q);if(sp.hits.length)start=Math.max(0,sp.from-70)}
+  let start=0;if(terms.length){const sp=bestSpot(foldKeep(x),terms,q);if(sp.hits.length)start=Math.max(0,sp.from-70)}
   let s=x.slice(start,start+260);if(start>0)s='…'+s.replace(/^\S*\s/,'');if(start+260<x.length)s+='…';
-  return re?esc(s).replace(new RegExp('('+terms.map(t=>esc(t).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')','gi'),'<mark>$1</mark>'):esc(s);
+  if(!terms.length)return esc(s);
+  // marks found in the folded text (terms are folded: "cafe" marks "Café"), at the same offsets in the original
+  const re=new RegExp(terms.map(reEsc).sort((a,b)=>b.length-a.length).join('|'),'gu');
+  let out='',at=0,m;const f=foldKeep(s);
+  while((m=re.exec(f))){if(!m[0]){re.lastIndex++;continue}out+=esc(s.slice(at,m.index))+'<mark>'+esc(s.slice(m.index,m.index+m[0].length))+'</mark>';at=m.index+m[0].length}
+  return out+esc(s.slice(at));
 }
 function convMeta(cid){return state.conv&&state.conv.id===cid?metaOf(state.conv):(state.convList.find(c=>c.id===cid)||{title:'Conversation'})}
 function threadTitle(cid,tid,r){
@@ -310,7 +314,7 @@ async function findExpand(){
 async function findPick(){
   const ai=PAL.ai;if(!ai)return;const seq=++AIQ.seq,box=$('#palRes'),row=[...box.querySelectorAll('.pr.pai')].pop();
   if(row){row.querySelector('.ps').textContent='Reading the snippets…';row.classList.add('busy')}
-  const cand=ai.list.slice(0,25),items=cand.map(r=>{const low=(r.x||'').toLowerCase(),sp=bestSpot(low,matchTerms(r,r.q),r.q),a=Math.max(0,(sp.hits.length?sp.from:0)-120);
+  const cand=ai.list.slice(0,25),items=cand.map(r=>{const low=foldKeep(r.x),sp=bestSpot(low,matchTerms(r,r.q),r.q),a=Math.max(0,(sp.hits.length?sp.from:0)-120);
     return {where:(convMeta(r.cid).title||'')+(r.k==='d'?' · p. '+r.p:''),text:(a?'…':'')+r.x.slice(a,a+300).replace(/\s+/g,' ')+'…'}});
   let picks=[];
   try{const t=await askFind(PROMPTS.find.pick({desc:ai.desc,items}));const a=t.indexOf('['),b=t.lastIndexOf(']');picks=JSON.parse(t.slice(a,b+1))}
@@ -370,7 +374,7 @@ function showHit(root,scroller,terms,scale,before,near){
   let text='',n;while((n=w.nextNode())){nodes.push([n,text.length]);text+=n.data}
   // search within the result's passage when it can be found (so a word that's also earlier in the message
   // doesn't win); else the whole text
-  const low=text.toLowerCase(),reg=near&&passageAt(low,near.toLowerCase()),a=reg?Math.floor(reg[0]):0;
+  const low=foldKeep(text),reg=near&&passageAt(low,foldKeep(near)),a=reg?Math.floor(reg[0]):0;   // folded, offsets kept: café = cafe
   let sp=bestSpot(reg?low.slice(a,Math.ceil(reg[1])):low,terms,PAL.q);
   if(reg&&sp.hits.length){sp.hits=sp.hits.map(h=>[h[0]+a,h[1]+a,h[2]]);sp.from+=a;sp.to+=a}
   if(reg&&!sp.phrase){const whole=bestSpot(low,terms,PAL.q);if(whole.phrase||!sp.hits.length)sp=whole}   // the typed phrase anywhere beats a loose match in the passage

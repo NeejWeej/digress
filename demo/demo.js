@@ -16,6 +16,18 @@
   const MAX_OUTPUT = 16000, WAIT_MS = 90000, RETRY_MS = 2000;
   const PBKDF2_ITER = 600000;
   const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
+  // the shape the server checks before any model sees a request (normalizeMessages, server/content.mjs), so a
+  // malformed one is refused here too: 400 {error}. Only the shape: the server also checks images' bytes.
+  const badChat = (b) => {
+    const list = b && b.messages; if (!Array.isArray(list) || !list.length) return 'messages are required';
+    for (let i = 0; i < list.length; i++) {
+      const m = list[i]; if (!m || (m.role !== 'user' && m.role !== 'assistant')) return `message ${i + 1} has no valid role`;
+      const parts = typeof m.content === 'string' ? [{ type: 'text', text: m.content }] : m.content;
+      if (!Array.isArray(parts)) return `message ${i + 1} has no content`;
+      for (let j = 0; j < parts.length; j++) { const p = parts[j]; if (!(p && ((p.type === 'text' && typeof p.text === 'string') || p.type === 'image'))) return `message ${i + 1}: part ${j + 1} isn't text or an image`; }
+    }
+    return '';
+  };
 
   // ---- a key-value store in IndexedDB ----
   // Files are kept as bytes (ArrayBuffer), not Blobs: Safari's private browsing can't store a Blob in IndexedDB, and
@@ -684,7 +696,8 @@
         else done({ error: false, parts: Array.isArray(b.parts) ? b.parts : [] });
         return json({ ok: true });
       }
-      const b = await body();
+      const b = await body(), bad = badChat(b);
+      if (bad) return json({ error: bad }, 400);
       return activeKey ? chatGemini(b) : chatDemo(b);
     }
     if (p[0] === 'fetch-doc') return json({ error: 'The browser demo can’t fetch web links (CORS). Upload a PDF, Markdown or text file, or paste text instead.' }, 502);
