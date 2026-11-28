@@ -707,16 +707,20 @@ function goToEarlier(fromMid,quote){
     if(re.test(String(m.content||'').toLowerCase())||re.test(plain(m.content||'').toLowerCase())){hit=m;break}
   }
   if(!hit){toast('Couldn’t find that earlier passage.');return}
-  markBack();
-  if(state.conv.ui.view==='canvas'){
+  const same=hit.thread===from.thread;
+  if(state.conv.ui.view==='canvas'){markBack();
     focusCard(hit.thread,hit.id);
     setTimeout(()=>{const n=$('#cv').querySelector(`.cnode[data-ctid="${hit.thread}"]`);if(!n)return;
       showQuote(n.querySelector(`.cfull .msg[data-mid="${hit.id}"] .body`),n.querySelector('.cfull'),quote,contentScale(n),{exact:true,sticky:true})},350);
     return;
   }
-  openThread(hit.thread);state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==hit.thread);invalidate('panes');revealPane(hit.thread);
+  // In another thread (a parent's): show it there and leave the thread you're reading where it is; the top bar's
+  // Back puts the panes back. In the same thread: scroll up to it, with a pill in the pane to go back down.
+  if(!same)markBack();
+  openThread(hit.thread);   // opens it, or expands it if it's a strip, and brings it into view
   requestAnimationFrame(()=>{
-    const pe=paneEls.get(hit.thread),b=pe&&pe.querySelector(`.msg[data-mid="${hit.id}"] .body`);
+    const pe=paneEls.get(hit.thread),b=pe&&pe.querySelector(`.msg[data-mid="${hit.id}"] .body`);if(!pe)return;
+    rememberSpot(pe,same);
     if(b&&showQuote(b,pe.querySelector('.pb'),quote,1,{exact:true,sticky:true}))return;
     revealMsg(hit.thread,hit.id);
   });

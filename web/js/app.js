@@ -873,7 +873,8 @@ document.addEventListener('click',e=>{
       case 'jsearch':openPalette('','thread',tid);break;
       case 'jmark':markButton(act);break;
       case 'jlast':{const pb=pane.querySelector('.pb');const ms=pane.querySelectorAll('.msgs>.msg');let m=ms[ms.length-1];if(m&&m.classList.contains('assistant')&&ms.length>1&&ms[ms.length-2].classList.contains('user'))m=ms[ms.length-2];if(m)pb.scrollTo({top:pb.scrollTop+m.getBoundingClientRect().top-pb.getBoundingClientRect().top-12,behavior:'smooth'});break}
-      case 'jprev':{const pb=pane.querySelector('.pb');if(pane.__prev!=null)pb.scrollTo({top:pane.__prev,behavior:'smooth'});pane.__prev=null;pane.classList.remove('hasprev');break}
+      case 'jprev':{const pb=pane.querySelector('.pb');if(pane.__prev!=null)pb.scrollTo({top:pane.__prev,behavior:'smooth'});pane.__prev=null;pane.classList.remove('hasprev','backpill');break}
+      case 'jbackx':pane.classList.remove('backpill');break;
       case 'zin':stepPaneZoom(tid,1);break;
       case 'zout':stepPaneZoom(tid,-1);break;
       case 'zedit':editZoom(act,paneZoom(tid),z=>setPaneZoom(tid,Math.abs(z-1)<.005?1:z));break;

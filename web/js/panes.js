@@ -247,7 +247,7 @@ function paneEl(tid){
     <div class="ph-act"><div class="pzoom"><button class="ib" data-act="zout" title="Zoom out">${ic('minus')}</button><button class="pzl" data-act="zedit"></button><button class="ib" data-act="zin" title="Zoom in">${ic('plus')}</button></div>${isMain?'':`<button class="tb" data-act="take" title="Add a short takeaway from this branch to its parent">${ic('take')}<span class="tl">Takeaway</span></button><button class="tb kmk" data-act="mkcards" title="Have the model draft flashcards from this branch into your inbox">${ic('cards')}<span class="tl">Cards</span></button>`}${isMain?`<button class="ib kicon" data-act="cards" title="Flashcards for this conversation">${ic('cards')}</button><button class="ib" data-act="restart" title="Start the main thread over: an empty main thread, from just the document. What was in it is kept as another version (Branches in the sidebar), with its branches and flashcards; “Use this version” there brings it back.">${ic('restart')}</button>`:`<button class="ib" data-act="export" title="Export or share this branch">${ic('dl')}</button>`}
     <button class="ib" data-act="pin"></button><button class="ib" data-act="collapse" title="Collapse this pane to a thin strip. Click the strip to expand it. (⌘\\ / Ctrl+\\ for the pane you’re in)">${ic('collapse')}</button><button class="ib" data-act="focus"></button>${isMain?`<button class="ib" data-act="close" title="Close the main thread’s pane. Main thread, under Branches in the sidebar, brings it back. (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`:`<button class="ib dz" data-delb="${esc(tid)}" title="Delete this branch and everything branched from it">${ic('trash')}</button><button class="ib" data-act="close" title="Close this pane. Branches open under it stay open; the branch stays saved. (⌘⇧\\ / Ctrl+Shift+\\ for the pane you’re in)">${ic('x')}</button>`}</div></div>
     <div class="pb"><div class="msgs"></div></div>
-    <div class="jumpw"><div class="jump"><button class="ib js" data-act="jsearch" title="Search this thread">${ic('search')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button><button class="ib jl" data-act="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib je" data-act="jend" title="Jump to the very bottom">${ic('jend')}</button></div></div>
+    <div class="jumpw"><div class="jback"><button class="jb-go" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}Back to where you were</button><button class="jb-x" data-act="jbackx" title="Dismiss">${ic('x')}</button></div><div class="jump"><button class="ib js" data-act="jsearch" title="Search this thread">${ic('search')}</button><button class="ib jp" data-act="jprev" title="Return to where you were reading before you jumped here">${ic('jprev')}</button><button class="ib jl" data-act="jlast" title="Jump to the start of the latest reply">${ic('jlast')}</button><button class="ib je" data-act="jend" title="Jump to the very bottom">${ic('jend')}</button></div></div>
     ${isMain?'':`<div class="tk"><div class="tkb"><span class="tkl">Takeaway to parent</span><input placeholder="Optional: what to focus on" autocomplete="off"><button class="go" title="Generate 2–4 takeaway bullets and add them to the end of the parent thread">Add</button><button class="ib" data-act="take" title="Cancel">${ic('x')}</button></div></div>`}
     <form class="composer"><div class="cbox"><textarea rows="1"></textarea><button class="sendb" type="submit"></button></div></form>
     <div class="rail-label"><span class="dot"></span><span class="rl"></span></div>`;
@@ -332,10 +332,12 @@ const paneRO=new ResizeObserver(es=>{for(const e of es){
 function updateJump(el){
   const pb=el.querySelector('.pb');if(!pb)return;
   el.classList.toggle('away',pb.scrollHeight-pb.scrollTop-pb.clientHeight>100);
-  if(el.__prev!=null&&Math.abs(pb.scrollTop-el.__prev)<40&&!el.__jumping){el.__prev=null;el.classList.remove('hasprev')}
+  if(el.__prev!=null&&Math.abs(pb.scrollTop-el.__prev)<40&&!el.__jumping){el.__prev=null;el.classList.remove('hasprev','backpill')}
 }
-function rememberSpot(pe){
-  const pb=pe.querySelector('.pb');pe.__prev=pb.scrollTop;pe.__jumping=true;pe.classList.add('hasprev');
+// pill: also float a "Back to where you were" pill over the pane (a jump within the thread you're reading, which
+// would otherwise leave you only the small ↩ button to find your way back)
+function rememberSpot(pe,pill){
+  const pb=pe.querySelector('.pb');pe.__prev=pb.scrollTop;pe.__jumping=true;pe.classList.add('hasprev');if(pill)pe.classList.add('backpill');
   setTimeout(()=>{pe.__jumping=false},900);
 }
 function autosize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,200)+'px'}
@@ -746,6 +748,9 @@ function layout(){
     const g=gutEl(tid);g.classList.toggle('glast',i===visible.length-1);seq.push(g);   // the last pane gets one too, so its size can be changed
   }
   for(const [_tid,g] of gutEls)if(!seq.includes(g))g.remove();
+  // drop what's left over (the old collapsed-pane stack: it's made anew each time) before putting things in order:
+  // otherwise the loop below moves every pane after it to make room, and moving an element resets its scroll
+  for(const n of [...wrap.children])if(!seq.includes(n)&&!n.classList.contains('pane'))n.remove();
   seq.forEach((n,i)=>{if(wrap.children[i]!==n)wrap.insertBefore(n,wrap.children[i]||null)});
   if(dEl&&dWas&&dWas!==wrap&&dEl.parentNode===wrap)putDocSpot(dSpot);   // back from the canvas's dock: moving it reset its scroll
   while(wrap.children.length>seq.length)wrap.lastChild.remove();
