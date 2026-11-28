@@ -12,6 +12,7 @@ const DIR = new URL('../web/js/', import.meta.url).pathname;
 const files = fs.readdirSync(DIR).filter((f) => f.endsWith('.js')).sort();
 const src = Object.fromEntries(files.map((f) => [f, fs.readFileSync(path.join(DIR, f), 'utf8')]));
 const ID = '[A-Za-z_$][\\w$]*';
+const reEsc = (t) => t.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');   // every regex special character, backslash included
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:\\'"`])\/\/[^\n]*/g, '$1');   // comments out (good enough for names)
 
 let passed = 0, failed = 0;
@@ -44,7 +45,8 @@ for (const f of files) {
   const s = strip(src[f]);
   for (const name of registered) {
     if (owner.has(name) && owner.get(name) !== 'app.js') continue;
-    const def = new RegExp(`(?:\\bfunction\\s*\\*?\\s+${name.replace(/\$/g, '\\$')}\\s*\\(|\\b(?:const|let|var)\\s+${name.replace(/\$/g, '\\$')}\\s*=(?!\\s*\\(\\.\\.\\.a\\)\\s*=>\\s*app\\.))`);
+    const n = reEsc(name);
+    const def = new RegExp(`(?:\\bfunction\\s*\\*?\\s+${n}\\s*\\(|\\b(?:const|let|var)\\s+${n}\\s*=(?!\\s*\\(\\.\\.\\.a\\)\\s*=>\\s*app\\.))`);
     if (def.test(s)) owner.set(name, f);
   }
 }
