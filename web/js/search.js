@@ -1,5 +1,5 @@
 // Search & navigation: per-conversation index, Cmd+K palette, Describe-it-instead, hit landing, and Back stack.
-import { esc, trunc, indexEntries, idxPages, sigOf } from './text.js';
+import { esc, trunc, indexEntries, idxPages, sigOf, linedText } from './text.js';
 import { KIND, reEsc, WB, qWords, foldTerm, foldKeep, MS_OPTIONS, searchMini } from './searchrank.js';
 import { state, app, io, settings, saveSettings, paneEls, $, ic, T, color, ancestors } from './state.js';
 import { invalidate } from './redraw.js';
@@ -367,8 +367,7 @@ function passageAt(low,near){
 }
 function showHit(root,scroller,terms,scale,before,near){
   if(!root||!scroller||!terms.length)return false;
-  const nodes=[],w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement.closest('.acts,button,mjx-container,svg')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
-  let text='',n;while((n=w.nextNode())){nodes.push([n,text.length]);text+=n.data}
+  const {nodes,text}=linedText(root,el=>el.closest('.acts,button,mjx-container,svg'));   // a PDF's lines read with a space between
   // search within the result's passage when it can be found (so a word that's also earlier in the message
   // doesn't win); else the whole text
   const low=foldKeep(text),reg=near&&passageAt(low,foldKeep(near)),a=reg?Math.floor(reg[0]):0;   // folded, offsets kept: café = cafe

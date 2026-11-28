@@ -768,10 +768,10 @@ function linkPages(root,opts){
       const qm=c.match(/^\[((?:pp?\.|pages?|parts?)\s*\d+(?:\s*[–-]\s*\d+)?|earlier|doc)\s+["“]([^"”\n\]]+)["”]\]$/i);
       if(qm){
         const head=qm[1],quote=qm[2].trim();
-        if(/^earlier$/i.test(head))frag.append(mk('[earlier]',{earlier:'1',cite:quote},'Show earlier passage'));
-        else if(/^doc$/i.test(head))frag.append(mk('[doc]',{doccite:'1',cite:quote},'Show passage in the document'));
-        else if(/^parts?/i.test(head)){const num=head.match(/\d+/)[0];frag.append(mk(`[${head}]`,{part:num,cite:quote},`Show passage in part ${num}`))}
-        else{const num=head.match(/\d+/)[0];frag.append(mk(`[${head}]`,{page:num,cite:quote},`Show passage on page ${num}`))}
+        if(/^earlier$/i.test(head))frag.append(mk('[earlier]',{earlier:'1',cite:quote},`Show the earlier passage “${quote}”`));
+        else if(/^doc$/i.test(head))frag.append(mk('[doc]',{doccite:'1',cite:quote},`Show “${quote}” in the document`));
+        else if(/^parts?/i.test(head)){const num=head.match(/\d+/)[0];frag.append(mk(`[${head}]`,{part:num,cite:quote},`Show “${quote}” in part ${num}`))}
+        else{const num=head.match(/\d+/)[0];frag.append(mk(`[${head}]`,{page:num,cite:quote},`Show “${quote}” on page ${num}`))}
       }else if(/^\[parts?/i.test(c)){
         const open=c.match(/^\[parts?\s*/i)[0],items=[];let it;pitem.lastIndex=open.length;
         while((it=pitem.exec(c)))items.push({at:it.index,end:it.index+it[0].length,part:it[0].match(/\d+/)[0]});
