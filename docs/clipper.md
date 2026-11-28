@@ -13,16 +13,20 @@ The **Digress Clipper** (`extension/`) is a small Manifest V3 browser extension 
 
 - **On X / Twitter:**
   - Click the small **Digress branch icon** injected into any tweet’s action bar right from your scrolling feed (`Shift+Click` to jump straight to Digress), **or**
-  - Right-click anywhere on a tweet → **Send to Digress**, which opens a submenu: **Send just this tweet**, **Send thread up to here**, **Branch in current conversation**, or **New document conversation**. The first two go where your site rule for X says (by default, the clippings conversation below); they differ only in how much they send.
+  - Right-click anywhere on a tweet → **Send to Digress**, which opens a submenu. Each item says both what to send and where:
+    - **Send just this tweet** / **Send thread up to here**: where your site rule for X says (by default, the clippings conversation below).
+    - **Add to current thread** ▸ *Just this tweet* / *Thread up to here*: into the message box of the pane you were last in (the selected card on the canvas; main if it was the document), in the Digress window you used last. Nothing is sent: add your question and press Send. Needs Digress open.
+    - **Branch in current conversation** ▸ … : a new clipped branch in the conversation open in Digress.
+    - **New document conversation** ▸ … : a new conversation with the tweet as its document.
   - By default, tweets clip as isolated branches into a **"Twitter clippings"** conversation in the background with a fading in-page confirmation toast (and an **Open** button). Each branch sends only that tweet or thread (plus quoted tweets and up to 4 images) to the model—never the rest of your clippings. Long clipped passages include a **Show full / Show less** toggle at the top of the branch.
 - With several Digress tabs or windows open, clips go to the one you used most recently.
 - **On any other website:**
-  - Highlight text and right-click → **Send to Digress** → **Send selection or page** (or press `Alt+D`) to clip the selection, where the matching site rule says, or trigger it with nothing selected to send the full rendered page (including paywalled articles you’re logged into) through Digress’s reader view.
+  - Highlight text and right-click → **Send to Digress** → **Send selection or page** (or press `Alt+D`) to clip the selection, where the matching site rule says (or pick **Add to current thread**, **Branch in current conversation** or **New document conversation** from the same menu), or trigger it with nothing selected to send the full rendered page (including paywalled articles you’re logged into) through Digress’s reader view.
   - Click the toolbar icon to pick an **existing conversation** (or create a new one), choose **+ New clipped branch** (with an optional custom branch title) or drop the clip into an **existing branch** (it's put in that branch's message box as a quote, images attached, for you to send), add an optional question/note (`⌘/Ctrl+Enter` to send), or tick **Remember for `<site>`** to save a per-site rule in one click.
 
 ## Settings & per-site rules
 
-In **Settings**, click **Detect open tab** or **Test** to connect to your Digress URL, choose your default X clip scope (**Single tweet** vs. **Thread up to clicked tweet**) and whether to show in-page toasts, and add ordered rules mapping hostnames (`x.com`), wildcard subdomains (`*.substack.com`), or URL prefixes (`x.com/i/lists/123`) to either:
+In **Settings**, click **Detect open tab** or **Test** to connect to your Digress URL, choose your default X clip scope (**Single tweet** vs. **Thread up to clicked tweet**) (used by `Alt+D` and the tweet's branch icon; the right-click menu always asks) and whether to show in-page toasts, and add ordered rules mapping hostnames (`x.com`), wildcard subdomains (`*.substack.com`), or URL prefixes (`x.com/i/lists/123`) to either:
 
 - **Branch in conversation** (with live conversation name suggestions; auto-creates the conversation if it doesn’t exist yet), or
 - **New document conversation**,

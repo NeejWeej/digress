@@ -215,13 +215,16 @@ async function deliverToDigress(payload, overrideRule, sourceTabId) {
   };
   if (rule.convId) full.convId = rule.convId;
   if (rule.useCurrentConv) full.useCurrentConv = true;
+  if (rule.useCurrentThread) full.useCurrentThread = true;
   if (rule.targetThreadId) full.targetThreadId = rule.targetThreadId;
   if (rule.branchTitle) full.branchTitle = rule.branchTitle;
   if (rule.question) full.question = rule.question;
 
   let res;
   try {
-    const tab = await ensureDigressTab(cfg.digressUrl, focus);
+    // the current thread is in a Digress tab you have open: without one there's nothing to add to (don't open one and guess)
+    const tab = rule.needTab ? await findDigressTab(cfg.digressUrl) : await ensureDigressTab(cfg.digressUrl, focus);
+    if (!tab) throw new Error('Open Digress first: there’s no current thread to add to.');
     res = await sendToDigressTab(tab.id, { type: 'deliverClip', payload: full }, cfg.digressUrl);
   } catch (e) {
     res = { ok: false, error: String((e && e.message) || e || 'Could not reach Digress') };
@@ -233,7 +236,7 @@ async function deliverToDigress(payload, overrideRule, sourceTabId) {
     const countNote = payload.tweetCount > 1 ? ` (${payload.tweetCount} tweets)` : '';
     const dest = (res && res.convTitle) || full.convTitle || 'Digress';
     const text = ok
-      ? `Clipped to ${dest}${countNote}`
+      ? (full.useCurrentThread ? `Added to “${(res && res.branchTitle) || 'the thread'}” · ${dest}${countNote}. Not sent yet: it’s in the message box.` : `Clipped to ${dest}${countNote}`)
       : ((res && res.error) || 'Could not reach Digress');
     notifyTab(sourceTabId, { ok, text, convId: res && res.convId, threadId: res && res.threadId });
   }
@@ -246,12 +249,29 @@ function flashBadge(ok) {
   setTimeout(() => chrome.action.setBadgeText({ text: '' }), 2000);
 }
 
-// The tweet items show only on these pages (Chrome's documentUrlPatterns). There, "Send selection or page" is hidden:
-// it would be one of them (your default scope), and every send item goes where the site rule says anyway. Chrome
-// can't say "everywhere but", so its visibility follows the active tab (syncSendItem). It must match exactly the
-// pages the tweet items show on, or a page could be left with no send item at all.
-const X_PATTERNS = ['https://x.com/*', 'https://twitter.com/*'];
+/* The right-click menu: two choices, each made by the item you click, never a hidden default.
+   What: on a threaded site (only X for now: THREAD_SITE) just the post you clicked, or the thread up to it.
+   Where: your site rule (the first two items), or one of DESTS.
+   On the threaded site, the rule's two items come first, and each destination is a submenu with the two scopes.
+   Elsewhere there's no post to pick, so "Send selection or page" and the destinations are plain items.
+   Chrome can show an item only on some pages (documentUrlPatterns) but not "everywhere but", so the plain items'
+   visibility follows the active tab (syncSendItem). onThreadSite must match exactly the pages THREAD_SITE.patterns
+   do, or a page could be left with no way to send. Another threaded site would be another THREAD_SITE (patterns,
+   labels, its extractor in extractFromTab), not a new menu. */
+const THREAD_SITE = {
+  patterns: ['https://x.com/*', 'https://twitter.com/*'],
+  single: 'Send just this tweet', thread: 'Send thread up to here',
+  subSingle: 'Just this tweet', subThread: 'Thread up to here',
+};
+const X_PATTERNS = THREAD_SITE.patterns;
 const onTweetMenuPage = (url) => /^https:\/\/(?:x|twitter)\.com\//i.test(String(url || ''));
+// focus: whether Digress comes to the front. needTab: an open Digress tab is required (never open one to guess).
+const DESTS = [
+  { key: 'thread', title: 'Add to current thread', rule: { mode: 'branch', useCurrentConv: true, useCurrentThread: true, focus: false, needTab: true } },
+  { key: 'current', title: 'Branch in current conversation', rule: { mode: 'branch', useCurrentConv: true, focus: false } },
+  { key: 'doc', title: 'New document conversation', rule: { mode: 'doc', focus: true } },
+];
+const PLAIN_IDS = ['digress-auto', ...DESTS.map((d) => 'digress-' + d.key)];   // shown only off the threaded site
 
 async function syncSendItem() {
   let url = '';
@@ -259,34 +279,42 @@ async function syncSendItem() {
     const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
     url = (tab && tab.url) || '';
   } catch (_) {}
-  // shown when unsure (no tab, no url): at worst the X menu has its old extra item, never a page without one
-  chrome.contextMenus.update('digress-auto', { visible: !onTweetMenuPage(url) }, () => void chrome.runtime.lastError);
+  // shown when unsure (no tab, no url): at worst the X menu has the plain items too, never a page without them
+  const visible = !onTweetMenuPage(url);
+  for (const id of PLAIN_IDS) chrome.contextMenus.update(id, { visible }, () => void chrome.runtime.lastError);
 }
 
 function rebuildContextMenus() {
   chrome.contextMenus.removeAll(() => {
-    const contexts = ['page', 'selection', 'link'];
+    const contexts = ['page', 'selection', 'link'], documentUrlPatterns = THREAD_SITE.patterns;
+    const add = (o) => chrome.contextMenus.create({ parentId: 'digress-root', contexts, ...o });
     chrome.contextMenus.create({ id: 'digress-root', title: 'Send to Digress', contexts });
-    chrome.contextMenus.create({ id: 'digress-auto', parentId: 'digress-root', title: 'Send selection or page', contexts });
-    chrome.contextMenus.create({
-      id: 'digress-x-thread',
-      parentId: 'digress-root',
-      title: 'Send thread up to here',
-      contexts,
-      documentUrlPatterns: X_PATTERNS,
-    });
-    chrome.contextMenus.create({
-      id: 'digress-x-single',
-      parentId: 'digress-root',
-      title: 'Send just this tweet',
-      contexts,
-      documentUrlPatterns: X_PATTERNS,
-    });
-    chrome.contextMenus.create({ id: 'digress-sep', parentId: 'digress-root', type: 'separator', contexts });
-    chrome.contextMenus.create({ id: 'digress-current', parentId: 'digress-root', title: 'Branch in current conversation', contexts });
-    chrome.contextMenus.create({ id: 'digress-doc', parentId: 'digress-root', title: 'New document conversation', contexts });
+    add({ id: 'digress-x-single', title: THREAD_SITE.single, documentUrlPatterns });
+    add({ id: 'digress-x-thread', title: THREAD_SITE.thread, documentUrlPatterns });
+    add({ id: 'digress-auto', title: 'Send selection or page' });
+    add({ id: 'digress-sep', type: 'separator' });
+    for (const d of DESTS) {
+      add({ id: `digress-${d.key}-x`, title: d.title, documentUrlPatterns });
+      add({ id: `digress-${d.key}-x-single`, parentId: `digress-${d.key}-x`, title: THREAD_SITE.subSingle, documentUrlPatterns });
+      add({ id: `digress-${d.key}-x-thread`, parentId: `digress-${d.key}-x`, title: THREAD_SITE.subThread, documentUrlPatterns });
+      add({ id: `digress-${d.key}`, title: d.title });
+    }
     syncSendItem();
   });
+}
+
+// what a menu item asks for: includeThread (true/false, or null for your default) and the destination's rule (null: site rule)
+function menuChoice(id) {
+  id = String(id);
+  if (id === 'digress-x-single') return { includeThread: false, rule: null };
+  if (id === 'digress-x-thread') return { includeThread: true, rule: null };
+  if (id === 'digress-auto') return { includeThread: null, rule: null };
+  for (const d of DESTS) {
+    if (id === `digress-${d.key}`) return { includeThread: null, rule: d.rule };
+    if (id === `digress-${d.key}-x-single`) return { includeThread: false, rule: d.rule };
+    if (id === `digress-${d.key}-x-thread`) return { includeThread: true, rule: d.rule };
+  }
+  return null;
 }
 
 chrome.runtime.onInstalled.addListener(rebuildContextMenus);
@@ -297,23 +325,13 @@ chrome.windows.onFocusChanged.addListener((w) => { if (w !== chrome.windows.WIND
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!tab || !tab.id) return;
-  const id = info.menuItemId;
-  if (!String(id).startsWith('digress-')) return;
+  const choice = menuChoice(info.menuItemId);
+  if (!choice) return;
   const cfg = await getSettings();
   try {
-    let includeThread = cfg.xThreadMode === 'thread';
-    let overrideRule = null;
-    if (id === 'digress-x-thread') {
-      includeThread = true;
-    } else if (id === 'digress-x-single') {
-      includeThread = false;
-    } else if (id === 'digress-current') {
-      overrideRule = { mode: 'branch', useCurrentConv: true, focus: false };
-    } else if (id === 'digress-doc') {
-      overrideRule = { mode: 'doc', focus: true };
-    }
+    const includeThread = choice.includeThread == null ? cfg.xThreadMode === 'thread' : choice.includeThread;
     const payload = await extractFromTab(tab, { includeThread });
-    await deliverToDigress(payload, overrideRule, tab.id);
+    await deliverToDigress(payload, choice.rule, tab.id);
   } catch (e) {
     console.warn('Digress clip failed:', e);
     flashBadge(false);
