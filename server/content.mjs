@@ -24,7 +24,7 @@ const MAGIC = {
 };
 const ascii = (b, s, e) => String.fromCharCode(...b.subarray(s, e));
 // base64 -> bytes, in Node and in a browser alike
-export const fromBase64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+export const fromBase64 = (s) => Uint8Array.from(globalThis.atob(s), (c) => c.charCodeAt(0));
 
 export const isImage = (type, buf) => !!MAGIC[type] && buf.length > 12 && MAGIC[type](buf);
 

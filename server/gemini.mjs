@@ -135,7 +135,7 @@ export async function chat(payload, io, key) {
   io.onClose(() => ctrl.abort());   // Stop pressed or page closed
   let contents = toGemini(payload.messages), final = false, withEffort = true, withSearch = true;
   const once = async () => {
-    if (ctrl.signal.aborted) throw new DOMException('Aborted', 'AbortError');   // stopped: no new request
+    if (ctrl.signal.aborted) throw Object.assign(new Error('Aborted'), { name: 'AbortError' });   // stopped: no new request
     const t = setTimeout(() => ctrl.abort(new Error('no answer')), WAIT_MS);
     try {
       return await doFetch(`${API}/models/${encodeURIComponent(payload.model)}:streamGenerateContent?alt=sse`, {
