@@ -119,6 +119,34 @@ test('db: FTS5 search ranking, scope filtering, trashed exclusion, and typo fall
   }
 });
 
+test('db: a typo in a multi-word query still needs every word (fuzzy terms are ANDed, not a syntax error)', () => {
+  const dir = makeTempDir();
+  try {
+    const db = openDb(dir);
+    const conv = {
+      id: 'c1', title: 'Notes', created: 1, updated: 2,
+      threads: { main: { id: 'main', parent: null, title: 'Notes' } },
+      msgs: {
+        m1: { id: 'm1', thread: 'main', role: 'assistant', content: 'attention mechanisms explained' },
+        m2: { id: 'm2', thread: 'main', role: 'assistant', content: 'attention only here' },
+        m3: { id: 'm3', thread: 'main', role: 'assistant', content: 'mechanisms only here' },
+      },
+      order: { main: ['m1', 'm2', 'm3'] },
+    };
+    db.saveConv('c1', conv, '0');
+    db.putDoc('index', 'c1', { e: [
+      { k: 'a', x: 'attention mechanisms explained', tid: 'main', mid: 'm1' },
+      { k: 'a', x: 'attention only here', tid: 'main', mid: 'm2' },
+      { k: 'a', x: 'mechanisms only here', tid: 'main', mid: 'm3' },
+    ] });
+    const hits = db.searchPassages('attention mecanisms');
+    assert.deepEqual(hits.map((r) => r.mid), ['m1']);
+    db.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('db: purgeTrash removes expired convs, layouts, index, and dropCards', () => {
   const dir = makeTempDir();
   try {

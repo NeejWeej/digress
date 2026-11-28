@@ -1,4 +1,4 @@
-"""The demo site (demo/build.mjs → GitHub Pages): the real page with demo/demo.js answering /api/* in the browser.
+"""The demo site (demo/build.mjs → Cloudflare Workers): the real page with demo/demo.js answering /api/* in the browser.
 Built fresh from web/ here, so a change to the page that breaks the demo fails this test.
   - The build adds only the demo's scripts to the page, and leaves out the service worker.
   - A first visit opens the sample reading: the PDF and its branches, a note saying it's a demo, and "Demo" in the

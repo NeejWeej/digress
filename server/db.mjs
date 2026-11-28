@@ -563,7 +563,9 @@ export function openDb(dataDir) {
         }
       }
       if (expanded) {
-        rows = runMatch(fuzzyParts.join(' '));
+        // an explicit AND: FTS5 rejects a parenthesised group next to another term without one ("syntax error
+        // near ("), which runMatch swallows, so every multi-word query with a typo fell through to the OR below
+        rows = runMatch(fuzzyParts.join(' AND '));
         if (!rows.length && fuzzyParts.length > 1) rows = runMatch(fuzzyParts.join(' OR '));
         if (rows.length) matchedTerms = [...extraTerms];
       }
