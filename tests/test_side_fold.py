@@ -34,8 +34,16 @@ async def main():
         check('the conversations list scrolls', await pg.evaluate("(()=>{const l=document.getElementById('clist');return l.scrollHeight>l.clientHeight+100})()"))
         await pg.screenshot(path=OUT + '/side_fold_open.png')
 
+        # one archived and one trashed conversation (added now: their headings take room in the open sidebar)
+        await pg.evaluate("for (const [id, patch] of [['c003', {archived: true}], ['c004', {trashed: Date.now()}]]) { const k = 'fakesrv:convs/' + id, c = JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(Object.assign(c, patch))) }")
+        await pg.reload(); await booted(pg)
+        await pg.wait_for_function("document.getElementById('archWrap').getClientRects().length && document.getElementById('trashWrap').getClientRects().length")
         await pg.locator('#convWrap .sfold').click(); await pg.locator('#pinWrap .sfold').click(); await frames(pg)
-        check('Conversations and Pinned fold', await pg.evaluate("[...document.querySelectorAll('#clist,#plist,#archWrap')].every(e=>!e.getClientRects().length)"))
+        check('Conversations and Pinned fold', await pg.evaluate("[...document.querySelectorAll('#clist,#plist')].every(e=>!e.getClientRects().length)"))
+        # Archive and Trash stay (they have items), right under the Conversations heading
+        geo = await pg.evaluate("(()=>{const h=document.querySelector('#convWrap .sh').getBoundingClientRect(),r=id=>{const e=document.getElementById(id);return e.getClientRects().length?e.getBoundingClientRect():null};const a=r('archWrap'),t=r('trashWrap');return {h:h.bottom,a:a&&[a.top,a.bottom],t:t&&[t.top,t.bottom]}})()")
+        check('Archive stays visible when Conversations is folded, just under its heading', geo['a'] and geo['a'][0] >= geo['h'] - 1 and geo['a'][0] < geo['h'] + 30, geo)
+        check('…and Trash below Archive, not overlapping', geo['t'] and geo['a'] and geo['t'][0] >= geo['a'][1] - 1, geo)
         check('…and How it works moves up', await pg.evaluate("document.getElementById('help').getBoundingClientRect().top") < help_top - 200)
         await pg.screenshot(path=OUT + '/side_fold_folded.png')
         await pg.reload(); await booted(pg); await frames(pg)
