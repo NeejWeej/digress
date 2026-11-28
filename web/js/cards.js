@@ -2,7 +2,7 @@
 // FSRS-4.5 review panel (Review / Inbox / All), Fix…, quote verification/highlighting, and source jumping.
 import { fsrsNext, ivlText } from './fsrs.js';
 import { esc, trunc, plain, linedText } from './text.js';
-import { listSources, isWholePage, shotRef, appendText } from './context.js';
+import { listSources, isWholePage, shotRef, appendText, cardsAuto } from './context.js';
 import { state, app, $, ic, io, paneEls, settings, T, color, isCollapsed, fullSys, rid } from './state.js';
 import { invalidate } from './redraw.js';
 
@@ -172,7 +172,7 @@ export function createCards() {
   }
 
   function cardsAfterReply(m) {
-    if (!cardsOn() || m.error || !m.content) return;
+    if (!cardsAuto(getConv()) || m.error || !m.content) return;   // drafting only when asked: nothing in the background
     const conv = getConv(), t = T(m.thread);
     if (m.role === 'note' && T(m.fromThread)) {
       queueDraft(m.fromThread, { takeaway: m.content, note: m.id, noteThread: m.thread, src: 'takeaway', quiet: true });
@@ -422,7 +422,7 @@ export function createCards() {
     const off = here && !cardsOn() && !all.length, paused = here && !cardsOn() && all.length > 0, nNew = on && !br ? newForCards().length : 0;
     box.innerHTML = `<div class="khead"><span class="kt">Flashcards</span>${cardsPicker(scope)}${br ? `<span class="kbranch" style="--c:${color(br)}"><i></i><span></span><button data-kact="allbranches" title="All of this conversation’s cards">${ic('x')}</button></span>` : ''}<span class="sp"></span>${on && !br ? `<button class="mbtn" data-kact="make" ${nNew && !drafting ? '' : 'disabled'} title="Have the model draft cards from the threads that changed since cards were last made">${drafting ? 'Drafting…' : nNew ? `Make cards · ${nNew} new` : 'Up to date'}</button>` : ''}${on && br ? `<button class="mbtn" data-kact="draftmore" ${draftingT.get(dKey(KS.thread)) ? 'disabled' : ''} title="Have the model draft more cards from this branch, besides the ones it has">${draftingT.get(dKey(KS.thread)) ? 'Drafting…' : 'Draft more'}</button>` : ''}<button class="ib" data-kact="close" title="Close (Esc)">${ic('x')}</button></div>
       ${off ? '' : `<div class="ktabs"><button data-ktab="review" class="${KS.tab === 'review' ? 'on' : ''}">Review${due.length ? ` (${due.length})` : ''}</button><button data-ktab="inbox" class="${KS.tab === 'inbox' ? 'on' : ''}">Inbox${inbox.length ? ` (${inbox.length})` : ''}</button><button data-ktab="all" class="${KS.tab === 'all' ? 'on' : ''}">All cards (${kept.length})</button></div>`}
-      <div class="kbody"></div>${on ? `<div class="kfoot" style="padding:0 14px 12px"><span class="sp"></span><button data-kact="off" title="Stop drafting cards for this conversation. Cards you have stay.">Turn off for this conversation</button></div>` : paused ? `<div class="kfoot" style="padding:0 14px 12px"><span style="color:var(--faint);font-size:12.5px">New cards are off for this conversation.</span><span class="sp"></span><button data-kact="on" title="Draft cards from this conversation again">Turn back on</button></div>` : ''}`;
+      <div class="kbody"></div>${on ? `<div class="kfoot" style="padding:0 14px 12px"><label class="kauto" title="On: cards are drafted from a highlight’s or clip’s first answer and from takeaways, and the model can suggest one while it answers. Off: only when you ask (a branch’s Cards button, Make cards)."><input type="checkbox" data-kauto ${cardsAuto(conv) ? 'checked' : ''}>Draft automatically</label><span class="sp"></span><button data-kact="off" title="Stop drafting cards for this conversation. Cards you have stay.">Turn off for this conversation</button></div>` : paused ? `<div class="kfoot" style="padding:0 14px 12px"><span style="color:var(--faint);font-size:12.5px">New cards are off for this conversation.</span><span class="sp"></span><button data-kact="on" title="Draft cards from this conversation again">Turn back on</button></div>` : ''}`;
     box.querySelector('[data-kscope]').value = scope;
     if (br) box.querySelector('.kbranch>span').textContent = trunc(br.title || br.anchorText || 'Branch', 40);
     const body = box.querySelector('.kbody');
@@ -783,6 +783,13 @@ export function createCards() {
     b.classList.add('show');
   }
 
+  // cards.auto: false = cards only when asked (no drafting in the background, no suggest_card); synced like cards.on
+  $('#cardsModal').addEventListener('change', (e) => {
+    const box = e.target.closest('[data-kauto]'), conv = getConv();
+    if (!box || !conv || !conv.cards) return;
+    conv.cards = { ...conv.cards, auto: box.checked }; save(); renderCards();
+    toast(box.checked ? 'Cards are drafted automatically again.' : 'Cards are drafted only when you ask: the Cards button on a branch, or Make cards.');
+  });
   $('#cardsModal').addEventListener('click', async (e) => {
     if (e.target.id === 'cardsModal') { closeCards(); return; }
     const tab = e.target.closest('[data-ktab]');

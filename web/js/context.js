@@ -31,7 +31,11 @@ export const pageText = (docState, i) => {
 export const docTooLong = (docState, budget = DOC_BUDGET) => !!(docState && docState.loaded && docState.pages.reduce((n, p) => n + p.length, 0) > budget);
 
 export const toolsWantedOf = (conv, io, o) => !!(conv && conv.doc && io && io.llm && io.llm.supportsTools && !(o && o.tools === false));
-export const cardToolOf = (conv, io, o) => conv && conv.cards && conv.cards.on && io && io.llm && io.llm.supportsTools && !(o && o.tools === false) ? ['suggest_card'] : [];
+// Flashcards on and drafting by themselves (cards.auto, missing = true): the model may suggest a card while it answers,
+// and a highlight's first reply or a takeaway drafts cards in the background. Off (cards.auto === false), cards come
+// only when you ask (a branch's Cards button, Make cards, Draft more).
+export const cardsAuto = (conv) => !!(conv && conv.cards && conv.cards.on && conv.cards.auto !== false);
+export const cardToolOf = (conv, io, o) => cardsAuto(conv) && io && io.llm && io.llm.supportsTools && !(o && o.tools === false) ? ['suggest_card'] : [];
 
 export const partsText = (parts) => parts.filter(p => p.type === 'text').map(p => p.text).join('');
 export function joinParts(parts) {   // neighbouring text parts become one; all-text becomes a string
