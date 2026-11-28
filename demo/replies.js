@@ -193,13 +193,6 @@ So an attacker would need either the site's private key or a CA willing to sign 
 None of this makes a rogue certificate impossible; it makes it quick to notice and expensive for the CA that signed it.`,
   };
 
-  // a takeaway for the prepared branch about false positives
-  const TAKEAWAYS = [[/agree on a secret while everyone is listening/i, `- Diffie–Hellman: each side sends $g^{\\text{secret}} \\bmod p$ in public, and both arrive at $g^{ab} \\bmod p$ without ever sending it.
-- An eavesdropper would have to solve a discrete logarithm, which is out of reach at real key sizes.
-- Fresh secrets for every connection give *forward secrecy*: a key stolen later doesn't unlock recorded traffic.`], [/false.?positive rate matter/i, `- A small false-positive rate applies to the *healthy* group, which is almost everyone, so it produces many false alarms (89 of 990) [p. 1].
-- What decides what a positive means is the **count** of false alarms against true positives (89 vs 9), not the error rate.
-- The base rate drives it: at 1 in 10 instead of 1 in 100, the same test's positive means about 53%.`]];
-
   const CARDS = {
     main: [
       { front: 'A disease affects 1 in 100 people; a test catches 90% of cases and flags 9% of healthy people. If you test positive, about how likely are you to be ill?', back: 'About 9%. Of 1,000 people, 9 ill people test positive and about 89 healthy ones do too: 9 of 98.' },
@@ -288,16 +281,32 @@ None of this makes a rogue certificate impossible; it makes it quick to notice a
     return `${page ? `Here's what page ${page} says that's closest to your question` : `Here's what the document says that's closest to your question`}:\n\n${hits.map((h) => `${quote(h.text)} [${h.where}]`).join('\n\n')}\n\n${NOTE}`;
   }
 
-  function takeaway(msgs) {
-    const all = msgs.map((m) => textOf(m.content)).join('\n');
-    for (const [re, t] of TAKEAWAYS) if (re.test(all)) return t;
-    const last = [...msgs].reverse().find((m) => m.role === 'assistant');
-    // a no-model reply is quoted excerpts under a "Here's what … says" line: carry the excerpts (and their [p. N])
-    const ex = last ? textOf(last.content).split('\n').filter((l) => /^> \S/.test(l)).map((l) => l.slice(2).trim()).slice(0, 2) : [];
-    if (ex.length) return ex.map((x) => '- ' + x).join('\n') + '\n- *(A demo takeaway: the excerpts the branch found. A model would summarize what you learned.)*';
-    const s = last ? chunks(textOf(last.content).replace(/^>.*$/gm, '').replace(/\*[^*]*demo[^*]*\*/gi, '')).slice(0, 2) : [];
-    return s.length ? s.map((x) => '- ' + x).join('\n') + '\n- *(A demo takeaway: the first lines of the branch’s last reply. A model would summarize what you learned.)*'
-      : '- *(A demo takeaway: with a model connected, this would sum up what the branch found.)*';
+  /* Takeaways. The two in the sample conversations (demo/seed.json) were written by a real model: demo/make_sample.py
+     --record sent the page's own takeaway request to a Digress server and kept the answers in
+     demo/sample/takeaways.json, and hands them to this page only while it builds the seed (window.__seedTakeaways,
+     keyed by a phrase of the branch's question). A takeaway a visitor asks for can't be a summary without a model,
+     so it's the same shape as one, and says what it is: 2 or 3 one-sentence bullets, each the sentence of what the
+     branch found that shares the most words with its questions, with its [p. N]. */
+  function takeaway(msgs, body) {
+    const all = msgs.map((m) => textOf(m.content)).join('\n'), seed = window.__seedTakeaways;
+    if (seed) for (const k of Object.keys(seed)) if (all.includes(k)) {
+      if (window.__seedRecord) (window.__takeawayBodies = window.__takeawayBodies || {})[k] = JSON.parse(JSON.stringify(body));
+      if (seed[k].text) return seed[k].text;
+    }
+    const asked = msgs.filter((m) => m.role === 'user').slice(-3).map((m) => question(textOf(m.content))).join(' ');
+    const last = [...msgs].reverse().find((m) => m.role === 'assistant'), said = last ? textOf(last.content) : '';
+    const CITE = /\s*\[(?:p|pp|part)\.?\s[^\]]+\]\s*$/;
+    const sentences = (t) => t.replace(/\s+/g, ' ').split(/(?<=[.!?]["”’)]*) (?=[A-Z0-9“"(])/).map((x) => x.trim()).filter((x) => x.length > 30 && prose(x));
+    // a no-model reply is quoted excerpts, each ending in where it's from: one sentence of each, with that place
+    const ex = said.split('\n').filter((l) => /^> \S/.test(l)).map((l) => { const t = l.slice(2).trim(), c = (t.match(CITE) || [''])[0]; return { text: t.slice(0, t.length - c.length), cite: c.trim() }; });
+    let items = ex.length
+      ? ex.map((e) => { const b = closest(sentences(e.text).map((text) => ({ text })), asked, 1)[0] || { text: sentences(e.text)[0] || e.text }; return { text: b.text, where: e.cite }; })
+      : (() => { const ss = sentences(said.replace(/```[\s\S]*?```/g, '').replace(/^\s*(>|\||#).*$/gm, '').replace(/\*[^*]*demo[^*]*\*/gi, '')).map((text, n) => ({ text, n }));
+        const best = closest(ss, asked, 3); return (best.length ? best : ss.slice(0, 2)).sort((a, b) => a.n - b.n); })();
+    items = items.filter((it) => it.text).slice(0, 3);
+    const label = '- *(A demo takeaway: sentences picked from what the branch found. With a model connected, it writes its own 2–4 bullet summary.)*';
+    return items.length ? items.map((it) => '- ' + it.text + (it.where ? ' ' + it.where : '')).join('\n') + '\n' + label
+      : '- *(A demo takeaway: with a model connected, this would sum up what the branch found in 2–4 bullets.)*';
   }
 
   function cards(system, msgs, ask) {
@@ -346,7 +355,7 @@ None of this makes a rogue certificate impossible; it makes it quick to notice a
       if (/^You help someone find something/.test(system)) return find(msgs);
       if (/^You name notes in a learner's study app/.test(system)) return '';   // no made-up titles: the question stays the title
       if (/\[Flashcards\] Make spaced-repetition flashcards/.test(last)) return cards(system, msgs, last);
-      if (/Write a short takeaway from this side branch/.test(last)) return takeaway(msgs);
+      if (/Write a short takeaway from this side branch/.test(last)) return takeaway(msgs, body);
       return chat(system, msgs);
     },
   };

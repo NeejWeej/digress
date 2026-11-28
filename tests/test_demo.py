@@ -9,7 +9,7 @@ Built fresh from web/ here, so a change to the page that breaks the demo fails t
   - Search, and Ask about Digress (from the documentation built into the site), work.
   - Everything stays in this browser across a reload; "Start over" brings back the sample as it was.
 Asserts and exits non-zero."""
-import asyncio, json, os, sys, tempfile
+import asyncio, re, json, os, sys, tempfile
 from playwright.async_api import async_playwright
 from common import OUT, launch_args, build_site, goto_site, booted, answered, soon, frames, PDF_DRAWN_JS, settle
 
@@ -93,7 +93,9 @@ async def main():
             br = pg.locator(f'.pane[data-tid="{bt}"]')
             await br.locator('.ph [data-act=take]').click(); await answered(pg, br.locator('.tk .go').click())
             tk = await pg.evaluate("(()=>{const n=Object.values(__digress.conv.msgs).filter(m=>m.role==='note').at(-1);return n?n.content:''})()")
-            check('a takeaway made in the demo carries the excerpts the branch found', bt and 'innocent' in tk and 'closest to your question' not in tk and 'excerpts' in tk, tk[:300])
+            bullets = [l for l in tk.split('\n') if l.startswith('- ') and 'A demo takeaway' not in l]
+            check('a takeaway made in the demo is shaped like a real one: 2 or 3 one-sentence bullets from what the branch found, with their pages, and says it is a stand-in',
+                  bt and 2 <= len(bullets) <= 3 and all(re.search(r'\[p\. \d+\]$', l) for l in bullets) and 'closest to your question' not in tk and 'innocent' in tk and 'A demo takeaway' in tk, tk[:400])
 
             await pg.keyboard.press('ControlOrMeta+k'); await pg.locator('#palIn').fill('prosecutor')
             await soon(pg, "()=>!!document.querySelector('#palRes .pr')")

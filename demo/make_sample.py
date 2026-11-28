@@ -9,6 +9,12 @@ Its replies are the prepared ones in demo/replies.js.
 
 Rerun it when the sample reading or the prepared replies change:
     .venv/bin/python demo/make_sample.py
+
+The two takeaways in it are a real model's, not written by hand: --record [URL] builds the conversations once to
+catch the page's own takeaway requests, sends them to the Digress server at URL (default http://127.0.0.1:8788,
+with its default model; the document tools left out), keeps the answers in demo/sample/takeaways.json (with the
+model and the date), and then builds the seed with them. Without --record it uses that file as it is. Rerun with
+--record when the prepared replies of those branches change, since a takeaway sums up what they say.
 """
 import asyncio, json, os, sys, tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -17,6 +23,9 @@ from playwright.async_api import async_playwright
 from common import launch_args, build_site, goto_site, booted, answered, soon, frames, PDF_DRAWN_JS
 
 PDF = os.path.join(HERE, 'sample.pdf')
+TAKEAWAYS = os.path.join(HERE, 'sample', 'takeaways.json')
+# a phrase of each takeaway's branch question (replies.js finds the recorded takeaway by it)
+TAKEAWAY_KEYS = ['agree on a secret while everyone is listening', 'small false-positive rate matter']
 SEED = os.path.join(HERE, 'seed.json')
 
 # select `phrase` in the PDF's text layer (it may run across several spans) and let go, as a reader would
@@ -49,9 +58,45 @@ def must(ok, what):
     if not ok: sys.exit('make_sample: ' + what)
 
 
+def record(url, bodies):
+    """Send each takeaway request the page made to a real Digress server; its answers, with the model."""
+    import urllib.request, datetime
+    out = {}
+    for k in TAKEAWAY_KEYS:
+        must(k in bodies, f'no takeaway request caught for "{k}"')
+        body = dict(bodies[k]); body.pop('tools', None); body['model'] = 'auto'; body['chat'] = 'seed-takeaway-' + os.urandom(4).hex()
+        req = urllib.request.Request(url.rstrip('/') + '/api/chat', data=json.dumps(body).encode(), headers={'content-type': 'application/json'})
+        text, model = '', ''
+        with urllib.request.urlopen(req, timeout=300) as r:
+            for line in r:
+                if not line.strip(): continue
+                o = json.loads(line)
+                if 'error' in o: sys.exit('make_sample: the model answered with an error: ' + str(o['error']))
+                text += o.get('d', '') or ''
+                if o.get('done'): model = o.get('model', '')
+        must(text.strip(), f'empty takeaway for "{k}"')
+        out[k] = {'text': text.strip(), 'model': model, 'recorded': datetime.date.today().isoformat()}
+        print(f'recorded ({model}):', k, '\n' + text.strip())
+    return out
+
+
 async def main():
+    rec = '--record' in sys.argv
+    url = next((a for a in sys.argv[sys.argv.index('--record') + 1:][:1] if not a.startswith('-')), 'http://127.0.0.1:8788') if rec else None
+    takeaways = {} if rec else json.load(open(TAKEAWAYS))
     async with async_playwright() as p:
         b = await p.chromium.launch(**launch_args())
+        if rec:
+            bodies = await build(b, {k: {} for k in TAKEAWAY_KEYS}, True)
+            takeaways = record(url, bodies)
+            with open(TAKEAWAYS, 'w') as f: json.dump(takeaways, f, ensure_ascii=False, indent=1); f.write('\n')
+            print('wrote', TAKEAWAYS)
+        await build(b, takeaways, False)
+        await b.close()
+
+
+async def build(b, takeaways, recording):
+    if True:
 
         # 1. the reading, printed to PDF (its <title> becomes the PDF's title, which names the conversation)
         pg = await b.new_page()
@@ -66,6 +111,7 @@ async def main():
             build_site(site)
             pg = await b.new_page(viewport={'width': 1500, 'height': 900})
             errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+            await pg.add_init_script(f'window.__seedTakeaways={json.dumps(takeaways)};window.__seedRecord={json.dumps(recording)};')
             await goto_site(pg, site); await booted(pg)
 
             # a conversation without a document: a question, a branch with a takeaway, and a branch of a branch
@@ -128,7 +174,10 @@ async def main():
             await soon(pg, "()=>__digress.sync.sent&&!document.querySelector('#status').textContent.includes('Saving')")
             await pg.wait_for_timeout(800)   # (deliberate: let the last saves and the layout land)
 
+            if recording: return await pg.evaluate('window.__takeawayBodies||{}')
             store = await pg.evaluate(DUMP)
+            notes = [m['content'] for v in store.values() if isinstance(v, dict) and v.get('msgs') for m in v['msgs'].values() if m.get('role') == 'note']
+            for k, t in takeaways.items(): must(t['text'] in notes, f'the recorded takeaway for "{k}" is not in the seed')
             convs = {k: v for k, v in store.items() if k.startswith('convs/')}
             must(len(convs) == 2, f'expected two conversations, got {len(convs)}')
             for c in convs.values(): print('conversation:', c['title'], '|', len(c['threads']), 'threads,', len(c['msgs']), 'messages')
@@ -140,6 +189,5 @@ async def main():
             seed = {'v': v, 'store': store, 'files': {conv['doc']['assetId']: {'type': 'application/pdf', 'src': 'demo/sample.pdf'}}}
             with open(SEED, 'w') as f: json.dump(seed, f, ensure_ascii=False, separators=(',', ':'))
             print('wrote', SEED, os.path.getsize(SEED), 'bytes')
-        await b.close()
 
 asyncio.run(main())
