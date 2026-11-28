@@ -1,14 +1,16 @@
 // Flashcards: opt-in per conversation, drafting from branches/takeaways/suggest_card,
 // FSRS-4.5 review panel (Review / Inbox / All), Fix…, quote verification/highlighting, and source jumping.
 import { fsrsNext, ivlText } from './fsrs.js';
-import { esc, trunc, plain } from './text.js';
+import { esc, trunc, plain, linedText } from './text.js';
 import { listSources, isWholePage, shotRef, appendText } from './context.js';
 import { state, app, $, ic, io, paneEls, settings, T, color, isCollapsed, fullSys, rid } from './state.js';
 import { invalidate } from './redraw.js';
 
 const reEsc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export const quoteWords = (q) => String(q || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-export const quoteRe = (ws) => new RegExp('(?<![\\p{L}\\p{N}])' + ws.map(reEsc).join('[^\\p{L}\\p{N}]+') + '(?![\\p{L}\\p{N}])', 'u');
+// a word may have a soft hyphen between any two of its letters: a PDF line's end-of-line hyphen, as linedText reads it
+const wordRe = (w) => [...w].map(reEsc).join('\u00AD?');
+export const quoteRe = (ws) => new RegExp('(?<![\\p{L}\\p{N}])' + ws.map(wordRe).join('[^\\p{L}\\p{N}]+') + '(?![\\p{L}\\p{N}])', 'u');
 
 export function createCards() {
   const getConv = () => state.conv;
@@ -360,9 +362,7 @@ export function createCards() {
 
   function showQuote(root, scroller, quote, scale, opts = {}) {
     if (!root || !scroller) return false;
-    const nodes = [], w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.parentElement.closest('.acts,button,svg') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
-    let text = '', n;
-    while ((n = w.nextNode())) { nodes.push([n, text.length]); text += n.data; }
+    const { nodes, text } = linedText(root, (el) => el.closest('.acts,button,svg'), true);
     const low = text.toLowerCase(), ws = quoteWords(quote);
     if (ws.length < (opts.exact ? 2 : 3)) return false;
     let from = -1, to = -1;

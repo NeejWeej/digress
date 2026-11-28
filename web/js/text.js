@@ -75,3 +75,21 @@ export function idxPages(d) {
 }
 
 export function sigOf(E) { const s = JSON.stringify(E); let h = 0; for (let i = 0; i < s.length; i += 3) h = (h * 31 + s.charCodeAt(i)) | 0; return s.length + ':' + h; }
+
+/* The text of root as one string, with each text node's offset in it, for finding a quote and putting a Range on
+   it. A PDF's text layer is a span per line with a <br> between them and no space at the line's end, so read
+   naively "the failure⏎message" is "the failuremessage" and a quote across a line never matches. A <br> becomes a
+   space here (one character that belongs to no node; an offset on it falls at the end of the node before). With
+   hyphens, a line ending in a letter and "-" keeps its hyphen but as a soft hyphen (U+00AD, the same length, so
+   offsets don't move), which quoteRe lets sit inside a word: "be-⏎cause" matches both "because" and "be-cause".
+   skip(el): leave that element's text out. */
+export function linedText(root, skip, hyphens) {
+  const nodes = [], w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, { acceptNode: (n) => (n.nodeType === 1 ? (skip && skip(n) ? NodeFilter.FILTER_REJECT : n.tagName === 'BR' ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP) : (skip && skip(n.parentElement) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT)) });
+  let text = '', n, br = false;
+  while ((n = w.nextNode())) {
+    if (n.nodeType === 1) { br = true; continue; }
+    if (br && text) { if (hyphens && /\p{L}-$/u.test(text)) text = text.slice(0, -1) + '\u00AD'; else if (!/\s$/.test(text)) text += ' '; }
+    br = false; nodes.push([n, text.length]); text += n.data;
+  }
+  return { nodes, text };
+}

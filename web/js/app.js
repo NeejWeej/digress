@@ -816,6 +816,7 @@ document.addEventListener('click',e=>{
   const pref=e.target.closest('a.pref');
   if(pref){
     e.preventDefault();
+    clearHit();   // the last citation's highlight goes, even when this one falls back to its page
     if(pref.dataset.earlier){const msg=pref.closest('.msg');if(msg)goToEarlier(msg.dataset.mid,pref.dataset.cite||'')}
     else if(pref.dataset.part||pref.dataset.doccite)goToDocPart(+(pref.dataset.part||0),pref.dataset.cite||'');
     else goToPage(+pref.dataset.page,pref.dataset.cite||'');
