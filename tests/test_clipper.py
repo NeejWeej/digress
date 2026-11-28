@@ -232,11 +232,61 @@ async def main():
         await soon(pg, f"() => document.querySelectorAll('{pend_sel}').length === 0")
         check('pending image strip is cleared after sending', True)
 
+        # 6b. "Add to current thread" (useCurrentConv + useCurrentThread): drafts into the pane you were last in, sends nothing
+        async def n_msgs_threads():
+            return await pg.evaluate("[Object.keys(__digress.conv.msgs).length, Object.keys(__digress.conv.threads).length, window.__calls.length]")
+        ta_val_of = "(tid) => (document.querySelector(`.pane[data-tid=\"${tid}\"] textarea`) || {}).value || ''"
+        before = await n_msgs_threads()
+        await pg.locator(f'.pane[data-tid="{tid2}"] textarea').click()   # A = branch 2 is the pane last clicked
+        main_before = await pg.evaluate(ta_val_of, 'main')
+        ackA = await post_clip(pg, {
+            'mode': 'branch', 'useCurrentConv': True, 'useCurrentThread': True,
+            'title': '@dave on X', 'url': 'https://x.com/dave/status/5', 'text': 'Current-thread quote about sparse attention.',
+            'images': [{'data': TINY_PNG, 'type': 'image/png'}],
+        })
+        check('useCurrentThread: drafts into the last-clicked branch pane (threadId and branchTitle returned)',
+              ackA.get('ok') and ackA.get('threadId') == tid2 and ackA.get('convId') == cid
+              and ackA.get('branchTitle') == (await pg.evaluate("id => __digress.conv.threads[id].title", tid2)), ackA)
+        taA = await pg.evaluate(ta_val_of, tid2)
+        check('useCurrentThread: the quote is in that composer and not in main\'s',
+              'Current-thread quote about sparse attention.' in taA and '@dave on X' in taA
+              and await pg.evaluate(ta_val_of, 'main') == main_before, taA)
+        await soon(pg, f"() => document.querySelectorAll('.pane[data-tid=\"{tid2}\"] .composer .cimgs img').length === 1")
+        check('useCurrentThread: its image is pending in that composer', True)
+        after = await n_msgs_threads()
+        check('useCurrentThread: nothing is sent (no new message, no new branch, no model call)', after == before, (before, after))
+        # a different pane clicked last -> that one
+        await pg.locator(f'.pane[data-tid="{tid1}"] textarea').click()
+        ackB = await post_clip(pg, {'mode': 'branch', 'useCurrentConv': True, 'useCurrentThread': True, 'title': 't', 'text': 'Second quote for the other pane.'})
+        check('useCurrentThread follows the pane clicked last', ackB.get('ok') and ackB.get('threadId') == tid1
+              and 'Second quote for the other pane.' in await pg.evaluate(ta_val_of, tid1)
+              and 'Second quote' not in await pg.evaluate(ta_val_of, tid2), ackB)
+        # canvas: the selected card
+        await pg.evaluate("document.querySelector('#viewSeg button[data-v=canvas]').click()")
+        await pg.locator(f'#cv .cnode[data-ctid="{tid4}"]').wait_for()
+        await pg.locator(f'#cv .cnode[data-ctid="{tid4}"] .ch .ct').click()
+        await soon(pg, f"() => __digress.conv.ui.cv.sel === '{tid4}'")
+        ackC = await post_clip(pg, {'mode': 'branch', 'useCurrentConv': True, 'useCurrentThread': True, 'title': 't', 'text': 'Canvas quote for the selected card.'})
+        check('useCurrentThread on the canvas drafts into the selected card',
+              ackC.get('ok') and ackC.get('threadId') == tid4
+              and 'Canvas quote for the selected card.' in await pg.evaluate("(tid) => (document.querySelector(`.pane[data-tid=\"${tid}\"] textarea`) || {}).value || ''", tid4), ackC)
+        check('canvas draft sends nothing either', (await n_msgs_threads()) == after, await n_msgs_threads())
+        await pg.evaluate("document.querySelector('#viewSeg button[data-v=cols]').click()")
+        await pg.locator('.pane[data-tid="main"]').wait_for()
+
         # 7. digressClipFocus switches conversation and reveals target branch
         f1 = await post_focus(pg, ack3['convId'], 'main')
         cur_cid = await pg.evaluate("__digress.conv.id")
         check('digressClipFocus switches to requested conversation', f1.get('ok') and cur_cid == ack3['convId'], cur_cid)
         check('conversation still passes ThreadOps.check', len(await pg.evaluate("ThreadOps.check(__digress.conv)")) == 0)
+
+        # 7b. a document conversation, last click in the document pane: "current thread" means main
+        await pg.locator('.docpane .docbody').click()
+        n7 = await n_msgs_threads()
+        ackD = await post_clip(pg, {'mode': 'branch', 'useCurrentConv': True, 'useCurrentThread': True, 'title': 't', 'text': 'Quote while reading the document.'})
+        check('useCurrentThread with the document pane last clicked drafts into main',
+              ackD.get('ok') and ackD.get('threadId') == 'main' and ackD.get('convId') == ack3['convId']
+              and 'Quote while reading the document.' in await pg.evaluate(ta_val_of, 'main') and (await n_msgs_threads()) == n7, ackD)
 
         check('no page errors', not errs, '; '.join(errs[:3]))
         await b.close()

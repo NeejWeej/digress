@@ -29,6 +29,7 @@ export function createDoc() {
   const brCount = (...a) => app.brCount(...a);
   const contentScale = (...a) => app.contentScale(...a);
   const curPane = (...a) => app.curPane(...a);
+  const cvState = (...a) => app.cvState(...a);
   const descendants = (...a) => app.descendants(...a);
   const docInDock = (...a) => app.docInDock(...a);
   const flushNow = (...a) => app.flushNow(...a);
@@ -1342,6 +1343,7 @@ async function ingestClip(p){
   }
   const convId=typeof p.convId==='string'?p.convId.trim():'';
   const convTitle=String(p.convTitle||'Clippings').trim()||'Clippings';
+  if(p.useCurrentThread&&!state.conv)throw new Error('Open a conversation in Digress first: there’s no current thread to add to.');
   if(p.useCurrentConv&&state.conv){
     // stay on the currently open conversation
   }else if(convId){
@@ -1358,7 +1360,10 @@ async function ingestClip(p){
       const c=newConv();c.title=convTitle;c.titleKept=true;setConv(c);state.dirty=true;await flushNow();
     }
   }
-  const targetTid=typeof p.targetThreadId==='string'?p.targetThreadId.trim():'';
+  let targetTid=typeof p.targetThreadId==='string'?p.targetThreadId.trim():'';
+  // "Add to current thread": the pane you were last in (on the canvas, the selected card); the document, or
+  // nothing, means main. It's drafted there, never sent.
+  if(p.useCurrentThread){const cur=state.conv.ui.view==='canvas'?cvState().sel:curPane();targetTid=cur&&cur!=='doc'&&state.conv.threads[cur]?cur:'main'}
   // the clip's images (a tweet's, up to 4), as data: URLs of the image types we keep
   const clipBlobs=async()=>{const out=[];for(const im of (Array.isArray(p.images)?p.images.slice(0,4):[])){
     if(!im||typeof im.data!=='string'||!/^data:image\/(png|jpeg|jpg|webp|gif);base64,/i.test(im.data))continue;
