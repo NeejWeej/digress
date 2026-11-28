@@ -35,6 +35,8 @@ export function createDoc() {
   const flushNow = (...a) => app.flushNow(...a);
   const focusCard = (...a) => app.focusCard(...a);
   const hideTip = (...a) => app.hideTip(...a);
+  const setDraft = (...a) => app.setDraft(...a);
+  const draftOf = (...a) => app.draftOf(...a);
   const idxWrite = (...a) => app.idxWrite(...a);
   const importDigress = (...a) => app.importDigress(...a);
   const isDigressFile = (...a) => app.isDigressFile(...a);
@@ -301,7 +303,7 @@ let docPageRAF=0;
 function trackDocPage(){
   if(docPageRAF)return;docPageRAF=requestAnimationFrame(()=>{docPageRAF=0;
     const el=paneEls.get('doc');if(!el||!docState||docState.kind!=='pdf')return;
-    const pb=el.querySelector('.pb'),y=pb.getBoundingClientRect().top+pb.clientHeight*0.3;
+    const pb=el.querySelector('.pb'),y=pb.getBoundingClientRect().top+pb.clientHeight*READ_LINE;   // the mark's line: the page shown is the page a mark would go on
     for(const pg of el.querySelectorAll('.dpage')){const r=pg.getBoundingClientRect();if(r.bottom>=y){if(docView.current!==+pg.dataset.page){docView.current=+pg.dataset.page;updateHeader('doc')}break}}
   });
 }
@@ -346,7 +348,7 @@ function renderDocPane(force){
     renderRich(b,docState.text,true,{doc:true});articleFigures(b);docImages(b);applyDocAnchorsText(b);renderMermaid(b);
     articleBar(wrap,b);
     el.querySelector('.pb').scrollTop=st;
-    placeMark();setTimeout(offerMark,300);
+    placeMark();resumeDoc();setTimeout(offerMark,300);
     // the text reflows with the pane's width: put the mark back on its character
     let mt=0;new ResizeObserver(()=>{clearTimeout(mt);mt=setTimeout(()=>{if(b.isConnected&&docMark())placeMark()},150)}).observe(b);
   }
@@ -377,7 +379,7 @@ function buildPdfPages(el,wrap){
       pg.style.width=Math.round(v1.width*docView.scale)+'px';pg.style.height=Math.round(v1.height*docView.scale)+'px';
       pg.innerHTML=`<div class="pnum">${i}</div><button class="pask" data-pask="${i}" title="Open a side branch about this whole page; the AI gets an image of it">Ask about p. ${i}</button>`;wrap.appendChild(pg);docView.obs.observe(pg);
     }
-    placeMark();setTimeout(offerMark,300);
+    placeMark();resumeDoc();setTimeout(offerMark,300);
   })();
   docView.built=p;return p;
 }
@@ -551,7 +553,23 @@ function charAt(root,k){const w=textWalker(root);let n,c=0,last=null;
    or is laid out again at another width (the pixels no longer point at the same place). One spot for both views. */
 let docSpotT=0;
 function noteDocSpot(){if(docView.restoring)return;clearTimeout(docSpotT);docSpotT=setTimeout(()=>{const el=paneEls.get('doc');
-  if(!el||!el.isConnected||!el.getClientRects().length||docView.restoring)return;const m=readingSpot();if(m)docView.spot={conv:state.conv&&state.conv.id,m}},150)}
+  if(!el||!el.isConnected||!el.getClientRects().length||docView.restoring)return;const m=readingSpot();if(m){docView.spot={conv:state.conv&&state.conv.id,m};keepDocSpot(m)}},150)}
+/* The same spot is kept in this device's layout (ui.dspot, saved with api/layout, never with the conversation), so
+   opening the conversation again, here or after a reload, puts the document back where this screen was: resumeDoc.
+   Saved a moment after scrolling stops, and at once when the tab is hidden; a layout-only save, so a long
+   conversation's content isn't serialized again for it. A device opening it for the first time takes another
+   device's layout, spot included (a page and how far down it doesn't depend on the screen). */
+let dspotT=0;
+function keepDocSpot(m){const c=state.conv;if(!c||!c.doc||!c.ui)return;const same=JSON.stringify(c.ui.dspot)===JSON.stringify(m);c.ui.dspot=m;if(same)return;clearTimeout(dspotT);dspotT=setTimeout(()=>{dspotT=0;app.saveLayoutNow()},2000)}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&dspotT){clearTimeout(dspotT);dspotT=0;app.saveLayoutNow()}});
+// once per document opened: back to this device's last spot, unless something already moved the view (a jump)
+function resumeDoc(){
+  if(!docState||docState.resumed)return;
+  const el=paneEls.get('doc'),pb=el&&el.querySelector('.pb'),m=state.conv&&state.conv.ui&&state.conv.ui.dspot;
+  if(!pb)return;
+  if(!Array.isArray(m)||pb.scrollTop>2||!(m[0]==='p'&&m[1]>=1&&m[1]<=(docState.n||0)||m[0]==='o'&&m[1]>=0&&docState.kind!=='pdf')){docState.resumed=true;return}
+  if(putDocSpot(m))docState.resumed=true;   // not yet when the pane has no height (hidden): the next build tries again
+}
 function docSpotNow(){const sp=docView.spot;return sp&&state.conv&&sp.conv===state.conv.id?sp.m:null}
 function putDocSpot(m){
   const el=paneEls.get('doc');if(!m||!el)return false;const pb=el.querySelector('.pb');
@@ -671,7 +689,7 @@ async function goToPage(n,quote){
   if(quote){
     await scrollDocToPage(n,false);await renderPdfPage(n);revealPane('doc');
     const pg=el.querySelector(`.dpage[data-page="${n}"]`),pb=el.querySelector('.pb');
-    if(pg&&showQuote(pg,pb,quote,1,{exact:true,unique:true,sticky:true}))return;
+    if(pg&&showQuote(pg,pb,quote,1,{exact:true,unique:true,sticky:true,at:READ_LINE}))return;
     await scrollDocToPage(n,true);return;
   }
   requestAnimationFrame(async()=>{await scrollDocToPage(n);revealPane('doc')});
@@ -682,7 +700,7 @@ async function goToDocPart(part,quote){
   revealPane('doc');
   const body=el.querySelector('.docbody'),pb=el.querySelector('.pb');if(!body||!pb)return;
   rememberSpot(el);
-  if(quote&&showQuote(body,pb,quote,1,{exact:true,unique:true,sticky:true}))return;
+  if(quote&&showQuote(body,pb,quote,1,{exact:true,unique:true,sticky:true,at:READ_LINE}))return;
   if(part>=1&&docState.pages&&docState.pages[part-1]){
     const line=docState.pages[part-1].split(/\n+/).map(s=>s.trim()).find(s=>quoteWords(s).length>=3);
     if(line){
@@ -1372,16 +1390,15 @@ async function ingestClip(p){
     if(!state.conv.ui.open.includes(targetTid))state.conv.ui.open.push(targetTid);
     state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==targetTid);
     if(state.conv.ui.view==='canvas'){invalidate('canvas');focusCard(targetTid)}else{invalidate('panes');revealPane(targetTid)}
-    const pe=paneEls.get(targetTid),ta=pe&&pe.querySelector('textarea');
-    if(ta){
-      const parts=[];
-      if(title||safeUrl)parts.push(`From ${title?`**${title}**`:'clip'}${safeUrl?` (${safeUrl})`:''}:`);
-      if(text)parts.push('> '+text.replace(/\n/g,'\n> '));
-      if(p.question)parts.push(String(p.question).trim());
-      const block=parts.filter(Boolean).join('\n\n');
-      if(block)ta.value=ta.value.trim()?ta.value.trimEnd()+'\n\n'+block:block;
-      ta.focus();
-    }
+    // into the thread's draft: its pane's box and its canvas card's box both show it, and it survives a reload
+    const parts=[];
+    if(title||safeUrl)parts.push(`From ${title?`**${title}**`:'clip'}${safeUrl?` (${safeUrl})`:''}:`);
+    if(text)parts.push('> '+text.replace(/\n/g,'\n> '));
+    if(p.question)parts.push(String(p.question).trim());
+    const block=parts.filter(Boolean).join('\n\n');
+    if(block){const cur=draftOf(targetTid);setDraft(targetTid,cur.trim()?cur.trimEnd()+'\n\n'+block:block)}
+    const box=state.conv.ui.view==='canvas'?document.querySelector(`#cv .cnode[data-ctid="${CSS.escape(targetTid)}"] .cask textarea`):paneEls.get(targetTid)&&paneEls.get(targetTid).querySelector('.composer textarea');
+    if(box)box.focus();
     // its images go with the draft, as if pasted (they used to be dropped here)
     const blobs=await clipBlobs();if(blobs.length)await addPending(targetTid,blobs);
     const bt=targetTid==='main'?'Main':(state.conv.threads[targetTid].title||targetTid);
@@ -1403,7 +1420,8 @@ async function ingestClip(p){
   if(state.conv.ui.view==='canvas'){invalidate('canvas');focusCard(tid)}else{invalidate('panes');revealPane(tid)}
   invalidate('map');state.dirty=true;await flushNow();
   const pe=paneEls.get(tid),ta=pe&&pe.querySelector('textarea');
-  if(ta){if(p.question)ta.value=String(p.question);ta.focus()}
+  if(p.question)setDraft(tid,String(p.question));
+  if(ta)ta.focus();
   toast(`Clipped to “${trunc(state.conv.title,32)}”`);
   return {convId:state.conv.id,convTitle:state.conv.title,threadId:tid,branchTitle:bTitle};
 }

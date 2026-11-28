@@ -9,7 +9,7 @@ Built fresh from web/ here, so a change to the page that breaks the demo fails t
   - Search, and Ask about Digress (from the documentation built into the site), work.
   - Everything stays in this browser across a reload; "Start over" brings back the sample as it was.
 Asserts and exits non-zero."""
-import asyncio, json, os, sys, tempfile
+import asyncio, re, json, os, sys, tempfile
 from playwright.async_api import async_playwright
 from common import OUT, launch_args, build_site, goto_site, booted, answered, soon, frames, PDF_DRAWN_JS, settle
 
@@ -87,6 +87,15 @@ async def main():
             await pg.locator('#popIn').fill('What is this?'); await answered(pg, pg.locator('#popIn').press('Enter'))
             br = await pg.evaluate("(()=>{const b=[...document.querySelectorAll('.pane:not([data-tid=main]):not([data-tid=doc]) .msg.assistant .body')].at(-1);return b?b.innerText:''})()")
             check('a branch from a highlighted passage gets the passages around it', ok == 'ok' and 'innocent' in br and 'This is the demo' in br, [ok, br[:300]])
+
+            # a takeaway of that branch carries the excerpts it found, not the "closest to your question" header
+            bt = await pg.evaluate("(()=>{const m=Object.values(__digress.conv.msgs).filter(m=>m.role==='assistant'&&m.thread!=='main'&&/This is the demo/.test(m.content||'')).at(-1);return m?m.thread:null})()")
+            br = pg.locator(f'.pane[data-tid="{bt}"]')
+            await br.locator('.ph [data-act=take]').click(); await answered(pg, br.locator('.tk .go').click())
+            tk = await pg.evaluate("(()=>{const n=Object.values(__digress.conv.msgs).filter(m=>m.role==='note').at(-1);return n?n.content:''})()")
+            bullets = [l for l in tk.split('\n') if l.startswith('- ') and 'A demo takeaway' not in l]
+            check('a takeaway made in the demo is shaped like a real one: 2 or 3 one-sentence bullets from what the branch found, with their pages, and says it is a stand-in',
+                  bt and 2 <= len(bullets) <= 3 and all(re.search(r'\[p\. \d+\]$', l) for l in bullets) and 'closest to your question' not in tk and 'innocent' in tk and 'A demo takeaway' in tk, tk[:400])
 
             await pg.keyboard.press('ControlOrMeta+k'); await pg.locator('#palIn').fill('prosecutor')
             await soon(pg, "()=>!!document.querySelector('#palRes .pr')")

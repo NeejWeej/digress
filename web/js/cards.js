@@ -385,7 +385,7 @@ export function createCards() {
     const r = document.createRange(), [a, ao] = at(from), [b, bo] = at(to - 1);
     r.setStart(a, ao); r.setEnd(b, bo + 1);
     const rr = r.getBoundingClientRect(), sr = scroller.getBoundingClientRect();
-    scroller.scrollBy({ top: (rr.top - sr.top - sr.height / 3) / scale, behavior: 'smooth' });
+    scroller.scrollBy({ top: (rr.top - sr.top - sr.height * (opts.at ?? 1 / 3)) / scale, behavior: 'smooth' });   // opts.at: how far down the pane the hit lands
     clearHit();
     try { CSS.highlights.set('digress-hit', new Highlight(r)); } catch (e) {}
     if (opts.sticky) setHitSticky(true);

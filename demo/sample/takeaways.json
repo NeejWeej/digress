@@ -1,0 +1,12 @@
+{
+ "agree on a secret while everyone is listening": {
+  "text": "- In Diffie–Hellman, each side combines its own private number with the other side’s public value. Both arrive at the same shared secret without ever sending it.\n- With well-chosen parameters, computing that secret from the public values alone is infeasible. HTTPS also authenticates the exchange so an impostor can’t substitute its own values.\n- Using fresh private numbers for each exchange gives **forward secrecy**: stealing the server’s long-term authentication key later won’t unlock recorded sessions.",
+  "model": "gpt-6.2-astra",
+  "recorded": "2026-11-28"
+ },
+ "small false-positive rate matter": {
+  "text": "- A 9% false-positive rate means 9% **of healthy people** test positive—not that 9% of positive results are false.\n- At a 1% disease rate, testing 1,000 people gives about 89 false positives and 9 true positives. Only about 9% of those who test positive are ill [p. 1].\n- If 10% had the disease instead, the same test would give 90 true positives and 81 false positives per 1,000. A positive would then mean about a 53% chance of illness.",
+  "model": "gpt-6.2-astra",
+  "recorded": "2026-11-28"
+ }
+}
