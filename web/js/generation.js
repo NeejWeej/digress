@@ -11,8 +11,11 @@ import {
   $, ic, rid, qid, T, color, isDesc, branchesOn, hiddenNow, isCollapsed,
   } from './state.js';
 import { imageBlob, blobB64, storeImages } from './media.js';
+import { invalidate, onRedraw } from './redraw.js';
 
 export function createGeneration() {
+  // the parts of the page this module draws, for invalidate('…') from the others (web/js/redraw.js)
+  onRedraw('badges', markReplies);
   const applyConvLlm = (...a) => app.applyConvLlm(...a);
   const cacheDocBlob = (...a) => app.cacheDocBlob(...a);
   const cardsAfterReply = (...a) => app.cardsAfterReply(...a);
@@ -25,7 +28,6 @@ export function createGeneration() {
   const flushNow = (...a) => app.flushNow(...a);
   const focusCard = (...a) => app.focusCard(...a);
   const isBlank = (...a) => app.isBlank(...a);
-  const layout = (...a) => app.layout(...a);
   const leaveOk = (...a) => app.leaveOk(...a);
   const openCards = (...a) => app.openCards(...a);
   const putCard = (...a) => app.putCard(...a);
@@ -34,11 +36,7 @@ export function createGeneration() {
   const refreshAnchorsFor = (...a) => app.refreshAnchorsFor(...a);
   const refreshDocAnchors = (...a) => app.refreshDocAnchors(...a);
   const rememberSpot = (...a) => app.rememberSpot(...a);
-  const renderCanvas = (...a) => app.renderCanvas(...a);
-  const renderConvList = (...a) => app.renderConvList(...a);
-  const renderMap = (...a) => app.renderMap(...a);
   const renderPane = (...a) => app.renderPane(...a);
-  const renderTitle = (...a) => app.renderTitle(...a);
   const revealDocAnchor = (...a) => app.revealDocAnchor(...a);
   const runDocTool = (...a) => app.runDocTool(...a);
   const save = (...a) => app.save(...a);
@@ -52,7 +50,6 @@ export function createGeneration() {
   const trailText = (...a) => app.trailText(...a);
   const updateComposer = (...a) => app.updateComposer(...a);
   const updateHeader = (...a) => app.updateHeader(...a);
-  const wires = (...a) => app.wires(...a);
 /* ---------- context for the model (pure logic lives in ./context.js) ---------- */
 const ctxEnv=()=>({conv:state.conv,docState:state.docState,docView,custom:CUSTOM,prompts:PROMPTS,threadOps:ThreadOps,settings,io});
 function buildContext(tid,excludeMid,opts){
@@ -84,7 +81,7 @@ function addMsg(tid,role,content,extra){
   const m={id:'m'+rid(),thread:tid,role,content,ts:Date.now(),ver:0,...(extra||{})};
   const back=Object.values(state.conv.threads).filter(t=>t.parent===tid&&joinable(t));
   state.conv.msgs[m.id]=m;state.conv.order[tid].push(m.id);
-  if(back.length)setTimeout(()=>{for(const t of back)if(T(t.id))renderPane(t.id);if(state.conv.ui.view==='canvas')renderCanvas()});
+  if(back.length)setTimeout(()=>{for(const t of back)if(T(t.id))renderPane(t.id);if(state.conv.ui.view==='canvas')invalidate('canvas')});
   return m;
 }
 async function send(tid,text,imgs){
@@ -98,14 +95,14 @@ async function send(tid,text,imgs){
     finally{streaming.delete(tid);for(const im of imgs)if(im&&im.url)try{URL.revokeObjectURL(im.url)}catch(_){}}
     if(state.conv!==c0||!c0.threads[tid])return;
   }
-  if(tid==='main'&&!state.conv.titleKept&&!state.conv.order.main.some(id=>state.conv.msgs[id].role==='user')){state.conv.title=trunc(text||'Question about an image',120);delete state.conv.autoTitle;renderTitle()}
+  if(tid==='main'&&!state.conv.titleKept&&!state.conv.order.main.some(id=>state.conv.msgs[id].role==='user')){state.conv.title=trunc(text||'Question about an image',120);delete state.conv.autoTitle;invalidate('title')}
   if(t.autoTitle&&!state.conv.order[tid].length){t.title=trunc(text||'About an image',48);delete t.autoTitle;refreshAnchorsFor(tid)}
   // asked in main with the PDF open beside it: the question keeps the page it was asked on (PROMPTS.lookingAt)
   if(tid==='main'&&state.docState&&state.docState.kind==='pdf'&&state.conv.ui.open.includes('doc')&&!isCollapsed('doc')&&docView.current)extra={...extra,lookAt:docView.current};
   addMsg(tid,'user',text,extra);
   const am=addMsg(tid,'assistant','');am.pending=true;
-  renderPane(tid,true);renderMap();save();
-  if(state.conv.ui.view==='canvas'){renderCanvas();const f=document.querySelector(`#cv .cnode[data-ctid="${tid}"] .cfull`);if(f)f.scrollTop=f.scrollHeight}
+  renderPane(tid,true);invalidate('map');save();
+  if(state.conv.ui.view==='canvas'){invalidate('canvas');const f=document.querySelector(`#cv .cnode[data-ctid="${tid}"] .cfull`);if(f)f.scrollTop=f.scrollHeight}
   await docReady();
   if(state.conv!==c0||!c0.threads[tid])return;
   await generate(am,buildContext(tid,am.id),tid);
@@ -171,8 +168,8 @@ async function generate(m,ctx,lockTid,o={}){
   if(!seenNow(m.thread))unread.add(m.thread);   // finished out of sight: badge it until it's opened
   if(document.hidden&&!m.error){app.CANVAS_MOD.tabReady=true;tabName()}
   cardsAfterReply(m);nameAfterReply(m);
-  renderPane(m.thread);updateComposer(lockTid);renderMap();save();
-  if(state.conv.ui.view==='canvas')renderCanvas();
+  renderPane(m.thread);updateComposer(lockTid);invalidate('map');save();
+  if(state.conv.ui.view==='canvas')invalidate('canvas');
   markReplies();
 }
 // --- titles: a conversation or branch is named by its first question; a long or vague one gets a short title from
@@ -208,8 +205,8 @@ async function nameAfterReply(m){
   try{
     const r=await io.llm.complete({system:PROMPTS.title.system,messages:[{role:'user',content:PROMPTS.title.ask({kind:isMain?'conversation':'branch',question:trunc(question,600),reply:trunc(plain(m.content||''),1500),passage:isMain?'':trunc(t.regionText||t.anchorText||'',300),doc:c0.doc&&c0.doc.name})}],model:titleModel(c0,m.model),effort:'low',web:false});
     const name=cleanTitle(r.text);if(!name||!still())return;
-    if(isMain){c0.title=name;delete c0.autoTitle;renderTitle()}else{T(tid).title=name;delete T(tid).autoTitle;refreshAnchorsFor(tid);updateHeader(tid)}
-    renderMap();if(state.conv.ui.view==='canvas')renderCanvas();save();
+    if(isMain){c0.title=name;delete c0.autoTitle;invalidate('title')}else{T(tid).title=name;delete T(tid).autoTitle;refreshAnchorsFor(tid);updateHeader(tid)}
+    invalidate('map');if(state.conv.ui.view==='canvas')invalidate('canvas');save();
   }catch(e){console.warn('no title',e)}
 }
 const cleanTitle=(s)=>{let x=String(s||'').split('\n').map(l=>l.trim()).find(Boolean)||'';x=x.replace(/^(title:\s*)/i,'').replace(/^["'“”‘’*#\s]+|["'“”‘’*.\s]+$/g,'');return x.length>=2&&x.length<=80?x:''};
@@ -300,7 +297,7 @@ function openVersions(qid){
   for(const v of versionsOf(qid))if(v.tid!==q.thread)openThread(v.tid,q.thread);
   const base=versionsOf(qid).find(v=>!T(v.tid).alt||v.tid===T(q.thread).parent);
   if(base&&base.tid!==q.thread)revealMsg(base.tid,base.qid);
-  renderMap();save();
+  invalidate('map');save();
 }
 async function newVersion(qid,text){
   const q=state.conv.msgs[qid],t=T(q.thread),ord=state.conv.order[q.thread],i=ord.indexOf(qid);
@@ -316,8 +313,8 @@ async function newVersion(qid,text){
   state.conv.threads[x.id]=x;state.conv.order[x.id]=[];
   addMsg(x.id,'user',text,q.images&&q.images.length?{images:q.images}:undefined);
   const am=addMsg(x.id,'assistant','');am.pending=true;
-  q.ver++;renderPane(q.thread);openThread(x.id,q.thread);renderMap();save();
-  if(state.conv.ui.view==='canvas'){const S=cvState();if(!S.open.includes(x.id))S.open.push(x.id);renderCanvas();focusCard(x.id)}
+  q.ver++;renderPane(q.thread);openThread(x.id,q.thread);invalidate('map');save();
+  if(state.conv.ui.view==='canvas'){const S=cvState();if(!S.open.includes(x.id))S.open.push(x.id);invalidate('canvas');focusCard(x.id)}
   await docReady();
   await generate(am,buildContext(x.id,am.id),x.id);
 }
@@ -330,7 +327,7 @@ function useVersion(tid){
   let changed;try{changed=ThreadOps.swap(state.conv,[...app.CARDS.values()],tid)}catch(e){toast(e.message);return}
   for(const c of changed)putCard(c);
   // a title that came from the first question follows the version now in use
-  if(t.parent==='main'&&!state.conv.titleKept&&oldFirst&&state.conv.title===trunc(state.conv.msgs[oldFirst].content||'Question about an image',120)){const q=state.conv.msgs[firstQ('main')];state.conv.title=trunc(q.content||'Question about an image',120);renderTitle()}
+  if(t.parent==='main'&&!state.conv.titleKept&&oldFirst&&state.conv.title===trunc(state.conv.msgs[oldFirst].content||'Question about an image',120)){const q=state.conv.msgs[firstQ('main')];state.conv.title=trunc(q.content||'Question about an image',120);invalidate('title')}
   const newQ=state.conv.msgs[state.conv.order[tid][0]];if(newQ&&newQ.role==='user')t.title='↻ '+trunc(newQ.content||'Another version',46);
   for(const id of [t.parent,tid])for(const m of state.conv.order[id])state.conv.msgs[m].ver++;
   refreshAll();if(state.conv.ui.view==='canvas')focusCard(t.parent);else revealPane(t.parent);
@@ -343,7 +340,7 @@ async function redo(mid){
   if(why){const q=questionOf(mid);if(why==='busy'||!q){toast(`This reply can’t be redone: ${REDO_WHY[why]}.`);return}return newVersion(q.id,q.content)}
   const m=state.conv.msgs[mid];
   m.content='';for(const k of ['error','model','effort','usage','docSeen','reads','searches','sources','web'])delete m[k];
-  m.pending=true;m.ver++;renderPane(m.thread);renderMap();
+  m.pending=true;m.ver++;renderPane(m.thread);invalidate('map');
   await docReady();
   await generate(m,buildContext(m.thread,m.id),m.thread);
 }
@@ -359,14 +356,14 @@ async function startMainOver(){
   let changed;try{changed=ThreadOps.split(state.conv,[...app.CARDS.values()],'main',ord[0],fresh)}catch(e){toast(e.message);return}
   for(const c of changed)putCard(c);
   const oldTitle=state.conv.title,named=!state.conv.titleKept&&first&&state.conv.title===trunc(fq||'Question about an image',120);
-  if(named){state.conv.title=state.conv.doc?state.conv.doc.name:'New conversation';renderTitle()}   // the next first question names it again
+  if(named){state.conv.title=state.conv.doc?state.conv.doc.name:'New conversation';invalidate('title')}   // the next first question names it again
   state.conv.ui.open=state.conv.ui.open.filter(x=>x!==fresh.id);if(!state.conv.ui.open.includes('main'))state.conv.ui.open.push('main');
-  refreshAll();renderMap();renderConvList();save();revealPane('main');
+  refreshAll();invalidate('map');invalidate('conv-list');save();revealPane('main');
   const ta=paneEls.get('main')&&paneEls.get('main').querySelector('textarea');if(ta)ta.focus();
   toast('Started the main thread over. What was in it is now another version, under Branches.',{label:'Undo',fn:()=>{
     if(state.conv.order.main.length){toast('Main has gone on since: open the earlier version and use “Use this version”.');return}
     let ch;try{ch=ThreadOps.join(state.conv,[...app.CARDS.values()],fresh.id)}catch(e){toast(e.message);return}
-    for(const c of ch)putCard(c);if(named)state.conv.title=oldTitle;renderTitle();refreshAll();renderMap();renderConvList();save();
+    for(const c of ch)putCard(c);if(named)state.conv.title=oldTitle;invalidate('title');refreshAll();invalidate('map');invalidate('conv-list');save();
   }});
 }
 /* Move what follows a reply into a branch (the reply's ⋯): ThreadOps.split just after it, so the rest becomes
@@ -390,13 +387,13 @@ const versionWhere=(t,n)=>{const a=versionAfter(t,n);return a?'after '+a:'from t
 // a version made here opens beside its parent (a card on the canvas); one joined back is gone from view
 function showVersion(tid,parent){
   openThread(tid,parent);
-  if(state.conv.ui.view==='canvas'){const S=cvState();if(!S.open.includes(tid))S.open.push(tid);renderCanvas();focusCard(tid)}
+  if(state.conv.ui.view==='canvas'){const S=cvState();if(!S.open.includes(tid))S.open.push(tid);invalidate('canvas');focusCard(tid)}
 }
 function dropJoined(tid,parent){
   const ui=state.conv.ui;delete (ui.sizes||{})[tid];
   if(!ui.open.length)ui.open=[parent];ui.collapsed=ui.collapsed.filter(x=>ui.open.includes(x));
   if(!ui.open.some(x=>!isCollapsed(x)))ui.collapsed=[];
-  layout();
+  invalidate('panes');
 }
 // Move back: a moved-out version goes back onto the end of its parent and the branch goes away. Undo moves it out again.
 function moveBack(tid){
@@ -406,13 +403,13 @@ function moveBack(tid){
   let changed;try{changed=ThreadOps.join(state.conv,[...app.CARDS.values()],tid)}catch(e){toast(e.message);return}
   for(const c of changed)putCard(c);
   for(const m of ids)state.conv.msgs[m].ver++;
-  dropJoined(tid,parent);refreshAll();renderConvList();if(state.conv.ui.view==='canvas')focusCard(parent);else revealPane(parent);
+  dropJoined(tid,parent);refreshAll();invalidate('conv-list');if(state.conv.ui.view==='canvas')focusCard(parent);else revealPane(parent);
   if(!ids.length){toast('Removed the empty branch.');return}
   toast(`Moved back into ${pn}.`,{label:'Undo',fn:()=>{
     const o=state.conv.order[parent]||[];
     if(T(keep.id)||o.length<ids.length||o.slice(-ids.length).join()!==ids.join()){toast(`${pn[0].toUpperCase()+pn.slice(1)} has changed since, so this can’t be undone.`);return}
     let ch;try{ch=ThreadOps.split(state.conv,[...app.CARDS.values()],parent,ids[0],keep)}catch(e){toast(e.message);return}
-    for(const c of ch)putCard(c);for(const m of ids)state.conv.msgs[m].ver++;refreshAll();renderConvList();showVersion(keep.id,parent);
+    for(const c of ch)putCard(c);for(const m of ids)state.conv.msgs[m].ver++;refreshAll();invalidate('conv-list');showVersion(keep.id,parent);
   }});
 }
 function replyMenuItems(m){
@@ -442,11 +439,11 @@ function moveRestOut(mid){
   const fresh={id:'t'+rid(),created:Date.now(),colorIdx:state.conv.nextColor++,anchorText:'',title:q?trunc(q.content||'Question about an image',60):'Moved from '+T(tid).title};
   let changed;try{changed=ThreadOps.split(state.conv,[...app.CARDS.values()],tid,tail[0],fresh)}catch(e){toast(e.message);return}
   for(const c of changed)putCard(c);
-  refreshAll();renderConvList();showVersion(fresh.id,tid);
+  refreshAll();invalidate('conv-list');showVersion(fresh.id,tid);
   toast(`Moved ${tail.length} message${tail.length>1?'s':''} into a branch, opened beside this one. This thread goes on from that reply; the branch’s Move back puts them back.`,{label:'Undo',fn:()=>{
     if(!T(fresh.id))return;
     let ch;try{ch=ThreadOps.join(state.conv,[...app.CARDS.values()],fresh.id)}catch(e){toast('This thread has gone on since, so it can’t be undone. The moved part is still a branch.');return}
-    for(const c of ch)putCard(c);dropJoined(fresh.id,tid);refreshAll();renderConvList();
+    for(const c of ch)putCard(c);dropJoined(fresh.id,tid);refreshAll();invalidate('conv-list');
   }});
 }
 /* New conversation from this document: the same file (the same stored asset; a file goes only when nothing uses it),
@@ -468,7 +465,7 @@ async function saveEdit(qid,text){
   if(!text&&!(q.images&&q.images.length))return false;
   q.content=text;q.ver++;
   // a title that came from this question follows it
-  if(tid==='main'&&!state.conv.titleKept&&state.conv.order.main.find(id=>state.conv.msgs[id].role==='user')===qid&&state.conv.title===trunc(old||'Question about an image',120)){state.conv.title=trunc(text||'Question about an image',120);renderTitle()}
+  if(tid==='main'&&!state.conv.titleKept&&state.conv.order.main.find(id=>state.conv.msgs[id].role==='user')===qid&&state.conv.title===trunc(old||'Question about an image',120)){state.conv.title=trunc(text||'Question about an image',120);invalidate('title')}
   if(t.parent&&state.conv.order[tid].find(id=>state.conv.msgs[id].role==='user')===qid&&t.title===trunc(old||'About an image',48)){t.title=trunc(text||'About an image',48);refreshAnchorsFor(tid);updateHeader(tid)}
   let r=replyTo(qid);
   if(!r){r=addMsg(tid,'assistant','');r.pending=true;renderPane(tid);save();await docReady();await generate(r,buildContext(tid,r.id),tid);return true}
@@ -535,7 +532,7 @@ async function bringBack(tid,focus){
   const upTo=(state.conv.order[tid]||[]).filter(id=>state.conv.msgs[id]).at(-1);   // the last message this takeaway sees (takeawayCut)
   const note=addMsg(parent,'note','',{fromThread:tid,focus,upTo});note.pending=true;
   if(!state.conv.ui.open.includes(parent))openThread(parent);
-  state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==parent);layout();
+  state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==parent);invalidate('panes');
   renderPane(parent,true);revealPane(parent);
   await generate(note,ctx,parent);
 }
@@ -599,8 +596,8 @@ function createBranch(mid,anchorText,question,title,range,page,img){
   if(title)t.title=title;else if(question)t.title=trunc(question,48);else{t.title=anchorText?trunc(anchorText,40):'Side question';t.autoTitle=!anchorText}
   state.conv.threads[t.id]=t;state.conv.order[t.id]=[];
   if(isDoc)refreshDocAnchors(t.anchorPage);else{m.ver++;renderPane(parent)}
-  openThread(t.id,parent);renderMap();save();
-  if(state.conv.ui.view==='canvas'){const S=cvState();if(!S.open.includes(t.id))S.open.push(t.id);renderCanvas();focusCard(t.id)}
+  openThread(t.id,parent);invalidate('map');save();
+  if(state.conv.ui.view==='canvas'){const S=cvState();if(!S.open.includes(t.id))S.open.push(t.id);invalidate('canvas');focusCard(t.id)}
   if(question)send(t.id,question);
   else setTimeout(()=>{const ta=state.conv.ui.view==='canvas'?document.querySelector(`#cv .cnode[data-ctid="${t.id}"] .cask textarea`):paneEls.get(t.id)&&paneEls.get(t.id).querySelector('textarea');ta&&ta.focus({preventScroll:state.conv.ui.view==='canvas'})},30);
 }
@@ -615,20 +612,20 @@ function deleteBranch(tid){
   if(state.conv.msgs[t.anchorMsg])state.conv.msgs[t.anchorMsg].ver++;
   if(isDocBranch(t))refreshDocAnchors(t.anchorPage);
   for(const m of Object.values(state.conv.msgs))if(m.role==='note'&&kill.includes(m.fromThread))m.ver++;
-  layout();state.conv.ui.open.forEach(id=>renderPane(id));renderMap();save();
-  if(state.conv.ui.view==='canvas')renderCanvas();
+  invalidate('panes');state.conv.ui.open.forEach(id=>renderPane(id));invalidate('map');save();
+  if(state.conv.ui.view==='canvas')invalidate('canvas');
   toast('Branch deleted');
 }
 function openThread(tid,from){
   const ui=state.conv.ui;
-  if(ui.open.includes(tid)){ui.collapsed=ui.collapsed.filter(x=>x!==tid);layout();revealPane(tid);return}
+  if(ui.open.includes(tid)){ui.collapsed=ui.collapsed.filter(x=>x!==tid);invalidate('panes');revealPane(tid);return}
   const src=from||T(tid).parent;
   if(src&&src!=='main'&&src!=='doc'&&!ui.open.includes(src))openThread(src);   // a closed main or document stays closed: you closed it
   let i=ui.open.indexOf(src);
   if(tid==='main')i=ui.open.indexOf('doc');   // main comes back first (after the document)
   else if(i<0)i=ui.open.length-1;else while(i+1<ui.open.length&&isDesc(ui.open[i+1],src))i++;
   ui.open.splice(i+1,0,tid);
-  layout();renderMap();revealPane(tid);save();
+  invalidate('panes');invalidate('map');revealPane(tid);save();
 }
 // Any pane can close, main and the document included, as long as another stays open. Main thread and the document
 // have rows in the sidebar's Branches that bring them back.
@@ -638,12 +635,12 @@ function closeThread(tid,o={}){
   const kids=tid==='main'||tid==='doc'?[]:ui.open.filter(x=>isDesc(x,tid));   // open branches under it stay open (each one's crumb reopens this pane)
   ui.open=ui.open.filter(x=>x!==tid);ui.collapsed=ui.collapsed.filter(x=>ui.open.includes(x));
   if(!ui.open.some(x=>!isCollapsed(x)))ui.collapsed=[];   // never leave only strips
-  layout();renderMap();save();   // only closes: no scrolling to where it came from (that's Back, in the branch)
+  invalidate('panes');invalidate('map');save();   // only closes: no scrolling to where it came from (that's Back, in the branch)
   if(!kids.length||o.quiet)return;
   const c0=state.conv,name=(t.title||'branch').length>40?(t.title.slice(0,38)+'…'):(t.title||'branch');
   toast(`Closed “${name}”, ${kids.length} branch${kids.length>1?'es':''} under it still open`,
     {label:'Close them too',fn:()=>{if(state.conv!==c0)return;const u=state.conv.ui;u.open=u.open.filter(x=>!kids.includes(x));u.collapsed=u.collapsed.filter(x=>u.open.includes(x));
-      if(!u.open.length)u.open=['main'];layout();renderMap();save()}});
+      if(!u.open.length)u.open=['main'];invalidate('panes');invalidate('map');save()}});
 }
 /* Is this thread's conversation showing? Columns/Rows: its pane is open and not a strip. Canvas: its card is open. */
 function seenNow(tid){
@@ -680,13 +677,13 @@ function toggleCollapse(tid){
     if(ui.open.filter(x=>!isCollapsed(x)).length<=1){toast('At least one pane stays open');return}
     ui.collapsed.push(tid);
   }
-  layout();save();
+  invalidate('panes');save();
 }
 const isFocused=(tid)=>state.conv.ui.open.length>1&&!isCollapsed(tid)&&state.conv.ui.open.every(x=>x===tid||isCollapsed(x));
 function toggleFocus(tid){
   const ui=state.conv.ui;
   if(isFocused(tid))ui.collapsed=[];else ui.collapsed=ui.open.filter(x=>x!==tid);
-  layout();revealPane(tid);save();
+  invalidate('panes');revealPane(tid);save();
 }
 function revealPane(tid){
   const el=paneEls.get(tid);if(!el)return;
@@ -695,7 +692,7 @@ function revealPane(tid){
     if(state.conv.ui.layout==='cols'){if(r.right>pr.right||r.left<pr.left)p.scrollBy({left:r.right>pr.right?r.right-pr.right+12:r.left-pr.left-12,behavior:'smooth'})}
     else{if(r.bottom>pr.bottom||r.top<pr.top)p.scrollBy({top:r.bottom>pr.bottom?r.bottom-pr.bottom+12:r.top-pr.top-12,behavior:'smooth'})}
     el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');
-    setTimeout(wires,350);
+    setTimeout(() => invalidate('wires'),350);
   });
 }
 /* take the user to the exact spot a branch came from */
@@ -705,7 +702,7 @@ function revealAnchor(tid,quiet){
   if(isDocBranch(t)){revealDocAnchor(t,quiet);return}
   if(state.conv.ui.view==='canvas')setView(state.conv.ui.layout);
   if(!state.conv.ui.open.includes(t.parent))openThread(t.parent);
-  if(isCollapsed(t.parent)){state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==t.parent);layout()}
+  if(isCollapsed(t.parent)){state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==t.parent);invalidate('panes')}
   const pe=paneEls.get(t.parent);if(!pe)return;
   requestAnimationFrame(()=>{
     const po=state.conv.order[t.parent],alt=t.alt?po[t.anchorMsg==='START'?0:po.indexOf(t.anchorMsg)+1]:null;
@@ -718,7 +715,7 @@ function revealAnchor(tid,quiet){
     const spans=pe.querySelectorAll(`.anchor[data-tid="${qid(tid)}"]`);
     if(spans.length)spans.forEach(s=>{s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash')});
     else{const m=pe.querySelector(`.msg[data-mid="${qid(alt||t.anchorMsg)}"]`);if(m){m.style.setProperty('--c',color(t));m.classList.remove('flash');void m.offsetWidth;m.classList.add('flash')}}
-    setTimeout(wires,450);
+    setTimeout(() => invalidate('wires'),450);
   });
 }
 function revealMsg(tid,mid){

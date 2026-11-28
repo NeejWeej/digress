@@ -8,8 +8,12 @@ import {
 } from './state.js';
 import { getPending, takePending, renderPending, userMsgBody } from './media.js';
 import { copyText } from './render.js';
+import { invalidate, onRedraw } from './redraw.js';
 
 export function createCanvas() {
+  // the parts of the page this module draws, for invalidate('…') from the others (web/js/redraw.js)
+  onRedraw('canvas', renderCanvas);
+  onRedraw('edges-soon', drawEdgesSoon);
   const altLine = (...a) => app.altLine(...a);
   const applyAnchors = (...a) => app.applyAnchors(...a);
   const askConfirm = (...a) => app.askConfirm(...a);
@@ -28,8 +32,6 @@ export function createCanvas() {
   const hidePop = (...a) => app.hidePop(...a);
   const holdScroll = (...a) => app.holdScroll(...a);
   const joinable = (...a) => app.joinable(...a);
-  const layout = (...a) => app.layout(...a);
-  const markReplies = (...a) => app.markReplies(...a);
   const msgKey = (...a) => app.msgKey(...a);
   const openDocPane = (...a) => app.openDocPane(...a);
   const openReplyMenu = (...a) => app.openReplyMenu(...a);
@@ -37,7 +39,6 @@ export function createCanvas() {
   const openUsage = (...a) => app.openUsage(...a);
   const placeDocPane = (...a) => app.placeDocPane(...a);
   const redo = (...a) => app.redo(...a);
-  const renderMap = (...a) => app.renderMap(...a);
   const renderMermaid = (...a) => app.renderMermaid(...a);
   const renderPane = (...a) => app.renderPane(...a);
   const renderRich = (...a) => app.renderRich(...a);
@@ -276,7 +277,7 @@ function renderCanvas(){
   applyStack();
   drawEdges();
   if(!camFitted){fitCanvas();camFitted=true}else applyCam();
-  markHere();placeDocPane();markReplies();
+  markHere();placeDocPane();invalidate('badges');
 }
 let edgeRAF=0;
 function drawEdgesSoon(){if(!edgeRAF)edgeRAF=requestAnimationFrame(()=>{edgeRAF=0;drawEdges()})}
@@ -408,7 +409,7 @@ function keyClose(tid){
   const c0=state.conv;
   toast(`Closed ${name}.`,{label:'Undo',fn:()=>{if(state.conv!==c0)return;const u=state.conv.ui;
     u.open=before.open.filter(x=>x==='doc'?!!state.conv.doc:!!T(x));u.collapsed=before.collapsed.filter(x=>u.open.includes(x));
-    lastPane={cid:state.conv.id,tid};layout();renderMap();revealPane(tid);save();markCur()}});
+    lastPane={cid:state.conv.id,tid};invalidate('panes');invalidate('map');revealPane(tid);save();markCur()}});
 }
 let camAnim=0;
 function animateCam(tx,ty){
@@ -777,7 +778,7 @@ function closeViews(){const m=$('#cvViews');if(m)m.classList.remove('open')}
 })();
 function openFromCanvas(tid,mid){
   setView(state.conv.ui.layout);
-  openThread(tid);state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==tid);layout();
+  openThread(tid);state.conv.ui.collapsed=state.conv.ui.collapsed.filter(x=>x!==tid);invalidate('panes');
   if(mid)revealMsg(tid,mid);
 }
 function setView(v){
@@ -788,7 +789,7 @@ function setView(v){
   else{
     const was=state.conv.ui.view;state.conv.ui.view='panes';$('#stage').classList.remove('canvas');
     if(v!==state.conv.ui.layout){state.conv.ui.layout=v;state.conv.ui.sizes={}}
-    layout();if(was==='canvas'){state.conv.ui.open.forEach(id=>renderPane(id));
+    invalidate('panes');if(was==='canvas'){state.conv.ui.open.forEach(id=>renderPane(id));
       for(const [,el] of paneEls){const pb=el.querySelector(':scope>.pb');if(pb&&el.__viewTop!=null&&el.isConnected&&Math.abs(pb.scrollTop-el.__viewTop)>1)holdScroll(pb,el.__viewTop);el.__viewTop=null}}
   }
   syncViewSeg();save();
@@ -807,7 +808,7 @@ function branchOrder(){
   const walk=(tid)=>{if(open.includes(tid))out.push(tid);for(const c of children(tid))walk(c.id)};walk('main');
   for(const x of open)if(!out.includes(x))out.push(x);return out;
 }
-$('#resetOrder').addEventListener('click',()=>{state.conv.ui.open=branchOrder();layout();save()});
+$('#resetOrder').addEventListener('click',()=>{state.conv.ui.open=branchOrder();invalidate('panes');save()});
 
 
   return {

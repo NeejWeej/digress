@@ -109,7 +109,7 @@ const {
   versionsOf, openVersions, useVersion, redo, startMainOver, movedOn, joinable,
   versionAfter, versionWhere, replyMenuItems, openReplyMenu, closeReplyMenu, newFromDoc,
   startEdit, takeawayCuts, tkcutEl, goToTakeaway, goToTakeawaySource, bringBack,
-  crossPageText, createBranch, deleteBranch, openThread, closeThread, markReplies,
+  crossPageText, createBranch, deleteBranch, openThread, closeThread,
   toggleCollapse, isFocused, toggleFocus, revealPane, revealAnchor, revealMsg,
 } = createGeneration();
 
@@ -172,14 +172,14 @@ const {
   updateComposer, fitOrigin, originRO, updateHeader, altLine, sysScope,
   paneZoom, applyPaneZoom, editZoom, setPaneZoom, stepPaneZoom,
   renderPane, refreshAnchorsFor, docInDock, placeDocPane, layout,
-  wiresSoon, wires, closeRailStack,
+  wiresSoon, closeRailStack,
 } = PANES_MOD;
 
 /* ---------- canvas view (web/js/canvas.js) ---------- */
 const CANVAS_MOD = createCanvas();
 const {
   cam, CW, kidsOf, cvState, descendants, applyCam, replyAct, statusDot,
-  renderCanvas, drawEdgesSoon, fitCanvas, focusCard,
+  renderCanvas, fitCanvas, focusCard,
   clearHere, curPane, markCur, keyClose, contentScale, REGIONS,
   placeDocked, dockCard, restoreCard, canvasRevealSource, canvasAction,
   syncViewsUI, closeViews, setView, tabName, syncViewSeg,
@@ -1370,23 +1370,23 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 eSel.onchange=()=>{settings.effort=eSel.value;if(stickLlm(pickerTid())&&hasMsgs())save()};
 /* ---------- cross-module action registry ---------- */
 Object.assign(app, {
-  toast, lightbox, loadScript, linkPages, wiresSoon, renderRich,
-  imageBlob, imageURL, storeImages, renderConvList, openActivity,
+  toast, lightbox, loadScript, linkPages, renderRich,
+  imageBlob, imageURL, storeImages, openActivity,
   cvState, REGIONS, contentScale, save, catchUp, docReady,
   buildContext, resolveContext, modelFor, runDocTool,
   trashLeft, openConv, restoreConv, dockCard, openDocPane, goToPage, focusCard,
-  revealAnchor, openThread, layout, revealPane, revealMsg,
+  revealAnchor, openThread, revealPane, revealMsg,
   clearHit, docImgRef, regionRef,
   updateComposer, hidePop, openImagePop, openDocImgPop, openDocShotPop,
   CW, STOP, applyPaneZoom, brCount, curPane, descendants, docInDock, flushNow,
   hideTip, idxWrite, importDigress, isDigressFile, isFocused, leaveOk, markBack,
-  originRO, paneZoom, rememberSpot, renderCanvas, renderMap, renderMermaid,
-  renderTitle, setConv, setView, showQuote, updateHeader, updateJump, wires, wrapText,
+  originRO, paneZoom, rememberSpot, renderMermaid,
+  setConv, setView, showQuote, updateHeader, updateJump, wrapText,
   DOC_STARTERS, READ_LINE, REDO_WHY, altLine, applyAnchors, askConfirm, branchChips,
   bringBack, buildFoot, buildPdfPages, closeThread, continueReply, createBranch,
   docBranches, docPagesLabel, docPaneEl, docReads, docSpotNow, docThumbUrl, docView,
-  docViewReady, drawEdgesSoon, editKeep, editZoom, holdScroll, joinable, markCardButtons,
-  markCur, markReplies, movedOn, msgKey, openReplyMenu, openUsage, ownSys, placeDocPane,
+  docViewReady, editKeep, editZoom, holdScroll, joinable, markCardButtons,
+  markCur, movedOn, msgKey, openReplyMenu, openUsage, ownSys, placeDocPane,
   putDocSpot, questionOf, redo, redoBlock, redoKeep, refreshDocAnchors, renderDocPane,
   renderPane, replyMenuItems, retry, retryBlock, revealDocAnchor, scrollDocToPage, send,
   setConvSystem, setStatus, stopReply, streamInto, syncPicker, syncViewSeg, takeawayCuts,

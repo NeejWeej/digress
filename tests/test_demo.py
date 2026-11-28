@@ -28,6 +28,14 @@ SELECT_PDF = """([page, phrase]) => { const tl = document.querySelector(`.dpage[
   const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.dispatchEvent(new MouseEvent('mouseup', {bubbles: true})); return 'ok'; }"""
 
 
+async def pdf_settled(pg):
+    """Before a reload or navigation: if the open conversation has a PDF, wait until it is drawn. WebKit reports PDF.js's
+    library and worker loads cut off by the reload as an uncaught 'access control checks' error in the outgoing page; a
+    person would see the PDF first too. A conversation without a PDF (or none open yet) needs no wait."""
+    await pg.wait_for_function("(() => { const c = window.__digress && __digress.conv; if (!c) return false;"
+                               " if (!(c.doc && c.doc.kind === 'pdf')) return true; return " + PDF_DRAWN_JS + " })()", timeout=30000)
+
+
 async def main():
     with tempfile.TemporaryDirectory() as site:
         build_site(site)
@@ -120,7 +128,7 @@ async def main():
             await soon(pg, "()=>__digress.sync.sent&&!document.querySelector('#status').textContent.includes('Saving')")
             await pg.wait_for_timeout(500)   # (deliberate: let the last save land)
             n1 = await pg.evaluate("Object.keys(__digress.conv.msgs).length")
-            await pg.reload(); await booted(pg)
+            await pdf_settled(pg); await pg.reload(); await booted(pg)
             await soon(pg, "()=>__digress.conv&&__digress.conv.title.startsWith('Bayes')")
             check('what you did is still there after a reload', await pg.evaluate("Object.keys(__digress.conv.msgs).length") == n1 and n1 > n0, [n0, n1])
 
@@ -128,13 +136,14 @@ async def main():
             cards = await pg.evaluate("fetch('api/store/cards').then(r=>r.json()).then(l=>l.length)")
             seed_path = os.path.join(site, 'demo', 'seed.json'); seed = json.load(open(seed_path))
             seed['v'] += '-newer'; json.dump(seed, open(seed_path, 'w'))
-            await pg.reload(); await booted(pg); await soon(pg, "()=>__digress.conv&&__digress.conv.title.startsWith('Bayes')")
+            await pdf_settled(pg); await pg.reload(); await booted(pg); await soon(pg, "()=>__digress.conv&&__digress.conv.title.startsWith('Bayes')")
             left = await pg.evaluate("fetch('api/store/cards').then(r=>r.json()).then(l=>l.length)")
             check('a newer sample replaces the old, and the cards made from it go too (none left pointing at nothing)', cards > 0 and left == 0 and not await pg.locator('#reviewBtn').is_visible(), [cards, left])
             n0 = await pg.evaluate("Object.keys(__digress.conv.msgs).length")
 
             # Start over: back to the sample as it was
             pg.once('dialog', lambda d: asyncio.ensure_future(d.accept()))
+            await pdf_settled(pg)
             async with pg.expect_navigation():   # the reload, not the page before it (which also passes the check below)
                 await note.locator('[data-demo=reset]').first.click()
             await pg.wait_for_function("!!window.__booted&&!!window.__digress&&!!__digress.conv&&__digress.conv.title.startsWith('Bayes')", timeout=30000)
@@ -164,14 +173,14 @@ async def main():
             await pg.mouse.move(box0['x'] + 500, box0['y'] - 300, steps=8); await pg.mouse.up()
             box1 = await note.bounding_box()
             check('the demo note can be dragged out of the way', box1['x'] > box0['x'] + 400 and box1['y'] < box0['y'] - 200, [box0, box1])
-            await pg.reload(); await booted(pg)
+            await pdf_settled(pg); await pg.reload(); await booted(pg)
             box2 = await pg.locator('#demoNote').bounding_box()
             check('…and stays there after a reload', abs(box2['x'] - box1['x']) < 3 and abs(box2['y'] - box1['y']) < 3, [box1, box2])
 
             # the note can be hidden completely, stays hidden across a reload, and comes back from the sidebar
             await note.locator('[data-demo=dismiss]').first.click(); await frames(pg)
             check('the demo note can be hidden completely', not await note.is_visible())
-            await pg.reload(); await booted(pg)
+            await pdf_settled(pg); await pg.reload(); await booted(pg)
             check('…and stays hidden after a reload', not await pg.locator('#demoNote').is_visible())
             await pg.locator('#demoSide [data-demo=toggle-note]').click(); await frames(pg)
             check('…and comes back from the sidebar', await pg.locator('#demoNote').is_visible())
