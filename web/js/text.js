@@ -74,7 +74,9 @@ export function idxPages(d) {
   const n = Math.max(0, ...by.keys()); return Array.from({ length: n }, (_, i) => (by.get(i + 1) || []).sort((a, b) => (a.n || 0) - (b.n || 0)).map(e => e.x.slice(e.o || 0)).join(' '));
 }
 
-export function sigOf(E) { const s = JSON.stringify(E); let h = 0; for (let i = 0; i < s.length; i += 3) h = (h * 31 + s.charCodeAt(i)) | 0; return s.length + ':' + h; }
+// a signature of the index entries, to skip writing an unchanged index: every character counts (it once sampled
+// every third, so a one-letter edit could keep the signature and leave search stale), in two 32-bit hashes
+export function sigOf(E) { const s = JSON.stringify(E); let h = 0, g = 0x811c9dc5; for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); h = (h * 31 + c) | 0; g = Math.imul(g ^ c, 16777619); } return s.length + ':' + (h >>> 0).toString(36) + (g >>> 0).toString(36); }
 
 /* The text of root as one string, with each text node's offset in it, for finding a quote and putting a Range on
    it. A PDF's text layer is a span per line with a <br> between them and no space at the line's end, so read

@@ -72,6 +72,7 @@ const MAX_TOKENS = Number(process.env.MAX_TOKENS || 16000);
 const MAX_UPLOAD = Number(process.env.MAX_UPLOAD_MB || 50) * 1024 * 1024;
 const MAX_JSON = 8 * 1024 * 1024;
 const MAX_CHAT_JSON = 64 * 1024 * 1024; // a conversation can carry images (snips, pages, screenshots), each up to 5 MB
+const MAX_STORE_JSON = 64 * 1024 * 1024; // a saved conversation and its search index grow with it (~20 KB a clipped branch: 8 MB was ~390 branches)
 const WEB = path.join(ROOT, 'web', 'index.html');
 const COLLECTIONS = new Set(['convs', 'index', 'cards', 'skills', 'prompts']); // cards: flashcards, kept apart from conversations because review spans all of them; skills: SKILL.md files added in the app; prompts: the reader's own system prompt and quick questions ('custom')
 const FILE_TYPES = new Set(['application/pdf', 'text/markdown', 'text/plain', ...IMAGE_TYPES]); // images: pasted screenshots (no SVG: it can carry scripts)
@@ -125,11 +126,19 @@ async function sendStatic(req, res, file, contentType, headers = {}, transform =
 }
 const fail = (res, status, error) => send(res, status, { error });
 
+// Past the limit the rest is read and thrown away, so the 413 reaches the page (destroying the socket at once
+// left it a dropped connection, which the page took for being offline and retried for ever); past twice the
+// limit, it's cut off anyway.
 function readBody(req, limit) {
   return new Promise((resolve, reject) => {
-    const chunks = []; let size = 0;
-    req.on('data', (c) => { size += c.length; if (size > limit) { reject(Object.assign(new Error('too large'), { status: 413 })); req.destroy(); } else chunks.push(c); });
-    req.on('end', () => resolve(Buffer.concat(chunks)));
+    const chunks = []; let size = 0, over = false;
+    const tooLarge = () => Object.assign(new Error('too large'), { status: 413 });
+    req.on('data', (c) => {
+      size += c.length;
+      if (size > limit) { over = true; chunks.length = 0; if (size > limit * 2 + (1 << 20)) { reject(tooLarge()); req.destroy(); } }
+      else chunks.push(c);
+    });
+    req.on('end', () => (over ? reject(tooLarge()) : resolve(Buffer.concat(chunks))));
     req.on('error', reject);
   });
 }
@@ -897,7 +906,7 @@ async function route(req, res) {
     if (req.method === 'GET' && url.searchParams.has('rev')) { const rev = db.getRev(coll, id); return rev === null ? fail(res, 404, 'Not found') : send(res, 200, { rev }); }
     if (req.method === 'GET') { const d = readDoc(coll, id); return d === null ? fail(res, 404, 'Not found') : sendJson(req, res, 200, d); }
     if (req.method === 'PUT') {
-      const d = await readJson(req); if (!d || typeof d !== 'object' || Array.isArray(d)) return fail(res, 400, 'Body must be an object');
+      const d = await readJson(req, coll === 'convs' || coll === 'index' ? MAX_STORE_JSON : MAX_JSON); if (!d || typeof d !== 'object' || Array.isArray(d)) return fail(res, 400, 'Body must be an object');
       if (coll !== 'convs') { db.putDoc(coll, id, d); return send(res, 200, { ok: true }); }
       const r = db.saveConv(id, d, req.headers['x-base-rev']);
       if (r.status === 410) return fail(res, 410, r.error);

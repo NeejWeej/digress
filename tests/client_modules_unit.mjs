@@ -121,6 +121,16 @@ test('passages, indexEntries, idxPages, sigOf round-trip cleanly', () => {
   assert.equal(sigOf(entries), sigOf(entries));
 });
 
+test('sigOf notices a same-length one-character change at any position', () => {
+  const base = Array.from({ length: 30 }, (_, i) => ({ k: 'a', x: `passage number ${i} about attention` }));
+  const s0 = sigOf(base);
+  for (let at = 0; at < 9; at++) {   // consecutive positions, so every residue mod 3 (the old signature sampled every third character)
+    const e = base.map((x) => ({ ...x })); const x = e[7].x; e[7].x = x.slice(0, 5 + at) + (x[5 + at] === 'q' ? 'w' : 'q') + x.slice(6 + at);
+    assert.equal(e[7].x.length, base[7].x.length);
+    assert.notEqual(sigOf(e), s0, `value change ${at}`);
+  }
+});
+
 // --- share.js ---
 await test('share.js: encode/decode round-trips conversations and parses #share= hashes', async () => {
   const sample = { digress: 1, conversations: [{ id: 'c1', title: 'Hello 🌍', msgs: { m1: { role: 'user', content: 'Hi' } } }], cards: [], files: {} };

@@ -666,6 +666,8 @@ function markReplies(){
     const host=el.querySelector('.rs-inner');
     put(host,host&&host.querySelector('.rs-count'),agg,el);
   });
+  // the open stack's popover: each row its own (writing, or Ready), at the row's end
+  document.querySelectorAll('.rspop .rsitem[data-rstid]').forEach(n=>{const g=n.querySelector('.rsgo');put(g,null,n.dataset.rstid==='doc'?'':st(n.dataset.rstid))});
   document.querySelectorAll('#cv .cnode[data-ctid]').forEach(n=>{const ch=n.querySelector('.ch');put(ch,ch&&ch.querySelector('.ct')&&ch.querySelector('.ct').nextSibling,st(n.dataset.ctid),n)});
   document.querySelectorAll('#tree .mnode[data-map]').forEach(n=>put(n,n.querySelector('.mc'),st(n.dataset.map)));
 }
