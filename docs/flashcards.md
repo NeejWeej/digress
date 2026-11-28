@@ -10,9 +10,15 @@ Open the cards panel with the cards button in the main pane's header and choose 
 to that conversation only. **Turn off for this conversation** (at the bottom of the panel) stops new
 drafts; cards you already have stay.
 
+Next to it, **Draft automatically** (on by default) decides whether cards are drafted on their own. Untick it and
+nothing happens in the background: no drafts after a highlight's first answer or a takeaway, and the model
+isn't offered `suggest_card`. Cards come only when you ask (**Cards** on a branch, **Make cards**, **Draft
+more**), and review, the inbox and Fix… work as before. Useful for a conversation like your Twitter clippings,
+where most branches aren't worth cards but a few are.
+
 ## Where cards come from
 
-Once they're on, the model drafts cards on its own from the moments that show what you cared about:
+Once they're on (and **Draft automatically** is ticked), the model drafts cards on its own from the moments that show what you cared about:
 
 - **A highlight you branched from.** When a side branch about a highlighted passage gets its first answer,
   the model drafts cards from that branch.

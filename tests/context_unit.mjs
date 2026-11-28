@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import {
   DOC_FIRST, DOC_TOOL_NAMES,
-  fullSysOf, buildContext, listSources, resumeSourceLists, joinParts, appendText, safeDocSource,
+  fullSysOf, buildContext, cardToolOf, cardsAuto, listSources, resumeSourceLists, joinParts, appendText, safeDocSource,
 } from '../web/js/context.js';
 
 // Load real web/prompts.js and web/threads.js (classic browser globals) into a sandboxed VM.
@@ -85,6 +85,20 @@ test('prompt-cache prefix stability: system prompt is identical across main, rep
   assert.equal(cMain.system, cClip.system);
   assert.deepEqual(cMain.docSeen, { of: 3, all: true, tools: true });
   assert.deepEqual(cMain.tools, [...DOC_TOOL_NAMES, 'suggest_card']);
+});
+
+test('cardToolOf: suggest_card only with cards on, drafting automatic (auto missing = true) and a tool-capable model', () => {
+  const io = { llm: { supportsTools: true } };
+  assert.deepEqual(cardToolOf({ cards: { on: true } }, io), ['suggest_card']);
+  assert.deepEqual(cardToolOf({ cards: { on: true, auto: true } }, io), ['suggest_card']);
+  assert.deepEqual(cardToolOf({ cards: { on: true, auto: false } }, io), []);
+  assert.deepEqual(cardToolOf({ cards: { on: false } }, io), []);
+  assert.deepEqual(cardToolOf({}, io), []);
+  assert.deepEqual(cardToolOf({ cards: { on: true } }, { llm: { supportsTools: false } }), []);
+  assert.deepEqual(cardToolOf({ cards: { on: true } }, io, { tools: false }), []);
+  assert.equal(cardsAuto({ cards: { on: true } }), true);
+  assert.equal(cardsAuto({ cards: { on: true, auto: false } }), false);
+  assert.equal(cardsAuto({ cards: { on: false, auto: true } }), false);
 });
 
 test('prompt-cache stability: toggling Web only affects excludeMid, never earlier turns', () => {
