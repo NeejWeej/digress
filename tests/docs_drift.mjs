@@ -61,7 +61,8 @@ function settingsTable() {
 const table = settingsTable();
 const envRead = {}; // NAME -> [files]
 for (const [f, src] of Object.entries(serverSrc)) {
-  for (const m of src.matchAll(/process\.env\.([A-Z][A-Z0-9_]*)/g)) (envRead[m[1]] ||= new Set()).add(f);
+  // process.env.X, or env.X in the files the demo also runs (env = globalThis.process.env there: see content.mjs)
+  for (const m of src.matchAll(/(?<![\w.])(?:process\.)?env\.([A-Z][A-Z0-9_]*)/g)) (envRead[m[1]] ||= new Set()).add(f);
 }
 
 test('settings: every variable the server reads is in the settings table or UNDOCUMENTED', () => {
@@ -94,7 +95,7 @@ function evalNumber(expr) {
 function codeDefaults(name) {
   const out = [];
   for (const [f, src] of Object.entries(serverSrc)) {
-    const re = new RegExp(`(Number\\(\\s*)?process\\.env\\.${name}\\s*(?:\\|\\||\\?\\?)\\s*(?:'([^']*)'|"([^"]*)"|([0-9_]+(?:\\s*\\*\\s*[0-9_]+)*))\\s*(?=[),;*])`, 'g');
+    const re = new RegExp(`(Number\\(\\s*)?(?<![\\w.])(?:process\\.)?env\\.${name}\\s*(?:\\|\\||\\?\\?)\\s*(?:'([^']*)'|"([^"]*)"|([0-9_]+(?:\\s*\\*\\s*[0-9_]+)*))\\s*(?=[),;*])`, 'g');
     for (const m of src.matchAll(re)) {
       if (m[1] && m[4] !== undefined) out.push({ f, value: evalNumber(m[4]) });
       else if (!m[1] && m[4] === undefined && (m[2] || m[3])) out.push({ f, value: m[2] ?? m[3] });

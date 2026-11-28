@@ -5,15 +5,24 @@
 // The key is sent in the x-goog-api-key header (never in the URL). Free-tier keys: Google may use what's sent to
 // improve its products, and Google Search isn't available on the free tier (Google's terms and pricing pages);
 // the page says so where the models are picked.
+//
+// The demo runs this same file in the browser, with the visitor's key (demo/build.mjs copies it, with doctools.mjs
+// and content.mjs): no Node APIs here. Its settings come from the environment where there is one, and the demo
+// passes its own fetch (configure); the reply is written through an `io` the caller gives (chat, below).
 import { MAX_TOOL_ROUNDS } from './doctools.mjs';
+import { sourcesLine } from './content.mjs';
 
-export const API = (process.env.GEMINI_API_BASE || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, '');
-const MAX_OUTPUT = Number(process.env.MAX_TOKENS || 16000);
+const env = (globalThis.process && globalThis.process.env) || {};
+export const API = (env.GEMINI_API_BASE || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/$/, '');
+const MAX_OUTPUT = Number(env.MAX_TOKENS || 16000);
+let doFetch = (...a) => globalThis.fetch(...a);
+// the demo's page answers its own /api/* with a patched window.fetch: it hands this the real one
+export function configure({ fetch } = {}) { if (fetch) doFetch = fetch; }
 // When Google is overloaded it sometimes says so at once (503 "high demand") and sometimes doesn't answer at all. A
 // quick refusal is tried again (twice, a moment apart, as Google suggests); no answer at all ends after WAIT_MS with
 // a plain message, rather than "thinking" for minutes. Both only before the reply starts.
-const WAIT_MS = Number(process.env.GEMINI_WAIT_MS || 90000);
-const RETRY_MS = Number(process.env.GEMINI_RETRY_MS || 2000);
+const WAIT_MS = Number(env.GEMINI_WAIT_MS || 90000);
+const RETRY_MS = Number(env.GEMINI_RETRY_MS || 2000);
 
 // Markdown links to Google Search's result redirects in a reply's text: [title](https://vertexaisearch.cloud.google.com/grounding-api-redirect/…)
 const REDIRECT = /\[([^\]\n]{1,300})\]\((https:\/\/vertexaisearch\.cloud\.google\.com\/grounding-api-redirect\/[A-Za-z0-9_\-=%.~]+)\)/g;
@@ -38,7 +47,7 @@ export async function listModels(key) {
   if (cache && cache.key === key && Date.now() - cache.at < 10 * 60 * 1000) return cache.list;
   let list = [];
   try {
-    const r = await fetch(API + '/models?pageSize=1000', { headers: { 'x-goog-api-key': key } });
+    const r = await doFetch(API + '/models?pageSize=1000', { headers: { 'x-goog-api-key': key } });
     if (r.ok) {
       const ms = ((await r.json()).models || []).filter((m) => /^models\/gemini/.test(m.name || '') && (m.supportedGenerationMethods || []).includes('generateContent') && !SPECIAL.test(m.name));
       list = ms.map((m) => [m.name.slice(7), m.displayName || m.name.slice(7)]);
@@ -48,10 +57,16 @@ export async function listModels(key) {
   cache = { key, at: Date.now(), list };
   return list;
 }
+// the model a reply uses when none is chosen: the one chosen in the app if this key still offers it, else Google's
+// first (the server's builtinDefault and the demo alike)
+export function defaultModel(list, chosen) {
+  if (chosen && chosen !== 'auto' && list.some(([id]) => id === chosen)) return chosen;
+  return list.length ? list[0][0] : null;
+}
 // is this key accepted? -> {ok} | {error}
 export async function checkKey(key) {
   try {
-    const r = await fetch(API + '/models?pageSize=1', { headers: { 'x-goog-api-key': key } });
+    const r = await doFetch(API + '/models?pageSize=1', { headers: { 'x-goog-api-key': key } });
     if (r.ok) return { ok: true };
     return { error: errorMessage(await r.text(), r.status) };
   } catch (e) { return { error: 'Could not reach Google: ' + e.message }; }
@@ -111,15 +126,19 @@ export function errorMessage(txt, status, web) {
 const NO_ANSWER = `Gemini hasn’t answered in ${Math.round(WAIT_MS / 1000)} seconds (Google may be overloaded). Try again in a little while, or pick another model.`;
 
 // ---- the reply ----------------------------------------------------------------------------------
-// payload = {system, messages, model, effort, web, session}; key: the API key; h = {startStream, sourcesLine, fail}
-export async function chat(payload, res, h, key) {
+// payload = {system, messages, model, effort, web, session}; key: the API key.
+// io: where the reply goes, so the server (an HTTP response) and the demo (a stream in the page) share all of this:
+//   onClose(fn): fn runs if the reader goes away (Stop, the page closed) · fail(status, message): refuse before the
+//   reply starts · start() -> out(line): the reply has started · end()
+export async function chat(payload, io, key) {
   const ctrl = new AbortController();
-  res.on('close', () => { if (!res.writableFinished) ctrl.abort(); });   // Stop pressed or page closed
+  io.onClose(() => ctrl.abort());   // Stop pressed or page closed
   let contents = toGemini(payload.messages), final = false, withEffort = true, withSearch = true;
   const once = async () => {
+    if (ctrl.signal.aborted) throw new DOMException('Aborted', 'AbortError');   // stopped: no new request
     const t = setTimeout(() => ctrl.abort(new Error('no answer')), WAIT_MS);
     try {
-      return await fetch(`${API}/models/${encodeURIComponent(payload.model)}:streamGenerateContent?alt=sse`, {
+      return await doFetch(`${API}/models/${encodeURIComponent(payload.model)}:streamGenerateContent?alt=sse`, {
         method: 'POST', signal: ctrl.signal, redirect: 'error',
         headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
         body: JSON.stringify(requestBody({ ...payload, contents, final }, withEffort, withSearch)),
@@ -127,7 +146,7 @@ export async function chat(payload, res, h, key) {
     } finally { clearTimeout(t); }
   };
   let stopped = false;
-  res.on('close', () => { if (!res.writableFinished) stopped = true; });
+  io.onClose(() => { stopped = true; });
   // a quick 503 is tried again, at most twice
   const send = async () => {
     for (let i = 0; ; i++) {
@@ -147,26 +166,28 @@ export async function chat(payload, res, h, key) {
       const txt = await up.text();
       if (withEffort && /thinking/i.test(txt)) withEffort = false;
       else if (withSearch && payload.web && payload.session && SEARCH_REFUSED.test(txt)) withSearch = false;
-      else return h.fail(res, 400, errorMessage(txt, 400));
+      else return io.fail(400, errorMessage(txt, 400));
       up = await send();
     }
   } catch (e) {
     if (stopped) return;
-    if (ctrl.signal.aborted) return h.fail(res, 504, NO_ANSWER);
-    return h.fail(res, 502, 'Could not reach Google: ' + e.message);
+    if (ctrl.signal.aborted) return io.fail(504, NO_ANSWER);
+    return io.fail(502, 'Could not reach Google: ' + e.message);
   }
-  if (!up.ok) return h.fail(res, up.status === 401 ? 502 : up.status, errorMessage(await up.text(), up.status, payload.web && withSearch));
+  if (!up.ok) return io.fail(up.status === 401 ? 502 : up.status, errorMessage(await up.text(), up.status, payload.web && withSearch));
 
-  const out = h.startStream(res);
+  const out = io.start();
   if (payload.session) payload.session.out = out;
   const st = { model: null, any: false, usage: null, end: null, text: '', gotSources: false, grounding: null };
-  const sources = (list) => { const s = h.sourcesLine(list); if (s) { st.gotSources = true; out(s); } };
+  const sources = (list) => { const s = sourcesLine(list); if (s) { st.gotSources = true; out(s); } };
   for (let round = 0; ; round++) {
     const modelParts = [], calls = [];
     let finish = null, searched = new Set();
     try {
-      const dec = new TextDecoder(); let buf = '';
-      for await (const chunk of up.body) {
+      const dec = new TextDecoder(), rd = up.body.getReader(); let buf = '';   // (a reader: a browser's stream may not be async-iterable)
+      for (;;) {
+        const { value: chunk, done } = await rd.read();
+        if (done) break;
         buf += dec.decode(chunk, { stream: true });
         let i;
         while ((i = buf.indexOf('\n')) >= 0) {
@@ -195,7 +216,7 @@ export async function chat(payload, res, h, key) {
         }
       }
     } catch (e) {
-      if (ctrl.signal.aborted) return res.end();
+      if (ctrl.signal.aborted) return io.end();
       st.end = { error: 'The connection to Gemini was interrupted.' };
     }
     // token counts: ctx is the last request's input (each tool round resends everything), out across all of them
@@ -210,8 +231,9 @@ export async function chat(payload, res, h, key) {
       if (round + 1 >= MAX_TOOL_ROUNDS) final = true;
       const resp = [];
       for (const fc of calls) resp.push(...resultParts(await payload.session.call(fc.name, fc.args || {}), fc.name, fc.id));
+      if (stopped || ctrl.signal.aborted) return io.end();   // stopped while the tools ran: ask Google nothing more
       contents = [...contents, { role: 'model', parts: modelParts }, { role: 'user', parts: resp }];
-      try { up = await send(); } catch (e) { if (stopped) return res.end(); st.end = { error: ctrl.signal.aborted ? NO_ANSWER : 'Could not reach Google: ' + e.message }; break; }
+      try { up = await send(); } catch (e) { if (stopped) return io.end(); st.end = { error: ctrl.signal.aborted ? NO_ANSWER : 'Could not reach Google: ' + e.message }; break; }
       if (!up.ok) { st.end = { error: errorMessage(await up.text(), up.status, payload.web && withSearch) }; break; }
       continue;
     }
@@ -226,12 +248,12 @@ export async function chat(payload, res, h, key) {
     if (!st.gotSources && payload.web) {
       const found = groundedLinks(st.text);
       if (found.length) {
-        if (process.env.DEV) console.warn(`gemini: no grounding sources came (grounding keys: ${st.grounding ? st.grounding.join(',') || 'none' : 'no groundingMetadata'}); took ${found.length} from the reply's links`);
+        if (env.DEV) console.warn(`gemini: no grounding sources came (grounding keys: ${st.grounding ? st.grounding.join(',') || 'none' : 'no groundingMetadata'}); took ${found.length} from the reply's links`);
         sources(found);
       }
     }
     const w = windows.get(payload.model), u = st.usage;
     out({ done: true, model: payload.model, truncated: !!(st.end && st.end.truncated), ...(u ? { usage: { ctx: u.ctx, cached: u.cached, out: u.out, rounds: u.rounds, ...(w ? { window: w } : {}) } } : {}) });
   }
-  res.end();
+  io.end();
 }

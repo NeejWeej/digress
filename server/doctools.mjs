@@ -14,10 +14,12 @@
 // The agentic loop itself is in each provider: chatViaApi (server.mjs) and chat (chatgpt.mjs) send the
 // request, and while the model's reply stops on tool calls they run them through session.call and send
 // the results back; Claude Code runs its own loop and calls the tools through handleMcp below.
-import crypto from 'node:crypto';
-import { IMAGE_TYPES, MAX_IMAGE_BYTES, isImage } from './content.mjs';
+import { IMAGE_TYPES, MAX_IMAGE_BYTES, isImage, fromBase64 } from './content.mjs';
 
-export const MAX_TOOL_CALLS = Number(process.env.MAX_TOOL_CALLS || 30);
+// (no Node APIs: the demo runs this file in the browser too; see content.mjs)
+const env = (globalThis.process && globalThis.process.env) || {};
+const randHex = (n) => Array.from(globalThis.crypto.getRandomValues(new Uint8Array(n)), (x) => x.toString(16).padStart(2, '0')).join('');
+export const MAX_TOOL_CALLS = Number(env.MAX_TOOL_CALLS || 30);
 // requests per answer in a tool loop, the same for every provider: past MAX_TOOL_CALLS the model is told to
 // answer, so it needs a round or two more; this only stops a model that keeps calling anyway. A model still
 // calling tools then gets one last request with the tools switched off (tool_choice none), so it has to answer
@@ -57,7 +59,7 @@ for (const t of DOC_TOOLS) t.description += BUDGET;
 // Suggesting flashcards: offered only in a conversation with flashcards on (the page asks for it then), and the
 // page refuses it otherwise. The cards go to the learner's inbox, never straight into review. Its own limit,
 // apart from the document tools' budget.
-export const MAX_CARD_CALLS = Number(process.env.MAX_CARD_CALLS || 10);
+export const MAX_CARD_CALLS = Number(env.MAX_CARD_CALLS || 10);
 export const CARD_TOOL = {
   name: 'suggest_card',
   description: `Suggest one flashcard for the learner's spaced-repetition review, when something in this conversation is worth remembering for months: a key idea, a definition, a reason, or a misunderstanding the learner just cleared up. It goes to their inbox, where they keep it or throw it away; it doesn't interrupt them, and you don't need to mention it in your answer unless they ask. Use it when you judge a point has landed, not on every reply, and don't suggest the same thing twice. "front" asks one specific question, understandable on its own months from now; "back" is a short answer (one to three sentences; Markdown and LaTeX are fine); "quote" is the one sentence (under 40 words) in this conversation or the document that the answer rests on, copied word for word: leave it out rather than paraphrase. Call it once per card, at most ${MAX_CARD_CALLS} per answer. It only works while the learner has flashcards on for this conversation.`,
@@ -89,7 +91,7 @@ const failed = (text) => ({ error: true, parts: [{ type: 'text', text }] });
 // tools: the ones this reply offers (pickTools); none, no session.
 export function openSession(chatId, tools = DOC_TOOLS) {
   if (typeof chatId !== 'string' || !/^[a-f0-9]{32}$/.test(chatId) || byChat.has(chatId) || !tools.length) return null;
-  const s = { chatId, token: crypto.randomBytes(24).toString('hex'), calls: 0, cards: 0, tools, pending: new Map(), closed: false, out: null };
+  const s = { chatId, token: randHex(24), calls: 0, cards: 0, tools, pending: new Map(), closed: false, out: null };
   const NAMES = new Set(tools.map((t) => t.name)), isCard = (name) => name === CARD_TOOL.name;
   s.call = async (name, input) => {
     if (s.closed) return failed('The reader stopped this reply.');
@@ -97,7 +99,7 @@ export function openSession(chatId, tools = DOC_TOOLS) {
     if (isCard(name)) { if (++s.cards > MAX_CARD_CALLS) return failed(`That is the limit of ${MAX_CARD_CALLS} suggested cards for one answer.`); }
     else if (++s.calls > MAX_TOOL_CALLS) return failed(`That is the limit of ${MAX_TOOL_CALLS} reading tool calls for one answer. Answer now with what you have, and say plainly which evidence you could not retrieve.`);
     if (!s.out) return failed('The tools are not connected for this reply.');
-    const id = crypto.randomBytes(8).toString('hex');
+    const id = randHex(8);
     s.out({ tool: { id, name, input: input && typeof input === 'object' && !Array.isArray(input) ? input : {} } });
     return new Promise((resolve) => {
       const done = (r) => {
@@ -132,7 +134,7 @@ function checkParts(parts) {
   for (const p of parts) {
     if (p && p.type === 'text' && typeof p.text === 'string' && p.text.length <= 400_000) out.push({ type: 'text', text: p.text });
     else if (p && p.type === 'image' && IMAGE_TYPES.has(p.mediaType) && typeof p.data === 'string') {
-      const buf = Buffer.from(p.data, 'base64');
+      let buf; try { buf = fromBase64(p.data); } catch { return null; }
       if (buf.length > MAX_IMAGE_BYTES || !isImage(p.mediaType, buf)) return null;
       out.push({ type: 'image', mediaType: p.mediaType, data: p.data });
     } else return null;

@@ -30,6 +30,9 @@ fs.writeFileSync(path.join(OUT, 'index.html'), html);
 for (const f of fs.readdirSync(from('web'))) if (f !== 'index.html' && f !== 'sw.js') fs.cpSync(from('web', f), path.join(OUT, f), { recursive: true });
 fs.copyFileSync(from('demo', 'sw.js'), path.join(OUT, 'sw.js'));
 for (const f of ['demo.js', 'replies.js', 'sample.pdf', 'seed.json']) fs.copyFileSync(from('demo', f), path.join(OUT, 'demo', f));
+// the server's Gemini code, its tools' sessions and its request checks, which demo.js runs as they are (no copies)
+fs.mkdirSync(path.join(OUT, 'demo', 'server'), { recursive: true });
+for (const f of ['gemini.mjs', 'doctools.mjs', 'content.mjs']) fs.copyFileSync(from('server', f), path.join(OUT, 'demo', 'server', f));
 
 // the libraries and fonts, from node_modules when installed (lib/, as the server serves them); the page uses a CDN for any missing
 for (const l of libPaths()) {
