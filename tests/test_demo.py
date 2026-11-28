@@ -64,7 +64,9 @@ async def main():
                   fp and fp['last'].startswith('Then a positive result means') and await cut.count() == 1, fp)
             check('…one of them a snip of Figure 1 (the tree), answered with a written reply', snip and snip['page'] == 0 and '990 healthy' in snip['text'] and snip['reply'].startswith('Read it from the top down'), snip and {k: str(v)[:80] for k, v in snip.items()})
             n0 = conv['msgs']
-            check('…and the conversation without a document is in the sidebar too', await pg.locator('#side .citem[data-conv]').count() == 2)
+            check('…and the conversation without a document is in the sidebar too', await pg.locator('#clist .citem[data-conv]').count() == 2)
+            check('…both in the “Demo conversations” folder', await pg.locator('#flist .fgrp[data-folder="Demo conversations"] .citem[data-conv]').count() == 2
+                  and await pg.locator('#flist .fgrp').count() == 1)
             check('flashcards are off, as they are unless you turn them on', not await pg.locator('#reviewBtn').is_visible())
             check('the tab says it’s the demo', (await pg.title()).startswith('Demo · ') and (await pg.title()).endswith(' · Digress'), await pg.title())
             note = pg.locator('#demoNote')
@@ -156,7 +158,7 @@ async def main():
             async with pg.expect_navigation():   # the reload, not the page before it (which also passes the check below)
                 await note.locator('[data-demo=reset]').first.click()
             await pg.wait_for_function("!!window.__booted&&!!window.__digress&&!!__digress.conv&&__digress.conv.title.startsWith('Bayes')", timeout=30000)
-            got = [await pg.evaluate("Object.keys(__digress.conv.msgs).length"), await pg.evaluate("document.querySelectorAll('#side .citem[data-conv]').length")]
+            got = [await pg.evaluate("Object.keys(__digress.conv.msgs).length"), await pg.evaluate("document.querySelectorAll('#clist .citem[data-conv]').length")]
             check('Start over brings back the sample as it was', got == [n0, 2] and not await pg.locator('#reviewBtn').is_visible(), [got, n0])
 
             # a shared .digress file opens in the demo, kept only in this browser: nothing but GETs leaves the page
@@ -285,6 +287,10 @@ async def main():
             await lock_pg.route('**/*', sec_route)
             await lock_pg.goto(sec_url); await booted(lock_pg)
             # Connect a fake Gemini key, start a chat with tools, hold the tool call, Lock/Disconnect, then release tool result
+            await lock_pg.evaluate("fetch('api/connections/gemini', { method: 'PUT', headers: {'content-type': 'application/json'}, body: JSON.stringify({ key: 'fake-key-1234' }) }).then(r => { if (!r.ok) throw new Error('put ' + r.status) })")
+            await frames(lock_pg, 4)
+            check('with a Gemini key connected the tab still starts with “Demo · ”', await soon(lock_pg, "()=>document.title.startsWith('Demo · ')"), await lock_pg.title())
+            await lock_pg.evaluate("fetch('api/connections/gemini', { method: 'DELETE' })")
             res_lock = await lock_pg.evaluate("""async () => {
                 const put = await fetch('api/connections/gemini', { method: 'PUT', headers: {'content-type': 'application/json'}, body: JSON.stringify({ key: 'fake-key-1234' }) });
                 if (!put.ok) return { ok: false, step: 'put', status: put.status };

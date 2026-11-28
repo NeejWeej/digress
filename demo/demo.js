@@ -195,12 +195,13 @@
     let s; try { s = await (await realFetch('demo/seed.json', { cache: 'no-cache' })).json(); } catch (e) { console.warn('demo: no sample conversation', e); return; }
     if ((await kv.get('seeded')) === s.v) return;
     // a newer sample replaces the old one: its conversations, and every card made from them (not only the cards it
-    // came with), since a card whose conversation is gone has nothing to open
+    // came with), since a card whose conversation is gone has nothing to open. Not its files: the sample PDF keeps
+    // its id from one sample to the next (make_sample.py), and a conversation kept from the old sample (the copy a
+    // tab that had it open saves when it's gone) still uses it; sweepFiles below removes it only if nothing does.
     const old = (await kv.get('seededKeys')) || [], gone = new Set(old.filter((k) => k.startsWith('convs/')).map((k) => k.slice(6)));
     for (const k of old) {
       if (k.startsWith('convs/')) await delConv(k.slice(6));
-      else if (k.startsWith('file/')) await delFile(k.slice(5));
-      else await kv.del(k);
+      else if (!k.startsWith('file/')) await kv.del(k);
     }
     for (const [id, c] of await kv.list('cards/')) if (c && gone.has(c.conv)) await kv.del('cards/' + id);
     for (const [id, f] of Object.entries(s.files || {})) {
@@ -212,6 +213,7 @@
     }
     await kv.put('seededKeys', [...Object.keys(s.store || {}), ...Object.keys(s.files || {}).map((id) => 'file/' + id)]);
     await kv.put('seeded', s.v);
+    if (old.length) await sweepFiles();   // the old sample's files, if nothing uses them any more
   })());
 
   // ---- as the real server: files nothing uses go (not ones just uploaded: the page uploads before it saves), and
@@ -735,11 +737,8 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountUi); else mountUi();
 
-  // the tab says it's the demo when no real key is connected
-  const demoTitle = () => {
-    if (!activeKey && !document.title.startsWith('Demo · ')) document.title = 'Demo · ' + document.title;
-    else if (activeKey && document.title.startsWith('Demo · ')) document.title = document.title.slice(7);
-  };
+  // the tab always says it's the demo, with a Gemini key connected too (it's still this site, its storage, its limits)
+  const demoTitle = () => { if (!document.title.startsWith('Demo · ')) document.title = 'Demo · ' + document.title; };
   const watchTitle = () => {
     const t = document.querySelector('title');
     demoTitle();

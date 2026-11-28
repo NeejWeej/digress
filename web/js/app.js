@@ -340,7 +340,22 @@ function saveSoon(){for(const j of [...saveJobs.values()])if(j.dirty&&j.conv&&!j
 addEventListener('online',saveSoon);
 document.addEventListener('visibilitychange',saveSoon);   // hidden: don't wait the 0.7 s; shown again: retry now
 addEventListener('pagehide',saveSoon);
-addEventListener('beforeunload',e=>{for(const j of saveJobs.values())if(j.failed&&j.dirty){e.preventDefault();e.returnValue='';return}});   // a change that couldn't be saved: the browser asks
+/* Leaving (closing, reloading) while a change isn't saved yet, or couldn't be: the browser asks first. A save started
+   at pagehide is too late (the browser drops a request made as the page goes, and the demo's store never gets to
+   write), so the save starts here, before the dialog shows: on a server it usually lands while the dialog is up.
+   The dialog's text is the browser's own and can't change; if the reader stays, a toast says when it's safe to close
+   (leaveWatch). Not on iOS Safari, which doesn't reliably show this dialog. */
+const unsaved=()=>[...saveJobs.values()].some(j=>j.conv&&(j.dirty||j.saving)&&!(j.dirty&&!j.saving&&isBlank(j.conv)));
+let leaveT=0;
+function leaveWatch(){clearTimeout(leaveT);leaveT=setTimeout(()=>{
+  if([...saveJobs.values()].some(j=>j.failed&&j.dirty))return;   // it failed: the save's own message says so, and leaving still asks
+  if(unsaved()){leaveWatch();return}
+  toast('Saved. It’s safe to close or reload now.');setStatus('Saved');
+},250)}
+addEventListener('beforeunload',e=>{
+  if(!unsaved())return;
+  saveSoon();e.preventDefault();e.returnValue='';leaveWatch();
+});
 function save(c=conv){if(!c)return;const j=jobOf(c,true);j.dirty=true;if(typeof IDX!=='undefined')idxTouch(c.id);clearTimeout(j.timer);j.timer=setTimeout(()=>flushJob(j),700)}
 function syncReset(c){
   const j=jobOf(c,true),base=contentOf(c);
