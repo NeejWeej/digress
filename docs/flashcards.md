@@ -10,15 +10,21 @@ Open the cards panel with the cards button in the main pane's header and choose 
 to that conversation only. **Turn off for this conversation** (at the bottom of the panel) stops new
 drafts; cards you already have stay.
 
-Next to it, **Draft automatically** (on by default) decides whether cards are drafted on their own. Untick it and
-nothing happens in the background: no drafts after a highlight's first answer or a takeaway, and the model
-isn't offered `suggest_card`. Cards come only when you ask (**Cards** on a branch, **Make cards**, **Draft
-more**), and review, the inbox and Fix… work as before. Useful for a conversation like your Twitter clippings,
-where most branches aren't worth cards but a few are.
+Two switches, shown above **Turn on** (so you choose before anything can happen) and afterwards at the bottom of
+the panel, decide how cards come without your asking. Both are on by default:
+
+- **Draft in the background**: drafts after a highlight's or clip's first answer and after a takeaway (a model call
+  each). Off, nothing is drafted on its own; useful for a conversation like your Twitter clippings, where most
+  branches aren't worth cards but a few are.
+- **Let the model suggest cards**: the model is offered `suggest_card` while it answers. Off, it isn't, and a
+  suggestion from a reply already under way is turned down.
+
+Asking always works while cards are on (**Cards** on a branch, **Make cards**, **Draft more**), and review, the
+inbox and Fix… are the same either way.
 
 ## Where cards come from
 
-Once they're on (and **Draft automatically** is ticked), the model drafts cards on its own from the moments that show what you cared about:
+Once they're on, the model drafts cards on its own from the moments that show what you cared about (the first three with **Draft in the background**, the last with **Let the model suggest cards**):
 
 - **A highlight you branched from.** When a side branch about a highlighted passage gets its first answer,
   the model drafts cards from that branch.

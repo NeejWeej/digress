@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import {
   DOC_FIRST, DOC_TOOL_NAMES,
-  fullSysOf, buildContext, cardToolOf, cardsAuto, listSources, resumeSourceLists, joinParts, appendText, safeDocSource,
+  fullSysOf, buildContext, cardToolOf, cardsAuto, cardsSuggest, listSources, resumeSourceLists, joinParts, appendText, safeDocSource,
 } from '../web/js/context.js';
 
 // Load real web/prompts.js and web/threads.js (classic browser globals) into a sandboxed VM.
@@ -87,18 +87,32 @@ test('prompt-cache prefix stability: system prompt is identical across main, rep
   assert.deepEqual(cMain.tools, [...DOC_TOOL_NAMES, 'suggest_card']);
 });
 
-test('cardToolOf: suggest_card only with cards on, drafting automatic (auto missing = true) and a tool-capable model', () => {
+test('cardToolOf: suggest_card only with cards on, suggest not off (missing = on; auto is independent) and a tool-capable model', () => {
   const io = { llm: { supportsTools: true } };
   assert.deepEqual(cardToolOf({ cards: { on: true } }, io), ['suggest_card']);
-  assert.deepEqual(cardToolOf({ cards: { on: true, auto: true } }, io), ['suggest_card']);
-  assert.deepEqual(cardToolOf({ cards: { on: true, auto: false } }, io), []);
+  assert.deepEqual(cardToolOf({ cards: { on: true, suggest: true } }, io), ['suggest_card']);
+  assert.deepEqual(cardToolOf({ cards: { on: true, auto: false } }, io), ['suggest_card']);
+  assert.deepEqual(cardToolOf({ cards: { on: true, auto: true, suggest: false } }, io), []);
+  assert.deepEqual(cardToolOf({ cards: { on: true, suggest: false } }, io), []);
+  assert.deepEqual(cardToolOf({ cards: { on: true, auto: false, suggest: false } }, io), []);
   assert.deepEqual(cardToolOf({ cards: { on: false } }, io), []);
+  assert.deepEqual(cardToolOf({ cards: { on: false, suggest: true } }, io), []);
   assert.deepEqual(cardToolOf({}, io), []);
+  assert.deepEqual(cardToolOf(null, io), []);
   assert.deepEqual(cardToolOf({ cards: { on: true } }, { llm: { supportsTools: false } }), []);
   assert.deepEqual(cardToolOf({ cards: { on: true } }, io, { tools: false }), []);
-  assert.equal(cardsAuto({ cards: { on: true } }), true);
-  assert.equal(cardsAuto({ cards: { on: true, auto: false } }), false);
-  assert.equal(cardsAuto({ cards: { on: false, auto: true } }), false);
+});
+
+test('cardsAuto and cardsSuggest: each needs cards on and its own field not false; they ignore each other', () => {
+  const T = [undefined, true, false];
+  for (const auto of T) for (const suggest of T) {
+    const cards = { on: true }; if (auto !== undefined) cards.auto = auto; if (suggest !== undefined) cards.suggest = suggest;
+    assert.equal(cardsAuto({ cards }), auto !== false, JSON.stringify(cards));
+    assert.equal(cardsSuggest({ cards }), suggest !== false, JSON.stringify(cards));
+    assert.equal(cardsAuto({ cards: { ...cards, on: false } }), false);
+    assert.equal(cardsSuggest({ cards: { ...cards, on: false } }), false);
+  }
+  for (const c of [{}, { cards: {} }, null, undefined]) { assert.equal(cardsAuto(c), false); assert.equal(cardsSuggest(c), false); }
 });
 
 test('prompt-cache stability: toggling Web only affects excludeMid, never earlier turns', () => {

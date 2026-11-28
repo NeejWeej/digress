@@ -2,7 +2,7 @@
 // FSRS-4.5 review panel (Review / Inbox / All), Fix…, quote verification/highlighting, and source jumping.
 import { fsrsNext, ivlText } from './fsrs.js';
 import { esc, trunc, plain, linedText } from './text.js';
-import { listSources, isWholePage, shotRef, appendText, cardsAuto } from './context.js';
+import { listSources, isWholePage, shotRef, appendText, cardsAuto, cardsSuggest } from './context.js';
 import { state, app, $, ic, io, paneEls, settings, T, color, isCollapsed, fullSys, rid } from './state.js';
 import { invalidate } from './redraw.js';
 
@@ -329,7 +329,8 @@ export function createCards() {
   }
 
   async function suggestCard(c, m, input) {
-    if (!(c && c.cards && c.cards.on)) return { error: 'Flashcards are off in this conversation, so no card was made. Don’t mention it to the learner.' };
+    // checked when the model calls it, not only when the request began: a switch turned off mid-reply holds
+    if (!cardsSuggest(c)) return { error: 'Card suggestions are off in this conversation, so no card was made. Don’t mention it to the learner.' };
     const str = (v, n) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
     const front = str(input && input.front, 600), back = str(input && input.back, 3000), qt = str(input && input.quote, 600);
     if (!front || !back) return { error: 'A card needs a "front" (the question) and a "back" (the answer).' };
@@ -405,7 +406,7 @@ export function createCards() {
     KS.thread = KS.scope !== 'all' && thread || null;
     KS.reviewed = 0; KS.tally = [0, 0, 0, 0, 0];
     KS.tab = tab || (dueCards(KS.scope).length ? 'review' : [...CARDS.values()].some((c) => inInbox(c) && inScope(c, KS.scope)) ? 'inbox' : KS.thread ? 'all' : 'review');
-    KS.shown = false; KS.editing = null; KS.fixing = null; KS.skipped = [];
+    KS.shown = false; KS.editing = null; KS.fixing = null; KS.skipped = []; KS.pre = null;
     hideBackToReview();
     $('#cardsModal').classList.add('show');
     renderCards();
@@ -413,6 +414,14 @@ export function createCards() {
 
   function closeCards() { $('#cardsModal').classList.remove('show'); }
   const hideBackToReview = () => { const b = $('#backReview'); if (b) b.classList.remove('show'); };
+
+  // the two "without your asking" switches (see cardsAuto / cardsSuggest); on cards.{auto,suggest}, or while cards are
+  // off, on KS.pre until Turn on takes them (so you choose before anything can happen, not by racing a ticked box)
+  const SWITCHES = [
+    ['auto', 'Draft in the background', 'Draft cards on their own from a highlight’s or clip’s first answer and from takeaways (a model call each). Off: only when you ask (a branch’s Cards button, Make cards).'],
+    ['suggest', 'Let the model suggest cards', 'While it answers, the model can add a card to your inbox when it judges something has landed.'],
+  ];
+  const cardSwitches = (o) => SWITCHES.map(([k, label, tip]) => `<label class="kauto" title="${esc(tip)}"><input type="checkbox" data-kswitch="${k}" ${!o || o[k] !== false ? 'checked' : ''}>${label}</label>`).join('');
 
   function renderCards() {
     const conv = getConv();
@@ -422,12 +431,12 @@ export function createCards() {
     const off = here && !cardsOn() && !all.length, paused = here && !cardsOn() && all.length > 0, nNew = on && !br ? newForCards().length : 0;
     box.innerHTML = `<div class="khead"><span class="kt">Flashcards</span>${cardsPicker(scope)}${br ? `<span class="kbranch" style="--c:${color(br)}"><i></i><span></span><button data-kact="allbranches" title="All of this conversation’s cards">${ic('x')}</button></span>` : ''}<span class="sp"></span>${on && !br ? `<button class="mbtn" data-kact="make" ${nNew && !drafting ? '' : 'disabled'} title="Have the model draft cards from the threads that changed since cards were last made">${drafting ? 'Drafting…' : nNew ? `Make cards · ${nNew} new` : 'Up to date'}</button>` : ''}${on && br ? `<button class="mbtn" data-kact="draftmore" ${draftingT.get(dKey(KS.thread)) ? 'disabled' : ''} title="Have the model draft more cards from this branch, besides the ones it has">${draftingT.get(dKey(KS.thread)) ? 'Drafting…' : 'Draft more'}</button>` : ''}<button class="ib" data-kact="close" title="Close (Esc)">${ic('x')}</button></div>
       ${off ? '' : `<div class="ktabs"><button data-ktab="review" class="${KS.tab === 'review' ? 'on' : ''}">Review${due.length ? ` (${due.length})` : ''}</button><button data-ktab="inbox" class="${KS.tab === 'inbox' ? 'on' : ''}">Inbox${inbox.length ? ` (${inbox.length})` : ''}</button><button data-ktab="all" class="${KS.tab === 'all' ? 'on' : ''}">All cards (${kept.length})</button></div>`}
-      <div class="kbody"></div>${on ? `<div class="kfoot" style="padding:0 14px 12px"><label class="kauto" title="On: cards are drafted from a highlight’s or clip’s first answer and from takeaways, and the model can suggest one while it answers. Off: only when you ask (a branch’s Cards button, Make cards)."><input type="checkbox" data-kauto ${cardsAuto(conv) ? 'checked' : ''}>Draft automatically</label><span class="sp"></span><button data-kact="off" title="Stop drafting cards for this conversation. Cards you have stay.">Turn off for this conversation</button></div>` : paused ? `<div class="kfoot" style="padding:0 14px 12px"><span style="color:var(--faint);font-size:12.5px">New cards are off for this conversation.</span><span class="sp"></span><button data-kact="on" title="Draft cards from this conversation again">Turn back on</button></div>` : ''}`;
+      <div class="kbody"></div>${on ? `<div class="kfoot" style="padding:0 14px 12px">${cardSwitches(conv.cards)}<span class="sp"></span><button data-kact="off" title="Stop drafting cards for this conversation. Cards you have stay.">Turn off for this conversation</button></div>` : paused ? `<div class="kfoot" style="padding:0 14px 12px"><span style="color:var(--faint);font-size:12.5px">New cards are off for this conversation.</span><span class="sp"></span><button data-kact="on" title="Draft cards from this conversation again">Turn back on</button></div>` : ''}`;
     box.querySelector('[data-kscope]').value = scope;
     if (br) box.querySelector('.kbranch>span').textContent = trunc(br.title || br.anchorText || 'Branch', 40);
     const body = box.querySelector('.kbody');
     if (off) {
-      body.innerHTML = `<div class="kempty"><b>Flashcards are off for this conversation.</b><br>Turn them on and the model drafts cards from your highlights, snips and takeaways into an inbox, and can suggest one while it answers. You keep the ones you want and review them with spaced repetition. Nothing changes until you do.<br><button class="mbtn primary" data-kact="on">Turn on for this conversation</button></div>`;
+      body.innerHTML = `<div class="kempty"><b>Flashcards are off for this conversation.</b><br>Turn them on and the model drafts cards from your highlights, snips and takeaways into an inbox, and can suggest one while it answers. You keep the ones you want and review them with spaced repetition. Nothing changes until you do.<div class="kpre">${cardSwitches(KS.pre)}</div><button class="mbtn primary" data-kact="on">Turn on for this conversation</button></div>`;
       return;
     }
     if (KS.tab === 'review') renderReview(body, due);
@@ -783,12 +792,16 @@ export function createCards() {
     b.classList.add('show');
   }
 
-  // cards.auto: false = cards only when asked (no drafting in the background, no suggest_card); synced like cards.on
+  // cards.auto / cards.suggest (synced like cards.on); while cards are off, KS.pre holds them for Turn on
   $('#cardsModal').addEventListener('change', (e) => {
-    const box = e.target.closest('[data-kauto]'), conv = getConv();
-    if (!box || !conv || !conv.cards) return;
-    conv.cards = { ...conv.cards, auto: box.checked }; save(); renderCards();
-    toast(box.checked ? 'Cards are drafted automatically again.' : 'Cards are drafted only when you ask: the Cards button on a branch, or Make cards.');
+    const box = e.target.closest('[data-kswitch]'), conv = getConv();
+    if (!box || !conv) return;
+    const k = box.dataset.kswitch;
+    if (!(conv.cards && conv.cards.on)) { KS.pre = { ...(KS.pre || {}), [k]: box.checked }; return; }
+    conv.cards = { ...conv.cards, [k]: box.checked }; save(); renderCards();
+    toast(k === 'auto'
+      ? (box.checked ? 'Cards are drafted in the background again.' : 'No drafting in the background: cards come when you ask (a branch’s Cards button, Make cards).')
+      : (box.checked ? 'The model can suggest cards again.' : 'The model won’t suggest cards here.'));
   });
   $('#cardsModal').addEventListener('click', async (e) => {
     if (e.target.id === 'cardsModal') { closeCards(); return; }
@@ -804,7 +817,7 @@ export function createCards() {
     const edited = () => ({ front: it.querySelector('.kef').value.trim(), back: it.querySelector('.keb').value.trim() });
     if (a === 'close') closeCards();
     else if (a === 'activity') { closeCards(); openActivity(); }
-    else if (a === 'on') { conv.cards = { ...(conv.cards || {}), on: true, done: (conv.cards && conv.cards.done) || {} }; save(); syncCardsUI(); renderCards(); const n = newForCards().length; if (n) toast(`Turned on. “Make cards” can draft cards from the ${n} thread${n > 1 ? 's' : ''} already here.`); }
+    else if (a === 'on') { conv.cards = { ...(conv.cards || {}), ...(KS.pre || {}), on: true, done: (conv.cards && conv.cards.done) || {} }; KS.pre = null; save(); syncCardsUI(); renderCards(); const n = newForCards().length; if (n) toast(`Turned on. “Make cards” can draft cards from the ${n} thread${n > 1 ? 's' : ''} already here.`); }
     else if (a === 'off') { conv.cards.on = false; save(); syncCardsUI(); renderCards(); }
     else if (a === 'make') makeNewCards();
     else if (a === 'draftmore' && KS.thread) { queueDraft(KS.thread, { src: 'made' }); renderCards(); }

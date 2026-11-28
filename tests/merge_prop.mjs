@@ -127,20 +127,31 @@ function one(s) {
     void strip;
   } catch (e) { fail(`seed ${s}: a one-sided merge refused: ${e.message}`); }
 }
-// cards.auto is a plain field like cards.on: one side turns it off while the other adds a message, either way round
-{
+// cards.auto and cards.suggest are plain fields like cards.on: one side turns one off while the other adds a message, either way round
+for (const k of ['auto', 'suggest']) {
+  const other = k === 'auto' ? 'suggest' : 'auto';
   const base = { id: 'c', title: 'T', updated: 1, nextColor: 1, rev: 3, threads: { main: { id: 'main', title: 'Main' } }, msgs: {}, order: { main: [] }, cards: { on: true, done: {} } };
   device(base, 'b').send();
-  const off = clone(base); off.cards.auto = false;
+  const off = clone(base); off.cards[k] = false;
   const more = clone(base); device(more, 'T').send();
   for (const [mine, theirs] of [[off, more], [more, off]]) {
     const out = O.merge(base, mine, theirs, { newId: (p) => p + 'N' }).conv;
-    if (out.cards.auto !== false || !out.cards.on) fail(`cards.auto=false lost in a merge with a new message: ${JSON.stringify(out.cards)}`);
-    if (Object.keys(out.msgs).length !== Object.keys(more.msgs).length) fail('the new message was lost in the cards.auto merge');
+    if (out.cards[k] !== false || !out.cards.on || out.cards[other] === false) fail(`cards.${k}=false lost in a merge with a new message: ${JSON.stringify(out.cards)}`);
+    if (Object.keys(out.msgs).length !== Object.keys(more.msgs).length) fail(`the new message was lost in the cards.${k} merge`);
   }
-  const on = clone(off); on.cards.auto = true;   // turned off then on again on the other side: the later change (on) wins over base
+  const on = clone(off); on.cards[k] = true;   // turned off then on again on the other side: the later change (on) wins over base
   const back = O.merge(off, off, on, { newId: (p) => p + 'N' }).conv;
-  if (back.cards.auto !== true) fail('ticking Draft automatically again did not merge');
+  if (back.cards[k] !== true) fail(`ticking ${k} again did not merge`);
+}
+{  // the two switches changed on different devices both survive
+  const base = { id: 'c', title: 'T', updated: 1, nextColor: 1, rev: 3, threads: { main: { id: 'main', title: 'Main' } }, msgs: {}, order: { main: [] }, cards: { on: true, done: {} } };
+  device(base, 'b').send();
+  const a = clone(base); a.cards.auto = false;
+  const s = clone(base); s.cards.suggest = false;
+  for (const [mine, theirs] of [[a, s], [s, a]]) {
+    const out = O.merge(base, mine, theirs, { newId: (p) => p + 'N' }).conv;
+    if (out.cards.auto !== false || out.cards.suggest !== false) fail(`auto and suggest changed on two devices did not both survive: ${JSON.stringify(out.cards)}`);
+  }
 }
 for (let s = 1; s <= 3000; s++) one(s);
 console.log(JSON.stringify(stats));

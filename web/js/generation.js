@@ -3,7 +3,7 @@ import { trunc, plain } from './text.js';
 import { textWalker, nonWs } from './anchors.js';
 import {
   listSources, resumeSourceLists, DOC_TOOL_NAMES, isDocBranch, joinParts,
-  appendText, buildContext as buildContextPure, cardsAuto,
+  appendText, buildContext as buildContextPure, cardsSuggest,
 } from './context.js';
 import { runId } from './connectors.js';
 import {
@@ -218,7 +218,7 @@ function resumeRuns(){
     if(!m.run||m.role!=='assistant'||[...streaming.values()].some(s=>s.mid===m.id))continue;
     if(streaming.has(m.thread))continue;
     const prefix=(m.content||'').slice(0,m.runFrom||0);m.content=prefix;m.pending=true;m.ver++;
-    const names=io.llm&&io.llm.supportsTools?[...(state.conv.doc?DOC_TOOL_NAMES:[]),...(cardsAuto(state.conv)?['suggest_card']:[])]:[];
+    const names=io.llm&&io.llm.supportsTools?[...(state.conv.doc?DOC_TOOL_NAMES:[]),...(cardsSuggest(state.conv)?['suggest_card']:[])]:[];
     let sourceLists;
     if(Array.isArray(m.runSourceIds)&&m.runSourceIds.length){
       names.push('list_sources');
