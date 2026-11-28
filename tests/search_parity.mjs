@@ -15,7 +15,7 @@ import path from 'node:path';
 import MiniSearch from '../node_modules/minisearch/dist/es/index.js';
 import { openDb } from '../server/db.mjs';
 import { indexEntries } from '../web/js/text.js';
-import { MS_OPTIONS, searchMini, KIND } from '../web/js/searchrank.js';
+import { MS_OPTIONS, searchMini, qWords, foldKeep, foldTerm } from '../web/js/searchrank.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -187,13 +187,21 @@ try {
   ];
   for (const [scope, cid, tid, q] of SC) test(`parity: scope ${scope} ${cid}${tid ? '/' + tid : ''}: ${JSON.stringify(q)}`, () => { same(q, { scope, cid, tid }); });
 
-  test('KIND_BOOST in server/db.mjs matches KIND in web/js/searchrank.js', () => {
+  test('the server ranks with the shared rules (web/js/searchrank.js), not a copy of its own', () => {
     const src = fs.readFileSync(new URL('../server/db.mjs', import.meta.url), 'utf8');
-    const m = src.match(/const KIND_BOOST\s*=\s*(\{[^}]*\})/);
-    assert.ok(m, 'could not find `const KIND_BOOST = {...}` in server/db.mjs');
-    const boost = Function('return (' + m[1] + ')')();
-    const kinds = Object.fromEntries(Object.entries(KIND).map(([k, v]) => [k, v[1]]));
-    assert.deepEqual(boost, kinds);
+    assert.match(src, /import \{[^}]*\bKIND\b[^}]*\brankHits\b[^}]*\} from '\.\.\/web\/js\/searchrank\.js'/, 'server/db.mjs should import KIND and rankHits from web/js/searchrank.js');
+    assert.doesNotMatch(src, /KIND_BOOST|\.sort\(\(a, b\) => \(b\.phrase/, 'server/db.mjs has its own ranking again; use rankHits from web/js/searchrank.js');
+  });
+
+  test('accents: the typed words and the text are folded alike (café = cafe), offsets kept for highlighting', () => {
+    assert.deepEqual(qWords('Café NAÏVE déjà-vu'), ['cafe', 'naive', 'deja', 'vu']);
+    const x = 'Le Café İstanbul, naïve: cafe\u0301 ok';
+    const f = foldKeep(x);
+    assert.equal(f.length, x.length, 'foldKeep must keep every offset');
+    for (const w of ['cafe', 'naive']) {
+      const i = f.indexOf(w);
+      assert.ok(i >= 0 && foldTerm(x.slice(i, i + w.length)) === w, `${w} found at the same place in the original`);
+    }
   });
 } finally {
   db.close();
