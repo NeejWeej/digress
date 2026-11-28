@@ -44,8 +44,10 @@ function matchesDigressUrl(tabUrl, digressUrl) {
 }
 
 async function findDigressTab(digressUrl) {
-  const tabs = await chrome.tabs.query({});
-  return tabs.find((t) => matchesDigressUrl(t.url, digressUrl)) || null;
+  // with several Digress tabs or windows open, the one you used last (not whichever Chrome lists first)
+  const tabs = (await chrome.tabs.query({})).filter((t) => matchesDigressUrl(t.url, digressUrl));
+  tabs.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0));   // lastAccessed: Chrome 121+; older keeps the listed order
+  return tabs[0] || null;
 }
 
 async function ensureDigressTab(digressUrl, focus) {
@@ -244,33 +246,54 @@ function flashBadge(ok) {
   setTimeout(() => chrome.action.setBadgeText({ text: '' }), 2000);
 }
 
+// The tweet items show only on these pages (Chrome's documentUrlPatterns). There, "Send selection or page" is hidden:
+// it would be one of them (your default scope), and every send item goes where the site rule says anyway. Chrome
+// can't say "everywhere but", so its visibility follows the active tab (syncSendItem). It must match exactly the
+// pages the tweet items show on, or a page could be left with no send item at all.
+const X_PATTERNS = ['https://x.com/*', 'https://twitter.com/*'];
+const onTweetMenuPage = (url) => /^https:\/\/(?:x|twitter)\.com\//i.test(String(url || ''));
+
+async function syncSendItem() {
+  let url = '';
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    url = (tab && tab.url) || '';
+  } catch (_) {}
+  // shown when unsure (no tab, no url): at worst the X menu has its old extra item, never a page without one
+  chrome.contextMenus.update('digress-auto', { visible: !onTweetMenuPage(url) }, () => void chrome.runtime.lastError);
+}
+
 function rebuildContextMenus() {
   chrome.contextMenus.removeAll(() => {
     const contexts = ['page', 'selection', 'link'];
     chrome.contextMenus.create({ id: 'digress-root', title: 'Send to Digress', contexts });
-    chrome.contextMenus.create({ id: 'digress-auto', parentId: 'digress-root', title: 'Send using site rule', contexts });
+    chrome.contextMenus.create({ id: 'digress-auto', parentId: 'digress-root', title: 'Send selection or page', contexts });
     chrome.contextMenus.create({
       id: 'digress-x-thread',
       parentId: 'digress-root',
       title: 'Send thread up to here',
       contexts,
-      documentUrlPatterns: ['https://x.com/*', 'https://twitter.com/*'],
+      documentUrlPatterns: X_PATTERNS,
     });
     chrome.contextMenus.create({
       id: 'digress-x-single',
       parentId: 'digress-root',
       title: 'Send just this tweet',
       contexts,
-      documentUrlPatterns: ['https://x.com/*', 'https://twitter.com/*'],
+      documentUrlPatterns: X_PATTERNS,
     });
     chrome.contextMenus.create({ id: 'digress-sep', parentId: 'digress-root', type: 'separator', contexts });
     chrome.contextMenus.create({ id: 'digress-current', parentId: 'digress-root', title: 'Branch in current conversation', contexts });
     chrome.contextMenus.create({ id: 'digress-doc', parentId: 'digress-root', title: 'New document conversation', contexts });
+    syncSendItem();
   });
 }
 
 chrome.runtime.onInstalled.addListener(rebuildContextMenus);
 chrome.runtime.onStartup.addListener(rebuildContextMenus);
+chrome.tabs.onActivated.addListener(syncSendItem);
+chrome.tabs.onUpdated.addListener((_id, change, tab) => { if (tab.active && (change.url || change.status === 'complete')) syncSendItem(); });
+chrome.windows.onFocusChanged.addListener((w) => { if (w !== chrome.windows.WINDOW_ID_NONE) syncSendItem(); });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!tab || !tab.id) return;
