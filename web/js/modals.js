@@ -838,16 +838,19 @@ addEventListener('resize',()=>{if(modelsOpen())placeModels()});
 $('#tSide').addEventListener('click',()=>{const appEl=$('#app');if(app.zen){appEl.classList.toggle('zenside');return}if(innerWidth<760){appEl.classList.toggle('sideopen')}else{appEl.classList.toggle('noside');try{localStorage.setItem('sq:noside',appEl.classList.contains('noside')?'1':'')}catch(e){}}setTimeout(()=>{invalidate('wires');if(state.conv.ui.view==='canvas')applyCam()},50)});
 try{if(localStorage.getItem('sq:noside'))$('#app').classList.add('noside')}catch(e){}
 (()=>{
-  const appEl=$('#app'),g=$('#sgrip'),clampW=(w)=>Math.round(Math.min(Math.max(200,w),Math.min(620,innerWidth-360)));
-  const setW=(w)=>{if(w)appEl.style.setProperty('--sidew',clampW(w)+'px');else appEl.style.removeProperty('--sidew')};
+  // The sidebar's width, dragged by its edge. A phone's drawer (an overlay under 760px) has a width of its own
+  // (--sidew-m, sq:sidew-m): from 220px to all but a sliver of the screen, so widening it there leaves the desktop's alone.
+  const appEl=$('#app'),g=$('#sgrip'),phone=()=>innerWidth<760;
+  const K={d:{v:'--sidew',k:'sq:sidew',clamp:(w)=>Math.min(Math.max(200,w),Math.min(620,innerWidth-360))},m:{v:'--sidew-m',k:'sq:sidew-m',clamp:(w)=>Math.min(Math.max(220,w),innerWidth-24)}};
+  const setW=(m,w)=>{if(w)appEl.style.setProperty(m.v,Math.round(m.clamp(w))+'px');else appEl.style.removeProperty(m.v)};
   const after=()=>{invalidate('wires');if(state.conv&&state.conv.ui.view==='canvas')applyCam()};
-  try{const w=+localStorage.getItem('sq:sidew');if(w)setW(w)}catch(e){}
+  for(const m of Object.values(K))try{const w=+localStorage.getItem(m.k);if(w)setW(m,w)}catch(e){}
   let drag=null;
-  g.addEventListener('pointerdown',e=>{drag={x:e.clientX,w:$('#side').offsetWidth};g.classList.add('on');appEl.classList.add('sizing');try{g.setPointerCapture(e.pointerId)}catch(_){}e.preventDefault()});
-  g.addEventListener('pointermove',e=>{if(drag)setW(drag.w+e.clientX-drag.x)});
-  const end=()=>{if(!drag)return;drag=null;g.classList.remove('on');appEl.classList.remove('sizing');try{localStorage.setItem('sq:sidew',String($('#side').offsetWidth))}catch(e){}after()};
+  g.addEventListener('pointerdown',e=>{drag={x:e.clientX,w:$('#side').offsetWidth,m:phone()?K.m:K.d};g.classList.add('on');appEl.classList.add('sizing');try{g.setPointerCapture(e.pointerId)}catch(_){}e.preventDefault()});
+  g.addEventListener('pointermove',e=>{if(drag)setW(drag.m,drag.w+e.clientX-drag.x)});
+  const end=()=>{if(!drag)return;const m=drag.m;drag=null;g.classList.remove('on');appEl.classList.remove('sizing');try{localStorage.setItem(m.k,String($('#side').offsetWidth))}catch(e){}after()};
   g.addEventListener('pointerup',end);g.addEventListener('pointercancel',end);
-  g.addEventListener('dblclick',()=>{setW(0);try{localStorage.removeItem('sq:sidew')}catch(e){}after()});
+  g.addEventListener('dblclick',()=>{const m=phone()?K.m:K.d;setW(m,0);try{localStorage.removeItem(m.k)}catch(e){}after()});
 })();
 $('#viewSeg').addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(b)setView(b.dataset.v)});
 $('#newConv').addEventListener('click',async()=>{if(!await leaveOk())return;app.BACK.length=0;renderBack();setConv(newConv());setTimeout(()=>{if(!$('#pal').classList.contains('show'))paneEls.get('main').querySelector('textarea').focus()},30)});   // not if search opened meanwhile

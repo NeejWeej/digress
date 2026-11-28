@@ -221,7 +221,7 @@ function renderConvList(){
       (c.archived?`<button class="ib" data-archconv="${esc(c.id)}" title="Move back to your conversations">${ic('archive')}</button>`:'')+
       `<button class="ib dz" data-del="${esc(c.id)}" title="Move to the trash (deleted for good after ${TRASH_DAYS} days; restore it from Trash before then)">${ic('trash')}</button></span>`;
     const tt=d.querySelector('.t');tt.textContent=c.title||'New conversation';d.dataset.tip=tt.textContent;d.dataset.clip='';
-    const ft=d.querySelector('.ftag');if(ft){ft.textContent=c.folder;ft.title='In the folder “'+c.folder+'”';d.dataset.tip+=' · in '+c.folder}
+    const ft=d.querySelector('.ftag');if(ft){ft.innerHTML=ic('folder')+'<span></span>';ft.lastChild.textContent=c.folder;ft.title='In the folder “'+c.folder+'”';d.dataset.tip+=' · in '+c.folder}
     if(names[tt.textContent]>1&&c.created){const sm=document.createElement('small');sm.className='cday';sm.textContent=' · '+dayLabel(c.created);tt.appendChild(sm);d.dataset.tip+=' · started '+dayLabel(c.created)}
     return d;
   };

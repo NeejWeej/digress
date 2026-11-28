@@ -137,7 +137,7 @@ async def desktop(p):
     await pg.locator('#clist .citem[data-conv=c5]').hover(); await pg.locator('#clist .citem[data-conv=c5] [data-folderconv]').click()
     await pg.locator('#folderMenu.open [data-fm=new]').click(); await pg.locator('#modal.show #nfName').wait_for()
     await dialog_create(pg, LONG, tick=['c5'], untick=[])
-    g = await pg.evaluate("(()=>{const r=document.querySelector('#clist .citem[data-conv=c5]'),t=r.querySelector('.t'),f=r.querySelector('.ftag'),rb=r.getBoundingClientRect(),tb=t.getBoundingClientRect(),fb=f.getBoundingClientRect();return {row:rb.right,tagR:fb.right,tagW:fb.width,tW:tb.width,ell:getComputedStyle(f).textOverflow,cut:f.scrollWidth>f.clientWidth}})()")
+    g = await pg.evaluate("(()=>{const r=document.querySelector('#clist .citem[data-conv=c5]'),t=r.querySelector('.t'),f=r.querySelector('.ftag'),rb=r.getBoundingClientRect(),tb=t.getBoundingClientRect(),fb=f.getBoundingClientRect();return {row:rb.right,tagR:fb.right,tagW:fb.width,tW:tb.width,ell:getComputedStyle(f.querySelector('span')).textOverflow,cut:f.querySelector('span').scrollWidth>f.querySelector('span').clientWidth}})()")
     check('long folder name: the title keeps more room than the tag', g['tW'] > g['tagW'], g)
     check('…the tag is cut with an ellipsis', g['ell'] == 'ellipsis' and g['cut'], g)
     check('…and stays inside the row', g['tagR'] <= g['row'] + 0.5, g)
